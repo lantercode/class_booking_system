@@ -1,0 +1,11 @@
+{
+  "name": "@dance-saas/api-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "由 OpenAPI 自动生成的 TS 类型",
+  "main": "schema.d.ts",
+  "types": "schema.d.ts",
+  "scripts": {
+    "gen:types": "echo 'Will be implemented in T05 with openapi-typescript'"
+  }
+}

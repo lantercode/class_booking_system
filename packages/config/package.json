@@ -1,0 +1,6 @@
+{
+  "name": "@dance-saas/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "共享 ESLint / TS / Prettier 配置"
+}

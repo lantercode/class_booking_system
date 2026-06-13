@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.uv-cache/
+
+# Build
+dist/
+build/
+*.egg-info/
+.turbo/
+.next/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+
+# Test
+.coverage
+.pytest_cache/
+htmlcov/
+coverage/
+
+# Database / Docker volumes
+*.sqlite
+*.db
+pgdata/
+redisdata/

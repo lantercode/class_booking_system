@@ -1,0 +1,12 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FastAPI 后端（由 uv 管理 Python 依赖；package.json 仅用于 Turborepo 编排）",
+  "scripts": {
+    "dev": "uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir src",
+    "build": "echo 'Python no-build'",
+    "lint": "uv run ruff check src tests",
+    "test": "uv run pytest"
+  }
+}

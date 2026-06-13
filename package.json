@@ -1,0 +1,26 @@
+{
+  "name": "dance-saas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "舞蹈机构约课 SaaS 系统 - Monorepo 根",
+  "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:student": "pnpm --filter student-web dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "gen:types": "turbo run gen:types",
+    "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "db:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "db:logs": "docker compose -f infra/docker/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
+  }
+}
