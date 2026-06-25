@@ -9,6 +9,13 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.30",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    "greenlet>=3.0",
+    "python-jose[cryptography]>=3.5.0",
+    "bcrypt==4.1.*",
+    "passlib[bcrypt]>=1.7.4",
 ]
 
 [dependency-groups]
