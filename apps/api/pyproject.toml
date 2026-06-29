@@ -16,6 +16,7 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "bcrypt==4.1.*",
     "passlib[bcrypt]>=1.7.4",
+    "redis>=4.0,<5.0",
 ]
 
 [dependency-groups]
@@ -40,3 +41,4 @@ select = ["E", "F", "I", "W", "UP", "B"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = [".", "src"]

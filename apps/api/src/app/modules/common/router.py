@@ -1,9 +1,11 @@
 """通用模块路由 - 健康检查等无业务依赖的接口."""
+from http.client import HTTPException
+
 from fastapi import APIRouter, Depends
 
 from app.core.response import success
 
-from app.deps.auth import get_current_user, get_optional_user
+from app.deps.auth import get_current_user, get_optional_user, get_redis_client
 from app.core.security import create_access_token
 
 from app.core.exceptions import (
@@ -13,13 +15,25 @@ from app.core.exceptions import (
     NotFoundException,
     BusinessException,
 )
+
+
 router = APIRouter(prefix="/common", tags=["Common"])
 
 
 @router.get("/health")
 async def health() -> dict:
     """健康检查接口 - T01 验收依据."""
-    return success(data={"status": "ok"})
+    redis_client = await get_redis_client()
+
+    status = {
+        "status": "healthy" if redis_client else "degraded",
+        "redis": "connected" if redis_client else "disconnected",
+    }
+    if not redis_client:
+        status["status"] = "unhealthy"
+        raise HTTPException(503, detail=status)
+    
+    return status
 
 @router.get("/test-exception")
 async def test_exception(type: str) -> dict:

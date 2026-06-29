@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Token Blacklist 配置
+    REDIS_TOKEN_BLACKLIST_PREFIX: str = "blacklist:"
+    ENABLE_TOKEN_BLACKLIST: bool = True
+
     CORS_ORIGINS: str = "http://localhost:5173"
 
     @property

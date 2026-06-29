@@ -4,6 +4,9 @@ from typing import Optional
 from app.core.security import decode_token
 from app.core.exceptions import AuthException
 from app.core.tenant_context import set_tenant_id, set_user_id, set_role_id
+from app.core.config import get_settings
+
+_redis_client = None
 
 async def get_current_user(authorization: Optional[str] = Header(None)):
     """获取当前登录用户信息"""
@@ -55,3 +58,30 @@ async def get_optional_user(authorization: Optional[str] = Header(None)):
     set_user_id(payload.get("user_id"))
 
     return payload
+
+
+async def get_redis_client():
+    global _redis_client
+
+    if _redis_client is None:
+        # 延迟初始化，只在第一次调用时创建连接
+        try:
+            from redis.asyncio import Redis as AsyncRedis
+
+            settings = get_settings()
+            print(f"🔗 正在连接 Redis: {settings.REDIS_URL}")
+            _redis_client = AsyncRedis.from_url(
+                settings.REDIS_URL,
+                decode_responses=True
+            )
+            # 测试连接
+            await _redis_client.ping()
+            result = await _redis_client.ping()
+            print(f"✅ Redis 连接成功: {result}")
+        except ImportError:
+            raise AuthException("Redis 库未安装，请执行: uv pip install 'redis>=4.0,<5.0'")
+        except Exception as e:
+            print(f"❌ Redis 连接失败: {type(e).__name__}: {e}")
+            raise AuthException(f"Redis 连接失败: {type(e).__name__} - {e}")
+
+    return _redis_client

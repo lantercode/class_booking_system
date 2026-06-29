@@ -26,3 +26,4 @@ class NotFoundException(DanceSaasException):
 class BusinessException(DanceSaasException):
     def __init__(self, msg: str="业务错误", code: int=500, errors:Optional[list[str]]=None):
         super().__init__(code, msg, errors)
+
