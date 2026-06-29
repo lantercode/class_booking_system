@@ -17,6 +17,14 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build: .
+    depends_on:
+      redis:
+        condition: service_healthy  # ✅ 等 Redis 就绪再启动 API
+    environment:
+      - REDIS_URL=redis://redis:6379/0  # 使用 Docker 内部网络
+
   redis:
     image: redis:7-alpine
     container_name: dance-saas-redis
