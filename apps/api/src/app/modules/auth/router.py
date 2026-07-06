@@ -122,6 +122,8 @@ async def refresh_token_endpoint(
             })
 async def get_me(
         current_user: dict = Depends(get_current_user),
+        db: AsyncSession = Depends(get_session),
 ) -> dict:
     """获取当前用户信息"""
-    return success(data=current_user)
+    user = await AuthService.get_current_user_profile(db, current_user["user_id"])
+    return success(data=user)

@@ -30,6 +30,36 @@ settings = get_settings()
 class AuthService:
     """认证服务 - 业务逻辑层"""
     @staticmethod
+    async def get_current_user_profile(
+        session: AsyncSession,
+        user_id: int,
+    ) -> UserResponse:
+        """
+        获取当前登录用户的完整信息
+
+        Args:
+            session: 数据库会话
+            user_id: 用户 ID
+
+        Returns:
+            用户信息响应
+
+        Raises:
+            AuthException: 用户不存在
+        """
+        user = await AuthRepository.get_user_by_id(session, user_id)
+        if not user:
+            raise AuthException("用户不存在")
+        return UserResponse(
+            id=user.id,
+            phone=user.phone,
+            nickname=user.nickname or "",
+            avatar=user.avatar_url,
+            status=user.status,
+            created_at=user.created_at,
+        )
+
+    @staticmethod
     async def register(
             session: AsyncSession,
             data: RegisterRequest
@@ -309,4 +339,3 @@ class AuthService:
             "token_type": "bearer",
             "expires_in": settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 转换为秒
         }
-

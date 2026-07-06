@@ -10,6 +10,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.admin.router import router as admin_router  # ⭐ 新增：管理后台路由
 from app.modules.user.router import router as user_router  # ⭐ 新增：用户管理路由
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
+from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
 from app.middleware.error_handler import dance_saas_exception_handler
 from app.core.exceptions import DanceSaasException
 from app.middleware.tenant_middleware import TenantASGIMiddleware
@@ -84,3 +85,4 @@ app.include_router(auth_router, prefix=API_V1_PREFIX)
 app.include_router(admin_router, prefix=API_V1_PREFIX)  # ⭐ 管理后台路由（含 RBAC 权限控制）
 app.include_router(user_router, prefix=API_V1_PREFIX)  # ⭐ 用户管理路由
 app.include_router(role_router, prefix=API_V1_PREFIX)  # ⭐ 角色权限路由
+app.include_router(course_router, prefix=API_V1_PREFIX)  # ⭐ 课程路由（T05 占位）

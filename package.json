@@ -15,12 +15,13 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "gen:types": "turbo run gen:types",
+    "gen:types": "cd apps/api && PYTHONPATH=src uv run python scripts/generate_openapi.py && cd ../.. && npx openapi-typescript packages/api-types/openapi.json -o packages/api-types/schema.d.ts",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",
     "db:logs": "docker compose -f infra/docker/docker-compose.yml logs -f"
   },
   "devDependencies": {
+    "openapi-typescript": "^7.13.0",
     "turbo": "^2.3.3"
   }
 }

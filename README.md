@@ -74,7 +74,8 @@ class_booking_system/
 | **T02** | ✅ 完成 | 2026-06-25 | 数据库迁移 + ORM 模型 + 种子数据 + 单元测试 |
 | **T03** | ✅ 完成 | 2026-06-29 | **Auth 模块集成测试 (19/19 通过)** |
 | **T04** | ✅ 完成 | 2026-07-06 | **User 模块完整实现 (API 测试通过)** |
-| T05-T20 | ⏳ 待开始 | - | 业务功能开发 |
+| **T05** | ✅ 完成 | 2026-07-06 | **学员端骨架 + 端到端贯通 (注册→登录→课程列表)** |
+| T06-T20 | ⏳ 待开始 | - | 业务功能开发 |
 
 ---
 
@@ -556,6 +557,206 @@ open http://localhost:8000/docs  # Swagger UI
 
 ---
 
+## T05 详细内容（2026-07-06）✨ 新增
+
+### 🎯 任务概述
+
+完成 **学员端骨架 + 端到端贯通**，在浏览器中走通 **注册 → 登录 → 课程列表** 的完整流程。
+
+**交付结果**: **前端项目零编译错误 + 全部 API 联调通过** ✅
+
+---
+
+### 📊 端到端数据流
+
+```
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  Register │ →  │  Login   │ →  │  /me     │ →  │ Courses  │
+│  注册页面  │    │  登录页面  │    │ 用户信息  │    │ 课程列表  │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘
+     ↓               ↓               ↓               ↓
+ 手机号+密码     JWT双Token    完整用户信息      空列表占位
+ 机构标识        localStorage   Pinia Store     (T06 完善)
+```
+
+---
+
+### 📁 核心文件清单
+
+```
+apps/student-web/                  # 学员端前端项目（Vue3 + Vite + TS）
+├── index.html
+├── package.json
+├── vite.config.ts                 # Vite 配置（API 代理到 8000）
+├── tsconfig.json
+├── src/
+│   ├── main.ts                    # 入口（注册 Pinia/Router/ElementPlus）
+│   ├── App.vue                    # 根组件
+│   ├── router/
+│   │   └── index.ts               # 路由配置 + 导航守卫
+│   ├── stores/
+│   │   └── user.ts                # 用户状态管理（Pinia）
+│   ├── views/
+│   │   ├── login/index.vue        # 登录页面
+│   │   ├── register/index.vue     # 注册页面
+│   │   └── courses/index.vue      # 课程列表页面
+│   └── styles/
+│       └── index.scss             # 全局样式
+
+packages/api-client/               # API 客户端封装
+├── package.json
+└── src/
+    └── index.ts                   # axios 封装（Token/租户/刷新）
+
+packages/api-types/                # 自动生成的 TS 类型
+├── openapi.json                   # OpenAPI Schema（26 个接口）
+└── schema.d.ts                    # TypeScript 类型（2487 行）
+
+apps/api/src/app/modules/course/   # 课程占位路由
+└── router.py                      # GET /courses（返回空列表，T06 完善）
+```
+
+---
+
+### 🔌 页面路由
+
+| 路由 | 页面 | 认证要求 | 说明 |
+|------|------|----------|------|
+| `/login` | 登录页 | ❌ 公开 | 手机号+密码+机构标识 |
+| `/register` | 注册页 | ❌ 公开 | 手机号+昵称+密码+验证码 |
+| `/courses` | 课程列表 | ✅ 需登录 | 未登录自动跳转 `/login` |
+
+---
+
+### 🛠️ 技术实现
+
+#### 1️⃣ API 客户端封装（api-client）
+
+```typescript
+// 请求拦截器：自动注入 Token + 租户 ID
+this.instance.interceptors.request.use((config) => {
+  config.headers.Authorization = `Bearer ${token}`
+  config.headers['x-tenant-id'] = tenantId
+  return config
+})
+
+// 响应拦截器：401 自动刷新 Token
+this.instance.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      return await refreshTokenAndRetry(error.config)
+    }
+    return Promise.reject(error)
+  }
+)
+```
+
+| 特性 | 说明 |
+|------|------|
+| 🔑 Token 管理 | 自动注入 `Authorization: Bearer xxx` |
+| 🔄 Token 刷新 | 401 时自动用 refresh_token 换新 token，无缝重试 |
+| 🏢 租户隔离 | 自动注入 `x-tenant-id` header |
+| ⏱️ 超时控制 | 15 秒超时 |
+| 📤 自动登出 | 刷新失败时清除凭据并跳转登录页 |
+
+#### 2️⃣ 用户状态管理（Pinia）
+
+```typescript
+// stores/user.ts
+export const useUserStore = defineStore('user', () => {
+  const token = ref(localStorage.getItem('token') || '')
+  const tenantId = ref(localStorage.getItem('tenantId') || '')
+  const userInfo = ref<UserInfo | null>(null)
+
+  // 登录：调用 API → 存储 Token → 解码 tenant_id → 获取用户信息
+  async function login(params) { ... }
+  // 注册：调用 API → 存储 Token → 跳转登录页
+  async function register(params) { ... }
+  // 登出：清除 Token + 用户信息 + 租户信息
+  function logout() { ... }
+})
+```
+
+| 功能 | 说明 |
+|------|------|
+| `login()` | API 调用 → 存储双 Token → 解码 JWT 提取 tenant_id → 获取用户信息 |
+| `register()` | API 调用 → 自动跳转登录页 |
+| `logout()` | 清除全部凭据 → 跳转登录页（含确认弹窗） |
+| `fetchUserInfo()` | 调用 `/auth/me` 获取完整用户信息 |
+
+#### 3️⃣ 路由守卫
+
+```typescript
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresAuth && !userStore.token) {
+    next('/login')  // 未登录 → 跳转登录页
+  } else {
+    next()
+  }
+})
+```
+
+#### 4️⃣ API 类型自动生成
+
+```bash
+# 一键生成：FastAPI OpenAPI → TypeScript 类型
+pnpm gen:types
+
+# 数据流：
+# FastAPI app.openapi()
+#   → Python 脚本导出 → openapi.json
+#     → openapi-typescript → schema.d.ts (2487 行)
+```
+
+---
+
+### 🔧 解决的关键问题
+
+| # | 问题 | 根因 | 解决方案 |
+|---|------|------|----------|
+| 1 | 登录失败 400 | 前端发 `form-urlencoded` + `username`，后端接受 JSON + `phone` | 改为 JSON 格式 + `phone` 字段 |
+| 2 | 注册失败 422 | 缺少 `verify_code`（后端必填） | 表单增加验证码字段（开发环境固定值） |
+| 3 | `/auth/me` 报 40001 | 租户中间件拦截，缺少 `x-tenant-id` | 加入跳过路径 + 前端存储 tenant_id |
+| 4 | `/auth/me` 返回数据不完整 | 直接返回 JWT payload，非用户完整信息 | 新增 `get_current_user_profile` 从数据库查询 |
+| 5 | `/courses` 报 404 | 课程 API 未实现 | 创建占位路由返回空列表 |
+| 6 | Token 刷新失败 | URL 错误 `/auth/refresh` → 正确 `/auth/refresh-token` | 修正 URL |
+
+---
+
+### ✅ 验证结果
+
+| 检查项 | 结果 |
+|--------|------|
+| TypeScript 编译 | ✅ 零错误 |
+| 前端页面（login/register/courses） | ✅ 全部 200 |
+| 注册 API | ✅ 返回 Token + 用户信息 |
+| 登录 API | ✅ 返回 Token + 用户信息 |
+| `/auth/me` 获取用户信息 | ✅ 返回完整用户信息 |
+| `/courses` 课程列表 | ✅ 返回空列表（占位） |
+| 路由守卫 | ✅ 未登录自动跳转 `/login` |
+| 退出确认弹窗 | ✅ 点击退出弹窗确认 |
+
+---
+
+### 🚀 快速验证命令
+
+```bash
+# 启动后端
+cd apps/api && PYTHONPATH=src uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 启动前端（新终端）
+cd apps/student-web && pnpm dev
+
+# 浏览器访问
+open http://localhost:5173
+
+# 生成 API 类型
+cd /root && pnpm gen:types
+```
+
+---
+
 ## Git 提交记录
 
 ```bash
@@ -583,4 +784,16 @@ Insertions: 8.5 KiB
 #   - RBAC 权限控制
 #   - API 集成测试
 #   - 文档更新
+
+# T05 提交 (2026-07-06) ⬇️
+# 包含:
+#   - 学员端前端项目 (Vue3 + Vite + TypeScript + Element Plus)
+#   - API 客户端封装 (axios + Token 刷新 + 租户 header)
+#   - API 类型自动生成 (openapi-typescript)
+#   - 三个页面 (登录/注册/课程列表)
+#   - 用户状态管理 (Pinia + localStorage)
+#   - 路由守卫 (未登录跳转)
+#   - 退出确认弹窗
+#   - 课程占位 API
+#   - 端到端联调通过
 ```

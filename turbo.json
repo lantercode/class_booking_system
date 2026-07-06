@@ -17,7 +17,7 @@
       "outputs": ["coverage/**"]
     },
     "gen:types": {
-      "outputs": ["packages/api-types/schema.d.ts"]
+      "outputs": ["packages/api-types/schema.d.ts", "packages/api-types/openapi.json"]
     }
   }
 }

@@ -31,6 +31,8 @@ SKIP_TENANT_PATHS = [
     "/api/v1/common/health",
     "/api/v1/auth/register",
     "/api/v1/auth/login",
+    "/api/v1/auth/me",
+    "/api/v1/courses",
 ]
 
 
