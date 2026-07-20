@@ -2,13 +2,14 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse,
 
 export interface ApiResponse<T = any> {
   code: number
-  message: string
+  msg: string
   data: T
+  request_id?: string
 }
 
 export interface ApiError {
   code: number
-  message: string
+  msg: string
   detail?: string
 }
 
@@ -40,9 +41,9 @@ class ApiClient {
           config.headers.Authorization = `Bearer ${token}`
         }
 
-        const tenantId = localStorage.getItem('tenantId')
-        if (tenantId && config.headers) {
-          config.headers['x-tenant-id'] = tenantId
+        const tenantSlug = localStorage.getItem('tenantSlug')
+        if (tenantSlug && config.headers) {
+          config.headers['x-tenant-slug'] = tenantSlug
         }
 
         return config
@@ -126,3 +127,21 @@ class ApiClient {
 
 export const apiClient = new ApiClient()
 export default apiClient
+
+export { courseApi } from './courses'
+export type { Course, CourseListParams, CourseCreateParams, CourseUpdateParams, CourseListResponse } from './courses'
+
+export { classroomApi } from './classrooms'
+export type { Classroom, ClassroomListParams, ClassroomCreateParams, ClassroomUpdateParams, ClassroomListResponse } from './classrooms'
+
+export { scheduleApi } from './schedules'
+export type { Schedule, ScheduleListParams, ScheduleCreateParams, ScheduleUpdateParams, ScheduleListResponse } from './schedules'
+
+export { bookingApi } from './bookings'
+export type { Booking, BookingListParams, BookingCreateParams, BookingListResponse } from './bookings'
+
+export { userApi } from './users'
+export type { User, UserListParams, UserCreateParams, UserUpdateParams, UserRoleUpdateParams, UserListResponse } from './users'
+
+export { roleApi } from './roles'
+export type { Role, Permission, RoleListParams, RoleListResponse, PermissionListResponse } from './roles'

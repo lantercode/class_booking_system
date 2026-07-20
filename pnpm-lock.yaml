@@ -15,9 +15,89 @@ importers:
         specifier: ^2.3.3
         version: 2.9.18
 
+  apps/admin-web:
+    dependencies:
+      '@dance-saas/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@element-plus/icons-vue':
+        specifier: ^2.3.0
+        version: 2.3.2(vue@3.5.39(typescript@5.4.5))
+      element-plus:
+        specifier: ^2.7.0
+        version: 2.14.2(vue@3.5.39(typescript@5.4.5))
+      pinia:
+        specifier: ^2.1.0
+        version: 2.3.1(typescript@5.4.5)(vue@3.5.39(typescript@5.4.5))
+      vue:
+        specifier: ^3.4.0
+        version: 3.5.39(typescript@5.4.5)
+      vue-router:
+        specifier: ^4.3.0
+        version: 4.6.4(vue@3.5.39(typescript@5.4.5))
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.43
+      '@vitejs/plugin-vue':
+        specifier: ^5.0.0
+        version: 5.2.4(vite@5.4.21(@types/node@20.19.43)(sass@1.101.0))(vue@3.5.39(typescript@5.4.5))
+      sass:
+        specifier: ^1.72.0
+        version: 1.101.0
+      typescript:
+        specifier: ~5.4.0
+        version: 5.4.5
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.21(@types/node@20.19.43)(sass@1.101.0)
+      vue-tsc:
+        specifier: ^2.0.0
+        version: 2.2.12(typescript@5.4.5)
+
   apps/api: {}
 
   apps/student-web:
+    dependencies:
+      '@dance-saas/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@element-plus/icons-vue':
+        specifier: ^2.3.0
+        version: 2.3.2(vue@3.5.39(typescript@5.4.5))
+      element-plus:
+        specifier: ^2.7.0
+        version: 2.14.2(vue@3.5.39(typescript@5.4.5))
+      pinia:
+        specifier: ^2.1.0
+        version: 2.3.1(typescript@5.4.5)(vue@3.5.39(typescript@5.4.5))
+      vue:
+        specifier: ^3.4.0
+        version: 3.5.39(typescript@5.4.5)
+      vue-router:
+        specifier: ^4.3.0
+        version: 4.6.4(vue@3.5.39(typescript@5.4.5))
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.43
+      '@vitejs/plugin-vue':
+        specifier: ^5.0.0
+        version: 5.2.4(vite@5.4.21(@types/node@20.19.43)(sass@1.101.0))(vue@3.5.39(typescript@5.4.5))
+      sass:
+        specifier: ^1.72.0
+        version: 1.101.0
+      typescript:
+        specifier: ~5.4.0
+        version: 5.4.5
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.21(@types/node@20.19.43)(sass@1.101.0)
+      vue-tsc:
+        specifier: ^2.0.0
+        version: 2.2.12(typescript@5.4.5)
+
+  apps/teacher-web:
     dependencies:
       '@dance-saas/api-client':
         specifier: workspace:*
@@ -61,7 +141,7 @@ importers:
     dependencies:
       axios:
         specifier: ^1.7.0
-        version: 1.18.1
+        version: 1.18.1(supports-color@10.2.2)
 
   packages/api-types: {}
 
@@ -1432,7 +1512,7 @@ snapshots:
     dependencies:
       vue: 3.5.39(typescript@5.4.5)
 
-  agent-base@6.0.2:
+  agent-base@6.0.2(supports-color@10.2.2):
     dependencies:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
@@ -1450,11 +1530,11 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.18.1:
+  axios@1.18.1(supports-color@10.2.2):
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@10.2.2)
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
@@ -1619,9 +1699,9 @@ snapshots:
 
   he@1.2.0: {}
 
-  https-proxy-agent@5.0.1:
+  https-proxy-agent@5.0.1(supports-color@10.2.2):
     dependencies:
-      agent-base: 6.0.2
+      agent-base: 6.0.2(supports-color@10.2.2)
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color

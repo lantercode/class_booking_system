@@ -35,6 +35,10 @@ from .cache import (
 
 logger = logging.getLogger(__name__)
 
+# ⚠️ 临时开关：True = 跳过所有权限检查，所有用户拥有全部权限
+# 正式环境请改回 False
+PERMISSION_CHECK_BYPASS = False
+
 
 async def query_permissions_from_db(
     db_session: AsyncSession,
@@ -193,10 +197,13 @@ async def check_permission(
         >>> if has_perm:
         ...     await create_user(...)
     """
+    if PERMISSION_CHECK_BYPASS:
+        return True
+
     permissions = await get_user_permissions(
         db_session, redis_client, user_id, tenant_id
     )
-    
+
     has_permission = required_permission in permissions
     
     logger.debug(
@@ -239,6 +246,9 @@ async def check_permissions(
     """
     if not required_permissions:
         return True  # 空列表视为通过
+
+    if PERMISSION_CHECK_BYPASS:
+        return True
     
     permissions_set = set(
         await get_user_permissions(db_session, redis_client, user_id, tenant_id)
@@ -336,7 +346,10 @@ async def check_roles(
     """
     if not required_role_codes:
         return True
-    
+
+    if PERMISSION_CHECK_BYPASS:
+        return True
+
     _user_id = user_id or get_user_id()
     _tenant_id = tenant_id or get_tenant_id()
     

@@ -6,7 +6,6 @@
 
 - **后端**: Python 3.12 + FastAPI + SQLAlchemy 2.0 + Alembic + PostgreSQL 15 + Redis 7
 - **前端**: Vue 3 + Vite + TypeScript + Element Plus + Pinia
-- **后台**: Vben Admin (Vue 3)
 - **构建**: Monorepo (pnpm + Turborepo)
 - **部署**: Docker Compose + Nginx
 
@@ -48,9 +47,9 @@ curl http://localhost:8000/api/v1/common/health
 class_booking_system/
 ├── apps/
 │   ├── api/              # FastAPI 后端
-│   ├── student-web/      # 学员端 (Phase: T05)
-│   ├── teacher-web/      # 教师端 (Phase: T13)
-│   └── admin/            # 管理后台 (Phase: T14)
+│   ├── admin-web/        # 管理后台 (Vue 3 + Element Plus)
+│   ├── student-web/      # 学员端 (Vue 3 + Element Plus)
+│   └── teacher-web/      # 教师端 (Vue 3 + Element Plus)
 ├── packages/
 │   ├── api-types/        # OpenAPI 生成的 TS 类型
 │   ├── api-client/       # axios 封装
@@ -75,7 +74,157 @@ class_booking_system/
 | **T03** | ✅ 完成 | 2026-06-29 | **Auth 模块集成测试 (19/19 通过)** |
 | **T04** | ✅ 完成 | 2026-07-06 | **User 模块完整实现 (API 测试通过)** |
 | **T05** | ✅ 完成 | 2026-07-06 | **学员端骨架 + 端到端贯通 (注册→登录→课程列表)** |
-| T06-T20 | ⏳ 待开始 | - | 业务功能开发 |
+| **T06** | ✅ 完成 | 2026-07-09 | **管理后台全部页面 + 后端业务模块完善** |
+| T07-T20 | ⏳ 待开始 | - | 业务功能开发 |
+
+---
+
+## T06 详细内容（2026-07-09）✨ 新增
+
+### 🎯 任务概述
+
+完成 **管理后台全部页面** + **后端业务模块完善**，实现课程、排期、教室、学员、教师、角色等核心业务功能。
+
+---
+
+### 📊 管理后台页面
+
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 仪表盘 | `/dashboard` | 统计卡片 + 近期排期 + 禁用教师/学员列表 |
+| 用户管理 | `/users` | 用户 CRUD + 角色分配 + 状态管理 |
+| 角色管理 | `/roles` | 角色 CRUD + 权限分配 |
+| 教师管理 | `/teachers` | 教师列表 + 启用/禁用 + 删除（含排课校验） |
+| 学员管理 | `/students` | 学员列表 + 搜索/筛选 + 状态管理 |
+| 课程管理 | `/courses` | 课程 CRUD + 分类/难度筛选（支持自定义输入） |
+| 排期管理 | `/schedules` | 排期 CRUD + 学员查看 + 时间冲突检测 |
+| 教室管理 | `/classrooms` | 教室卡片展示 + 设备管理（支持自定义输入） + 维护/启用 |
+| 租户管理 | `/tenant` | 租户配置 |
+
+---
+
+### 🔧 后端新增/完善模块
+
+#### Booking 模块（预约）
+| 接口 | 功能 |
+|------|------|
+| POST `/bookings` | 创建预约 |
+| GET `/bookings` | 预约列表（按排期/学员筛选） |
+| PATCH `/bookings/{id}` | 更新预约状态 |
+| DELETE `/bookings/{id}` | 取消预约 |
+
+#### Schedule 模块（排期）
+| 接口 | 功能 |
+|------|------|
+| POST `/schedules` | 创建排期（含教室维护状态校验） |
+| GET `/schedules` | 排期列表（按课程/教师/教室筛选） |
+| PATCH `/schedules/{id}` | 更新排期（含冲突检测） |
+| DELETE `/schedules/{id}` | 删除排期 |
+
+#### Classroom 模块（教室）
+| 接口 | 功能 |
+|------|------|
+| POST `/classrooms` | 创建教室 |
+| GET `/classrooms` | 教室列表（卡片展示） |
+| PATCH `/classrooms/{id}` | 更新教室（维护/启用） |
+| DELETE `/classrooms/{id}` | 删除教室（含排课校验） |
+
+#### Course 模块（课程）
+| 接口 | 功能 |
+|------|------|
+| POST `/courses` | 创建课程 |
+| GET `/courses` | 课程列表（分类/难度筛选） |
+| PATCH `/courses/{id}` | 更新课程 |
+| DELETE `/courses/{id}` | 删除课程 |
+
+---
+
+### ✨ 关键业务规则
+
+#### 删除保护
+| 模块 | 删除条件 |
+|------|---------|
+| 教师 | 无未来排课才能删除 |
+| 教室 | 无未来排课才能删除 |
+| 排期 | 无预约记录才能删除 |
+
+#### 教室维护
+- 维护中的教室 **拒绝创建新排期**
+- 已有排期不受影响
+- 编辑排期更换教室时校验新教室状态
+
+#### 搜索筛选
+- 所有列表页统一 `@keyup.enter` + `@clear` + `@change` 触发搜索
+- 搜索/筛选参数传递到后端，分页与筛选同时生效
+- 分页统一显示 `共 X 条`
+
+#### 自定义选项
+- 教室设备、课程分类、课程难度均支持 `allow-create` 自由输入
+- 无需修改代码即可添加新选项
+
+---
+
+### 📁 核心文件清单
+
+```
+apps/admin-web/                    # 管理后台（全新创建）
+├── src/
+│   ├── layout/AdminLayout.vue     # 管理后台布局（侧边栏+顶栏+内容区）
+│   ├── router/index.ts            # 路由配置（11个页面）
+│   ├── stores/auth.ts             # 认证状态管理
+│   ├── mock/index.ts              # Mock 数据
+│   └── views/
+│       ├── dashboard/index.vue    # 仪表盘
+│       ├── users/index.vue        # 用户管理
+│       ├── roles/index.vue        # 角色管理
+│       ├── teachers/index.vue     # 教师管理
+│       ├── students/index.vue     # 学员管理
+│       ├── courses/index.vue      # 课程管理
+│       ├── schedules/index.vue    # 排期管理
+│       ├── classrooms/index.vue   # 教室管理（卡片布局）
+│       ├── login/index.vue        # 登录页
+│       ├── register/index.vue     # 注册页
+│       └── tenant/index.vue       # 租户管理
+
+apps/teacher-web/                  # 教师端（全新创建）
+├── src/
+│   ├── views/                     # 教师端页面
+│   └── ...
+
+apps/api/src/app/modules/          # 后端模块
+├── booking/                       # 预约模块（新增）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   └── schemas.py
+├── schedule/                      # 排期模块（完善）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   └── schemas.py
+├── classroom/                     # 教室模块（完善）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   └── schemas.py
+├── course/                        # 课程模块（完善）
+│   ├── router.py
+│   ├── service.py
+│   ├── repository.py
+│   └── schemas.py
+└── user/                          # 用户模块（完善）
+    ├── router.py
+    ├── service.py
+    └── schemas.py
+
+packages/api-client/src/           # API 客户端（扩展）
+├── bookings.ts
+├── classrooms.ts
+├── courses.ts
+├── roles.ts
+├── schedules.ts
+└── users.ts
+```
 
 ---
 
@@ -754,6 +903,28 @@ open http://localhost:5173
 # 生成 API 类型
 cd /root && pnpm gen:types
 ```
+
+---
+
+## Phase 2 计划
+
+> 📄 详细计划文档：[docs/phase2_frontend_first_plan.md](docs/phase2_frontend_first_plan.md)
+
+**策略**：前端页面（Mock 数据）→ 后端接口实现 → 前后端联调
+
+| Phase | 任务 | 工时 | 说明 |
+|-------|------|------|------|
+| **1. 前端页面** | T06 学员端业务页 | 8h | 课程详情/排期日历/预约/我的预约/个人中心 |
+| | T07 教师端全套 | 8h | 登录/课程/排期/学员/档案 |
+| | T08 管理后台全套 | 8h | 用户/角色/教师/学员/课程/排期/教室/机构 |
+| **2. 后端接口** | T09 课程+教室 API | 8h | CRUD + 筛选分页 |
+| | T10 排期+预约 API | 10h | 批量排期 + 并发预约 + 冲突检测 |
+| | T11 教师档案 API | 6h | 教师档案 CRUD + 角色绑定 |
+| | T12 角色权限+审计 | 6h | 权限树 + 审计日志 + 机构设置 |
+| **3. 前后联调** | T13 学员端联调 | 6h | Mock → 真实 API |
+| | T14 教师端联调 | 6h | Mock → 真实 API |
+| | T15 管理后台联调 | 6h | Mock → 真实 API |
+| **4. 测试部署** | T16-T20 | 36h | E2E/性能/部署/灰度/上线 |
 
 ---
 

@@ -12,6 +12,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.role.repository import RoleRepository, PermissionRepository

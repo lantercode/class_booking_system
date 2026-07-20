@@ -48,7 +48,7 @@ from inspect import Parameter, signature
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import PermissionException
+from app.core.exceptions import PermissionException, DanceSaasException
 from app.core.database import get_session
 from app.deps.auth import get_current_user, get_redis_client
 from .checker import check_permissions, check_roles
@@ -143,14 +143,18 @@ def require_permissions(
                     )
                 
                 logger.debug(f"[RBAC] ✅ 权限通过: user={user_id}")
-                return await func(*args, **kwargs)
                 
             except PermissionException:
+                raise
+                
+            except DanceSaasException:
                 raise
                 
             except Exception as e:
                 logger.error(f"[RBAC] 权限检查异常: {type(e).__name__}: {e}")
                 raise PermissionException("权限验证失败，请联系管理员")
+            
+            return await func(*args, **kwargs)
         
         return wrapper
     
@@ -253,6 +257,9 @@ def require_roles(
                 return await func(*args, **kwargs)
                 
             except PermissionException:
+                raise
+                
+            except DanceSaasException:
                 raise
                 
             except Exception as e:

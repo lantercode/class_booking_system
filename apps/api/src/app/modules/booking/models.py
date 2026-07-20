@@ -40,7 +40,7 @@ class Booking(Base, TenantMixin, TimestampMixin):
         String(20), nullable=False, default=BookingSource.SELF.value,
     )
     membership_card_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("membership_cards.id", ondelete="SET NULL"),
+        BigInteger, nullable=True,
     )
     booked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(),

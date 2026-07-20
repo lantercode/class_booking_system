@@ -27,7 +27,7 @@ async def create_default_tenant(session: AsyncSession) -> Tenant:
     tenant = Tenant(
         name="舞蹈机构",
         slug="dance-school",
-        contact_phone="12345678901",
+        contact_phone="13800000001",
         status=TenantStatus.ACTIVE.value,
         plan="pro",
         settings={
@@ -73,16 +73,37 @@ async def create_permissions(session: AsyncSession) -> list[Permission]:
         {"code": "course:update", "name": "编辑课程", "module": "course"},
         {"code": "course:delete", "name": "删除课程", "module": "course"},
 
-        # 排课管理 (2个)
+        # 排课管理 (4个)
         {"code": "schedule:create", "name": "创建排课", "module": "schedule"},
+        {"code": "schedule:update", "name": "编辑排课", "module": "schedule"},
         {"code": "schedule:cancel", "name": "取消排课", "module": "schedule"},
+        {"code": "schedule:delete", "name": "删除排课", "module": "schedule"},
 
         # 预约管理 (2个)
         {"code": "booking:view", "name": "查看预约", "module": "booking"},
         {"code": "booking:manage", "name": "管理预约", "module": "booking"},
 
-        # 用户管理 (1个)
+        # 用户管理 (6个)
+        {"code": "user:create", "name": "创建用户", "module": "user"},
+        {"code": "user:read", "name": "查看用户", "module": "user"},
+        {"code": "user:update", "name": "编辑用户", "module": "user"},
+        {"code": "user:delete", "name": "删除用户", "module": "user"},
         {"code": "user:manage", "name": "管理用户", "module": "user"},
+        {"code": "user:reset_password", "name": "重置密码", "module": "user"},
+
+        # 教室管理 (4个)
+        {"code": "classroom:create", "name": "创建教室", "module": "classroom"},
+        {"code": "classroom:read", "name": "查看教室", "module": "classroom"},
+        {"code": "classroom:update", "name": "编辑教室", "module": "classroom"},
+        {"code": "classroom:delete", "name": "删除教室", "module": "classroom"},
+
+        # 角色权限管理 (6个)
+        {"code": "role:create", "name": "创建角色", "module": "role"},
+        {"code": "role:read", "name": "查看角色", "module": "role"},
+        {"code": "role:update", "name": "编辑角色", "module": "role"},
+        {"code": "role:delete", "name": "删除角色", "module": "role"},
+        {"code": "role:assign", "name": "分配角色", "module": "role"},
+        {"code": "role:read_permissions", "name": "查看角色权限", "module": "role"},
 
         # 数据统计 (1个)
         {"code": "stats:view", "name": "查看统计", "module": "stats"},
@@ -120,9 +141,12 @@ async def assign_role_permissions(
     admin_role = next(r for r in roles if r.code == "admin")
     admin_permission_codes = {
         "course:create", "course:update",
-        "schedule:create", "schedule:cancel",
+        "schedule:create", "schedule:update", "schedule:cancel", "schedule:delete",
         "booking:view", "booking:manage",
-        "user:manage"
+        "user:create", "user:read", "user:update", "user:manage",
+        "classroom:create", "classroom:read", "classroom:update",
+        "role:read", "role:read_permissions", "role:assign",
+        "stats:view",
     }
     for perm in permissions:
         if perm.code in admin_permission_codes:
@@ -134,8 +158,10 @@ async def assign_role_permissions(
     # 老师角色拥有部分权限 排课、预约
     teacher_role = next(r for r in roles if r.code == "teacher")
     teacher_permission_codes = {
-        "schedule:create", "schedule:cancel",
-        "booking:view", "booking:manage"
+        "course:create", "course:update",
+        "schedule:create", "schedule:update", "schedule:cancel",
+        "booking:view", "booking:manage",
+        "classroom:read",
     }
     for perm in permissions:
         if perm.code in teacher_permission_codes:
@@ -162,11 +188,11 @@ async def create_admin_user(
 ) -> User:
     """创建默认管理员账号"""
     # TODO: 实现这个函数
-    password_hash = hash_password("admin123456")
+    password_hash = hash_password("Test@123456")
 
     user = User(
         tenant_id=tenant_id,
-        phone="12345678901",
+        phone="13800000001",
         password_hash=password_hash,
         nickname="系统管理员",
         platform_role="super_admin",
@@ -180,6 +206,62 @@ async def create_admin_user(
     session.add(UserRole(
         user_id=user.id,
         role_id=super_admin_role.id
+    ))
+    await session.flush()
+    return user
+
+
+async def create_teacher_user(
+        session: AsyncSession,
+        tenant_id: int,
+        roles: list[Role]
+) -> User:
+    """创建默认教师账号"""
+    password_hash = hash_password("Test@123456")
+
+    user = User(
+        tenant_id=tenant_id,
+        phone="13800138001",
+        password_hash=password_hash,
+        nickname="张老师",
+        platform_role="teacher",
+        status=UserStatus.ACTIVE.value
+    )
+    session.add(user)
+    await session.flush()
+
+    teacher_role = next(r for r in roles if r.code == "teacher")
+    session.add(UserRole(
+        user_id=user.id,
+        role_id=teacher_role.id
+    ))
+    await session.flush()
+    return user
+
+
+async def create_student_user(
+        session: AsyncSession,
+        tenant_id: int,
+        roles: list[Role]
+) -> User:
+    """创建默认学员账号"""
+    password_hash = hash_password("Test@123456")
+
+    user = User(
+        tenant_id=tenant_id,
+        phone="13900139001",
+        password_hash=password_hash,
+        nickname="李同学",
+        platform_role="student",
+        status=UserStatus.ACTIVE.value
+    )
+    session.add(user)
+    await session.flush()
+
+    student_role = next(r for r in roles if r.code == "student")
+    session.add(UserRole(
+        user_id=user.id,
+        role_id=student_role.id
     ))
     await session.flush()
     return user
@@ -210,6 +292,14 @@ async def main():
             # 5. 创建默认管理员
             admin_user = await create_admin_user(session, tenant.id, roles)
             print(f"✅ 创建管理员: {admin_user.phone}")
+
+            # 6. 创建默认教师
+            teacher_user = await create_teacher_user(session, tenant.id, roles)
+            print(f"✅ 创建教师: {teacher_user.phone}")
+
+            # 7. 创建默认学员
+            student_user = await create_student_user(session, tenant.id, roles)
+            print(f"✅ 创建学员: {student_user.phone}")
 
             # 提交事务
             await session.commit()

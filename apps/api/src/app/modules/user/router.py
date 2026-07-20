@@ -63,6 +63,7 @@ async def list_users(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     keyword: str = Query(None, description="搜索关键词（手机号/昵称/姓名）"),
     status: int = Query(None, ge=0, le=1, description="状态筛选：0禁用/1启用"),
+    role_code: str = Query(None, description="角色筛选（角色代码）"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -71,6 +72,7 @@ async def list_users(
         db,
         keyword=keyword,
         status=status,
+        role_code=role_code,
         page=page,
         page_size=page_size,
     )
@@ -219,7 +221,7 @@ async def get_user_roles(
 @require_permissions("role:assign")
 async def assign_user_roles(
     user_id: int = Path(..., description="用户ID"),
-    role_ids: list[int] = Body(..., description="角色ID列表"),
+    role_ids: list[int] = Body(..., description="角色ID列表", embed=True),
     db: AsyncSession = Depends(get_session),
     redis_client=Depends(get_redis_client),
     current_user: dict = Depends(get_current_user),

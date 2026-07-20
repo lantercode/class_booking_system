@@ -24,6 +24,7 @@ class UserCreate(UserBase):
     """创建用户请求体"""
     password: str = Field(..., min_length=6, max_length=128, description="密码")
     role_ids: Optional[List[int]] = Field(default=[], description="初始角色ID列表")
+    role_codes: Optional[List[str]] = Field(default=[], description="初始角色代码列表（如 ['teacher']）")
 
 
 class UserUpdate(BaseModel):
@@ -36,6 +37,7 @@ class UserUpdate(BaseModel):
     gender: Optional[int] = Field(None, ge=0, le=2, description="性别")
     birthday: Optional[datetime] = Field(None, description="生日")
     status: Optional[int] = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
+    role_ids: Optional[List[int]] = Field(None, description="角色ID列表（传入则覆盖更新）")
 
 
 class UserResponse(BaseModel):

@@ -27,7 +27,7 @@ interface RegisterParams {
 export const useUserStore = defineStore('user', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
   const refreshToken = ref<string>(localStorage.getItem('refreshToken') || '')
-  const tenantId = ref<string>(localStorage.getItem('tenantId') || '')
+  const tenantSlug = ref<string>(localStorage.getItem('tenantSlug') || '')
   const userInfo = ref<UserInfo | null>(null)
 
   const isLoggedIn = computed(() => !!token.value)
@@ -39,19 +39,19 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('refreshToken', refresh)
   }
 
-  function setTenantId(id: string) {
-    tenantId.value = id
-    localStorage.setItem('tenantId', id)
+  function setTenantSlug(slug: string) {
+    tenantSlug.value = slug
+    localStorage.setItem('tenantSlug', slug)
   }
 
   function clearToken() {
     token.value = ''
     refreshToken.value = ''
-    tenantId.value = ''
+    tenantSlug.value = ''
     userInfo.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
-    localStorage.removeItem('tenantId')
+    localStorage.removeItem('tenantSlug')
   }
 
   async function login(params: LoginParams) {
@@ -66,7 +66,7 @@ export const useUserStore = defineStore('user', () => {
     // 从 JWT 中解码 tenant_id 并存储
     try {
       const payload = JSON.parse(atob(res.data.access_token.split('.')[1]))
-      setTenantId(String(payload.tenant_id || ''))
+      setTenantSlug(params.tenant_slug || 'dance-school')
     } catch {
       // 解码失败不影响主流程
     }

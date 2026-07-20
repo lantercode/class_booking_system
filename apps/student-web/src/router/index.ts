@@ -25,6 +25,30 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/courses/index.vue'),
     meta: { title: '课程列表', requiresAuth: true },
   },
+  {
+    path: '/courses/:id',
+    name: 'CourseDetail',
+    component: () => import('@/views/course-detail/index.vue'),
+    meta: { title: '课程详情', requiresAuth: true },
+  },
+  {
+    path: '/courses/:id/schedule',
+    name: 'CourseSchedule',
+    component: () => import('@/views/schedule/index.vue'),
+    meta: { title: '课程排期', requiresAuth: true },
+  },
+  {
+    path: '/my-bookings',
+    name: 'MyBookings',
+    component: () => import('@/views/my-bookings/index.vue'),
+    meta: { title: '我的预约', requiresAuth: true },
+  },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/profile/index.vue'),
+    meta: { title: '个人中心', requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

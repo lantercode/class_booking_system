@@ -70,59 +70,6 @@ async def list_roles(
     return success(data=result)
 
 
-@router.get(
-    "/{role_id}",
-    response_model=dict,
-    summary="获取角色详情",
-    description="获取指定角色的详细信息（需 role:read 权限）",
-)
-@require_permissions("role:read")
-async def get_role(
-    role_id: int = Path(..., description="角色ID"),
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
-    """获取角色详情"""
-    result = await role_service.get_role_by_id(db, role_id)
-    return success(data=result)
-
-
-@router.patch(
-    "/{role_id}",
-    response_model=dict,
-    summary="更新角色",
-    description="更新角色信息（需 role:update 权限，不能修改系统角色）",
-)
-@require_permissions("role:update")
-async def update_role(
-    role_id: int = Path(..., description="角色ID"),
-    data: RoleUpdate = Body(...),
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
-    """更新角色信息"""
-    result = await role_service.update_role(db, role_id, data)
-    return success(data=result, msg="角色更新成功")
-
-
-@router.delete(
-    "/{role_id}",
-    response_model=dict,
-    summary="删除角色",
-    description="删除角色（需 role:delete 权限，不能删除系统角色）",
-)
-@require_permissions("role:delete")
-async def delete_role(
-    role_id: int = Path(..., description="角色ID"),
-    db: AsyncSession = Depends(get_session),
-    redis_client=Depends(get_redis_client),
-    current_user: dict = Depends(get_current_user),
-):
-    """删除角色"""
-    await role_service.delete_role(db, role_id, redis_client=redis_client)
-    return success(msg="角色删除成功")
-
-
 # ==================== 权限管理 ====================
 
 @router.get(
@@ -181,3 +128,56 @@ async def assign_role_permissions(
         redis_client=redis_client,
     )
     return success(msg="权限分配成功")
+
+
+@router.get(
+    "/{role_id}",
+    response_model=dict,
+    summary="获取角色详情",
+    description="获取指定角色的详细信息（需 role:read 权限）",
+)
+@require_permissions("role:read")
+async def get_role(
+    role_id: int = Path(..., description="角色ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取角色详情"""
+    result = await role_service.get_role_by_id(db, role_id)
+    return success(data=result)
+
+
+@router.patch(
+    "/{role_id}",
+    response_model=dict,
+    summary="更新角色",
+    description="更新角色信息（需 role:update 权限，不能修改系统角色）",
+)
+@require_permissions("role:update")
+async def update_role(
+    role_id: int = Path(..., description="角色ID"),
+    data: RoleUpdate = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """更新角色信息"""
+    result = await role_service.update_role(db, role_id, data)
+    return success(data=result, msg="角色更新成功")
+
+
+@router.delete(
+    "/{role_id}",
+    response_model=dict,
+    summary="删除角色",
+    description="删除角色（需 role:delete 权限，不能删除系统角色）",
+)
+@require_permissions("role:delete")
+async def delete_role(
+    role_id: int = Path(..., description="角色ID"),
+    db: AsyncSession = Depends(get_session),
+    redis_client=Depends(get_redis_client),
+    current_user: dict = Depends(get_current_user),
+):
+    """删除角色"""
+    await role_service.delete_role(db, role_id, redis_client=redis_client)
+    return success(msg="角色删除成功")

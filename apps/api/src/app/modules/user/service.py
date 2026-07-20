@@ -12,6 +12,7 @@ import logging
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.user.repository import UserRepository
@@ -96,10 +97,17 @@ class UserService:
         # 创建用户
         user = await self.user_repo.create(db, user_data)
         
-        # 分配角色（如果指定了角色）
-        if data.role_ids:
-            for role_id in data.role_ids:
-                await AuthRepository.assign_role(db, user.id, role_id)
+        # 分配角色（支持 role_ids 和 role_codes）
+        role_ids_to_assign = list(data.role_ids) if data.role_ids else []
+        if data.role_codes:
+            from app.core.tenant_context import get_tenant_id
+            tenant_id = get_tenant_id()
+            for code in data.role_codes:
+                role = await AuthRepository.get_role_by_code(db, code, tenant_id)
+                if role:
+                    role_ids_to_assign.append(role.id)
+        for role_id in role_ids_to_assign:
+            await AuthRepository.assign_role(db, user.id, role_id)
         
         await db.commit()
         await db.refresh(user)
@@ -194,6 +202,10 @@ class UserService:
         await db.commit()
         await db.refresh(user)
         
+        # 更新角色（如果传入 role_ids）
+        if data.role_ids is not None:
+            await self.assign_roles(db, user_id, data.role_ids, redis_client=redis_client)
+        
         # 获取角色列表
         roles = await AuthRepository.get_user_roles(db, user.id)
         role_codes = [role.code for role in roles]
@@ -238,7 +250,7 @@ class UserService:
             是否删除成功
         
         Raises:
-            ValidationException: 不能删除自己
+            ValidationException: 不能删除自己 / 教师有未完成排课
             NotFoundException: 用户不存在
         """
         logger.warning(f"[UserService] 删除用户: user_id={user_id}, operator_id={operator_id}")
@@ -246,6 +258,26 @@ class UserService:
         # 检查是否删除自己
         if user_id == operator_id:
             raise ValidationException("不能删除自己的账号")
+
+        # 检查教师是否有未完成的排课
+        from app.modules.schedule.models import CourseSchedule, ScheduleStatus
+        from datetime import datetime, timezone
+        from app.core.tenant_context import get_tenant_id as _get_tenant_id
+
+        tenant_id = _get_tenant_id()
+        active_schedule_query = select(CourseSchedule).where(
+            CourseSchedule.teacher_id == user_id,
+            CourseSchedule.status == ScheduleStatus.NORMAL.value,
+            CourseSchedule.start_at > datetime.now(timezone.utc),
+        )
+        if tenant_id:
+            active_schedule_query = active_schedule_query.where(
+                CourseSchedule.tenant_id == tenant_id,
+            )
+
+        result = await db.execute(active_schedule_query.limit(1))
+        if result.scalar_one_or_none():
+            raise ValidationException("该教师有未完成的排课，请先取消或完成排课后再删除")
         
         # 执行软删除
         success = await self.user_repo.delete(db, user_id)
@@ -254,8 +286,6 @@ class UserService:
             raise NotFoundException("用户不存在")
         
         # 清除权限缓存
-        from app.core.tenant_context import get_tenant_id
-        tenant_id = get_tenant_id()
         if redis_client:
             await clear_user_permission_cache(redis_client, tenant_id, user_id)
         
@@ -312,6 +342,7 @@ class UserService:
         *,
         keyword: Optional[str] = None,
         status: Optional[int] = None,
+        role_code: Optional[str] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> UserListResponse:
@@ -322,6 +353,7 @@ class UserService:
             db: 数据库会话
             keyword: 搜索关键词
             status: 状态筛选
+            role_code: 角色筛选
             page: 页码
             page_size: 每页数量
         
@@ -342,6 +374,10 @@ class UserService:
             roles = await AuthRepository.get_user_roles(db, user.id)
             role_codes = [role.code for role in roles]
             
+            # 角色筛选
+            if role_code and role_code not in role_codes:
+                continue
+            
             user_responses.append(UserResponse(
                 id=user.id,
                 public_id=str(user.public_id),
@@ -361,7 +397,7 @@ class UserService:
             ))
         
         return UserListResponse(
-            total=total,
+            total=len(user_responses) if role_code else total,
             page=page,
             page_size=page_size,
             items=user_responses,

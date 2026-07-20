@@ -45,6 +45,10 @@ class BaseRepository(Generic[ModelType]):
                 f"    model_class = User"
             )
 
+    def _has_soft_delete(self) -> bool:
+        """检查模型是否支持软删除（是否有 deleted_at 字段）"""
+        return hasattr(self.model_class, 'deleted_at')
+
     async def get_by_id(
         self,
         db: AsyncSession,
@@ -55,7 +59,7 @@ class BaseRepository(Generic[ModelType]):
         """根据 ID 查询单条记录"""
         query = select(self.model_class).where(self.model_class.id == id)
         
-        if not include_deleted:
+        if not include_deleted and self._has_soft_delete():
             query = query.where(self.model_class.deleted_at.is_(None))
         
         result = await db.execute(query)
@@ -78,7 +82,7 @@ class BaseRepository(Generic[ModelType]):
             ]
             query = query.where(and_(*conditions))
         
-        if not include_deleted:
+        if not include_deleted and self._has_soft_delete():
             query = query.where(self.model_class.deleted_at.is_(None))
         
         result = await db.execute(query)
@@ -103,7 +107,7 @@ class BaseRepository(Generic[ModelType]):
             ]
             query = query.where(and_(*conditions))
         
-        if not include_deleted:
+        if not include_deleted and self._has_soft_delete():
             query = query.where(self.model_class.deleted_at.is_(None))
         
         if order_by:
@@ -137,7 +141,7 @@ class BaseRepository(Generic[ModelType]):
             base_query = base_query.where(and_(*conditions))
             count_query = count_query.where(and_(*conditions))
         
-        if not include_deleted:
+        if not include_deleted and self._has_soft_delete():
             soft_delete_condition = self.model_class.deleted_at.is_(None)
             base_query = base_query.where(soft_delete_condition)
             count_query = count_query.where(soft_delete_condition)
@@ -335,13 +339,17 @@ class BaseRepository(Generic[ModelType]):
                 stmt = delete(self.model_class).where(self.model_class.id == id)
                 result = await db.execute(stmt)
                 success = result.rowcount > 0
-            else:
+            elif self._has_soft_delete():
                 db_obj = await self.get_by_id(db, id)
                 if not db_obj:
                     return False
                 
                 setattr(db_obj, "deleted_at", datetime.utcnow())
                 success = True
+            else:
+                stmt = delete(self.model_class).where(self.model_class.id == id)
+                result = await db.execute(stmt)
+                success = result.rowcount > 0
             
             if auto_commit:
                 await db.commit()
