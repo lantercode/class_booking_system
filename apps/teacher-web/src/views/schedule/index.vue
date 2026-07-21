@@ -13,10 +13,6 @@
       <el-select v-model="selectedCourseId" placeholder="选择课程" class="course-select" @change="onCourseChange">
         <el-option v-for="c in courses" :key="c.id" :label="c.name" :value="c.id" />
       </el-select>
-      <el-button type="primary" class="batch-btn" @click="showBatchDialog = true" :disabled="!selectedCourseId">
-        <el-icon><Plus /></el-icon>
-        批量排期
-      </el-button>
     </div>
 
     <div class="calendar-card">
@@ -51,10 +47,6 @@
     <div v-if="selectedDate" class="schedule-list">
       <div class="list-header">
         <span class="list-title">{{ selectedDate }} 排期</span>
-        <el-button text type="primary" @click="showAddDialog" :disabled="!selectedCourseId">
-          <el-icon><Plus /></el-icon>
-          添加时段
-        </el-button>
       </div>
 
       <div v-if="dateSchedules.length === 0" class="empty-state">
@@ -65,69 +57,29 @@
         <div v-for="s in dateSchedules" :key="s.id" class="slot-item">
           <div class="slot-left">
             <el-icon><Clock /></el-icon>
-            <span class="time-text">{{ formatTime(s.start_at) }} - {{ formatTime(s.end_at) }}</span>
+            <span class="time-text">{{ formatDateTime(s.start_at) }} - {{ formatTime(s.end_at) }}</span>
+          </div>
+          <div class="slot-info">
+            <span class="course-name">{{ s.course_name || '未知课程' }}</span>
+            <span class="classroom-name">{{ s.classroom_name || '未指定教室' }}</span>
+            <span class="teacher-name">{{ s.teacher_name || '未指定教师' }}</span>
           </div>
           <div class="slot-right">
             <span class="booking-info">{{ s.booked_count }}/{{ s.capacity }}</span>
             <el-button type="primary" text size="small" @click="viewStudents(s.id)">学员</el-button>
-            <el-button type="danger" text size="small" @click="handleDelete(s)">
-              <el-icon><Delete /></el-icon>
-            </el-button>
           </div>
         </div>
       </div>
     </div>
-
-    <el-dialog v-model="showAddDialog" title="添加时段" width="360px">
-      <el-form label-position="top">
-        <el-form-item label="开始时间">
-          <el-time-picker v-model="addForm.startTime" format="HH:mm" value-format="HH:mm" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="结束时间">
-          <el-time-picker v-model="addForm.endTime" format="HH:mm" value-format="HH:mm" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="容量">
-          <el-input-number v-model="addForm.capacity" :min="1" :max="200" style="width:100%" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showAddDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleAddSlot" :loading="adding">添加</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="showBatchDialog" title="批量排期" width="90%" :close-on-click-modal="false">
-      <el-form label-position="top">
-        <el-form-item label="生成范围">
-          <el-radio-group v-model="batchWeeks">
-            <el-radio-button :value="1">1周</el-radio-button>
-            <el-radio-button :value="2">2周</el-radio-button>
-            <el-radio-button :value="4">4周</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="上课时段">
-          <el-checkbox-group v-model="batchTimes">
-            <el-checkbox v-for="t in timeOptions" :key="t" :value="t" :label="t" />
-          </el-checkbox-group>
-        </el-form-item>
-        <el-form-item label="容量">
-          <el-input-number v-model="batchCapacity" :min="1" :max="200" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showBatchDialog = false">取消</el-button>
-        <el-button type="primary" @click="generateBatch" :loading="batchGenerating">生成排期</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
-  ArrowLeft, ArrowRight, Plus, Clock, Delete,
+  ArrowLeft, ArrowRight, Clock,
 } from '@element-plus/icons-vue'
 import { scheduleApi, courseApi, type Schedule } from '@dance-saas/api-client'
 
@@ -138,31 +90,24 @@ const courses = ref<{ id: number; name: string }[]>([])
 const selectedCourseId = ref<number | null>(null)
 const allSchedules = ref<Schedule[]>([])
 const loading = ref(false)
-const adding = ref(false)
-const batchGenerating = ref(false)
 
 const currentYear = ref(new Date().getFullYear())
 const currentMonth = ref(new Date().getMonth())
 const selectedDate = ref<string | null>(null)
 
-const showAddDialog = ref(false)
-const showBatchDialog = ref(false)
-const addForm = ref({ startTime: '09:00', endTime: '10:00', capacity: 15 })
-
-const batchWeeks = ref(2)
-const batchTimes = ref(['09:00', '10:30', '14:00', '15:30'])
-const batchCapacity = ref(15)
-const timeOptions = ['09:00', '10:30', '14:00', '15:30', '17:00']
-
 async function fetchCourses() {
   try {
     const res = await courseApi.list({ page_size: 200 })
+    console.log('Course API response:', res)
     courses.value = res.data.items
     if (courses.value.length > 0) {
       selectedCourseId.value = courses.value[0].id
       fetchSchedules()
     }
-  } catch (_) {}
+  } catch (e: any) {
+    console.error('Failed to fetch courses:', e)
+    ElMessage.error('获取课程列表失败')
+  }
 }
 
 async function fetchSchedules() {
@@ -187,6 +132,17 @@ function onCourseChange() {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatDateTime(iso: string) {
+  const date = new Date(iso)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
 const calendarCells = computed(() => {
@@ -244,86 +200,6 @@ function selectDate(cell: { isCurrentMonth: boolean; dateStr: string }) {
 
 function viewStudents(scheduleId: number) {
   router.push(`/students/${scheduleId}`)
-}
-
-async function handleDelete(schedule: Schedule) {
-  try {
-    await ElMessageBox.confirm('确定要删除此排期吗？', '确认', { type: 'warning' })
-    await scheduleApi.cancel(schedule.id)
-    ElMessage.success('排期已取消')
-    fetchSchedules()
-  } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error(e?.response?.data?.msg || '操作失败')
-  }
-}
-
-async function handleAddSlot() {
-  if (!selectedDate.value || !selectedCourseId.value) return
-  adding.value = true
-  try {
-    const [sh, sm] = addForm.value.startTime.split(':').map(Number)
-    const [eh, em] = addForm.value.endTime.split(':').map(Number)
-    const year = currentYear.value
-    const month = currentMonth.value
-    const day = Number(selectedDate.value.split('-')[2])
-    const startAt = new Date(year, month, day, sh, sm).toISOString()
-    const endAt = new Date(year, month, day, eh, em).toISOString()
-
-    await scheduleApi.create({
-      course_id: selectedCourseId.value,
-      teacher_id: 0,
-      start_at: startAt,
-      end_at: endAt,
-      capacity: addForm.value.capacity,
-    })
-    ElMessage.success('时段已添加')
-    showAddDialog.value = false
-    fetchSchedules()
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '添加失败')
-  } finally {
-    adding.value = false
-  }
-}
-
-async function generateBatch() {
-  if (!selectedCourseId.value || batchTimes.value.length === 0) return
-  batchGenerating.value = true
-  let created = 0
-  try {
-    const today = new Date(currentYear.value, currentMonth.value, 1)
-    for (let d = 0; d < batchWeeks.value * 7; d++) {
-      const date = new Date(today)
-      date.setDate(date.getDate() + d)
-      if (date.getDay() === 0 || date.getDay() === 6) continue
-      const dateStr = date.toISOString().slice(0, 10)
-
-      for (const startTime of batchTimes.value) {
-        const [h, m] = startTime.split(':').map(Number)
-        const [eh, em] = [(h + 1) % 24, m]
-        const startAt = new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m).toISOString()
-        const endAt = new Date(date.getFullYear(), date.getMonth(), date.getDate(), eh, em).toISOString()
-
-        try {
-          await scheduleApi.create({
-            course_id: selectedCourseId.value,
-            teacher_id: 0,
-            start_at: startAt,
-            end_at: endAt,
-            capacity: batchCapacity.value,
-          })
-          created++
-        } catch (_) {}
-      }
-    }
-    showBatchDialog.value = false
-    ElMessage.success(`已生成 ${created} 条排期`)
-    fetchSchedules()
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '批量生成失败')
-  } finally {
-    batchGenerating.value = false
-  }
 }
 
 onMounted(() => {
@@ -489,16 +365,42 @@ onMounted(() => {
     padding: 12px;
     background: #f8f9fc;
     border-radius: 10px;
+    gap: 12px;
 
     .slot-left {
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 200px;
 
       .time-text {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 600;
         color: #303133;
+      }
+    }
+
+    .slot-info {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 13px;
+
+      .course-name {
+        color: #1a1a2e;
+        font-weight: 600;
+      }
+
+      .classroom-name {
+        color: #667eea;
+        padding: 2px 6px;
+        background: #f0f2ff;
+        border-radius: 4px;
+      }
+
+      .teacher-name {
+        color: #909399;
       }
     }
 

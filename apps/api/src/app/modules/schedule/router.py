@@ -66,7 +66,7 @@ async def batch_create_schedules(
 )
 async def list_schedules(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     course_id: Optional[int] = Query(None, description="课程ID"),
     teacher_id: Optional[int] = Query(None, description="教师ID"),
     classroom_id: Optional[int] = Query(None, description="教室ID"),

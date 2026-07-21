@@ -22,7 +22,8 @@ from app.modules.schedule.schemas import (
 from app.modules.classroom.repository import ClassroomRepository
 from app.modules.user.repository import UserRepository
 from app.modules.user.models import User
-from app.modules.course.models import Classroom
+from app.modules.course.models import Classroom, Course
+from app.modules.course.repository import CourseRepository
 from app.core.exceptions import ValidationException, NotFoundException, BusinessException
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,18 @@ class ScheduleService:
         schedule = await self.repo.get_by_id(db, schedule_id)
         if not schedule:
             raise NotFoundException("排期不存在")
-        return self._to_response(schedule)
+        
+        # 获取课程、教师和教室名称
+        course_map = await self._get_course_info_map(db, [schedule.course_id])
+        teacher_map = await self._get_teacher_info_map(db, [schedule.teacher_id])
+        classroom_map = await self._get_classroom_info_map(db, [schedule.classroom_id] if schedule.classroom_id else [])
+        
+        return self._to_response(
+            schedule,
+            course_map.get(schedule.course_id),
+            teacher_map.get(schedule.teacher_id),
+            classroom_map.get(schedule.classroom_id),
+        )
 
     async def list_schedules(
         self,
@@ -232,10 +244,12 @@ class ScheduleService:
             page_size=page_size,
         )
 
-        # 获取教师和教室信息
+        # 获取课程、教师和教室信息
+        course_ids = list({s.course_id for s in items})
         teacher_ids = list({s.teacher_id for s in items})
         classroom_ids = list({s.classroom_id for s in items if s.classroom_id})
         
+        course_map = await self._get_course_info_map(db, course_ids)
         teacher_map = await self._get_teacher_info_map(db, teacher_ids)
         classroom_map = await self._get_classroom_info_map(db, classroom_ids)
 
@@ -243,8 +257,23 @@ class ScheduleService:
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(s, teacher_map.get(s.teacher_id), classroom_map.get(s.classroom_id)) for s in items],
+            items=[self._to_response(s, course_map.get(s.course_id), teacher_map.get(s.teacher_id), classroom_map.get(s.classroom_id)) for s in items],
         )
+
+    async def _get_course_info_map(self, db: AsyncSession, course_ids: List[int]) -> Dict[int, str]:
+        """批量获取课程信息映射"""
+        if not course_ids:
+            return {}
+        
+        course_repo = CourseRepository()
+        query = select(Course).where(Course.id.in_(course_ids))
+        result = await db.execute(query)
+        courses = result.scalars().all()
+        
+        return {
+            course.id: course.name
+            for course in courses
+        }
 
     async def _get_teacher_info_map(self, db: AsyncSession, teacher_ids: List[int]) -> Dict[int, str]:
         """批量获取教师信息映射"""
@@ -276,7 +305,7 @@ class ScheduleService:
             for classroom in classrooms
         }
 
-    def _to_response(self, schedule: CourseSchedule, teacher_name: Optional[str] = None, classroom_name: Optional[str] = None) -> ScheduleResponse:
+    def _to_response(self, schedule: CourseSchedule, course_name: Optional[str] = None, teacher_name: Optional[str] = None, classroom_name: Optional[str] = None) -> ScheduleResponse:
         """将 ORM 模型转换为响应对象"""
         return ScheduleResponse(
             id=schedule.id,
@@ -296,6 +325,7 @@ class ScheduleService:
             notes=schedule.notes,
             created_at=schedule.created_at,
             updated_at=schedule.updated_at,
+            course_name=course_name,
             teacher_name=teacher_name,
             classroom_name=classroom_name,
         )

@@ -37,11 +37,16 @@ class ApiClient {
     this.instance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
         const token = localStorage.getItem(TOKEN_KEY)
+        const tenantSlug = localStorage.getItem('tenantSlug')
+        
+        console.log('[API Client] Request:', config.url)
+        console.log('[API Client] Token exists:', !!token)
+        console.log('[API Client] Tenant slug:', tenantSlug)
+        
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`
         }
 
-        const tenantSlug = localStorage.getItem('tenantSlug')
         if (tenantSlug && config.headers) {
           config.headers['x-tenant-slug'] = tenantSlug
         }
@@ -145,3 +150,6 @@ export type { User, UserListParams, UserCreateParams, UserUpdateParams, UserRole
 
 export { roleApi } from './roles'
 export type { Role, Permission, RoleListParams, RoleListResponse, PermissionListResponse } from './roles'
+
+export { teacherApi } from './teachers'
+export type { TeacherInfo, TeacherUpdateParams } from './teachers'

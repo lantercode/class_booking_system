@@ -52,10 +52,10 @@
         </div>
         <div class="student-right">
           <el-tag
-            :type="student.status === 'attended' ? 'success' : student.status === 'cancelled' ? 'info' : 'warning'"
+            :type="student.status === 'attended' ? 'success' : student.status === 'completed' ? 'success' : student.status === 'cancelled' ? 'info' : 'warning'"
             size="small"
           >
-            {{ student.status === 'attended' ? '已签到' : student.status === 'cancelled' ? '已取消' : '待签到' }}
+            {{ student.status === 'attended' ? '已签到' : student.status === 'completed' ? '已完成' : student.status === 'cancelled' ? '已取消' : '待签到' }}
           </el-tag>
           <el-button
             v-if="student.status === 'confirmed'"
@@ -76,7 +76,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Collection, Clock, Location, UserFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Collection, Clock, Location, UserFilled, User } from '@element-plus/icons-vue'
 import { bookingApi, scheduleApi } from '@dance-saas/api-client'
 
 const route = useRoute()
@@ -98,6 +98,23 @@ const loading = ref(false)
 const attendedCount = computed(() => students.value.filter((s) => s.status === 'attended').length)
 const absentCount = computed(() => students.value.filter((s) => s.status === 'confirmed').length)
 
+function formatDateTime(isoStr: string) {
+  const date = new Date(isoStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}`
+}
+
+function formatTime(isoStr: string) {
+  const date = new Date(isoStr)
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 async function fetchData() {
   loading.value = true
   try {
@@ -108,19 +125,19 @@ async function fetchData() {
 
     const schedule = sRes.data
     scheduleInfo.value = {
-      courseName: `课程#${schedule.course_id}`,
-      time: `${schedule.start_at.slice(0, 16)} - ${schedule.end_at.slice(11, 16)}`,
-      classroom: schedule.classroom_id ? `教室#${schedule.classroom_id}` : '未指定',
+      courseName: schedule.course_name || `课程#${schedule.course_id}`,
+      time: `${formatDateTime(schedule.start_at)} - ${formatTime(schedule.end_at)}`,
+      classroom: schedule.classroom_name || (schedule.classroom_id ? `教室#${schedule.classroom_id}` : '未指定'),
     }
 
-    const bookings = bRes.data.items
+    const bookings = bRes.data.items.filter((b: any) => b.status !== 2)  // 过滤已取消的预约
 
     students.value = bookings.map((b) => ({
       id: b.id,
       avatar: '',
       nickname: (b as any).student_nickname || `学员#${b.student_id}`,
       phone: (b as any).student_phone || '',
-      status: b.status === 2 ? 'attended' : b.status === 4 ? 'cancelled' : 'confirmed',
+      status: b.status === 3 ? 'attended' : b.status === 4 ? 'completed' : 'confirmed',
       userId: b.student_id,
     }))
   } catch (_) {} finally {

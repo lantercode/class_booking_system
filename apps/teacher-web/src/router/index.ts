@@ -62,7 +62,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = (to.meta.title as string) || '舞蹈约课 - 教师端'
 
   if (to.meta.requiresAuth) {
@@ -70,6 +70,18 @@ router.beforeEach((to, _from, next) => {
     if (!authStore.token) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
       return
+    }
+    
+    // 如果用户已登录但用户信息为空，自动获取
+    if (!authStore.teacherInfo) {
+      try {
+        await authStore.fetchTeacherInfo()
+      } catch {
+        // 获取失败，可能Token已过期，跳转到登录
+        authStore.clearToken()
+        next({ name: 'Login', query: { redirect: to.fullPath } })
+        return
+      }
     }
   }
 

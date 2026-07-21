@@ -40,18 +40,21 @@ async def create_booking(
     "",
     response_model=dict,
     summary="获取预约列表",
-    description="分页获取当前登录用户的预约列表（支持多条件筛选）",
+    description="分页获取预约列表（支持多条件筛选）",
 )
 async def list_bookings(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     schedule_id: Optional[int] = Query(None, description="排期ID"),
     status: Optional[int] = Query(None, ge=1, le=5, description="状态筛选"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    # 自动设置当前用户为查询条件，确保学员只能看到自己的预约
-    student_id = current_user.get("user_id")
+    # 根据查询条件决定查询范围
+    # 1. 如果指定了schedule_id（教师查看排期学员列表），不过滤学员
+    # 2. 如果没有指定schedule_id（学员查看自己的预约），只返回当前用户的预约
+    student_id = current_user.get("user_id") if not schedule_id else None
+    
     result = await booking_service.list_bookings(
         db,
         schedule_id=schedule_id,

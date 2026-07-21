@@ -42,7 +42,7 @@ async def create_course(
 )
 async def list_courses(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     keyword: str = Query(None, description="搜索关键词"),
     category: str = Query(None, description="分类筛选"),
     level: str = Query(None, description="等级筛选"),

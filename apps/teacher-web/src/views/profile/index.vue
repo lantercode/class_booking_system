@@ -21,7 +21,6 @@
           <span class="nickname">{{ authStore.teacherInfo?.nickname || '教师' }}</span>
           <span class="phone">{{ authStore.teacherInfo?.phone || '' }}</span>
         </div>
-        <el-icon class="edit-icon" :size="18"><Edit /></el-icon>
       </div>
 
       <div class="stats-row">
@@ -31,14 +30,6 @@
           </div>
           <span class="stat-value">{{ totalCourses }}</span>
           <span class="stat-label">课程数</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <div class="stat-icon">
-            <el-icon :size="18"><UserFilled /></el-icon>
-          </div>
-          <span class="stat-value">{{ totalStudents }}</span>
-          <span class="stat-label">学员数</span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
@@ -92,18 +83,31 @@ import { reactive, ref, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { ArrowLeft, UserFilled, Edit, Collection, Calendar, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { courseApi, scheduleApi } from '@dance-saas/api-client'
+import { courseApi, scheduleApi, teacherApi } from '@dance-saas/api-client'
 
 const authStore = useAuthStore()
 
 const profileForm = reactive({
-  nickname: authStore.teacherInfo?.nickname || '',
-  intro: authStore.teacherInfo?.intro || '',
+  nickname: '',
+  intro: '',
 })
 
 const totalCourses = ref(0)
-const totalStudents = ref(0)
 const totalSchedules = ref(0)
+
+async function fetchTeacherInfo() {
+  try {
+    const res = await teacherApi.getInfo()
+    profileForm.nickname = res.data.nickname || ''
+    profileForm.intro = res.data.intro || ''
+    // 更新store中的教师信息
+    authStore.teacherInfo = {
+      ...authStore.teacherInfo,
+      nickname: res.data.nickname,
+      intro: res.data.intro,
+    }
+  } catch (_) {}
+}
 
 async function fetchStats() {
   try {
@@ -117,11 +121,26 @@ async function fetchStats() {
 }
 
 onMounted(() => {
+  fetchTeacherInfo()
   fetchStats()
 })
 
-function handleSave() {
-  ElMessage.success('保存成功')
+async function handleSave() {
+  try {
+    const res = await teacherApi.updateInfo({
+      nickname: profileForm.nickname,
+      intro: profileForm.intro,
+    })
+    // 更新store中的教师信息
+    authStore.teacherInfo = {
+      ...authStore.teacherInfo,
+      nickname: res.data.nickname,
+      intro: res.data.intro,
+    }
+    ElMessage.success('保存成功')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '保存失败')
+  }
 }
 
 async function handleLogout() {

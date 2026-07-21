@@ -14,6 +14,7 @@ from app.modules.course.router import router as course_router  # ⭐ 新增：�
 from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
 from app.modules.schedule.router import router as schedule_router  # ⭐ 新增：排期路由
 from app.modules.booking.router import router as booking_router  # ⭐ 新增：预约路由
+from app.modules.teacher.router import router as teacher_router  # ⭐ 新增：教师路由
 
 from app.middleware.error_handler import dance_saas_exception_handler
 from app.core.exceptions import DanceSaasException
@@ -93,3 +94,4 @@ app.include_router(course_router, prefix=API_V1_PREFIX)  # ⭐ 课程路由（T0
 app.include_router(classroom_router, prefix=API_V1_PREFIX)  # ⭐ 教室路由
 app.include_router(schedule_router, prefix=API_V1_PREFIX)  # ⭐ 排期路由
 app.include_router(booking_router, prefix=API_V1_PREFIX)  # ⭐ 预约路由
+app.include_router(teacher_router, prefix=API_V1_PREFIX)  # ⭐ 教师路由

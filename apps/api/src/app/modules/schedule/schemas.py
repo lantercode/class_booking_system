@@ -59,6 +59,7 @@ class ScheduleResponse(BaseModel):
     updated_at: datetime
     
     teacher_name: Optional[str] = None
+    course_name: Optional[str] = None
     classroom_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -68,5 +69,5 @@ class ScheduleListResponse(BaseModel):
     """排期列表分页响应"""
     total: int = Field(..., description="总数")
     page: int = Field(..., ge=1, description="当前页码")
-    page_size: int = Field(..., ge=1, le=100, description="每页数量")
+    page_size: int = Field(..., ge=1, le=500, description="每页数量")
     items: list[ScheduleResponse]

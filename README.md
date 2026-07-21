@@ -90,6 +90,13 @@ class_booking_system/
 | 我的预约 | 查看预约记录、取消预约 |
 | 个人中心 | 查看/编辑个人信息、退出登录 |
 
+### 教师端功能
+| 功能 | 说明 |
+|------|------|
+| 课表查看 | 按日期查看自己的排期课表 |
+| 学员列表 | 查看预约学员、签到管理 |
+| 个人中心 | 查看/编辑教师档案、退出登录 |
+
 ### 管理后台功能
 | 功能 | 说明 |
 |------|------|
@@ -328,9 +335,28 @@ packages/api-client/src/           # API 客户端（扩展）
 - ✅ 自动时间戳管理
 - ✅ 软删除支持
 - ✅ 审计日志追踪
-- ✅ 测试事务自动回滚
 
-###---
+---
+
+## 近期修复（2026-07）
+
+| 问题 | 描述 | 修复位置 |
+|------|------|----------|
+| 签到状态复原 | 教师签到后刷新页面状态复原 | `teacher-web/src/views/students/index.vue` |
+| 已取消学员展示 | 已取消的学员仍显示在列表中 | `teacher-web/src/views/students/index.vue` |
+| 时间格式化 | 时间显示格式优化为年月日时分 | `teacher-web/src/views/students/index.vue` |
+| 教师档案编辑 | 修改后刷新页面复原 | `teacher-web/src/views/profile/index.vue` |
+| 学员数统计 | 未获取到数据，已隐藏 | `teacher-web/src/views/profile/index.vue` |
+| API 500错误 | page_size参数验证失败 | `course/schemas.py`, `course/router.py` |
+| tenant_id空值 | 创建教师档案时违反非空约束 | `teacher/service.py` |
+| 导入路径错误 | api-client导入路径错误 | `packages/api-client/src/teachers.ts` |
+| avatar字段错误 | User模型字段名错误 | `teacher/service.py` |
+
+---
+
+## License
+
+MIT License
 
 ## T03 详细内容（2026-06-29）✨ 新增
 

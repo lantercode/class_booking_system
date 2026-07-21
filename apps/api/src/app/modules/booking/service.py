@@ -187,7 +187,7 @@ class BookingService:
             raise BusinessException("当前预约状态无法签到", code=400)
 
         booking.status = BookingStatus.CHECKED_IN.value
-        booking.checked_in_at = datetime.utcnow()
+        booking.checked_in_at = datetime.now(timezone.utc)
 
         await db.commit()
         await db.refresh(booking)
