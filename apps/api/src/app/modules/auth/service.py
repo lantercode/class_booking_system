@@ -30,6 +30,52 @@ settings = get_settings()
 class AuthService:
     """认证服务 - 业务逻辑层"""
     @staticmethod
+    async def update_current_user_profile(
+        session: AsyncSession,
+        user_id: int,
+        data: dict,
+    ) -> UserResponse:
+        """
+        更新当前登录用户的个人信息（学员端）
+        
+        限制：只能修改 nickname 和 avatar_url，不能修改敏感字段
+        
+        Args:
+            session: 数据库会话
+            user_id: 用户 ID
+            data: 更新数据（只允许 nickname, avatar_url）
+        
+        Returns:
+            更新后的用户信息
+            
+        Raises:
+            AuthException: 用户不存在
+        """
+        user = await AuthRepository.get_user_by_id(session, user_id)
+        if not user:
+            raise AuthException("用户不存在")
+        
+        # 只允许修改的字段
+        allowed_fields = ["nickname", "avatar_url"]
+        update_data = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
+        
+        if not update_data:
+            raise ValidationException("没有可更新的字段")
+        
+        await AuthRepository.update_user(session, user, update_data)
+        await session.commit()
+        await session.refresh(user)
+        
+        return UserResponse(
+            id=user.id,
+            phone=user.phone,
+            nickname=user.nickname or "",
+            avatar=user.avatar_url,
+            status=user.status,
+            created_at=user.created_at,
+        )
+
+    @staticmethod
     async def get_current_user_profile(
         session: AsyncSession,
         user_id: int,

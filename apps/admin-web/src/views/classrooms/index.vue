@@ -21,10 +21,6 @@
             </el-tag>
           </div>
           <div class="room-info">
-            <div class="info-item">
-              <el-icon><User /></el-icon>
-              <span>容纳 {{ room.capacity }} 人</span>
-            </div>
             <div class="info-item" v-if="room.equipment?.length">
               <el-icon><Setting /></el-icon>
               <el-tooltip :content="room.equipment.join('、')" placement="top" :disabled="room.equipment.join('、').length <= 15">
@@ -60,9 +56,6 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="教室名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入教室名称" />
-        </el-form-item>
-        <el-form-item label="容量" prop="capacity">
-          <el-input-number v-model="form.capacity" :min="1" :max="200" style="width:100%" />
         </el-form-item>
         <el-form-item label="设备">
           <el-select
@@ -109,13 +102,11 @@ const formRef = ref()
 
 const form = ref<ClassroomCreateParams>({
   name: '',
-  capacity: 20,
   equipment: [],
 })
 
 const rules = {
   name: [{ required: true, message: '请输入教室名称', trigger: 'blur' }],
-  capacity: [{ required: true, message: '请输入容量', trigger: 'blur' }],
 }
 
 async function fetchClassrooms() {
@@ -140,7 +131,7 @@ function onSearch() {
 function openCreateDialog() {
   isEdit.value = false
   editingId.value = null
-  form.value = { name: '', capacity: 20, equipment: [] }
+  form.value = { name: '', equipment: [] }
   dialogVisible.value = true
 }
 
@@ -149,7 +140,6 @@ function openEditDialog(row: Classroom) {
   editingId.value = row.id
   form.value = {
     name: row.name,
-    capacity: row.capacity,
     equipment: row.equipment || [],
   }
   dialogVisible.value = true

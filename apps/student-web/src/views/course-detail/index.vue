@@ -42,25 +42,14 @@
             <el-icon><Money /></el-icon>
             <span class="price">¥{{ course.price }}</span>
           </div>
-          <div class="info-item">
-            <el-icon><Location /></el-icon>
-            <span>{{ course.classroom }}</span>
-          </div>
-          <div class="info-item">
-            <el-icon><Tickets /></el-icon>
-            <span>{{ course.capacity }} 人/班</span>
-          </div>
         </div>
       </div>
 
-      <div class="teacher-section">
-        <h3>授课教师</h3>
-        <div class="teacher-card">
-          <el-avatar :size="56" :src="course.teacher.avatar" />
-          <div class="teacher-info">
-            <span class="teacher-name">{{ course.teacher.name }}</span>
-            <span class="teacher-intro">{{ course.teacher.intro }}</span>
-          </div>
+      <div class="category-section" v-if="course.category || course.level">
+        <h3>课程信息</h3>
+        <div class="category-tags">
+          <el-tag v-if="course.category" type="primary" effect="plain">{{ course.category }}</el-tag>
+          <el-tag v-if="course.level" type="success" effect="plain">{{ course.level }}</el-tag>
         </div>
       </div>
 
@@ -95,7 +84,6 @@ import {
   Clock,
   DataLine,
   Money,
-  Location,
   Tickets,
 } from '@element-plus/icons-vue'
 import { courseApi, type Course } from '@dance-saas/api-client'
@@ -108,13 +96,13 @@ interface CourseView {
   name: string
   cover: string
   description: string
-  teacher: { name: string; avatar: string; intro: string }
+  category: string
+  level: string
   difficulty: string
   duration: number
   price: number
   capacity: number
   status: number
-  classroom: string
   tags: string[]
 }
 
@@ -152,13 +140,13 @@ onMounted(async () => {
       name: c.name,
       cover: c.cover_url || COVER_PLACEHOLDER,
       description: c.description || '',
-      teacher: { name: '授课教师', avatar: '', intro: '' },
+      category: c.category || '',
+      level: c.level || '',
       difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
       duration: c.duration_minutes,
       price: c.price,
       capacity: c.max_capacity,
       status: c.status,
-      classroom: '舞蹈教室',
       tags: [c.category, c.level].filter(Boolean) as string[],
     }
   } catch {
@@ -259,7 +247,7 @@ function goToSchedule() {
   }
 }
 
-.teacher-section {
+.category-section {
   background: #fff;
   margin: 0 16px 16px;
   border-radius: 12px;
@@ -269,31 +257,12 @@ function goToSchedule() {
     font-size: 16px;
     font-weight: 600;
     color: #303133;
-    margin: 0 0 16px;
+    margin: 0 0 12px;
   }
 
-  .teacher-card {
+  .category-tags {
     display: flex;
-    align-items: center;
-    gap: 16px;
-
-    .teacher-info {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-
-      .teacher-name {
-        font-size: 15px;
-        font-weight: 600;
-        color: #303133;
-      }
-
-      .teacher-intro {
-        font-size: 13px;
-        color: #909399;
-        line-height: 1.5;
-      }
-    }
+    gap: 8px;
   }
 }
 

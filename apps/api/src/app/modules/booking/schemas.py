@@ -38,6 +38,9 @@ class BookingResponse(BaseModel):
     checked_in_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    
+    student_nickname: Optional[str] = None
+    student_phone: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

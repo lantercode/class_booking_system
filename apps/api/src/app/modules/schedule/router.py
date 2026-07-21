@@ -11,6 +11,8 @@ from app.core.database import get_session
 from app.deps.auth import get_current_user
 from app.core.rbac import require_permissions
 
+from typing import List
+
 from app.modules.schedule.schemas import ScheduleCreate, ScheduleUpdate
 from app.modules.schedule.service import ScheduleService
 
@@ -35,6 +37,25 @@ async def create_schedule(
         db, data, operator_id=current_user.get("user_id"),
     )
     return success(data=result, msg="排期创建成功")
+
+
+@router.post(
+    "/batch",
+    response_model=dict,
+    status_code=201,
+    summary="批量创建排期",
+    description="批量创建排期（需 schedule:create 权限），自动校验时间冲突",
+)
+@require_permissions("schedule:create")
+async def batch_create_schedules(
+    items: List[ScheduleCreate] = Body(..., description="排期列表"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    result = await schedule_service.batch_create_schedules(
+        db, items, operator_id=current_user.get("user_id"),
+    )
+    return success(data=result, msg=f"成功创建 {len(result)} 个排期")
 
 
 @router.get(

@@ -9,8 +9,9 @@ from enum import Enum
 
 
 class ScheduleStatus(Enum):
-    CANCELLED = 2
+    DISABLED = 0
     NORMAL = 1
+    CANCELLED = 2
     FINISHED = 3
 
 

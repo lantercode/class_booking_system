@@ -19,7 +19,7 @@
     </div>
 
     <el-table :data="users" stripe v-loading="loading" style="width:100%">
-      <el-table-column prop="id" label="ID" width="60" />
+      <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="nickname" label="昵称">
         <template #default="{ row }">{{ row.nickname || '-' }}</template>
       </el-table-column>

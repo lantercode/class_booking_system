@@ -40,17 +40,18 @@ async def create_booking(
     "",
     response_model=dict,
     summary="获取预约列表",
-    description="分页获取预约列表（支持多条件筛选）",
+    description="分页获取当前登录用户的预约列表（支持多条件筛选）",
 )
 async def list_bookings(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     schedule_id: Optional[int] = Query(None, description="排期ID"),
-    student_id: Optional[int] = Query(None, description="学员ID"),
     status: Optional[int] = Query(None, ge=1, le=5, description="状态筛选"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    # 自动设置当前用户为查询条件，确保学员只能看到自己的预约
+    student_id = current_user.get("user_id")
     result = await booking_service.list_bookings(
         db,
         schedule_id=schedule_id,
@@ -91,6 +92,25 @@ async def cancel_booking(
     student_id = current_user.get("user_id")
     result = await booking_service.cancel_booking(
         db, booking_id, student_id=student_id, reason=reason or None,
+    )
+    return success(data=result, msg="预约已取消")
+
+
+@router.post(
+    "/cancel",
+    response_model=dict,
+    summary="取消预约（学员端）",
+    description="学员通过排期ID取消自己的预约",
+)
+async def cancel_booking_by_schedule(
+    schedule_id: int = Body(..., description="排期ID"),
+    reason: Optional[str] = Body(None, description="取消原因"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    student_id = current_user.get("user_id")
+    result = await booking_service.cancel_booking_by_schedule(
+        db, schedule_id, student_id=student_id, reason=reason,
     )
     return success(data=result, msg="预约已取消")
 

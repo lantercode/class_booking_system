@@ -15,6 +15,8 @@ export interface Booking {
   checked_in_at: string | null
   created_at: string
   updated_at: string
+  student_nickname?: string | null
+  student_phone?: string | null
 }
 
 export interface BookingListParams {
@@ -51,10 +53,8 @@ export const bookingApi = {
     return apiClient.post<Booking>('/bookings', data)
   },
 
-  cancel(id: number, reason?: string) {
-    return apiClient.post<Booking>(`/bookings/${id}/cancel`, null, {
-      params: reason ? { reason } : undefined,
-    })
+  cancel(scheduleId: number, data?: { reason?: string }) {
+    return apiClient.post<Booking>(`/bookings/cancel`, { schedule_id: scheduleId, reason: data?.reason })
   },
 
   checkIn(id: number) {

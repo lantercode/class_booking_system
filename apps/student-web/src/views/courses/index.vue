@@ -88,23 +88,15 @@
           </div>
           <div class="card-body">
             <div class="card-tags">
-              <span v-for="tag in course.tags.slice(0, 3)" :key="tag" class="tag-chip">
-                {{ tag }}
-              </span>
+              <span v-if="course.category" class="tag-chip">{{ course.category }}</span>
+              <span v-if="course.level" class="tag-chip">{{ course.level }}</span>
             </div>
             <h3 class="card-title">{{ course.name }}</h3>
+            <p class="card-desc">{{ course.description?.slice(0, 40) || '暂无简介' }}</p>
             <div class="card-meta">
-              <div class="meta-item">
-                <el-icon><User /></el-icon>
-                <span>{{ course.teacher.name }}</span>
-              </div>
               <div class="meta-item">
                 <el-icon><Clock /></el-icon>
                 <span>{{ course.duration }}分钟</span>
-              </div>
-              <div class="meta-item">
-                <el-icon><Location /></el-icon>
-                <span>{{ course.classroom }}</span>
               </div>
             </div>
             <div class="card-footer">
@@ -112,10 +104,6 @@
                 <span class="price-symbol">¥</span>
                 <span class="price-value">{{ course.price }}</span>
                 <span class="price-unit">/节</span>
-              </div>
-              <div class="capacity-info">
-                <el-icon><Tickets /></el-icon>
-                <span>{{ course.capacity }}人</span>
               </div>
             </div>
           </div>
@@ -134,8 +122,6 @@ import {
   ArrowDown,
   SwitchButton,
   Clock,
-  User,
-  Location,
   Tickets,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -149,14 +135,13 @@ interface CourseView {
   name: string
   cover: string
   description: string
-  teacher: { name: string; avatar: string; intro: string }
+  category: string
+  level: string
   difficulty: string
   duration: number
   price: number
   capacity: number
   status: number
-  classroom: string
-  tags: string[]
 }
 
 const COVER_PLACEHOLDER = 'https://picsum.photos/seed/dance/400/240'
@@ -173,14 +158,13 @@ function mapCourse(c: Course): CourseView {
     name: c.name,
     cover: c.cover_url || COVER_PLACEHOLDER,
     description: c.description || '',
-    teacher: { name: '授课教师', avatar: '', intro: '' },
+    category: c.category || '',
+    level: c.level || '',
     difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
     duration: c.duration_minutes,
     price: c.price,
     capacity: c.max_capacity,
     status: c.status,
-    classroom: '舞蹈教室',
-    tags: [c.category, c.level].filter(Boolean) as string[],
   }
 }
 
@@ -560,9 +544,19 @@ onMounted(() => {
     font-size: 18px;
     font-weight: 700;
     color: #1a1a2e;
-    margin: 0 0 12px;
+    margin: 0 0 8px;
     line-height: 1.3;
     letter-spacing: -0.3px;
+  }
+
+  .card-desc {
+    font-size: 13px;
+    color: #909399;
+    margin: 0 0 12px;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .card-meta {

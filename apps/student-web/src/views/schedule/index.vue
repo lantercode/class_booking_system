@@ -55,12 +55,15 @@
           v-for="slot in todaySlots"
           :key="slot.id"
           class="slot-card"
-          :class="{ 'is-full': slot.status === 0 }"
+          :class="{ 
+            'is-full': slot.scheduleStatus === 0,
+            'is-booked': slot.bookingStatus === 1 
+          }"
         >
           <div class="slot-time">
             <span class="time-range">{{ slot.startTime }} - {{ slot.endTime }}</span>
-            <el-tag :type="slot.status === 1 ? 'success' : 'danger'" size="small">
-              {{ slot.status === 1 ? '可预约' : '已满' }}
+            <el-tag :type="getStatusType(slot)" size="small">
+              {{ getStatusText(slot) }}
             </el-tag>
           </div>
           <div class="slot-info">
@@ -72,13 +75,55 @@
             </span>
           </div>
           <div class="slot-action">
-            <el-button
-              type="primary"
-              :disabled="slot.status !== 1"
-              @click="handleBooking(slot)"
-            >
-              {{ slot.status === 1 ? '立即预约' : '已满' }}
-            </el-button>
+            <template v-if="isSlotExpired(slot)">
+              <el-button
+                type="info"
+                disabled
+              >
+                已结束
+              </el-button>
+            </template>
+            <template v-else-if="slot.bookingStatus === BookingStatus.CHECKED_IN">
+              <el-button
+                type="success"
+                disabled
+              >
+                已签到
+              </el-button>
+            </template>
+            <template v-else-if="slot.bookingStatus === BookingStatus.COMPLETED">
+              <el-button
+                type="success"
+                disabled
+              >
+                已结束
+              </el-button>
+            </template>
+            <template v-else-if="slot.bookingStatus === BookingStatus.BOOKED">
+              <el-button
+                type="warning"
+                :disabled="!canCancelBooking(slot)"
+                @click="handleCancelBooking(slot)"
+              >
+                {{ canCancelBooking(slot) ? '取消预约' : '开课前90分钟内不可取消' }}
+              </el-button>
+            </template>
+            <template v-else-if="slot.scheduleStatus === 0">
+              <el-button
+                type="primary"
+                disabled
+              >
+                已满员
+              </el-button>
+            </template>
+            <template v-else>
+              <el-button
+                type="primary"
+                @click="handleBooking(slot)"
+              >
+                立即预约
+              </el-button>
+            </template>
           </div>
         </div>
       </div>
@@ -107,6 +152,40 @@
       <template #footer>
         <el-button @click="confirmVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmBooking" :loading="bookingLoading">确认预约</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="cancelVisible"
+      title="取消预约"
+      width="360px"
+      :close-on-click-modal="false"
+    >
+      <div class="cancel-content" v-if="selectedSlot">
+        <p>确定要取消以下预约吗？</p>
+        <div class="cancel-item">
+          <span class="label">时间</span>
+          <span class="value">{{ selectedSlot.startTime }} - {{ selectedSlot.endTime }}</span>
+        </div>
+        <div class="cancel-item">
+          <span class="label">教师</span>
+          <span class="value">{{ selectedSlot.teacherName }}</span>
+        </div>
+        <div class="cancel-item">
+          <span class="label">教室</span>
+          <span class="value">{{ selectedSlot.classroom }}</span>
+        </div>
+        <el-input
+          v-model="cancelReason"
+          type="textarea"
+          :rows="3"
+          placeholder="请输入取消原因（可选）"
+          class="mt-4"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="cancelVisible = false">取消</el-button>
+        <el-button type="danger" @click="confirmCancelBooking" :loading="bookingLoading">确认取消</el-button>
       </template>
     </el-dialog>
   </div>
@@ -138,11 +217,13 @@ interface SlotView {
   scheduleId: number
   startTime: string
   endTime: string
+  startAt: string
   teacherName: string
   classroom: string
   booked: number
   capacity: number
-  status: number
+  scheduleStatus: number
+  bookingStatus: number | null
 }
 
 interface CalendarDate {
@@ -156,8 +237,12 @@ interface CalendarDate {
 const currentDate = ref(new Date())
 const selectedDate = ref('')
 const allSchedules = ref<Schedule[]>([])
+const myBookings = ref<Record<number, number>>({})
+
 const confirmVisible = ref(false)
 const selectedSlot = ref<SlotView | null>(null)
+const cancelVisible = ref(false)
+const cancelReason = ref('')
 
 const todayStr = new Date().toISOString().slice(0, 10)
 
@@ -176,8 +261,17 @@ async function fetchCourse() {
 async function fetchSchedules() {
   loading.value = true
   try {
-    const res = await scheduleApi.list({ course_id: courseId, page_size: 200, status: 1 })
-    allSchedules.value = res.data.items
+    const [scheduleRes, bookingRes] = await Promise.all([
+      scheduleApi.list({ course_id: courseId, page_size: 100, status: 1 }),
+      bookingApi.list({ page_size: 100 })
+    ])
+    allSchedules.value = scheduleRes.data.items
+    
+    const bookings: Record<number, number> = {}
+    for (const booking of bookingRes.data.items) {
+      bookings[booking.schedule_id] = booking.status
+    }
+    myBookings.value = bookings
   } catch (_) {} finally {
     loading.value = false
   }
@@ -237,17 +331,24 @@ const todaySlots = computed(() => {
   if (!selectedDate.value) return []
   return allSchedules.value
     .filter((s) => s.start_at.slice(0, 10) === selectedDate.value)
-    .map((s): SlotView => ({
-      id: s.id,
-      scheduleId: s.id,
-      startTime: new Date(s.start_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      endTime: new Date(s.end_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
-      teacherName: `教师#${s.teacher_id}`,
-      classroom: s.classroom_id ? `教室#${s.classroom_id}` : '未指定',
-      booked: s.booked_count,
-      capacity: s.capacity,
-      status: s.booked_count >= s.capacity ? 0 : 1,
-    }))
+    .map((s): SlotView => {
+      const scheduleStatus = s.booked_count >= s.capacity ? 0 : 1
+      const bookingStatus = myBookings.value[s.id] ?? null
+      
+      return {
+        id: s.id,
+        scheduleId: s.id,
+        startTime: new Date(s.start_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        endTime: new Date(s.end_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+        startAt: s.start_at,
+        teacherName: (s as any).teacher_name || `教师#${s.teacher_id}`,
+        classroom: (s as any).classroom_name || (s.classroom_id ? `教室#${s.classroom_id}` : '未指定'),
+        booked: s.booked_count,
+        capacity: s.capacity,
+        scheduleStatus,
+        bookingStatus,
+      }
+    })
 })
 
 function selectDate(date: CalendarDate) {
@@ -267,22 +368,101 @@ function nextMonth() {
   currentDate.value = d
 }
 
+const BookingStatus = {
+  BOOKED: 1,
+  CANCELLED: 2,
+  CHECKED_IN: 3,
+  COMPLETED: 4,
+}
+
+function isSlotExpired(slot: SlotView): boolean {
+  if (!slot.startAt) return false
+  const startTime = new Date(slot.startAt).getTime()
+  return startTime < Date.now()
+}
+
+function canCancelBooking(slot: SlotView): boolean {
+  if (!slot.startAt) return false
+  const startTime = new Date(slot.startAt).getTime()
+  const now = Date.now()
+  const minutesBefore = (startTime - now) / (1000 * 60)
+  return minutesBefore > 90
+}
+
+function getStatusType(slot: SlotView): string {
+  if (isSlotExpired(slot)) return 'info'
+  if (slot.scheduleStatus === 0) return 'danger'
+  if (slot.bookingStatus === BookingStatus.CHECKED_IN || slot.bookingStatus === BookingStatus.COMPLETED) return 'success'
+  if (slot.bookingStatus === BookingStatus.BOOKED) return 'warning'
+  return 'success'
+}
+
+function getStatusText(slot: SlotView): string {
+  if (isSlotExpired(slot)) return '已结束'
+  if (slot.scheduleStatus === 0) return '已满'
+  if (slot.bookingStatus === BookingStatus.CHECKED_IN) return '已签到'
+  if (slot.bookingStatus === BookingStatus.COMPLETED) return '已完成'
+  if (slot.bookingStatus === BookingStatus.BOOKED) return '已预约'
+  return '可预约'
+}
+
 function handleBooking(slot: SlotView) {
   selectedSlot.value = slot
   confirmVisible.value = true
+}
+
+function handleCancelBooking(slot: SlotView) {
+  selectedSlot.value = slot
+  cancelReason.value = ''
+  cancelVisible.value = true
 }
 
 async function confirmBooking() {
   if (!selectedSlot.value) return
   bookingLoading.value = true
   try {
-    await bookingApi.create({ schedule_id: selectedSlot.value.scheduleId })
+    const res = await bookingApi.create({ schedule_id: selectedSlot.value.scheduleId })
     ElMessage.success('预约成功')
+    
+    const scheduleId = selectedSlot.value.scheduleId
+    
+    myBookings.value[scheduleId] = res.data.status
+    
+    const schedule = allSchedules.value.find(s => s.id === scheduleId)
+    if (schedule) {
+      schedule.booked_count = Math.min(schedule.capacity, schedule.booked_count + 1)
+    }
+    
     confirmVisible.value = false
     selectedSlot.value = null
-    fetchSchedules()
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || '预约失败')
+  } finally {
+    bookingLoading.value = false
+  }
+}
+
+async function confirmCancelBooking() {
+  if (!selectedSlot.value) return
+  bookingLoading.value = true
+  try {
+    await bookingApi.cancel(selectedSlot.value.scheduleId, { reason: cancelReason.value })
+    ElMessage.success('取消成功')
+    
+    const scheduleId = selectedSlot.value.scheduleId
+    
+    delete myBookings.value[scheduleId]
+    
+    const schedule = allSchedules.value.find(s => s.id === scheduleId)
+    if (schedule) {
+      schedule.booked_count = Math.max(0, schedule.booked_count - 1)
+    }
+    
+    cancelVisible.value = false
+    selectedSlot.value = null
+    cancelReason.value = ''
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '取消失败')
   } finally {
     bookingLoading.value = false
   }

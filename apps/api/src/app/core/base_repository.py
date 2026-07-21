@@ -448,10 +448,11 @@ class TenantAwareRepository(BaseRepository[ModelType]):
         tenant_id = await self._get_tenant_id()
         if isinstance(data, dict):
             data['tenant_id'] = tenant_id
+            return await super().create(db, data, **kwargs)
         elif isinstance(data, BaseModel):
             obj_dict = data.model_dump()
             obj_dict['tenant_id'] = tenant_id
-            data = type(data)(**obj_dict)
+            return await super().create(db, obj_dict, **kwargs)
         return await super().create(db, data, **kwargs)
 
     async def get_paginated(self, db: AsyncSession, **kwargs) -> Tuple[List[ModelType], int]:

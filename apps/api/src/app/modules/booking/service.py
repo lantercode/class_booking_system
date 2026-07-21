@@ -10,15 +10,18 @@ Booking Service - 预约业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Optional, Dict, Any, List, Tuple
+from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.booking.repository import BookingRepository
 from app.modules.schedule.repository import ScheduleRepository
+from app.modules.user.repository import UserRepository
 from app.modules.booking.models import Booking, BookingStatus, BookingSource
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
+from app.modules.user.models import User
 from app.modules.booking.schemas import (
     BookingCreate,
     BookingUpdate,
@@ -115,6 +118,31 @@ class BookingService:
         if booking.student_id != student_id:
             raise PermissionException("只能取消自己的预约")
 
+        return await self._do_cancel_booking(db, booking, reason)
+
+    async def cancel_booking_by_schedule(
+        self,
+        db: AsyncSession,
+        schedule_id: int,
+        student_id: int,
+        reason: Optional[str] = None,
+    ) -> BookingResponse:
+        """通过排期ID取消预约（学员端）"""
+        logger.warning(f"[BookingService] 通过排期ID取消预约: schedule_id={schedule_id}, student_id={student_id}")
+
+        booking = await self.repo.find_by_schedule_and_student(db, schedule_id, student_id)
+        if not booking:
+            raise NotFoundException("预约不存在")
+
+        return await self._do_cancel_booking(db, booking, reason)
+
+    async def _do_cancel_booking(
+        self,
+        db: AsyncSession,
+        booking: Booking,
+        reason: Optional[str] = None,
+    ) -> BookingResponse:
+        """执行取消预约操作"""
         if booking.status == BookingStatus.CANCELLED.value:
             raise BusinessException("预约已取消", code=400)
 
@@ -122,12 +150,16 @@ class BookingService:
             raise BusinessException("已签到/已完成的预约无法取消", code=400)
 
         schedule = await self.schedule_repo.get_by_id(db, booking.schedule_id)
-        if schedule and schedule.cancel_deadline:
-            if datetime.utcnow() > schedule.cancel_deadline:
+        if schedule:
+            if schedule.cancel_deadline and datetime.now(timezone.utc) > schedule.cancel_deadline:
                 raise BusinessException("已超过取消截止时间", code=400)
+            
+            time_diff = schedule.start_at - datetime.now(timezone.utc)
+            if time_diff.total_seconds() < 90 * 60:
+                raise BusinessException("开课前90分钟内不可取消预约", code=400)
 
         booking.status = BookingStatus.CANCELLED.value
-        booking.cancelled_at = datetime.utcnow()
+        booking.cancelled_at = datetime.now(timezone.utc)
         if reason:
             booking.cancelled_reason = reason
 
@@ -136,7 +168,7 @@ class BookingService:
         await db.commit()
         await db.refresh(booking)
 
-        logger.warning(f"[BookingService] ✅ 预约已取消: id={booking_id}")
+        logger.warning(f"[BookingService] ✅ 预约已取消: id={booking.id}")
         return self._to_response(booking)
 
     async def check_in_booking(
@@ -217,15 +249,35 @@ class BookingService:
             page_size=page_size,
         )
 
+        # 获取所有学员ID并批量查询学员信息
+        student_ids = list({b.student_id for b in items})
+        student_map = await self._get_student_info_map(db, student_ids)
+
         return BookingListResponse(
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(b) for b in items],
+            items=[self._to_response(b, student_map.get(b.student_id)) for b in items],
         )
 
-    def _to_response(self, booking: Booking) -> BookingResponse:
+    async def _get_student_info_map(self, db: AsyncSession, student_ids: List[int]) -> Dict[int, Tuple[str, str]]:
+        """批量获取学员信息映射"""
+        if not student_ids:
+            return {}
+        
+        user_repo = UserRepository()
+        query = select(User).where(User.id.in_(student_ids))
+        result = await db.execute(query)
+        users = result.scalars().all()
+        
+        return {
+            user.id: (user.nickname, user.phone)
+            for user in users
+        }
+
+    def _to_response(self, booking: Booking, student_info: Optional[Tuple[str, str]] = None) -> BookingResponse:
         """将 ORM 模型转换为响应对象"""
+        nickname, phone = student_info if student_info else (None, None)
         return BookingResponse(
             id=booking.id,
             public_id=str(booking.public_id),
@@ -241,4 +293,6 @@ class BookingService:
             checked_in_at=booking.checked_in_at,
             created_at=booking.created_at,
             updated_at=booking.updated_at,
+            student_nickname=nickname,
+            student_phone=phone,
         )

@@ -5,9 +5,10 @@ Schedule Service - 排期业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.schedule.repository import ScheduleRepository
@@ -19,6 +20,9 @@ from app.modules.schedule.schemas import (
     ScheduleListResponse,
 )
 from app.modules.classroom.repository import ClassroomRepository
+from app.modules.user.repository import UserRepository
+from app.modules.user.models import User
+from app.modules.course.models import Classroom
 from app.core.exceptions import ValidationException, NotFoundException, BusinessException
 
 logger = logging.getLogger(__name__)
@@ -228,14 +232,51 @@ class ScheduleService:
             page_size=page_size,
         )
 
+        # 获取教师和教室信息
+        teacher_ids = list({s.teacher_id for s in items})
+        classroom_ids = list({s.classroom_id for s in items if s.classroom_id})
+        
+        teacher_map = await self._get_teacher_info_map(db, teacher_ids)
+        classroom_map = await self._get_classroom_info_map(db, classroom_ids)
+
         return ScheduleListResponse(
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(s) for s in items],
+            items=[self._to_response(s, teacher_map.get(s.teacher_id), classroom_map.get(s.classroom_id)) for s in items],
         )
 
-    def _to_response(self, schedule: CourseSchedule) -> ScheduleResponse:
+    async def _get_teacher_info_map(self, db: AsyncSession, teacher_ids: List[int]) -> Dict[int, str]:
+        """批量获取教师信息映射"""
+        if not teacher_ids:
+            return {}
+        
+        user_repo = UserRepository()
+        query = select(User).where(User.id.in_(teacher_ids))
+        result = await db.execute(query)
+        users = result.scalars().all()
+        
+        return {
+            user.id: user.nickname or user.phone
+            for user in users
+        }
+
+    async def _get_classroom_info_map(self, db: AsyncSession, classroom_ids: List[int]) -> Dict[int, str]:
+        """批量获取教室信息映射"""
+        if not classroom_ids:
+            return {}
+        
+        classroom_repo = ClassroomRepository()
+        query = select(Classroom).where(Classroom.id.in_(classroom_ids))
+        result = await db.execute(query)
+        classrooms = result.scalars().all()
+        
+        return {
+            classroom.id: classroom.name
+            for classroom in classrooms
+        }
+
+    def _to_response(self, schedule: CourseSchedule, teacher_name: Optional[str] = None, classroom_name: Optional[str] = None) -> ScheduleResponse:
         """将 ORM 模型转换为响应对象"""
         return ScheduleResponse(
             id=schedule.id,
@@ -255,4 +296,60 @@ class ScheduleService:
             notes=schedule.notes,
             created_at=schedule.created_at,
             updated_at=schedule.updated_at,
+            teacher_name=teacher_name,
+            classroom_name=classroom_name,
         )
+
+    async def batch_create_schedules(
+        self,
+        db: AsyncSession,
+        items: List[ScheduleCreate],
+        operator_id: Optional[int] = None,
+    ) -> List[ScheduleResponse]:
+        """批量创建排期"""
+        logger.info(f"[ScheduleService] 批量创建排期: count={len(items)}")
+
+        if not items:
+            raise ValidationException("排期列表不能为空")
+
+        # 收集所有需要检查的时间范围
+        time_ranges = []
+        teacher_ids = set()
+        classroom_ids = set()
+
+        for data in items:
+            if data.end_at <= data.start_at:
+                raise ValidationException("结束时间必须晚于开始时间")
+            time_ranges.append({
+                'start_at': data.start_at,
+                'end_at': data.end_at,
+                'teacher_id': data.teacher_id,
+                'classroom_id': data.classroom_id,
+            })
+            teacher_ids.add(data.teacher_id)
+            if data.classroom_id:
+                classroom_ids.add(data.classroom_id)
+
+        # 检查时间冲突
+        for item in time_ranges:
+            conflicts = await self.repo.find_conflicts(
+                db,
+                classroom_id=item['classroom_id'],
+                teacher_id=item['teacher_id'],
+                start_at=item['start_at'],
+                end_at=item['end_at'],
+            )
+            if conflicts:
+                conflict_info = f"{item['start_at']}~{item['end_at']}"
+                raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
+
+        # 批量创建
+        results = []
+        for data in items:
+            schedule = await self.repo.create(db, data)
+            results.append(self._to_response(schedule))
+
+        await db.commit()
+
+        logger.info(f"[ScheduleService] ✅ 批量创建排期成功: count={len(results)}")
+        return results

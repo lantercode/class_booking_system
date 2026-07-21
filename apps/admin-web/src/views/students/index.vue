@@ -15,7 +15,7 @@
     </div>
 
     <el-table :data="tableData" stripe v-loading="loading" style="width:100%">
-      <el-table-column prop="id" label="ID" width="60" />
+      <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="name" label="姓名" />
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column prop="joinedAt" label="加入时间" width="120" />
@@ -24,7 +24,7 @@
           <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">{{ row.status === 'active' ? '正常' : '禁用' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="210" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="handleDetail(row)">详情</el-button>
           <el-button type="warning" size="small" link @click="handleEdit(row)">编辑</el-button>
@@ -44,6 +44,14 @@
             :loading="toggleLoading === row.id"
             @click="handleToggleStatus(row)"
           >启用</el-button>
+          <el-button
+            v-if="row.status !== 'active'"
+            type="danger"
+            size="small"
+            link
+            :loading="deleteLoading === row.id"
+            @click="handleDelete(row)"
+          >删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -111,7 +119,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { userApi, type User } from '@dance-saas/api-client'
 
@@ -121,6 +129,7 @@ const loading = ref(false)
 const createLoading = ref(false)
 const editLoading = ref(false)
 const toggleLoading = ref<number | null>(null)
+const deleteLoading = ref<number | null>(null)
 const users = ref<User[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -286,6 +295,22 @@ async function handleToggleStatus(row: { id: number; status: string }) {
     ElMessage.error(e?.response?.data?.msg || '操作失败')
   } finally {
     toggleLoading.value = null
+  }
+}
+
+async function handleDelete(row: { id: number; name: string }) {
+  try {
+    await ElMessageBox.confirm(`确定要删除学员「${row.name}」吗？删除后数据将无法恢复！`, '删除确认', { type: 'warning' })
+    deleteLoading.value = row.id
+    await userApi.delete(row.id)
+    ElMessage.success('学员已删除')
+    fetchUsers()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.response?.data?.msg || '删除失败')
+    }
+  } finally {
+    deleteLoading.value = null
   }
 }
 

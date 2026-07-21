@@ -21,7 +21,7 @@
           <span class="nickname">{{ userStore.userInfo?.nickname || '学员' }}</span>
           <span class="phone">{{ userStore.userInfo?.phone || '' }}</span>
         </div>
-        <el-icon class="edit-icon" :size="18"><Edit /></el-icon>
+        <el-icon class="edit-icon" :size="18" @click="openEditDialog"><Edit /></el-icon>
       </div>
 
       <div class="stats-row">
@@ -159,13 +159,25 @@
         退出登录
       </el-button>
     </div>
+
+    <el-dialog v-model="showEditDialog" title="编辑资料" width="400px">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="昵称">
+          <el-input v-model="editForm.nickname" placeholder="请输入昵称" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import {
   ArrowLeft,
   ArrowRight,
@@ -183,7 +195,7 @@ import {
   SwitchButton,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { bookingApi } from '@dance-saas/api-client'
+import { bookingApi, apiClient } from '@dance-saas/api-client'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -192,9 +204,14 @@ const pendingCount = ref(0)
 const completedCount = ref(0)
 const totalCount = ref(0)
 
+const showEditDialog = ref(false)
+const editForm = ref({
+  nickname: '',
+})
+
 async function fetchStats() {
   try {
-    const res = await bookingApi.list({ page_size: 500 })
+    const res = await bookingApi.list({ page_size: 100 })
     const bookings = res.data.items
     totalCount.value = bookings.length
     pendingCount.value = bookings.filter(
@@ -207,11 +224,32 @@ async function fetchStats() {
 }
 
 onMounted(() => {
+  userStore.fetchUserInfo()
   fetchStats()
 })
 
 function goToMyBookings() {
   router.push('/my-bookings')
+}
+
+function openEditDialog() {
+  editForm.value = {
+    nickname: userStore.userInfo?.nickname || '',
+  }
+  showEditDialog.value = true
+}
+
+async function handleSave() {
+  try {
+    await apiClient.patch('/auth/me', {
+      nickname: editForm.value.nickname,
+    })
+    await userStore.fetchUserInfo()
+    showEditDialog.value = false
+    ElMessage.success('修改成功')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '修改失败')
+  }
 }
 
 async function handleLogout() {

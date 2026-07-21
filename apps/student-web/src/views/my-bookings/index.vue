@@ -33,7 +33,6 @@
         class="booking-card"
         @click="goToCourse(booking.courseId)"
       >
-        <img :src="booking.cover" :alt="booking.courseName" class="booking-cover" />
         <div class="booking-info">
           <div class="booking-header">
             <span class="booking-name">{{ booking.courseName }}</span>
@@ -94,7 +93,6 @@ interface BookingView {
   id: number
   courseId: number
   courseName: string
-  cover: string
   date: string
   startTime: string
   endTime: string
@@ -140,9 +138,9 @@ async function fetchBookings() {
   loading.value = true
   try {
     const [bRes, sRes, cRes] = await Promise.all([
-      bookingApi.list({ page_size: 200 }),
-      scheduleApi.list({ page_size: 500 }),
-      courseApi.list({ page_size: 200 }),
+      bookingApi.list({ page_size: 100 }),
+      scheduleApi.list({ page_size: 100 }),
+      courseApi.list({ page_size: 100 }),
     ])
 
     const scheduleMap = new Map<number, any>()
@@ -158,12 +156,11 @@ async function fetchBookings() {
         id: b.id,
         courseId: s?.course_id || 0,
         courseName: courseMap.get(s?.course_id || 0) || '未知课程',
-        cover: s?.course_id ? `https://picsum.photos/seed/${s.course_id}/400/240` : '',
         date: s?.start_at?.slice(0, 10) || '',
         startTime: s ? new Date(s.start_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
         endTime: s ? new Date(s.end_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '',
-        teacherName: s ? `教师#${s.teacher_id}` : '未知教师',
-        classroom: s?.classroom_id ? `教室#${s.classroom_id}` : '未指定',
+        teacherName: s?.teacher_name || '未知教师',
+        classroom: s?.classroom_name || '未指定',
         status: statusInfo.key,
         statusLabel: statusInfo.label,
         createdAt: b.booked_at?.slice(0, 10) || '',
@@ -187,7 +184,7 @@ function handleCancel(booking: BookingView) {
 async function confirmCancel() {
   if (!cancelTarget.value) return
   try {
-    await bookingApi.cancel(cancelTarget.value.id, '用户取消')
+    await bookingApi.cancel(cancelTarget.value.scheduleId, { reason: '用户取消' })
     ElMessage.success('预约已取消')
     cancelVisible.value = false
     cancelTarget.value = null

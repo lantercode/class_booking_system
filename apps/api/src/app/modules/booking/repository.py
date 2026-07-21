@@ -64,6 +64,29 @@ class BookingRepository(TenantAwareRepository[Booking]):
 
         return items, total
 
+    async def find_by_schedule_and_student(
+        self,
+        db: AsyncSession,
+        schedule_id: int,
+        student_id: int,
+    ) -> Optional[Booking]:
+        """通过排期ID和学员ID查找预约"""
+        from app.core.tenant_context import get_tenant_id
+
+        query = select(Booking).where(
+            and_(
+                Booking.schedule_id == schedule_id,
+                Booking.student_id == student_id,
+            )
+        )
+
+        tenant_id = get_tenant_id()
+        if tenant_id:
+            query = query.where(Booking.tenant_id == tenant_id)
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
     async def find_active_booking(
         self,
         db: AsyncSession,

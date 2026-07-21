@@ -18,6 +18,8 @@ export interface Schedule {
   notes: string | null
   created_at: string
   updated_at: string
+  teacher_name?: string | null
+  classroom_name?: string | null
 }
 
 export interface ScheduleListParams {
@@ -75,6 +77,10 @@ export const scheduleApi = {
 
   create(data: ScheduleCreateParams) {
     return apiClient.post<Schedule>('/schedules', data)
+  },
+
+  batchCreate(items: ScheduleCreateParams[]) {
+    return apiClient.post<Schedule[]>('/schedules/batch', items)
   },
 
   update(id: number, data: ScheduleUpdateParams) {

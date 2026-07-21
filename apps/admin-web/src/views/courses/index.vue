@@ -27,7 +27,7 @@
     </div>
 
     <el-table :data="courses" stripe style="width:100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
+      <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="name" label="课程名称" min-width="140" />
       <el-table-column prop="category" label="分类" width="100" />
       <el-table-column prop="level" label="难度" width="80">
@@ -78,6 +78,7 @@
       :title="isEdit ? '编辑课程' : '新增课程'"
       width="560px"
       :close-on-click-modal="false"
+      @close="handleDialogClose"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="课程名称" prop="name">
@@ -104,9 +105,6 @@
         </el-form-item>
         <el-form-item label="时长(分钟)" prop="duration_minutes">
           <el-input-number v-model="form.duration_minutes" :min="1" :max="480" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="最大容量" prop="max_capacity">
-          <el-input-number v-model="form.max_capacity" :min="1" :max="200" style="width:100%" />
         </el-form-item>
         <el-form-item label="价格(元)" prop="price">
           <el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" />
@@ -152,7 +150,6 @@ const form = ref<CourseCreateParams>({
   category: undefined,
   level: undefined,
   duration_minutes: 60,
-  max_capacity: 20,
   price: 0,
   required_credits: 1,
   description: '',
@@ -160,8 +157,9 @@ const form = ref<CourseCreateParams>({
 
 const rules = {
   name: [{ required: true, message: '请输入课程名称', trigger: 'blur' }],
+  category: [{ required: true, message: '请选择分类', trigger: 'blur' }],
+  level: [{ required: true, message: '请选择难度等级', trigger: 'blur' }],
   duration_minutes: [{ required: true, message: '请输入时长', trigger: 'blur' }],
-  max_capacity: [{ required: true, message: '请输入最大容量', trigger: 'blur' }],
 }
 
 async function fetchCourses() {
@@ -218,6 +216,10 @@ function openEditDialog(row: Course) {
     description: row.description || '',
   }
   dialogVisible.value = true
+}
+
+function handleDialogClose() {
+  formRef.value?.clearValidate()
 }
 
 async function handleSubmit() {

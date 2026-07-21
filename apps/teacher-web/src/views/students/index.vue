@@ -77,7 +77,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Collection, Clock, Location, UserFilled } from '@element-plus/icons-vue'
-import { bookingApi, scheduleApi, userApi } from '@dance-saas/api-client'
+import { bookingApi, scheduleApi } from '@dance-saas/api-client'
 
 const route = useRoute()
 const scheduleId = Number(route.params.scheduleId) || 1
@@ -114,25 +114,12 @@ async function fetchData() {
     }
 
     const bookings = bRes.data.items
-    const userIds = [...new Set(bookings.map((b) => b.student_id))]
-    const userMap = new Map<number, string>()
-    const phoneMap = new Map<number, string>()
-
-    if (userIds.length > 0) {
-      try {
-        const uRes = await userApi.list({ page_size: 500 })
-        for (const u of uRes.data.items) {
-          userMap.set(u.id, u.nickname || u.phone)
-          phoneMap.set(u.id, u.phone)
-        }
-      } catch (_) {}
-    }
 
     students.value = bookings.map((b) => ({
       id: b.id,
       avatar: '',
-      nickname: userMap.get(b.student_id) || `学员#${b.student_id}`,
-      phone: phoneMap.get(b.student_id) || '',
+      nickname: (b as any).student_nickname || `学员#${b.student_id}`,
+      phone: (b as any).student_phone || '',
       status: b.status === 2 ? 'attended' : b.status === 4 ? 'cancelled' : 'confirmed',
       userId: b.student_id,
     }))

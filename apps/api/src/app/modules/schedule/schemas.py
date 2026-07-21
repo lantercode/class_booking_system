@@ -34,7 +34,7 @@ class ScheduleUpdate(BaseModel):
     booking_opens_at: Optional[datetime] = Field(None, description="预约开放时间")
     booking_closes_at: Optional[datetime] = Field(None, description="预约截止时间")
     cancel_deadline: Optional[datetime] = Field(None, description="取消截止时间")
-    status: Optional[int] = Field(None, ge=1, le=3, description="状态：1正常/2已取消/3已完成")
+    status: Optional[int] = Field(None, ge=0, le=3, description="状态：0禁用/1正常/2已取消/3已完成")
     notes: Optional[str] = Field(None, max_length=500, description="备注")
 
 
@@ -57,6 +57,9 @@ class ScheduleResponse(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    
+    teacher_name: Optional[str] = None
+    classroom_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

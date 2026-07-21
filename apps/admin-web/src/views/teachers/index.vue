@@ -15,7 +15,7 @@
     </div>
 
     <el-table :data="filteredTeachers" stripe v-loading="loading" style="width:100%">
-      <el-table-column prop="id" label="ID" width="60" />
+      <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="name" label="姓名" />
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column prop="speciality" label="专长" width="100" />

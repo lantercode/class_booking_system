@@ -1,7 +1,7 @@
 # /Users/lixiang/Desktop/class_booking_system/apps/api/src/app/modules/auth/router.py
 """认证模块路由 - 注册、登录、登出、刷新 Token."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.response import success
@@ -127,3 +127,21 @@ async def get_me(
     """获取当前用户信息"""
     user = await AuthService.get_current_user_profile(db, current_user["user_id"])
     return success(data=user)
+
+
+@router.patch("/me",
+              summary="更新当前用户信息",
+              description="更新当前登录用户的个人信息（仅允许修改昵称和头像）",
+              responses={
+                  200: {"description": "更新成功", "model": UserResponse},
+                  401: {"description": "未登录或Token无效"},
+                  400: {"description": "没有可更新的字段"}
+              })
+async def update_me(
+        data: dict = Body(...),
+        current_user: dict = Depends(get_current_user),
+        db: AsyncSession = Depends(get_session),
+) -> dict:
+    """更新当前用户信息（学员端）"""
+    user = await AuthService.update_current_user_profile(db, current_user["user_id"], data)
+    return success(data=user, msg="个人信息更新成功")

@@ -56,7 +56,7 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = (to.meta.title as string) || '舞蹈约课'
 
   if (to.meta.requiresAuth) {
@@ -64,6 +64,18 @@ router.beforeEach((to, _from, next) => {
     if (!userStore.token) {
       next({ name: 'Login', query: { redirect: to.fullPath } })
       return
+    }
+    
+    // 如果用户已登录但用户信息为空，自动获取
+    if (!userStore.userInfo) {
+      try {
+        await userStore.fetchUserInfo()
+      } catch {
+        // 获取失败，可能Token已过期，跳转到登录
+        userStore.clearToken()
+        next({ name: 'Login', query: { redirect: to.fullPath } })
+        return
+      }
     }
   }
 

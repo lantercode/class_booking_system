@@ -12,8 +12,8 @@ from datetime import datetime
 class CourseCreate(BaseModel):
     """创建课程请求体"""
     name: str = Field(..., min_length=1, max_length=100, description="课程名称")
-    category: Optional[str] = Field(None, max_length=50, description="分类")
-    level: Optional[str] = Field(None, max_length=20, description="难度等级")
+    category: str = Field(..., min_length=1, max_length=50, description="分类")
+    level: str = Field(..., min_length=1, max_length=20, description="难度等级")
     cover_url: Optional[str] = Field(None, max_length=500, description="封面图URL")
     description: Optional[str] = Field(None, description="课程描述")
     duration_minutes: int = Field(..., ge=1, description="时长（分钟）")
