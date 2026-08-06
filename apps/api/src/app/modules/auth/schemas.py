@@ -72,6 +72,61 @@ class LoginRequest(BaseModel):
     )
 
 
+class WechatLoginRequest(BaseModel):
+    """微信登录请求"""
+    code: str = Field(
+        ...,
+        description="微信登录凭证"
+    )
+
+    tenant_slug: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="租户标识符",
+        examples=["dance-school"]
+    )
+
+    app_id: Optional[str] = Field(
+        None,
+        description="小程序 AppId，不传则使用默认配置"
+    )
+
+
+class WechatBindRequest(BaseModel):
+    """微信绑定请求"""
+    bind_token: str = Field(
+        ...,
+        description="上一步自动登录返回的临时凭证"
+    )
+
+    phone: Optional[str] = Field(
+        None,
+        pattern=r"^1[3-9]\d{9}$",
+        description="手机号码（手动输入时使用）",
+        examples=["13800138000"]
+    )
+
+    encrypted_data: Optional[str] = Field(
+        None,
+        description="微信手机号授权返回的加密数据"
+    )
+
+    iv: Optional[str] = Field(
+        None,
+        description="微信手机号授权返回的初始向量"
+    )
+
+    tenant_slug: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="租户标识符",
+        examples=["dance-school"]
+    )
+
+
+
 class RefreshTokenRequest(BaseModel):
     """刷新令牌请求"""
     refresh_token: str = Field(
@@ -205,6 +260,50 @@ class AuthResponse(TokenResponse):
     user: UserResponse = Field(
         ...,
         description="当前用户信息"
+    )
+
+class WechatLoginResponse(BaseModel):
+    """微信登录响应"""
+    need_bind: bool = Field(
+        ...,
+        description="是否需要绑定手机号",
+        examples=[True]
+    )
+    bind_token: Optional[str] = Field(
+        None,
+        description="绑定凭证"
+    )
+    access_token: Optional[str] = Field(
+        None,
+        description="访问令牌"
+    )
+    refresh_token: Optional[str] = Field(
+        None,
+        description="刷新令牌"
+    )
+    token_type: Optional[str] = Field(
+        default="bearer",
+        description="令牌类型",
+        examples=["bearer"]
+    )
+    expires_in: int = Field(
+        default=7200,
+        description="访问令牌过期时间（秒）",
+        examples=[7200]
+    )
+    user: Optional[UserResponse] = Field(
+        None,
+        description="当前用户信息"
+    )
+    decrypted_phone: Optional[str] = Field(
+        None,
+        description="解密后的微信绑定手机号（手机号未注册时返回）",
+        examples=["13800138000"]
+    )
+    error_msg: Optional[str] = Field(
+        None,
+        description="错误提示信息",
+        examples=["该手机号未在系统中注册，请联系机构前台"]
     )
 
 

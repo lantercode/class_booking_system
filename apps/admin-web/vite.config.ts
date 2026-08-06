@@ -10,6 +10,13 @@ export default defineConfig({
       '@dance-saas/api-client': resolve(__dirname, '../../packages/api-client/src/index.ts'),
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

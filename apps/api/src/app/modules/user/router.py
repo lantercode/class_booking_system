@@ -27,10 +27,12 @@ router = APIRouter(prefix="/users", tags=["用户管理"])
 user_service = UserService()
 
 
-# ==================== 用户 CRUD ====================
+# ============================================================
+# 用户 CRUD
+# ============================================================
 
 @router.post(
-    "",
+    "/",
     response_model=dict,
     status_code=201,
     summary="创建用户",
@@ -42,7 +44,7 @@ async def create_user(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """创建用户接口"""
+    """创建用户"""
     result = await user_service.create_user(
         db,
         data,
@@ -143,7 +145,9 @@ async def delete_user(
     return success(msg="用户删除成功")
 
 
-# ==================== 密码管理 ====================
+# ============================================================
+# 密码管理
+# ============================================================
 
 @router.post(
     "/{user_id}/password/change",
@@ -157,15 +161,10 @@ async def change_password(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """修改密码（用户自己操作）
-    
-    注意：用户只能修改自己的密码，user_id 必须与当前登录用户一致
-    """
-    # 验证只能修改自己的密码
+    """修改密码（用户自己操作，只能修改自己的密码）"""
     if user_id != current_user.get("user_id"):
         from app.core.exceptions import AuthException
         raise AuthException("只能修改自己的密码")
-    
     await user_service.change_password(db, user_id, data)
     return success(msg="密码修改成功，请重新登录")
 
@@ -193,7 +192,9 @@ async def reset_password(
     return success(msg="密码重置成功")
 
 
-# ==================== 角色管理 ====================
+# ============================================================
+# 角色管理
+# ============================================================
 
 @router.get(
     "/{user_id}/roles",

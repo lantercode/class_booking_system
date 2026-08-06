@@ -31,7 +31,7 @@ target_metadata = Base.metadata
 
 from app.modules.tenant.models import Tenant
 from app.modules.user.models import User
-from app.modules.auth.models import Role, Permission, UserRole, RolePermission
+from app.modules.auth.models import Role, Permission, UserRole, RolePermission, WechatAccount
 from app.modules.teacher.models import TeacherProfile
 from app.modules.student.models import StudentProfile
 from app.modules.course.models import Classroom, Course

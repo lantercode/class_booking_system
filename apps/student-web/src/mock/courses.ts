@@ -14,7 +14,6 @@ export interface CourseItem {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   duration: number
   price: number
-  capacity: number
   status: number
   classroom: string
   tags: string[]
@@ -42,7 +41,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'beginner',
     duration: 90,
     price: 120,
-    capacity: 20,
     status: 1,
     classroom: 'A101 舞蹈教室',
     tags: ['古典舞', '零基础', '成人'],
@@ -62,7 +60,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'advanced',
     duration: 60,
     price: 150,
-    capacity: 15,
     status: 1,
     classroom: 'B201 街舞教室',
     tags: ['街舞', 'Hip-Hop', '进阶'],
@@ -82,7 +79,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'intermediate',
     duration: 90,
     price: 130,
-    capacity: 18,
     status: 1,
     classroom: 'A102 舞蹈教室',
     tags: ['芭蕾', '形体', '塑形'],
@@ -102,7 +98,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'beginner',
     duration: 60,
     price: 100,
-    capacity: 24,
     status: 1,
     classroom: 'C301 多功能教室',
     tags: ['拉丁舞', '双人舞', '零基础'],
@@ -122,7 +117,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'advanced',
     duration: 120,
     price: 180,
-    capacity: 12,
     status: 0,
     classroom: 'A103 排练厅',
     tags: ['现代舞', '创作', '编舞'],
@@ -142,7 +136,6 @@ export const mockCourses: CourseItem[] = [
     difficulty: 'beginner',
     duration: 60,
     price: 80,
-    capacity: 20,
     status: 1,
     classroom: 'A104 少儿教室',
     tags: ['少儿', '中国舞', '考级'],

@@ -6,7 +6,6 @@ export interface TeacherCourse {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   duration: number
   price: number
-  capacity: number
   status: number
   classroom: string
   tags: string[]
@@ -29,7 +28,6 @@ export const mockTeacherCourses: TeacherCourse[] = [
     difficulty: 'beginner',
     duration: 60,
     price: 120,
-    capacity: 15,
     status: 1,
     classroom: '舞蹈教室A',
     tags: ['古典舞', '零基础', '热门'],
@@ -45,7 +43,6 @@ export const mockTeacherCourses: TeacherCourse[] = [
     difficulty: 'advanced',
     duration: 90,
     price: 150,
-    capacity: 20,
     status: 1,
     classroom: '舞蹈教室B',
     tags: ['街舞', '进阶', '潮流'],
@@ -61,7 +58,6 @@ export const mockTeacherCourses: TeacherCourse[] = [
     difficulty: 'intermediate',
     duration: 75,
     price: 130,
-    capacity: 12,
     status: 1,
     classroom: '舞蹈教室A',
     tags: ['芭蕾', '形体', '优雅'],
@@ -77,7 +73,6 @@ export const mockTeacherCourses: TeacherCourse[] = [
     difficulty: 'beginner',
     duration: 60,
     price: 100,
-    capacity: 18,
     status: 0,
     classroom: '舞蹈教室C',
     tags: ['拉丁', '初级', '热情'],
@@ -93,7 +88,6 @@ export const mockTeacherCourses: TeacherCourse[] = [
     difficulty: 'advanced',
     duration: 120,
     price: 180,
-    capacity: 10,
     status: 1,
     classroom: '舞蹈教室B',
     tags: ['现代舞', '创作', '高级'],

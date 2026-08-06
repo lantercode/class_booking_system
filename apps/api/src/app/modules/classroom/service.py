@@ -42,7 +42,6 @@ class ClassroomService:
 
         classroom_data: Dict[str, Any] = {
             "name": data.name,
-            "capacity": data.capacity,
             "status": ClassroomStatus.ACTIVE.value,
         }
         if data.equipment:
@@ -74,8 +73,6 @@ class ClassroomService:
             if await self.repo.exists_by_name(db, data.name, exclude_id=classroom_id):
                 raise ValidationException("教室名称已存在")
             update_data["name"] = data.name
-        if data.capacity is not None:
-            update_data["capacity"] = data.capacity
         if data.equipment is not None:
             update_data["equipment"] = data.equipment
         if data.status is not None:
@@ -171,7 +168,6 @@ class ClassroomService:
             id=classroom.id,
             tenant_id=classroom.tenant_id,
             name=classroom.name,
-            capacity=classroom.capacity,
             equipment=classroom.equipment,
             status=classroom.status,
             created_at=classroom.created_at,

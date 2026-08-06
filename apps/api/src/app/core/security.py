@@ -76,7 +76,7 @@ def decode_token(token: str) -> dict | None:
             失败: 返回 None（Token 无效/过期/被篡改
         """
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"], options={"leeway": 10})
     except JWTError:
         return None
     return payload

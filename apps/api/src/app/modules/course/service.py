@@ -46,7 +46,6 @@ class CourseService:
         course_data: Dict[str, Any] = {
             "name": data.name,
             "duration_minutes": data.duration_minutes,
-            "max_capacity": data.max_capacity,
             "price": data.price,
             "required_credits": data.required_credits,
             "status": CourseStatus.ONLINE.value,
@@ -97,8 +96,6 @@ class CourseService:
             update_data["description"] = data.description
         if data.duration_minutes is not None:
             update_data["duration_minutes"] = data.duration_minutes
-        if data.max_capacity is not None:
-            update_data["max_capacity"] = data.max_capacity
         if data.price is not None:
             update_data["price"] = data.price
         if data.required_credits is not None:
@@ -182,7 +179,6 @@ class CourseService:
             cover_url=course.cover_url,
             description=course.description,
             duration_minutes=course.duration_minutes,
-            max_capacity=course.max_capacity,
             price=float(course.price),
             required_credits=course.required_credits,
             status=course.status,

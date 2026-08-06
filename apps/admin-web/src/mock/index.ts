@@ -95,9 +95,9 @@ export const mockSchedules = Array.from({ length: 20 }, (_, i) => ({
 }))
 
 export const mockClassrooms = [
-  { id: 1, name: 'A教室', capacity: 20, floor: 1, area: '80㎡', status: 'active', equipment: '把杆、镜子、音响' },
-  { id: 2, name: 'B教室', capacity: 15, floor: 2, area: '60㎡', status: 'active', equipment: '把杆、镜子' },
-  { id: 3, name: 'C教室', capacity: 30, floor: 1, area: '120㎡', status: 'active', equipment: '把杆、镜子、音响、投影' },
-  { id: 4, name: 'D教室', capacity: 10, floor: 3, area: '40㎡', status: 'maintenance', equipment: '把杆、镜子' },
-  { id: 5, name: 'E教室', capacity: 25, floor: 2, area: '90㎡', status: 'active', equipment: '把杆、镜子、音响、灯光' },
+  { id: 1, name: 'A教室', floor: 1, area: '80㎡', status: 'active', equipment: '把杆、镜子、音响' },
+  { id: 2, name: 'B教室', floor: 2, area: '60㎡', status: 'active', equipment: '把杆、镜子' },
+  { id: 3, name: 'C教室', floor: 1, area: '120㎡', status: 'active', equipment: '把杆、镜子、音响、投影' },
+  { id: 4, name: 'D教室', floor: 3, area: '40㎡', status: 'maintenance', equipment: '把杆、镜子' },
+  { id: 5, name: 'E教室', floor: 2, area: '90㎡', status: 'active', equipment: '把杆、镜子、音响、灯光' },
 ]

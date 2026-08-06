@@ -3,5 +3,7 @@ packages:
   - "packages/*"
 allowBuilds:
   '@parcel/watcher': true
+  core-js: true
   esbuild: true
+  puppeteer: true
   vue-demi: true

@@ -59,6 +59,7 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.APP_DEBUG,
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 app.add_exception_handler(DanceSaasException, dance_saas_exception_handler)
 

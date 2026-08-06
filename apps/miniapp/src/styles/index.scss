@@ -1,0 +1,20 @@
+// ============================================
+// 🎨 Design System - 全局样式入口
+// ============================================
+// 在 App.vue 和 vite.config.ts 中引入此文件
+// ============================================
+
+// 1. 主题系统（变量 + mixins + 动画）
+@import './theme/index';
+
+// 2. 基础样式（重置 + 排版）
+@import './base/reset';
+@import './base/typography';
+
+// 3. 工具类样式（滚动条等）
+@import './scrollbar';
+
+// 4. 组件样式（按需导入）
+// @import './components/navbar';
+// @import './components/card';
+// @import './components/button';

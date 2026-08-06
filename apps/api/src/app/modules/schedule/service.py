@@ -223,6 +223,7 @@ class ScheduleService:
         db: AsyncSession,
         *,
         course_id: Optional[int] = None,
+        course_name: Optional[str] = None,
         teacher_id: Optional[int] = None,
         classroom_id: Optional[int] = None,
         status: Optional[int] = None,
@@ -235,6 +236,7 @@ class ScheduleService:
         items, total = await self.repo.search(
             db,
             course_id=course_id,
+            course_name=course_name,
             teacher_id=teacher_id,
             classroom_id=classroom_id,
             status=status,

@@ -17,8 +17,12 @@ router = APIRouter(prefix="/bookings", tags=["预约管理"])
 booking_service = BookingService()
 
 
+# ============================================================
+# 预约操作
+# ============================================================
+
 @router.post(
-    "",
+    "/",
     response_model=dict,
     status_code=201,
     summary="创建预约",
@@ -29,6 +33,7 @@ async def create_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """创建预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.create_booking(
         db, data, student_id=student_id,
@@ -50,11 +55,8 @@ async def list_bookings(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    # 根据查询条件决定查询范围
-    # 1. 如果指定了schedule_id（教师查看排期学员列表），不过滤学员
-    # 2. 如果没有指定schedule_id（学员查看自己的预约），只返回当前用户的预约
+    """获取预约列表"""
     student_id = current_user.get("user_id") if not schedule_id else None
-    
     result = await booking_service.list_bookings(
         db,
         schedule_id=schedule_id,
@@ -76,6 +78,7 @@ async def get_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """获取预约详情"""
     result = await booking_service.get_booking_by_id(db, booking_id)
     return success(data=result)
 
@@ -92,6 +95,7 @@ async def cancel_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """取消预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.cancel_booking(
         db, booking_id, student_id=student_id, reason=reason or None,
@@ -111,12 +115,17 @@ async def cancel_booking_by_schedule(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """学员端取消预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.cancel_booking_by_schedule(
         db, schedule_id, student_id=student_id, reason=reason,
     )
     return success(data=result, msg="预约已取消")
 
+
+# ============================================================
+# 签到与完成（管理端）
+# ============================================================
 
 @router.post(
     "/{booking_id}/check-in",
@@ -130,6 +139,7 @@ async def check_in_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """签到"""
     result = await booking_service.check_in_booking(db, booking_id)
     return success(data=result, msg="签到成功")
 
@@ -146,5 +156,6 @@ async def complete_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """完成课程"""
     result = await booking_service.complete_booking(db, booking_id)
     return success(data=result, msg="课程已完成")

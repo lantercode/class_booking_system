@@ -47,19 +47,14 @@ export const useAuthStore = defineStore('admin-auth', () => {
   }
 
   async function login(params: LoginParams) {
+    const slug = params.tenant_slug || 'dance-school'
     const res = await apiClient.post('/auth/login', {
       phone: params.phone,
       password: params.password,
-      tenant_slug: params.tenant_slug || 'default',
+      tenant_slug: slug,
     })
     setToken(res.data.access_token, res.data.refresh_token)
-
-    try {
-      const payload = JSON.parse(atob(res.data.access_token.split('.')[1]))
-      setTenantSlug(params.tenant_slug || 'dance-school')
-    } catch {
-      // ignore
-    }
+    setTenantSlug(slug)
 
     await fetchAdminInfo()
     return res.data
@@ -75,8 +70,10 @@ export const useAuthStore = defineStore('admin-auth', () => {
         nickname: res.data.nickname || '管理员',
         avatar: res.data.avatar,
       }
-    } catch {
-      clearToken()
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        clearToken()
+      }
     }
   }
 

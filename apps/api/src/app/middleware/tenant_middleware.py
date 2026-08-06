@@ -31,6 +31,9 @@ SKIP_TENANT_PATHS = [
     "/api/v1/common/health",
     "/api/v1/auth/register",
     "/api/v1/auth/login",
+    "/api/v1/auth/wechat-login",
+    "/api/v1/auth/wechat-auto-login",
+    "/api/v1/auth/refresh-token",
     "/api/v1/auth/me",
     "/api/v1/courses",
 ]
@@ -60,6 +63,11 @@ class TenantASGIMiddleware:
         # 创建 Request 对象以访问 headers
         request = Request(scope, receive)
         path = request.url.path
+
+        # OPTIONS 预检请求（CORS）不携带租户 Header，直接放行
+        if request.method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
 
         # 检查是否需要跳过租户验证
         if self._should_skip_tenant(path):

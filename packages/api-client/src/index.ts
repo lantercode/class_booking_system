@@ -39,10 +39,6 @@ class ApiClient {
         const token = localStorage.getItem(TOKEN_KEY)
         const tenantSlug = localStorage.getItem('tenantSlug')
         
-        console.log('[API Client] Request:', config.url)
-        console.log('[API Client] Token exists:', !!token)
-        console.log('[API Client] Tenant slug:', tenantSlug)
-        
         if (token && config.headers) {
           config.headers.Authorization = `Bearer ${token}`
         }
@@ -66,6 +62,10 @@ class ApiClient {
         const originalRequest = error.config
 
         if (error.response?.status === 401 && !originalRequest._retry) {
+          if (originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh-token')) {
+            return Promise.reject(error)
+          }
+
           const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
 
           if (refreshToken) {

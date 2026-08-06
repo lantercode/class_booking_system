@@ -16,7 +16,9 @@
           <el-input v-model="form.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @keyup.enter="handleLogin" />
         </el-form-item>
         <el-form-item prop="tenant_slug">
-          <el-input v-model="form.tenant_slug" placeholder="请输入机构标识（如：dance-school）" :prefix-icon="OfficeBuilding" />
+          <el-select v-model="form.tenant_slug" placeholder="请选择机构" style="width: 100%" :prefix-icon="OfficeBuilding">
+            <el-option label="沐里舞蹈" value="dance-school" />
+          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">登录</el-button>
@@ -46,7 +48,7 @@ const authStore = useAuthStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 
-const form = reactive({ phone: '', password: '', tenant_slug: '' })
+const form = reactive({ phone: '', password: '', tenant_slug: 'dance-school' })
 
 const rules: FormRules = {
   phone: [
@@ -67,8 +69,9 @@ async function handleLogin() {
     await authStore.login({ phone: form.phone, password: form.password, tenant_slug: form.tenant_slug || undefined })
     ElMessage.success('登录成功')
     router.push(route.query.redirect as string || '/dashboard')
-  } catch {
-    ElMessage.error('登录失败，请检查账号密码')
+  } catch (err: any) {
+    const msg = err?.response?.data?.msg || err?.response?.data?.detail || '登录失败，请检查账号密码'
+    ElMessage.error(msg)
   } finally {
     loading.value = false
   }

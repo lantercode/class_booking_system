@@ -1,0 +1,416 @@
+// ============================================
+// 🎨 Premium Design System - 高级轻奢版
+// ============================================
+// 风格定位: Elegant, Premium, Modern, Minimal, Artistic, Professional
+// 参考: Apple Product Design + High-end Aesthetics Education Brand
+// ============================================
+
+// --------------------------------------------
+// 1. 品牌色彩系统 (Brand Colors - Champagne & Rose)
+// --------------------------------------------
+
+// 主色调 - 香槟金系列 (Champagne Gold)
+$primary-gradient: linear-gradient(135deg, #C9A66B 0%, #D4AF77 50%, #E8D5B7 100%);
+$primary-solid: #C9A66B;
+$primary-dark: #B8956A;
+$primary-light: #DBC18A;
+$primary-bg: rgba(201, 166, 107, 0.08);
+$primary-border: rgba(201, 166, 107, 0.2);
+
+// 品牌强调色 - 莫兰迪粉 (Morandi Pink) 
+$accent-gradient: linear-gradient(135deg, #D9A7B0 0%, #E8C4C4 100%);
+$accent-solid: #D9A7B0;
+$accent-light: #E8C4C4;
+$accent-bg: rgba(217, 167, 176, 0.1);
+$accent-border: rgba(217, 167, 176, 0.25);
+
+// 辅助渐变 - 优雅玫瑰金
+$rose-gold-gradient: linear-gradient(135deg, #E8B4B8 0%, #F5E6E8 100%);
+$rose-gold-solid: #E8B4B8;
+
+// 中性暖灰渐变
+$warm-gray-gradient: linear-gradient(180deg, #FAF8F5 0%, #F5F2ED 100%);
+
+// --------------------------------------------
+// 2. 语义化颜色 (Semantic Colors - Soft Palette)
+// --------------------------------------------
+
+// 功能色 - 柔和版本
+$success-color: #7CB986;
+$success-bg: rgba(124, 185, 134, 0.12);
+$success-border: rgba(124, 185, 134, 0.3);
+
+$warning-color: #D4A76A;
+$warning-bg: rgba(212, 167, 106, 0.12);
+$warning-border: rgba(212, 167, 106, 0.3);
+
+$error-color: #D4847A;
+$error-bg: rgba(212, 132, 122, 0.12);
+$error-border: rgba(212, 132, 122, 0.3);
+
+$info-color: #8BA4B8;
+$info-bg: rgba(139, 164, 184, 0.12);
+$info-border: rgba(139, 164, 184, 0.3);
+
+// 微信绿色（保留用于微信授权按钮）
+$wechat-green: #07c160;
+$wechat-green-dark: #06ad56;
+$wechat-green-light: #10b981;
+$wechat-green-bg: rgba(7, 193, 96, 0.08);
+
+// --------------------------------------------
+// 3. 中性色阶 (Neutral Scale - Warm Tones)
+// --------------------------------------------
+
+// 背景层级 - 米白色系
+$bg-primary: #FAF8F5;        // 主背景 - 温暖米白
+$bg-secondary: #F5F2ED;       // 次级背景 - 浅米色
+$bg-tertiary: #EDE9E3;        // 三级背景 - 暖灰白
+$bg-elevated: #FFFFFF;        // 卡片/弹窗背景 - 纯白
+$bg-overlay: rgba(26, 26, 26, 0.45);  // 遮罩层 - 半透明黑
+
+// 文字颜色 - 深色系（浅色背景上使用）
+$text-primary: #1A1A1A;           // 主要文字 - 深黑
+$text-secondary: #5A5248;          // 次要文字 - 深棕灰
+$text-tertiary: #8E8579;           // 三级文字 - 中性灰
+$text-disabled: #B8B0A5;           // 禁用状态 - 浅灰
+$text-placeholder: #C9C2B8;        // 占位符文字
+$text-inverse: #FFFFFF;            // 反色文字（深色背景上）
+
+// 边框颜色 - 柔和线条
+$border-subtle: rgba(26, 26, 26, 0.06);
+$border-light: rgba(26, 26, 26, 0.10);
+$border-normal: rgba(26, 26, 26, 0.15);
+$border-strong: rgba(26, 26, 26, 0.20);
+$border-accent: rgba(201, 166, 107, 0.30);  // 品牌金色边框
+
+// 分割线
+$divider-color: rgba(26, 26, 26, 0.08);
+
+// --------------------------------------------
+// 4. 圆角系统 (Border Radius - Refined)
+// --------------------------------------------
+
+$radius-xs: 8rpx;      // 小元素（标签、图标）
+$radius-sm: 12rpx;     // 输入框、小按钮
+$radius-md: 16rpx;     // 卡片、中等组件
+$radius-lg: 20rpx;     // 大卡片、面板
+$radius-xl: 24rpx;     // 弹窗容器
+$radius-2xl: 32rpx;    // 特大卡片
+$radius-3xl: 40rpx;    // 底部弹窗顶部圆角
+$radius-full: 9999rpx; // 完全圆形（头像、徽章）
+
+// --------------------------------------------
+// 5. 间距系统 (Spacing Scale - Generous Whitespace)
+// --------------------------------------------
+
+// 基础间距（大量留白设计）
+$space-2xs: 8rpx;       // 极小间距
+$space-xs: 16rpx;       // 小间距
+$space-sm: 24rpx;       // 标准小间距
+$space-md: 32rpx;       // 标准间距
+$space-lg: 40rpx;       // 大间距
+$space-xl: 48rpx;       // 特大间距
+$space-2xl: 64rpx;      // 区块间距
+$space-3xl: 80rpx;      // 页面边距
+$space-4xl: 96rpx;      // 超大间距（特殊场景）
+
+// 组件内边距
+$padding-sm: 20rpx;
+$padding-md: 28rpx;
+$padding-lg: 36rpx;
+$padding-xl: 44rpx;
+
+// 垂直节奏（行高基准）
+$vr-tight: 8rpx;
+$vr-normal: 16rpx;
+$vr-relaxed: 24rpx;
+$vr-loose: 32rpx;
+
+// --------------------------------------------
+// 6. 字体排版系统 (Typography - Elegant Serif/Sans Mix)
+// --------------------------------------------
+
+// 字体家族
+$font-family-display: 'Georgia', 'Times New Roman', serif;           // 展示字体（标题）
+$font-family-body: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;  // 正文字体
+$font-family-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;      // 等宽字体
+
+// 字号阶梯（精致比例）
+$font-size-display: 56rpx;    // 大展示标题
+$font-size-h1: 44rpx;         // 一级标题
+$font-size-h2: 36rpx;         // 二级标题
+$font-size-h3: 32rpx;         // 三级标题
+$font-size-h4: 28rpx;         // 四级标题/大正文
+$font-size-body_lg: 30rpx;    // 大号正文
+$font-size-body: 28rpx;       // 正文标准
+$font-size-body_sm: 26rpx;    // 小号正文
+$font-size-caption: 24rpx;    // 说明文字
+$font-size-overline: 22rpx;   // 标签/角标
+$font-size-tiny: 20rpx;       // 极小文字
+
+// 字重（精细控制）
+$font-weight-thin: 100;
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// 行高（舒适阅读）
+$line-height-tight: 1.2;      // 标题紧凑
+$line-height-snug: 1.35;      // 副标题
+$line-height-normal: 1.5;     // 正文标准
+$line-height-relaxed: 1.65;   // 宽松阅读
+$line-height-loose: 1.8;      // 特别宽松
+
+// 字间距（精致调整）
+$letter-spacing-tight: -0.3rpx;
+$letter-spacing-normal: 0rpx;
+$letter-spacing-wide: 0.5rpx;
+$letter-spacing-wider: 1.5rpx;
+$letter-spacing-widest: 3rpx;
+$letter-spacing-display: 5rpx;   // 大标题专用
+
+// --------------------------------------------
+// 7. 阴影层级系统 (Elevation - Soft & Natural)
+// --------------------------------------------
+
+// 基础阴影（柔和自然光）
+$shadow-none: none;
+$shadow-xs: 0 2rpx 8rpx rgba(26, 26, 26, 0.04);
+$shadow-sm: 0 4rpx 16rpx rgba(26, 26, 26, 0.06);
+$shadow-md: 0 6rpx 24rpx rgba(26, 26, 26, 0.08);
+$shadow-lg: 0 8rpx 32rpx rgba(26, 26, 26, 0.10);
+$shadow-xl: 0 12rpx 48rpx rgba(26, 26, 26, 0.12);
+$shadow-2xl: 0 16rpx 64rpx rgba(26, 26, 26, 0.15);
+
+// 特殊阴影
+$shadow-card: 0 4rpx 20rpx rgba(26, 26, 26, 0.06), 
+              0 1rpx 4rpx rgba(26, 26, 26, 0.04);  // 卡片悬浮
+$shadow-card-hover: 0 8rpx 28rpx rgba(26, 26, 26, 0.10),
+                   0 2rpx 8rpx rgba(26, 26, 26, 0.06);  // 卡片悬浮态
+$shadow-modal: 0 16rpx 64rpx rgba(26, 26, 26, 0.15), 
+               0 4rpx 16rpx rgba(26, 26, 26, 0.08);  // 弹窗
+$shadow-button: 0 4rpx 16rpx rgba(201, 166, 107, 0.25);  // 主按钮
+$shadow-button-hover: 0 6rpx 24rpx rgba(201, 166, 107, 0.35);  // 按钮悬浮
+
+// 内阴影（用于输入框聚焦等）
+$shadow-inner: inset 0 2rpx 4rpx rgba(26, 26, 26, 0.05);
+
+// 光晕效果（Glow Effects - 用于聚焦/悬浮状态）
+$glow-primary: 0 0 0 4rpx rgba(201, 166, 107, 0.15),              // 主色光晕（香槟金）
+               0 4rpx 16rpx rgba(201, 166, 107, 0.12);            // 柔和外发光
+$glow-accent: 0 0 0 4rpx rgba(217, 167, 176, 0.15),                // 强调色光晕（莫兰迪粉）
+             0 4rpx 16rpx rgba(217, 167, 176, 0.12);              // 柔和外发光
+$glow-success: 0 0 20rpx rgba(124, 185, 134, 0.25);               // 成功状态光晕
+$glow-error: 0 0 20rpx rgba(212, 132, 122, 0.25);                 // 错误状态光晕
+
+// --------------------------------------------
+// 8. 动画系统 (Animation - Smooth & Refined)
+// --------------------------------------------
+
+// 缓动曲线（自然物理感）
+$ease-standard: cubic-bezier(0.4, 0, 0.2, 1);      // 标准缓动
+$ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);     // 平滑进出
+$ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);        // 减速退出
+$ease-in: cubic-bezier(0.4, 0, 1, 1);             // 加速进入
+$ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  // 弹性效果（轻微）
+$ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55); // 弹跳效果
+$ease-elegant: cubic-bezier(0.23, 1, 0.32, 1);    // 优雅减速（Apple风格）
+
+// 时长（从容不迫）
+$duration-instant: 150ms;
+$duration-fast: 200ms;
+$duration-normal: 300ms;
+$duration-slow: 400ms;
+$duration-slower: 500ms;
+$duration-slowest: 700ms;
+
+// --------------------------------------------
+// 9. 渐变与纹理 (Gradients & Textures)
+// --------------------------------------------
+
+// 背景渐变
+$gradient-page: linear-gradient(180deg, $bg-primary 0%, $bg-secondary 100%);
+$gradient-card: linear-gradient(180deg, #FFFFFF 0%, #FCFBF9 100%);
+$gradient-modal: linear-gradient(180deg, #FEFEFE 0%, #FAF8F5 100%);
+
+// 品牌装饰渐变
+$gradient-shimmer: linear-gradient(
+  90deg,
+  transparent,
+  rgba(201, 166, 107, 0.15),
+  transparent
+);
+$gradient-shimmer-pink: linear-gradient(
+  90deg,
+  transparent,
+  rgba(217, 167, 176, 0.15),
+  transparent
+);
+
+// 图片遮罩
+$overlay-image: linear-gradient(
+  180deg,
+  rgba(26, 26, 26, 0) 0%,
+  rgba(26, 26, 26, 0.3) 60%,
+  rgba(26, 26, 26, 0.7) 100%
+);
+
+// --------------------------------------------
+// 10. Z-Index 层级管理
+// --------------------------------------------
+
+$z-base: 1;
+$z-elevated: 10;
+$z-dropdown: 100;
+$z-sticky: 200;
+$z-fixed: 300;
+$z-overlay: 400;
+$z-modal-backdrop: 500;
+$z-modal: 600;
+$z-popover: 700;
+$z-tooltip: 800;
+$z-toast: 900;
+$z-maximum: 9999;
+
+// --------------------------------------------
+// 11. 断点系统 (Breakpoints)
+// --------------------------------------------
+
+$breakpoint-xs: 320px;
+$breakpoint-sm: 375px;    // iPhone SE / iPhone 12 mini
+$breakpoint-md: 414px;    // iPhone 12/13/14
+$breakpoint-lg: 430px;    // iPhone 14 Pro Max
+$breakpoint-xl: 768px;    // iPad
+$breakpoint-xxl: 1024px;  // iPad Pro
+
+// 屏幕高度断点
+$screen-height-small: 667px;    // iPhone SE
+$screen-height-medium: 844px;   // iPhone 12/13
+$screen-height-large: 932px;    // iPhone 14 Pro Max
+
+// --------------------------------------------
+// 12. 组件尺寸规范 (Component Sizing)
+// --------------------------------------------
+
+// 导航栏
+$navbar-height: 88rpx;
+$navbar-height-with-status: calc(env(safe-area-inset-top) + 88rpx);
+
+// 底部 TabBar
+$tabbar-height: 100rpx;
+$tabbar-height-safe: calc(100rpx + env(safe-area-inset-bottom));
+
+// 按钮
+$button-height-sm: 72rpx;
+$button-height-md: 88rpx;
+$button-height-lg: 100rpx;    // 主CTA（略小于之前的104rpx，更精致）
+
+// 输入框
+$input-height: 88rpx;
+$input-height-sm: 72rpx;
+$input-height-lg: 96rpx;
+
+// 卡片
+$card-padding-sm: 24rpx;
+$card-padding-md: 32rpx;
+$card-padding-lg: 40rpx;
+$card-radius: $radius-lg;
+
+// 图标尺寸
+$icon-size-xs: 24rpx;
+$icon-size-sm: 32rpx;
+$icon-size-md: 40rpx;
+$icon-size-lg: 48rpx;
+$icon-size-xl: 56rpx;
+$icon-size-2xl: 64rpx;
+
+// 头像尺寸
+$avatar-size-xs: 48rpx;
+$avatar-size-sm: 64rpx;
+$avatar-size-md: 80rpx;
+$avatar-size-lg: 96rpx;
+$avatar-size-xl: 120rpx;
+$avatar-size-2xl: 160rpx;
+
+// 徽章/标签
+$badge-height: 36rpx;
+$tag-height: 48rpx;
+
+// --------------------------------------------
+// 13. 别名变量 (Convenience Aliases)
+// --------------------------------------------
+
+// 背景快捷引用
+$background-primary: $bg-primary;
+$background-secondary: $bg-secondary;
+$background-tertiary: $bg-tertiary;
+$background-elevated: $bg-elevated;
+
+// 文字快捷引用
+$text-muted: $text-tertiary;
+$text-hint: $text-disabled;
+
+// 功能色快捷引用
+$color-success: $success-color;
+$color-warning: $warning-color;
+$color-danger: $error-color;
+$color-info: $info-color;
+
+// 卡片相关
+$card-background: $bg-elevated;
+$card-shadow: $shadow-card;
+$card-shadow-hover: $shadow-card-hover;
+
+// 全局字体设置
+$font-family-base: $font-family-body;
+$font-family-heading: $font-family-display;
+
+// --------------------------------------------
+// 14. 特殊主题变量 (Theme-specific)
+// --------------------------------------------
+
+// 品牌质感
+$brand-texture-opacity: 0.03;  // 纹理透明度
+$brand-noise-level: 0.02;      // 噪点程度（可选）
+
+// 动效偏好（可全局切换）
+$prefers-reduced-motion: false;  // 是否减少动效
+
+// 触控目标最小尺寸
+$touch-target-min: 88rpx;  // Apple HIG 推荐的最小触控区域
+
+// 安全区域
+$safe-area-top: env(safe-area-inset-top);
+$safe-area-bottom: env(safe-area-inset-bottom);
+$safe-area-left: env(safe-area-inset-left);
+$safe-area-right: env(safe-area-inset-right);
+
+// ============================================
+// 🪟 玻璃效果系统（Glass Effect System）
+// ============================================
+
+// 玻璃背景透明度
+$glass-bg-light: rgba(255, 255, 255, 0.72);     // 轻度玻璃
+$glass-bg-medium: rgba(255, 255, 255, 0.85);    // 中度玻璃
+$glass-bg-heavy: rgba(255, 255, 255, 0.95);      // 重度玻璃（近乎纯白）
+$glass-bg: $glass-bg-medium;                      // 默认值
+
+// 玻璃模糊程度
+$glass-blur-sm: blur(20rpx);                     // 轻度模糊
+$glass-blur-md: blur(40rpx);                     // 中度模糊
+$glass-blur-lg: blur(60rpx);                     // 强度模糊
+$glass-blur: $glass-blur-md;                     // 默认值
+
+// 玻璃边框
+$glass-border-light: 1rpx solid rgba(201, 166, 107, 0.12);   // 香槟金细边框
+$glass-border-normal: 1rpx solid rgba(26, 26, 26, 0.08);     // 中性边框
+$glass-border: $glass-border-light;               // 默认值
+
+// 玻璃阴影
+$glass-shadow-sm: 0 4rpx 16rpx rgba(26, 26, 26, 0.06);      // 轻度阴影
+$glass-shadow-md: 0 8rpx 32rpx rgba(26, 26, 26, 0.08);      // 中度阴影
+$glass-shadow-lg: 0 12rpx 48rpx rgba(26, 26, 26, 0.10);      // 强度阴影
+$glass-shadow: $glass-shadow-md;                   // 默认值

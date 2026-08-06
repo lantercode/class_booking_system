@@ -67,16 +67,6 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="班级容量(人)" prop="capacity">
-              <el-input-number
-                v-model="form.capacity"
-                :min="1"
-                :max="100"
-                class="w-full"
-              />
-            </el-form-item>
-          </el-col>
         </el-row>
 
         <el-form-item label="课程标签" prop="tags">
@@ -141,7 +131,6 @@ const form = reactive({
   difficulty: 'beginner' as string,
   duration: 60,
   price: 120,
-  capacity: 15,
   tags: [] as string[],
 })
 
@@ -162,7 +151,6 @@ onMounted(async () => {
       form.difficulty = LEVEL_REVERSE_MAP[c.level || ''] || 'beginner'
       form.duration = c.duration_minutes
       form.price = c.price
-      form.capacity = c.max_capacity
       form.tags = [c.category, c.level].filter(Boolean) as string[]
     } catch {
       ElMessage.error('加载课程信息失败')
@@ -181,7 +169,6 @@ async function handleSubmit() {
       description: form.description,
       level: LEVEL_REVERSE_MAP[form.difficulty],
       duration_minutes: form.duration,
-      max_capacity: form.capacity,
       price: form.price,
     }
     if (isEdit.value) {

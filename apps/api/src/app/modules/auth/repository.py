@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.user.models import User
-from app.modules.auth.models import Role, UserRole
+from app.modules.auth.models import Role, UserRole, WechatAccount
 from app.modules.tenant.models import Tenant
 
 
@@ -141,3 +141,15 @@ class AuthRepository:
         """
         result = await session.execute(select(Role).where(Role.code == code, Role.tenant_id == tenant_id))
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_wechat_account_by_openid(session: AsyncSession, openid: str, appid: str) -> WechatAccount | None:
+        result = await session.execute(select(WechatAccount).where(WechatAccount.open_id == openid, WechatAccount.app_id == appid))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create_wechat_account(session: AsyncSession, wechat_account_data: dict) -> WechatAccount:
+        wechat_account = WechatAccount(**wechat_account_data)
+        session.add(wechat_account)
+        await session.flush()
+        return wechat_account

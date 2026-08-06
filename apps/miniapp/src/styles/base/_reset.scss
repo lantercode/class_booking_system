@@ -1,0 +1,101 @@
+// ============================================
+// 🎨 Premium Design System - 全局样式重置
+// ============================================
+
+page {
+  // 基础设置
+  height: 100%;
+  font-family: $font-family-base;  // 使用新的字体系统变量
+  font-size: $font-size-body;
+  line-height: $line-height-loose;
+  color: $text-primary;           // 更新：$text-dark-primary → $text-primary
+  background-color: $bg-primary;   // 更新：$bg-light → $bg-primary (米白背景)
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  // 禁用长按选中、菜单等
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+
+  // 滚动行为
+  overscroll-behavior-y: contain;
+}
+
+view,
+text,
+image,
+input,
+button,
+textarea,
+scroll-view,
+swiper {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+
+  // 移除默认的 tap 高亮
+  -webkit-tap-highlight-color: transparent;
+}
+
+// 清除按钮默认样式
+button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  line-height: normal;
+  overflow: visible;
+
+  &::after {
+    display: none;
+    border: none;
+  }
+}
+
+// 输入框基础样式
+input,
+textarea {
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+
+  &::placeholder {
+    color: $text-placeholder;     // 更新：$text-dark-tertiary → $text-placeholder
+  }
+}
+
+// 图片自适应
+image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+// 链接/可点击元素
+[navigable],
+[hover-class] {
+  cursor: pointer;
+}
+
+// 滚动容器优化
+scroll-view {
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+// 列表清除
+view::before,
+view::after {
+  content: none;
+}

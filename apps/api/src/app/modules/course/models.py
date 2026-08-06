@@ -18,7 +18,6 @@ class Classroom(Base, TenantMixin, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
-    capacity: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     equipment: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     status: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=ClassroomStatus.ACTIVE.value,
@@ -47,7 +46,6 @@ class Course(Base, TenantMixin, TimestampMixin):
     cover_url: Mapped[str | None] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text)
     duration_minutes: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    max_capacity: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     required_credits: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     status: Mapped[int] = mapped_column(

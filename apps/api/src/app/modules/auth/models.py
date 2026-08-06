@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, String, Index, ForeignKey, func, text
+from sqlalchemy import BigInteger, String, Index, ForeignKey, func, text, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.base_model import Base, TenantMixin, TimestampMixin
@@ -61,4 +61,26 @@ class RolePermission(Base):
     permission_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("permissions.id", ondelete="CASCADE"),
         nullable=False, primary_key=True,
+    )
+
+class WechatAccount(Base, TimestampMixin):
+    __tablename__ = "wechat_accounts"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True
+    )
+    open_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    unionid: Mapped[str] = mapped_column(String(64), nullable=True)
+    app_id: Mapped[str] = mapped_column(String(64), nullable=True)
+    phone: Mapped[str] = mapped_column(String(50), nullable=True)
+    nickname: Mapped[str] = mapped_column(String(50), nullable=True)
+    avatar_url: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    __table_args__ = (
+        Index(
+            "uq_wechat_accounts_open_id_app_id",
+            "open_id", "app_id",
+            unique=True,
+        ),
     )

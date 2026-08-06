@@ -1,31 +1,17 @@
 <template>
   <view class="page">
     <view class="tabs">
-      <view
-        class="tab-item"
-        :class="{ active: activeTab === 'all' }"
-        @click="setTab('all')"
-      >
+      <view class="tab-item" :class="{ active: activeTab === 'all' }" @click="setTab('all')">
         <text>全部</text>
       </view>
-      <view
-        class="tab-item"
-        :class="{ active: activeTab === 'unread' }"
-        @click="setTab('unread')"
-      >
+      <view class="tab-item" :class="{ active: activeTab === 'unread' }" @click="setTab('unread')">
         <text>未读</text>
         <text class="tab-badge" v-if="unreadCount > 0">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
       </view>
     </view>
 
     <view class="notification-list">
-      <view
-        class="notification-item"
-        v-for="item in filteredNotifications"
-        :key="item.id"
-        :class="{ unread: !item.read }"
-        @click="handleRead(item)"
-      >
+      <view class="notification-item" v-for="item in filteredNotifications" :key="item.id" :class="{ unread: !item.read }" @click="handleRead(item)">
         <view class="notification-left">
           <view class="notification-icon" :class="item.type">
             <text>{{ getIcon(item.type) }}</text>
@@ -34,7 +20,7 @@
         <view class="notification-content">
           <view class="notification-header">
             <text class="notification-title">{{ item.title }}</text>
-            <text class="notification-time">{{ formatTime(item.created_at) }}</text>
+            <text class="notification-time">{{ formatRelativeTime(item.created_at) }}</text>
           </view>
           <text class="notification-body">{{ item.content }}</text>
         </view>
@@ -60,7 +46,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getNotifications, markAsRead, markAllAsRead, clearNotifications, addNotification } from '@/utils/notification'
+import { getNotifications, markAsRead, markAllAsRead, clearNotifications } from '@/utils/notification'
+import { formatRelativeTime } from '@/utils/date'
 
 interface Notification {
   id: string
@@ -104,22 +91,6 @@ function getIcon(type: string) {
   }
 }
 
-function formatTime(dateStr: string) {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-  return `${date.getMonth() + 1}/${date.getDate()}`
-}
-
 function handleRead(item: Notification) {
   if (!item.read) {
     markAsRead(item.id)
@@ -149,70 +120,103 @@ function clearAll() {
 </script>
 
 <style lang="scss" scoped>
+// ✨ 通知中心 - 高级轻奢风格升级
+
 .page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: $bg-primary;                 // ✅ 米白背景（替代#f5f5f5）
   padding-bottom: 120rpx;
 }
 
+// 📑 标签栏 - 玻璃态设计
 .tabs {
   display: flex;
-  background: #fff;
-  padding: 20rpx 30rpx;
-  gap: 20rpx;
+  background: rgba(255, 255, 255, 0.85);   // ✅ 半透明白色
+  backdrop-filter: blur(10rpx);
+  padding: $space-md $space-lg;
+
+  & > view {
+    margin-right: $space-sm;
+  }
+
+  & > view:last-child {
+    margin-right: 0;
+  }
 }
 
+// 🏷️ 标签按钮 - 胶囊式设计
 .tab-item {
   flex: 1;
   text-align: center;
-  padding: 20rpx;
-  font-size: 28rpx;
-  color: #666;
-  border-radius: 30rpx;
-  background: #f5f5f5;
+  padding: $space-sm $space-md;
+  @include text-body;
+  color: $text-secondary;                  // ✅ 替代#666
+  border-radius: $radius-full;
+  background: rgba(201, 166, 107, 0.08);   // ✅ 香槟金浅色背景
   position: relative;
+  transition: all $duration-fast $ease-standard;
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &.active {
+    background: $primary-gradient;         // ✅ 品牌渐变（替代#1989fa）
+    color: #fff;
+    box-shadow: $shadow-sm;
+  }
 }
 
-.tab-item.active {
-  background: #1989fa;
-  color: #fff;
-}
-
+// 🔴 未读数量徽章
 .tab-badge {
   position: absolute;
   top: -8rpx;
   right: -8rpx;
-  background: #f44336;
+  background: $accent-solid;               // ✅ 莫兰迪粉（替代#f44336）
   color: #fff;
-  font-size: 20rpx;
-  padding: 2rpx 8rpx;
-  border-radius: 20rpx;
+  @include text-overline;
+  padding: 2rpx $space-xs;
+  border-radius: $radius-full;
   min-width: 36rpx;
 }
 
+// 📋 通知列表
 .notification-list {
-  padding: 20rpx 30rpx;
+  padding: $space-md $space-lg;
 }
 
+// 💬 通知卡片 - 高级卡片设计
 .notification-item {
   display: flex;
   align-items: flex-start;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  margin-bottom: 20rpx;
+  background: $card-background;            // ✅ 卡片背景（替代#fff）
+  border-radius: $radius-lg;               // ✅ 统一圆角
+  padding: $space-lg;
+  margin-bottom: $space-md;
   position: relative;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-}
+  box-shadow: $shadow-card;                // ✅ 统一阴影
+  transition: all $duration-fast $ease-standard;
 
-.notification-item.unread {
-  background: #f8f9ff;
+  &:active {
+    transform: translateY(-2rpx);
+    box-shadow: $shadow-card-hover;   // ✅ 使用已定义的变量（替代$shadow-hover）
+  }
+
+  &.unread {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.95),
+      rgba(232, 213, 196, 0.15)           // ✅ 暖色调未读标记
+    );
+    border-left: 4rpx solid $primary-solid; // ✅ 左侧品牌色边框
+  }
 }
 
 .notification-left {
-  margin-right: 20rpx;
+  margin-right: $space-md;
 }
 
+// 🔔 通知图标 - 圆形设计
 .notification-icon {
   width: 72rpx;
   height: 72rpx;
@@ -221,58 +225,95 @@ function clearAll() {
   align-items: center;
   justify-content: center;
   font-size: 32rpx;
-}
+  flex-shrink: 0;
 
-.notification-icon.booking {
-  background: #e3f2fd;
-}
+  &.booking {
+    background: linear-gradient(
+      135deg,
+      rgba(201, 166, 107, 0.15),          // ✅ 香槟金浅色
+      rgba(217, 167, 176, 0.1)
+    );
+    color: $primary-solid;
+  }
 
-.notification-icon.system {
-  background: #f3e5f5;
-}
+  &.system {
+    background: linear-gradient(
+      135deg,
+      rgba(217, 167, 176, 0.12),          // ✅ 莫兰迪粉浅色
+      rgba(201, 166, 107, 0.08)
+    );
+    color: $accent-solid;
+  }
 
-.notification-icon.reminder {
-  background: #fff3e0;
+  &.reminder {
+    background: linear-gradient(
+      135deg,
+      rgba(212, 165, 116, 0.18),          // ✅ 暖金浅色
+      rgba(235, 216, 196, 0.1)
+    );
+    color: #D4A574;
+  }
 }
 
 .notification-content {
   flex: 1;
+  min-width: 0;                           // 允许文本截断
 }
 
 .notification-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12rpx;
+  margin-bottom: $space-xs;
 }
 
 .notification-title {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
+  @include text-h3;
+  color: $text-primary;                   // ✅ 替代#333
+  line-height: 1.4;
 }
 
 .notification-time {
-  font-size: 24rpx;
-  color: #999;
+  @include text-caption;
+  color: $text-tertiary;                  // ✅ 替代#999
+  white-space: nowrap;
 }
 
 .notification-body {
-  font-size: 26rpx;
-  color: #666;
+  @include text-body;
+  color: $text-secondary;                 // ✅ 替代#666
   line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
+// 🔴 未读红点
 .unread-dot {
   width: 16rpx;
   height: 16rpx;
-  background: #f44336;
+  background: $accent-solid;              // ✅ 替代#f44336
   border-radius: 50%;
   position: absolute;
   top: 36rpx;
   right: 30rpx;
+  animation: pulse 2s ease-in-out infinite;
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+// 📭 空状态
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -282,35 +323,49 @@ function clearAll() {
 
 .empty-icon {
   font-size: 80rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: $space-md;
+  opacity: 0.6;
 }
 
 .empty-text {
-  font-size: 28rpx;
-  color: #999;
+  @include text-body;
+  color: $text-tertiary;                  // ✅ 替代#999
 }
 
+// ⚡ 操作栏 - 固定底部
 .action-bar {
   position: fixed;
   bottom: 30rpx;
   left: 30rpx;
   right: 30rpx;
   display: flex;
-  gap: 20rpx;
+
+  & > view {
+    margin-right: $space-sm;
+  }
+
+  & > view:last-child {
+    margin-right: 0;
+  }
 }
 
+// 🔘 操作按钮 - 玻璃态设计
 .action-btn {
   flex: 1;
   text-align: center;
-  padding: 24rpx;
-  background: #fff;
-  border-radius: 30rpx;
-  font-size: 28rpx;
-  color: #666;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
-}
+  padding: $space-md;
+  background: rgba(255, 255, 255, 0.9);   // ✅ 半透明背景
+  backdrop-filter: blur(10rpx);
+  border-radius: $radius-lg;
+  @include text-body;
+  color: $text-primary;                   // ✅ 替代#666
+  box-shadow: $shadow-card;
+  transition: all $duration-fast $ease-standard;
 
-.action-btn:active {
-  background: #f5f5f5;
+  &:active {
+    background: rgba(245, 237, 228, 0.9); // ✅ 暖灰色点击反馈
+    transform: scale(0.98);
+  }
 }
 </style>
+ENDOFFILE

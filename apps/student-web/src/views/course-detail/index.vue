@@ -101,7 +101,6 @@ interface CourseView {
   difficulty: string
   duration: number
   price: number
-  capacity: number
   status: number
   tags: string[]
 }
@@ -145,7 +144,6 @@ onMounted(async () => {
       difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
       duration: c.duration_minutes,
       price: c.price,
-      capacity: c.max_capacity,
       status: c.status,
       tags: [c.category, c.level].filter(Boolean) as string[],
     }

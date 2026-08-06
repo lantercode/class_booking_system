@@ -140,7 +140,6 @@ interface CourseView {
   difficulty: string
   duration: number
   price: number
-  capacity: number
   status: number
   classroom: string
   tags: string[]
@@ -177,7 +176,6 @@ async function fetchCourses() {
       difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
       duration: c.duration_minutes,
       price: c.price,
-      capacity: c.max_capacity,
       status: c.status,
       classroom: '舞蹈教室',
       tags: [c.category, c.level].filter(Boolean) as string[],

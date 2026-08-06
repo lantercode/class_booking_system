@@ -10,7 +10,6 @@ export interface Course {
   cover_url: string | null
   description: string | null
   duration_minutes: number
-  max_capacity: number
   price: number
   required_credits: number
   status: number
@@ -34,7 +33,6 @@ export interface CourseCreateParams {
   cover_url?: string
   description?: string
   duration_minutes: number
-  max_capacity: number
   price?: number
   required_credits?: number
 }
@@ -46,7 +44,6 @@ export interface CourseUpdateParams {
   cover_url?: string
   description?: string
   duration_minutes?: number
-  max_capacity?: number
   price?: number
   required_credits?: number
   status?: number

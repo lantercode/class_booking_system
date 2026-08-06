@@ -15,8 +15,12 @@ router = APIRouter(prefix="/courses", tags=["课程管理"])
 course_service = CourseService()
 
 
+# ============================================================
+# 课程 CRUD
+# ============================================================
+
 @router.post(
-    "",
+    "/",
     response_model=dict,
     status_code=201,
     summary="创建课程",
@@ -28,6 +32,7 @@ async def create_course(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """创建课程"""
     result = await course_service.create_course(
         db, data, operator_id=current_user.get("user_id"),
     )
@@ -50,6 +55,7 @@ async def list_courses(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """获取课程列表"""
     result = await course_service.list_courses(
         db,
         keyword=keyword,
@@ -72,6 +78,7 @@ async def get_course(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """获取课程详情"""
     result = await course_service.get_course_by_id(db, course_id)
     return success(data=result)
 
@@ -89,6 +96,7 @@ async def update_course(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """更新课程"""
     result = await course_service.update_course(db, course_id, data)
     return success(data=result, msg="课程更新成功")
 
@@ -105,5 +113,6 @@ async def delete_course(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """删除课程"""
     await course_service.delete_course(db, course_id)
     return success(msg="课程删除成功")

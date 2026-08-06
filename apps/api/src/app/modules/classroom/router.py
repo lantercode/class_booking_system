@@ -15,8 +15,12 @@ router = APIRouter(prefix="/classrooms", tags=["教室管理"])
 classroom_service = ClassroomService()
 
 
+# ============================================================
+# 教室 CRUD
+# ============================================================
+
 @router.post(
-    "",
+    "/",
     response_model=dict,
     status_code=201,
     summary="创建教室",
@@ -28,6 +32,7 @@ async def create_classroom(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """创建教室"""
     result = await classroom_service.create_classroom(
         db, data, operator_id=current_user.get("user_id"),
     )
@@ -48,6 +53,7 @@ async def list_classrooms(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """获取教室列表"""
     result = await classroom_service.list_classrooms(
         db,
         keyword=keyword,
@@ -68,6 +74,7 @@ async def get_classroom(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """获取教室详情"""
     result = await classroom_service.get_classroom_by_id(db, classroom_id)
     return success(data=result)
 
@@ -85,6 +92,7 @@ async def update_classroom(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """更新教室"""
     result = await classroom_service.update_classroom(db, classroom_id, data)
     return success(data=result, msg="教室更新成功")
 
@@ -101,5 +109,6 @@ async def delete_classroom(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
+    """删除教室"""
     await classroom_service.delete_classroom(db, classroom_id)
     return success(msg="教室删除成功")

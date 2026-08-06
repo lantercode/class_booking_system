@@ -39,7 +39,6 @@
         </template>
       </el-table-column>
       <el-table-column prop="duration_minutes" label="时长(分)" width="90" />
-      <el-table-column prop="max_capacity" label="容量" width="70" />
       <el-table-column prop="price" label="价格(元)" width="90" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
@@ -194,7 +193,6 @@ function openCreateDialog() {
     category: undefined,
     level: undefined,
     duration_minutes: 60,
-    max_capacity: 20,
     price: 0,
     required_credits: 1,
     description: '',
@@ -210,7 +208,6 @@ function openEditDialog(row: Course) {
     category: row.category || undefined,
     level: row.level || undefined,
     duration_minutes: row.duration_minutes,
-    max_capacity: row.max_capacity,
     price: row.price,
     required_credits: row.required_credits,
     description: row.description || '',

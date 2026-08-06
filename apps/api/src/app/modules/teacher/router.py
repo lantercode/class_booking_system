@@ -47,8 +47,8 @@ async def update_current_teacher(
 ):
     """更新当前教师信息"""
     result = await teacher_service.update_teacher_by_user_id(
-        db, 
-        current_user.get("user_id"), 
+        db,
+        current_user.get("user_id"),
         data,
         tenant_id=current_user.get("tenant_id"),
     )

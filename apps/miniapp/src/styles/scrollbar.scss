@@ -1,0 +1,104 @@
+// ============================================
+// 🎨 统一滚动条样式（⚠️ 已废弃）
+// ============================================
+//
+// ⚠️ 重要提示：这些 mixin 在微信小程序中**无效**
+//
+// 原因：
+// ──────────────────────────────────────
+// 微信小程序采用双层渲染架构：
+// • WebView层：普通 view 元素（支持 ::-webkit-scrollbar）
+// • Native层：scroll-view、input、video 等原生组件
+//
+// scroll-view 属于 Native 层原生组件，
+// 使用系统原生控件渲染，**不支持 CSS 伪元素**：
+// ❌ &::-webkit-scrollbar { ... }  → 不会生效
+// ❌ &::-webkit-scrollbar-thumb { ... }  → 不会生效
+//
+// 解决方案：
+// ──────────────────────────────────────
+// ✅ 方案1（推荐）：使用 :show-scrollbar="false" 隐藏原生滚动条
+//    <scroll-view :show-scrollbar="false">
+//
+// ✅ 方案2：如果需要自定义样式，请使用 Fake Scrollbar 组件
+//    （模拟滚动条，完全可控外观）
+//
+// ✅ 方案3：切换到 WebView 层（使用 <view overflow-y: auto>）
+//    但性能可能下降
+//
+// 当前状态：
+// ──────────────────────────────────────
+// • 所有页面的 scroll-view 已添加 :show-scrollbar="false"
+// • 本文件中的 mixin 调用已全部清理
+// • 保留此文件仅作为文档参考，不建议继续使用
+//
+// 更新时间：2026-08-05
+// ============================================
+
+@mixin scrollbar($width: 4rpx, $thumb-color: rgba(0, 0, 0, 0.08)) {
+  // ⚠️ 以下代码在微信小程序 Native 层组件上无效
+  // 仅在 WebView 层的 <view> 元素上生效
+
+  // 滚动条整体尺寸
+  // &::-webkit-scrollbar {
+  //   width: $width;
+  //   height: $width;
+  // }
+
+  // // 滚动条轨道（完全透明）
+  // &::-webkit-scrollbar-track {
+  //   background: transparent;
+  //   border: none;
+  // }
+
+  // // 滑块（极淡的颜色）
+  // &::-webkit-scrollbar-thumb {
+  //   background: $thumb-color;
+  //   border-radius: calc(#{$width} / 2);
+  //   border: none;
+
+  //   // 鼠标悬停时稍明显
+  //   &:hover,
+  //   &:hover:active {
+  //     background: rgba(0, 0, 0, 0.15);
+  //     transition: background-color 0.2s ease;
+  //   }
+
+  //   // 拖动时略深
+  //   &:active {
+  //     background: rgba(0, 0, 0, 0.2);
+  //     transition: background-color 0.1s ease;
+  //   }
+  // }
+
+  // 滚动条角落（水平+垂直交叉处）
+  // &::-webkit-scrollbar-corner {
+  //   background: transparent;
+  // }
+}
+
+// ============================================
+// 预设变体（⚠️ 已废弃）
+// ============================================
+
+// 默认超淡滚动条（推荐用于大多数场景）
+// @deprecated 使用 :show-scrollbar="false" 替代
+@mixin scrollbar-ultra-thin {
+  @include scrollbar(4rpx, rgba(0, 0, 0, 0.08));
+}
+
+// 稍明显的滚动条（用于需要强调可滚动性的场景）
+// @deprecated 使用 :show-scrollbar="false" 或 Fake Scrollbar 组件替代
+@mixin scrollbar-visible {
+  @include scrollbar(6rpx, rgba(0, 0, 0, 0.15));
+}
+
+// 完全隐藏滚动条（但保留功能）
+// @deprecated 直接使用 :show-scrollbar="false" 属性替代
+@mixin scrollbar-hidden {
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}

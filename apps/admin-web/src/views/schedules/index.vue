@@ -2,7 +2,11 @@
   <div class="page-container">
     <div class="page-header">
       <h2>排期管理</h2>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <el-input v-model="courseNameFilter" placeholder="搜索课程名称" style="width:180px" clearable @change="handleSearch" @clear="handleSearch" />
+        <el-select v-model="teacherFilter" placeholder="筛选教师" style="width:180px" clearable @change="handleSearch">
+          <el-option v-for="t in teachers" :key="t.id" :label="t.nickname || t.phone" :value="t.id" />
+        </el-select>
         <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width:260px" @change="handleSearch" />
         <el-button type="primary" @click="showCreateDialog"><el-icon><Plus /></el-icon>新增排期</el-button>
       </div>
@@ -208,6 +212,8 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(10)
 const dateRange = ref<any[]>([])
+const teacherFilter = ref<number | null>(null)
+const courseNameFilter = ref('')
 
 const courses = ref<{ id: number; name: string; duration_minutes: number }[]>([])
 const teachers = ref<{ id: number; nickname: string | null; phone: string }[]>([])
@@ -222,6 +228,13 @@ function getCourseName(id: number) { return courseMap.value[id] || `课程#${id}
 function getCourseDuration(id: number) { return courseDurationMap.value[id] || 0 }
 function getTeacherName(id: number) { return teacherMap.value[id] || `教师#${id}` }
 function getClassroomName(id: number | null) { return id ? (classroomMap.value[id] || `教室#${id}`) : '-' }
+
+function formatDateTime(date: Date, timeStr: string): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d} ${timeStr}`
+}
 
 function formatDate(iso: string) { return iso?.slice(0, 10) || '' }
 function formatTime(iso: string) { return iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '' }
@@ -254,9 +267,15 @@ async function fetchSchedules() {
   loading.value = true
   try {
     const params: any = { page: page.value, page_size: pageSize.value }
+    if (teacherFilter.value) {
+      params.teacher_id = teacherFilter.value
+    }
+    if (courseNameFilter.value) {
+      params.course_name = courseNameFilter.value
+    }
     if (dateRange.value && dateRange.value.length === 2) {
-      params.start_from = dateRange.value[0].toISOString()
-      params.start_to = new Date(dateRange.value[1].getTime() + 86400000).toISOString()
+      params.start_from = formatDateTime(dateRange.value[0], '00:00:00')
+      params.start_to = formatDateTime(dateRange.value[1], '23:59:59')
     }
     const res = await scheduleApi.list(params)
     schedules.value = res.data.items

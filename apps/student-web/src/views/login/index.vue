@@ -105,7 +105,7 @@ async function handleLogin() {
     const redirect = (route.query.redirect as string) || '/courses'
     router.push(redirect)
   } catch (err: any) {
-    const msg = err.response?.data?.detail || err.response?.data?.message || '登录失败'
+    const msg = err?.response?.data?.msg || err?.response?.data?.detail || err?.response?.data?.message || '登录失败'
     ElMessage.error(msg)
   } finally {
     loading.value = false

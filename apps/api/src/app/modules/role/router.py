@@ -26,10 +26,12 @@ router = APIRouter(prefix="/roles", tags=["角色权限管理"])
 role_service = RoleService()
 
 
-# ==================== 角色 CRUD ====================
+# ============================================================
+# 角色 CRUD
+# ============================================================
 
 @router.post(
-    "",
+    "/",
     response_model=dict,
     status_code=201,
     summary="创建角色",
@@ -41,7 +43,7 @@ async def create_role(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """创建角色接口"""
+    """创建角色"""
     result = await role_service.create_role(db, data)
     return success(data=result, msg="角色创建成功")
 
@@ -68,66 +70,6 @@ async def list_roles(
         page_size=page_size,
     )
     return success(data=result)
-
-
-# ==================== 权限管理 ====================
-
-@router.get(
-    "/permissions",
-    response_model=dict,
-    summary="获取权限列表",
-    description="获取所有权限列表（支持按模块筛选，需 role:read 权限）",
-)
-@require_permissions("role:read")
-async def list_permissions(
-    module: str = Query(None, description="模块筛选"),
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
-    """获取权限列表"""
-    result = await role_service.list_permissions(db, module=module)
-    return success(data=result)
-
-
-@router.get(
-    "/{role_id}/permissions",
-    response_model=dict,
-    summary="获取角色权限",
-    description="获取指定角色的权限列表（需 role:read 权限）",
-)
-@require_permissions("role:read")
-async def get_role_permissions(
-    role_id: int = Path(..., description="角色ID"),
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
-    """获取角色的权限列表"""
-    result = await role_service.get_role_permissions(db, role_id)
-    return success(data=result)
-
-
-@router.put(
-    "/{role_id}/permissions",
-    response_model=dict,
-    summary="分配角色权限",
-    description="为角色分配权限（覆盖式，需 role:assign 权限）",
-)
-@require_permissions("role:assign")
-async def assign_role_permissions(
-    role_id: int = Path(..., description="角色ID"),
-    data: AssignPermissionsRequest = Body(...),
-    db: AsyncSession = Depends(get_session),
-    redis_client=Depends(get_redis_client),
-    current_user: dict = Depends(get_current_user),
-):
-    """分配角色权限"""
-    await role_service.assign_permissions(
-        db,
-        role_id,
-        data.permission_ids,
-        redis_client=redis_client,
-    )
-    return success(msg="权限分配成功")
 
 
 @router.get(
@@ -160,7 +102,7 @@ async def update_role(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """更新角色信息"""
+    """更新角色"""
     result = await role_service.update_role(db, role_id, data)
     return success(data=result, msg="角色更新成功")
 
@@ -181,3 +123,65 @@ async def delete_role(
     """删除角色"""
     await role_service.delete_role(db, role_id, redis_client=redis_client)
     return success(msg="角色删除成功")
+
+
+# ============================================================
+# 权限管理
+# ============================================================
+
+@router.get(
+    "/permissions",
+    response_model=dict,
+    summary="获取权限列表",
+    description="获取所有权限列表（支持按模块筛选，需 role:read 权限）",
+)
+@require_permissions("role:read")
+async def list_permissions(
+    module: str = Query(None, description="模块筛选"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取权限列表"""
+    result = await role_service.list_permissions(db, module=module)
+    return success(data=result)
+
+
+@router.get(
+    "/{role_id}/permissions",
+    response_model=dict,
+    summary="获取角色权限",
+    description="获取指定角色的权限列表（需 role:read 权限）",
+)
+@require_permissions("role:read")
+async def get_role_permissions(
+    role_id: int = Path(..., description="角色ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取角色权限列表"""
+    result = await role_service.get_role_permissions(db, role_id)
+    return success(data=result)
+
+
+@router.put(
+    "/{role_id}/permissions",
+    response_model=dict,
+    summary="分配角色权限",
+    description="为角色分配权限（覆盖式，需 role:assign 权限）",
+)
+@require_permissions("role:assign")
+async def assign_role_permissions(
+    role_id: int = Path(..., description="角色ID"),
+    data: AssignPermissionsRequest = Body(...),
+    db: AsyncSession = Depends(get_session),
+    redis_client=Depends(get_redis_client),
+    current_user: dict = Depends(get_current_user),
+):
+    """分配角色权限"""
+    await role_service.assign_permissions(
+        db,
+        role_id,
+        data.permission_ids,
+        redis_client=redis_client,
+    )
+    return success(msg="权限分配成功")

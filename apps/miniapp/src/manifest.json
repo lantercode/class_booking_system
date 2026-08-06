@@ -9,17 +9,25 @@
     "title": "舞蹈约课",
     "router": {
       "mode": "hash",
-      "base": "./"
+      "base": "/"
     },
     "devServer": {
       "port": 5173
     }
   },
   "mp-weixin": {
-    "appid": "",
+    "appid": "wxde51c26fe947d42b",
     "setting": {
-      "urlCheck": false
+      "urlCheck": false,
+      "minified": false,
+      "es6": true, 
+      "enhance": true,
+      "postcss": true
     },
-    "usingComponents": true
+    "usingComponents": true,
+    "lazyCodeLoading": "requiredComponents",
+    "optimization": {
+      "subPackages": true
+    }
   }
 }

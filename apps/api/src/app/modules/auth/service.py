@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +6,8 @@ from app.modules.auth.schemas import(
     RegisterRequest,
     AuthResponse,
     UserResponse,
-    LoginRequest
+    LoginRequest,
+    WechatLoginResponse
 )
 from app.core.security import (
     hash_password,
@@ -23,9 +24,11 @@ from app.modules.auth.models import Role
 from app.modules.auth.repository import AuthRepository
 from app.core.config import get_settings
 from app.core.exceptions import ValidationException, AuthException
+from app.modules.auth.wechat_service import WechatService
 
 
 settings = get_settings()
+
 
 class AuthService:
     """认证服务 - 业务逻辑层"""
@@ -203,18 +206,18 @@ class AuthService:
         # 根据tenant_slug查询租户
         tenant = await AuthRepository.get_tenant_by_slug(session, data.tenant_slug)
         if not tenant:
-            raise ValidationException("租户不存在")
+            raise ValidationException(f"机构「{data.tenant_slug}」不存在，请检查机构标识")
         # 根据手机号查询用户（需要 tenant_id，但登录请求没有传租户id，所以可以根据租户标识符先查询到租户）
         user = await AuthRepository.get_user_by_phone(session, tenant.id, data.phone)
         if not user:
-            raise AuthException("手机号/密码错误")
+            raise AuthException("该手机号未注册，请检查账号或先注册")
         # 验证密码
         is_valid = verify_password(data.password, user.password_hash)
         if not is_valid:
-            raise AuthException("手机号/密码错误")
+            raise AuthException("密码错误，请重试")
         # 检查账号状态
         if user.status != UserStatus.ACTIVE.value:
-            raise AuthException("账号已被禁用")
+            raise AuthException("该账号已被禁用，请联系管理员")
         # 更新最后登录时间
         await AuthRepository.update_user(session, user, {"last_login_at": datetime.now()})
         # 提交事务
@@ -385,3 +388,123 @@ class AuthService:
             "token_type": "bearer",
             "expires_in": settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 转换为秒
         }
+
+    @staticmethod
+    async def wechat_auto_login(
+            session: AsyncSession,
+            code: str,
+            app_id: str,
+            tenant_slug: str
+    ) -> AuthResponse:
+        if not app_id:
+            app_id = settings.WECHAT_APP_ID
+        # 获取openid
+        wechat_data = WechatService.code_to_openid(code, app_id)
+        print(f"wechat_data: {wechat_data}")
+        openid = wechat_data['openid']
+        # 获取租户
+        tenant = await AuthRepository.get_tenant_by_slug(session, tenant_slug)
+        if not tenant:
+            raise AuthException("租户不存在")
+        # 检查绑定状态
+        wechat_account = await AuthRepository.get_wechat_account_by_openid(session, openid, app_id)
+        # 如果已绑定
+        if wechat_account:
+            user = await AuthRepository.get_user_by_id(session, wechat_account.user_id)
+            # 检查用户状态
+            if user.status != UserStatus.ACTIVE.value:
+                raise AuthException("账号已被禁用")
+            # 生成双Token
+            access_token = create_access_token({"user_id": user.id, "tenant_id": user.tenant_id})
+            refresh_token = create_refresh_token({"user_id": user.id})
+            return WechatLoginResponse(
+                need_bind=False,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                token_type="bearer",
+                expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                user=UserResponse(
+                    id=user.id,
+                    phone=user.phone,
+                    nickname=user.nickname or '',
+                    status=user.status,
+                    created_at=user.created_at
+                )
+            )
+        else:
+            session_key = wechat_data["session_key"]
+            bind_token = create_access_token(
+                {"openid": openid, "app_id": app_id, "session_key": session_key, "type": "bind"},
+                timedelta(minutes=15),
+            )
+            return WechatLoginResponse(need_bind=True, bind_token=bind_token)
+
+    @staticmethod
+    async def wechat_bind(
+        session: AsyncSession,
+        bind_token: str,
+        phone: str | None = None,
+        encrypted_data: str | None = None,
+        iv: str | None = None,
+        tenant_slug: str = "",
+    ) -> WechatLoginResponse:
+        payload = decode_token(bind_token)
+        if not payload or payload.get("type") != "bind":
+            raise AuthException("绑定凭证无效或已过期")
+
+        openid = payload["openid"]
+        app_id = payload["app_id"]
+        session_key = payload.get("session_key", "")
+
+        tenant = await AuthRepository.get_tenant_by_slug(session, tenant_slug)
+        if not tenant:
+            raise AuthException("租户不存在")
+
+        if encrypted_data and iv:
+            if not session_key:
+                raise AuthException("绑定凭证缺少会话密钥，请重新登录")
+            phone = WechatService.decrypt_phone(encrypted_data, iv, session_key)
+            print(f"微信手机号解密成功: {phone}")
+
+        if not phone:
+            raise AuthException("未获取到手机号，请授权后重试")
+
+        user = await AuthRepository.get_user_by_phone(session, tenant.id, phone)
+        if not user:
+            return WechatLoginResponse(
+                need_bind=True,
+                bind_token=bind_token,
+                decrypted_phone=phone,
+                error_msg="该微信绑定的手机号未在系统中注册，请手动输入机构登记的手机号，或联系后台管理员",
+            )
+
+        if user.status != UserStatus.ACTIVE.value:
+            raise AuthException("账号已被禁用，请联系管理员")
+
+        await AuthRepository.create_wechat_account(session, {
+            "user_id": user.id,
+            "open_id": openid,
+            "app_id": app_id,
+        })
+
+        await AuthRepository.update_user(session, user, {"last_login_at": datetime.now()})
+        await session.commit()
+        await session.refresh(user)
+
+        access_token = create_access_token({"user_id": user.id, "tenant_id": user.tenant_id})
+        refresh_token = create_refresh_token({"user_id": user.id})
+
+        return WechatLoginResponse(
+            need_bind=False,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            user=UserResponse(
+                id=user.id,
+                phone=user.phone,
+                nickname=user.nickname or "",
+                status=user.status,
+                created_at=user.created_at,
+            ),
+        )

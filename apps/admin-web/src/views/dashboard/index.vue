@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { User, Reading, Calendar, Checked } from '@element-plus/icons-vue'
-import { userApi, courseApi, scheduleApi, bookingApi } from '@dance-saas/api-client'
+import { apiClient } from '@dance-saas/api-client'
 
 const totalUsers = ref(0)
 const activeCourses = ref(0)
@@ -87,46 +87,20 @@ const monthlyBookings = ref(0)
 const recentBookings = ref<any[]>([])
 const disabledTeachers = ref<any[]>([])
 
-async function fetchStats() {
+async function fetchDashboard() {
   try {
-    const [uRes, cRes, sRes, bRes] = await Promise.all([
-      userApi.list({ page_size: 1 }),
-      courseApi.list({ page_size: 1 }),
-      scheduleApi.list({ page_size: 100 }),
-      bookingApi.list({ page_size: 100 }),
-    ])
-    totalUsers.value = uRes.data.total
-    activeCourses.value = cRes.data.total
-    monthlySchedules.value = sRes.data.total
-    monthlyBookings.value = bRes.data.total
-
-    const recent = bRes.data.items.slice(0, 5).map((b) => ({
-      student: `学员#${b.student_id}`,
-      course: `课程#${b.schedule_id}`,
-      time: b.booked_at?.slice(0, 16) || '',
-      status: b.status === 2 ? '已签到' : '待签到',
-    }))
-    recentBookings.value = recent
-  } catch (_) {}
-}
-
-async function fetchDisabledTeachers() {
-  try {
-    const res = await userApi.list({ page_size: 100, status: 0 })
-    const teachers = res.data.items
-      .filter((u) => u.roles.includes('teacher'))
-      .map((u) => ({
-        id: u.id,
-        name: u.nickname || u.phone,
-        phone: u.phone,
-        speciality: '暂无',
-      }))
-    disabledTeachers.value = teachers
+    const res = await apiClient.get('/admin/dashboard')
+    const data = res.data
+    totalUsers.value = data.total_users
+    activeCourses.value = data.active_courses
+    monthlySchedules.value = data.monthly_schedules
+    monthlyBookings.value = data.monthly_bookings
+    recentBookings.value = data.recent_bookings
+    disabledTeachers.value = data.disabled_teachers
   } catch (_) {}
 }
 
 onMounted(() => {
-  fetchStats()
-  fetchDisabledTeachers()
+  fetchDashboard()
 })
 </script>

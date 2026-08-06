@@ -1,0 +1,179 @@
+// ============================================
+// 🎨 Premium Design System - 字体排版系统
+// ============================================
+
+// Display 级别（品牌展示）
+.text-display {
+  @include text-display;
+  color: $text-primary;
+}
+
+// H1 - 页面标题
+.text-h1 {
+  @include text-h1;
+  color: $text-primary;           // 更新：$text-dark-primary → $text-primary
+}
+
+// H2 - 区块标题
+.text-h2 {
+  @include text-h2;
+  color: $text-primary;           // 更新
+}
+
+// H3 - 卡片标题
+.text-h3 {
+  @include text-h3;
+  color: $text-primary;           // 更新
+}
+
+// H4 - 小标题
+.text-h4 {
+  @include font-style($font-size-h4, $font-weight-medium, $line-height-normal);
+  color: $text-primary;           // 更新
+}
+
+// 正文大号
+.text-body-lg {
+  @include text-body-lg;
+  color: $text-secondary;         // 更新：$text-dark-secondary → $text-secondary
+}
+
+// 正文标准
+.text-body {
+  @include text-body;
+  color: $text-secondary;         // 更新
+}
+
+// 辅助文字
+.text-caption {
+  @include text-caption;
+  color: $text-tertiary;          // 更新：$text-dark-tertiary → $text-tertiary
+}
+
+// 标签/徽章文字
+.text-overline {
+  @include text-overline;
+  color: $text-tertiary;          // 更新
+  text-transform: uppercase;
+}
+
+// --------------------------------------------
+// 深色背景上的文字变体
+// --------------------------------------------
+
+.text-light {
+  color: $text-primary;
+}
+
+.text-light-secondary {
+  color: $text-secondary;
+}
+
+.text-light-tertiary {
+  color: $text-tertiary;
+}
+
+.text-light-disabled {
+  color: $text-disabled;
+}
+
+// --------------------------------------------
+// 功能色文字（品牌色）
+// --------------------------------------------
+
+.text-primary-brand {
+  color: $primary-solid;           // 香槟金
+}
+
+.text-accent {
+  color: $accent-solid;             // 莫兰迪粉（替代原$secondary-solid）
+}
+
+.text-success {
+  color: $success-color;
+}
+
+.text-warning {
+  color: $warning-color;
+}
+
+.text-error {
+  color: $error-color;
+}
+
+.text-info {
+  color: $info-color;
+}
+
+// --------------------------------------------
+// 渐变文字
+// --------------------------------------------
+
+.text-gradient-primary {
+  @include gradient-text($primary-gradient);     // 香槟金渐变
+}
+
+.text-gradient-accent {
+  @include gradient-text($accent-gradient);       // 莫兰迪粉渐变（替代原$secondary-gradient）
+}
+
+// --------------------------------------------
+// 文字工具类
+// --------------------------------------------
+
+// 截断
+.text-truncate {
+  @include text-truncate;
+}
+
+.text-clamp-2 {
+  @include text-clamp(2);
+}
+
+.text-clamp-3 {
+  @include text-clamp(3);
+}
+
+// 对齐
+.text-left {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+// 字重
+.font-light { font-weight: $font-weight-light; }
+.font-normal { font-weight: $font-weight-normal; }
+.font-medium { font-weight: $font-weight-medium; }
+.font-semibold { font-weight: $font-weight-semibold; }
+.font-bold { font-weight: $font-weight-bold; }
+
+// --------------------------------------------
+// 特殊样式
+// --------------------------------------------
+
+// 品牌名称样式
+.brand-title {
+  @include text-display;
+  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 4rpx 20rpx rgba(102, 126, 234, 0.4);
+}
+
+// Slogan 样式
+.brand-slogan {
+  @include font-style(
+    $font-size-body_sm, 
+    $font-weight-normal, 
+    $line-height-relaxed, 
+    $letter-spacing-wide
+  );
+  color: $text-secondary;
+}

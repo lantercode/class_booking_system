@@ -17,7 +17,6 @@ class CourseCreate(BaseModel):
     cover_url: Optional[str] = Field(None, max_length=500, description="封面图URL")
     description: Optional[str] = Field(None, description="课程描述")
     duration_minutes: int = Field(..., ge=1, description="时长（分钟）")
-    max_capacity: int = Field(..., ge=1, description="最大容量")
     price: float = Field(0.0, ge=0, description="价格")
     required_credits: int = Field(1, ge=0, description="所需积分")
 
@@ -30,7 +29,6 @@ class CourseUpdate(BaseModel):
     cover_url: Optional[str] = Field(None, max_length=500, description="封面图URL")
     description: Optional[str] = Field(None, description="课程描述")
     duration_minutes: Optional[int] = Field(None, ge=1, description="时长（分钟）")
-    max_capacity: Optional[int] = Field(None, ge=1, description="最大容量")
     price: Optional[float] = Field(None, ge=0, description="价格")
     required_credits: Optional[int] = Field(None, ge=0, description="所需积分")
     status: Optional[int] = Field(None, ge=0, le=1, description="状态：0下架/1上架")
@@ -47,7 +45,6 @@ class CourseResponse(BaseModel):
     cover_url: Optional[str] = None
     description: Optional[str] = None
     duration_minutes: int
-    max_capacity: int
     price: float
     required_credits: int
     status: int

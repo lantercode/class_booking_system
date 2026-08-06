@@ -4,7 +4,6 @@ export interface Classroom {
   id: number
   tenant_id: number
   name: string
-  capacity: number
   equipment: string[]
   status: number
   created_at: string
@@ -20,13 +19,11 @@ export interface ClassroomListParams {
 
 export interface ClassroomCreateParams {
   name: string
-  capacity: number
   equipment?: string[]
 }
 
 export interface ClassroomUpdateParams {
   name?: string
-  capacity?: number
   equipment?: string[]
   status?: number
 }

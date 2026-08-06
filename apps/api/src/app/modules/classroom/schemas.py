@@ -12,14 +12,12 @@ from datetime import datetime
 class ClassroomCreate(BaseModel):
     """创建教室请求体"""
     name: str = Field(..., min_length=1, max_length=50, description="教室名称")
-    capacity: int = Field(..., ge=1, description="容纳人数")
     equipment: Optional[List[str]] = Field(default=[], description="设备列表")
 
 
 class ClassroomUpdate(BaseModel):
     """更新教室请求体（部分更新）"""
     name: Optional[str] = Field(None, min_length=1, max_length=50, description="教室名称")
-    capacity: Optional[int] = Field(None, ge=1, description="容纳人数")
     equipment: Optional[List[str]] = Field(None, description="设备列表")
     status: Optional[int] = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
 
@@ -29,7 +27,6 @@ class ClassroomResponse(BaseModel):
     id: int
     tenant_id: int
     name: str
-    capacity: int
     equipment: Optional[List[str]] = None
     status: int
     created_at: datetime

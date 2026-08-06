@@ -140,7 +140,6 @@ interface CourseView {
   difficulty: string
   duration: number
   price: number
-  capacity: number
   status: number
 }
 
@@ -163,7 +162,6 @@ function mapCourse(c: Course): CourseView {
     difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
     duration: c.duration_minutes,
     price: c.price,
-    capacity: c.max_capacity,
     status: c.status,
   }
 }

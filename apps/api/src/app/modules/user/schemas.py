@@ -79,3 +79,5 @@ class ResetPasswordRequest(BaseModel):
     """重置密码请求（管理员操作）"""
     user_id: int = Field(..., description="用户ID")
     new_password: str = Field(..., min_length=6, max_length=128, description="新密码")
+
+

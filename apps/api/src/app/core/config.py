@@ -35,6 +35,9 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://localhost:5175"
 
+    WECHAT_APP_ID: str = "wxde51c26fe947d42b"  # 小程序 AppId（默认值可以是空字符串，后续从环境变量读取）
+    WECHAT_SECRET: str = "afc51f233d8ea454ba8df6435750b4dd" # 小程序 AppSecret
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

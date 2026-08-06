@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
+from app.modules.course.models import Course
 
 
 class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
@@ -24,6 +25,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         db: AsyncSession,
         *,
         course_id: Optional[int] = None,
+        course_name: Optional[str] = None,
         teacher_id: Optional[int] = None,
         classroom_id: Optional[int] = None,
         status: Optional[int] = None,
@@ -35,6 +37,14 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         """搜索排期（支持多条件筛选）"""
         base_query = select(CourseSchedule)
         count_query = select(func.count()).select_from(CourseSchedule)
+
+        if course_name:
+            base_query = base_query.join(Course, CourseSchedule.course_id == Course.id).where(
+                Course.name.ilike(f"%{course_name}%")
+            )
+            count_query = count_query.join(Course, CourseSchedule.course_id == Course.id).where(
+                Course.name.ilike(f"%{course_name}%")
+            )
 
         if course_id:
             base_query = base_query.where(CourseSchedule.course_id == course_id)

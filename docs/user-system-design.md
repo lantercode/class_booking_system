@@ -6,9 +6,9 @@
 
 | 方案 | 核心逻辑 | 适用场景 | 推荐度 |
 |------|---------|---------|--------|
-| A | 用户自主注册 + 选身份 | 开放平台（抖音/小红书类） | ❌ 不适合 |
-| B | 管理员全量创建 | 企业内部系统 | ❌ 太封闭 |
-| **C** | **管理员预创建 + 微信绑定** | **SaaS 商业产品** | ✅ **强烈推荐** |
+| A | 用户自主注册 + 选身份 | 开放平台（抖音/小红书类） | 不推荐 |
+| B | 管理员全量创建 | 企业内部系统 | 太封闭 |
+| **C** | **管理员预创建 + 微信绑定** | **SaaS 商业产品** | **强烈推荐** |
 
 **核心原因：舞蹈机构是 B2B2C 模式，机构付费、学员使用，学员身份必须由机构确认，不能自选。**
 
@@ -22,7 +22,7 @@
 ┌─────────────────────────────────────────────────────┐
 │                  学员加入三通道                        │
 ├───────────────┬───────────────┬───────────────────────┤
-│  通道1：报名后自动创建    │ 通道2：管理员手动创建  │ 通道3：微信扫码注册申请  │
+│  通道1: 报名后自动创建  │ 通道2: 管理员手动创建  │ 通道3: 微信扫码注册申请  │
 │  (主要通道 80%)         │ (补充通道 15%)        │ (辅助通道 5%)          │
 ├───────────────┼───────────────┼───────────────────────┤
 │ 线下/线上报名             │ 前台录入新学员信息      │ 学员扫码小程序           │
@@ -35,7 +35,7 @@
 │      ↓                   │      ↓                 │      ↓                 │
 │ 自动关联已有档案          │ 自动关联已有档案         │ 管理员审核               │
 │      ↓                   │      ↓                 │      ↓                 │
-│ 进入学员端 ✅             │ 进入学员端 ✅            │ 审核通过 → 进入学员端 ✅  │
+│ 进入学员端 确认           │ 进入学员端 确认          │ 审核通过 -> 进入学员端 确认 │
 └───────────────┴───────────────┴───────────────────────┘
 ```
 
@@ -47,8 +47,8 @@
 迁移策略：
 1. 管理员批量导入 Excel（姓名、手机号、剩余课时、原有课程）
 2. 系统生成专属绑定二维码，打印张贴或私发
-3. 老学员扫码 → 微信授权 → 自动匹配手机号 → 绑定成功
-4. 如果手机号不匹配 → 提示联系管理员更新
+3. 老学员扫码 -> 微信授权 -> 自动匹配手机号 -> 绑定成功
+4. 如果手机号不匹配 -> 提示联系管理员更新
 ```
 
 ### 1.3 教师如何加入？
@@ -57,7 +57,7 @@
 教师加入流程：
 1. 管理员后台创建教师账号（姓名、手机号、教师编号、可授课程）
 2. 系统生成教师专属绑定二维码
-3. 教师扫码 → 微信授权 → 绑定 → 进入教师端
+3. 教师扫码 -> 微信授权 -> 绑定 -> 进入教师端
 4. 教师端首次登录引导：设置教学偏好、可用时间段
 ```
 
@@ -69,16 +69,16 @@
 注销策略：
 ┌──────────────────────────────────────────┐
 │ 学员注销                                   │
-│ → 软删除（status = INACTIVE）              │
-│ → 保留上课记录、消费记录（财务审计需要）        │
-│ → 解绑微信（openid 置空，可重新绑定新学员）     │
-│ → 180天后可物理删除（GDPR合规）              │
+│ -> 软删除（status = INACTIVE）              │
+│ -> 保留上课记录、消费记录（财务审计需要）        │
+│ -> 解绑微信（openid 置空，可重新绑定新学员）     │
+│ -> 180天后可物理删除（GDPR合规）              │
 ├──────────────────────────────────────────┤
 │ 教师注销                                   │
-│ → 离职处理（status = RESIGNED）             │
-│ → 保留授课记录                              │
-│ → 转移未完成的排课给其他教师                   │
-│ → 解绑微信                                  │
+│ -> 离职处理（status = RESIGNED）             │
+│ -> 保留授课记录                              │
+│ -> 转移未完成的排课给其他教师                   │
+│ -> 解绑微信                                  │
 └──────────────────────────────────────────┘
 ```
 
@@ -115,16 +115,16 @@
 ### 为什么一个微信 = 一个业务身份？
 
 ```
-❌ 一个微信多个身份的问题：
+不支持一个微信多个身份的原因：
   - 教师在小程序里要切换"教师模式"和"学员模式"？
   - 权限混乱：同一个微信既是教师又是学员，数据隔离怎么做？
   - 教师端和学员端是不同的微信小程序（AppId不同），天然隔离
 
-✅ 正确做法：
-  - 学员端小程序 → 只能绑定 Student 身份
-  - 教师端小程序 → 只能绑定 Teacher 身份
-  - 管理后台 Web → Admin 身份，账号密码登录
-  - 如果某教师同时是其他机构的学员 → 用不同租户隔离
+正确做法：
+  - 学员端小程序 -> 只能绑定 Student 身份
+  - 教师端小程序 -> 只能绑定 Teacher 身份
+  - 管理后台 Web -> Admin 身份，账号密码登录
+  - 如果某教师同时是其他机构的学员 -> 用不同租户隔离
 ```
 
 ### 特殊情况：教师也是管理员
@@ -138,8 +138,8 @@
     ├── role = TEACHER (教师端小程序可用)
     └── role = ADMIN   (管理后台 Web 可用)
 
-  教师端小程序 → 识别 TEACHER 角色 → 进入教师端
-  管理后台 Web  → 识别 ADMIN 角色  → 进入管理后台
+  教师端小程序 -> 识别 TEACHER 角色 -> 进入教师端
+  管理后台 Web  -> 识别 ADMIN 角色  -> 进入管理后台
   同一套账号密码/微信登录，不同入口看到不同界面
 ```
 
@@ -197,12 +197,12 @@ STUDENT      = { course:read, schedule:read, booking:create, booking:cancel, boo
 推荐：固定角色 + 可扩展权限组合
 
 固定角色：TENANT_ADMIN, TEACHER, STUDENT, RECEPTION
-  → 每个 user 必须属于至少一个固定角色
-  → 固定角色决定用户在哪个端（小程序/Web）操作
+  -> 每个 user 必须属于至少一个固定角色
+  -> 固定角色决定用户在哪个端（小程序/Web）操作
 
 动态权限：每个租户可以自定义角色
-  → 例如：某机构想要"高级教师"角色，多一个 schedule:create 权限
-  → 租户管理员可以创建自定义角色、分配权限组合
+  -> 例如：某机构想要"高级教师"角色，多一个 schedule:create 权限
+  -> 租户管理员可以创建自定义角色、分配权限组合
 ```
 
 ---
@@ -217,16 +217,16 @@ STUDENT      = { course:read, schedule:read, booking:create, booking:cancel, boo
 -- ============================================================
 CREATE TABLE wechat_accounts (
     id              BIGINT PRIMARY KEY,
-    openid          VARCHAR(64)  NOT NULL,           -- 小程序 openid
-    unionid         VARCHAR(64),                     -- 微信 unionid（跨应用统一标识）
-    appid           VARCHAR(32)  NOT NULL,           -- 小程序 AppId（区分学员端/教师端）
-    phone           VARCHAR(20),                     -- 微信手机号（加密存储）
-    nickname        VARCHAR(100),                    -- 微信昵称
-    avatar_url      VARCHAR(500),                    -- 微信头像
+    openid          VARCHAR(64)  NOT NULL,
+    unionid         VARCHAR(64),
+    appid           VARCHAR(32)  NOT NULL,
+    phone           VARCHAR(20),
+    nickname        VARCHAR(100),
+    avatar_url      VARCHAR(500),
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     
-    UNIQUE(openid, appid)                            -- 同一小程序 openid 唯一
+    UNIQUE(openid, appid)
 );
 
 -- ============================================================
@@ -234,19 +234,20 @@ CREATE TABLE wechat_accounts (
 -- ============================================================
 CREATE TABLE users (
     id              BIGINT PRIMARY KEY,
-    public_id       UUID         NOT NULL UNIQUE,    -- 对外ID（API返回，不暴露内部ID）
-    tenant_id       BIGINT       NOT NULL,           -- 所属租户（机构）
-    wechat_id       BIGINT,                          -- 关联微信账号（可为空，管理员不绑定微信）
-    user_type       VARCHAR(16)  NOT NULL,           -- STUDENT | TEACHER | ADMIN | RECEPTION
-    name            VARCHAR(50)  NOT NULL,           -- 真实姓名
-    phone           VARCHAR(20),                     -- 手机号（业务层，可与微信手机号不同）
-    status          VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | INACTIVE | RESIGNED
+    public_id       UUID         NOT NULL UNIQUE,
+    tenant_id       BIGINT       NOT NULL,
+    wechat_id       BIGINT,
+    user_type       VARCHAR(16)  NOT NULL,
+    name            VARCHAR(50)  NOT NULL,
+    phone           VARCHAR(20),
+    password_hash   VARCHAR(256),
+    status          VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     
     INDEX idx_users_tenant (tenant_id),
     INDEX idx_users_phone (tenant_id, phone),
-    UNIQUE(tenant_id, phone)                         -- 同机构内手机号唯一
+    UNIQUE(tenant_id, phone)
 );
 
 -- ============================================================
@@ -254,16 +255,16 @@ CREATE TABLE users (
 -- ============================================================
 CREATE TABLE students (
     id              BIGINT PRIMARY KEY,
-    user_id         BIGINT       NOT NULL UNIQUE,    -- 1:1 关联 users
-    student_no      VARCHAR(32),                     -- 学员编号
+    user_id         BIGINT       NOT NULL UNIQUE,
+    student_no      VARCHAR(32),
     birthday        DATE,
     gender          VARCHAR(8),
-    emergency_contact VARCHAR(20),                  -- 紧急联系人
+    emergency_contact VARCHAR(20),
     emergency_name  VARCHAR(50),
-    remaining_hours DECIMAL(8,2) NOT NULL DEFAULT 0, -- 剩余课时
-    total_hours     DECIMAL(8,2) NOT NULL DEFAULT 0, -- 累计课时
-    joined_at       DATE,                            -- 入学日期
-    source          VARCHAR(32),                     -- 来源：OFFLINE/ONLINE/REFERRAL
+    remaining_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+    total_hours     DECIMAL(8,2) NOT NULL DEFAULT 0,
+    joined_at       DATE,
+    source          VARCHAR(32),
     notes           TEXT,
     
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -274,14 +275,14 @@ CREATE TABLE students (
 -- ============================================================
 CREATE TABLE teachers (
     id              BIGINT PRIMARY KEY,
-    user_id         BIGINT       NOT NULL UNIQUE,    -- 1:1 关联 users
-    teacher_no      VARCHAR(32),                     -- 教师编号
-    bio             TEXT,                            -- 个人简介
-    specialties     TEXT[],                          -- 擅长舞种
-    hourly_rate     DECIMAL(10,2),                   -- 课时费（内部核算用）
-    max_weekly_hours INT DEFAULT 20,                 -- 每周最大课时
-    joined_at       DATE,                            -- 入职日期
-    certificate_urls TEXT[],                         -- 资质证书
+    user_id         BIGINT       NOT NULL UNIQUE,
+    teacher_no      VARCHAR(32),
+    bio             TEXT,
+    specialties     TEXT[],
+    hourly_rate     DECIMAL(10,2),
+    max_weekly_hours INT DEFAULT 20,
+    joined_at       DATE,
+    certificate_urls TEXT[],
     status          VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',
     
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -292,10 +293,10 @@ CREATE TABLE teachers (
 -- ============================================================
 CREATE TABLE roles (
     id              BIGINT PRIMARY KEY,
-    tenant_id       BIGINT,                          -- NULL = 平台级角色，有值 = 租户自定义角色
-    name            VARCHAR(50)  NOT NULL,           -- SUPER_ADMIN / TENANT_ADMIN / TEACHER / STUDENT
-    display_name    VARCHAR(50)  NOT NULL,           -- 显示名称
-    is_system       BOOLEAN      NOT NULL DEFAULT FALSE, -- 是否系统预置角色（不可删除）
+    tenant_id       BIGINT,
+    name            VARCHAR(50)  NOT NULL,
+    display_name    VARCHAR(50)  NOT NULL,
+    is_system       BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     
     UNIQUE(tenant_id, name)
@@ -306,8 +307,8 @@ CREATE TABLE roles (
 -- ============================================================
 CREATE TABLE permissions (
     id              BIGINT PRIMARY KEY,
-    resource        VARCHAR(50)  NOT NULL,           -- student / course / schedule / booking / report
-    action          VARCHAR(32)  NOT NULL,           -- create / read / update / delete / export
+    resource        VARCHAR(50)  NOT NULL,
+    action          VARCHAR(32)  NOT NULL,
     description     VARCHAR(200),
     
     UNIQUE(resource, action)
@@ -382,7 +383,7 @@ CREATE TABLE user_roles (
       ▼
   检查本地 token
       │
-      ├── 有效 ──→ 直接进入学员端 ✅
+      ├── 有效 ──→ 直接进入学员端 确认
       │
       └── 无效
           │
@@ -401,7 +402,7 @@ CREATE TABLE user_roles (
           │
           ├── 已绑定 ──→ 检查 user.status
           │                │
-          │                ├── ACTIVE ──→ 签发 JWT → 进入学员端 ✅
+          │                ├── ACTIVE ──→ 签发 JWT -> 进入学员端 确认
           │                └── INACTIVE ──→ 提示"账号已停用，请联系机构"
           │
           └── 未绑定 ──→ 返回 bind_token（临时凭证）
@@ -418,7 +419,7 @@ CREATE TABLE user_roles (
                           │
                           ├── 找到学员 ──→ 绑定 wechat_accounts.user_id
                           │                │
-                          │                └── 签发 JWT → 进入学员端 ✅
+                          │                └── 签发 JWT -> 进入学员端 确认
                           │
                           └── 未找到 ──→ 提示"未找到您的学员信息，
                                           请联系机构前台"
@@ -459,7 +460,7 @@ CREATE TABLE user_roles (
       │
       ├── 验证成功 ──→ 签发 JWT（含 tenant_id, roles）
       │                │
-      │                └── 进入管理后台 ✅
+      │                └── 进入管理后台 确认
       │
       └── 验证失败 ──→ 错误提示
 
@@ -475,7 +476,7 @@ CREATE TABLE user_roles (
   获取 corp_id + user_id
       │
       ▼
-  查询绑定关系 → 签发 JWT → 进入后台
+  查询绑定关系 -> 签发 JWT -> 进入后台
 ```
 
 ---
@@ -486,21 +487,21 @@ CREATE TABLE user_roles (
 
 | 风险 | 方案A（自主注册） | 方案C（混合模式） | 缓解措施 |
 |------|:--:|:--:|------|
-| 冒充教师 | 🔴 高 | 🟢 低 | 教师必须管理员创建 |
-| 恶意注册 | 🔴 高 | 🟢 低 | 绑定已有手机号，无匹配则拒绝 |
-| 数据泄露 | 🟡 中 | 🟢 低 | 租户隔离 + JWT 校验 |
-| 管理成本 | 🟢 低 | 🟡 中 | 批量导入 + 二维码自助绑定 |
-| 用户增长 | 🟢 快 | 🟡 中 | 报名即创建，无缝衔接 |
+| 冒充教师 | 高 | 低 | 教师必须管理员创建 |
+| 恶意注册 | 高 | 低 | 绑定已有手机号，无匹配则拒绝 |
+| 数据泄露 | 中 | 低 | 租户隔离 + JWT 校验 |
+| 管理成本 | 低 | 中 | 批量导入 + 二维码自助绑定 |
+| 用户增长 | 快 | 中 | 报名即创建，无缝衔接 |
 
 ### 6.2 关键安全措施
 
 ```
 1. 微信绑定的安全链路
    ┌─────────────────────────────────────────────┐
-   │ wx.login() → code（5分钟有效，一次性）        │
-   │ 后端 code → openid（服务端请求，不经过前端）   │
-   │ openid → 查询绑定关系（服务端）                │
-   │ 绑定 → phone 必须匹配（不匹配则拒绝）          │
+   │ wx.login() -> code（5分钟有效，一次性）        │
+   │ 后端 code -> openid（服务端请求，不经过前端）   │
+   │ openid -> 查询绑定关系（服务端）                │
+   │ 绑定 -> phone 必须匹配（不匹配则拒绝）          │
    │ 签发 JWT（含 openid，每次请求校验）            │
    └─────────────────────────────────────────────┘
 
@@ -591,7 +592,7 @@ CREATE TABLE user_roles (
   - audit_logs 表（操作审计）
 
 权限：租户 + 组织层级
-  SUPER_ADMIN → ORG_ADMIN → TENANT_ADMIN → TEACHER → STUDENT
+  SUPER_ADMIN -> ORG_ADMIN -> TENANT_ADMIN -> TEACHER -> STUDENT
 
 新增功能：
   - SSO 单点登录（跨小程序）
@@ -609,7 +610,7 @@ CREATE TABLE user_roles (
 
 核心逻辑：
 ```
-管理员创建业务身份 → 用户微信登录 → 绑定已有身份 → 进入系统
+管理员创建业务身份 -> 用户微信登录 -> 绑定已有身份 -> 进入系统
 ```
 
 这个方案的本质是：**机构是付费方，机构决定谁是谁**。
@@ -618,7 +619,7 @@ CREATE TABLE user_roles (
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        舞蹈机构 SaaS 用户体系                       │
+│                     舞蹈机构 SaaS 用户体系                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
@@ -632,7 +633,7 @@ CREATE TABLE user_roles (
 │  │                    Auth Service (认证层)                   │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │   │
 │  │  │ WeChat Auth   │  │ JWT Issuer   │  │ Phone Verify  │   │   │
-│  │  │ code→openid   │  │ sign/verify  │  │ bind/match    │   │   │
+│  │  │ code->openid  │  │ sign/verify  │  │ bind/match    │   │   │
 │  │  └──────────────┘  └──────────────┘  └──────────────┘   │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                              │                                    │
@@ -640,13 +641,13 @@ CREATE TABLE user_roles (
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │                    Data Layer (数据层)                      │   │
 │  │                                                             │   │
-│  │  wechat_accounts ──1:1── users ──1:1── students/teachers   │   │
+│  │  wechat_accounts --1:1-- users --1:1-- students/teachers   │   │
 │  │       │                    │                                │   │
 │  │       │              ┌─────┴─────┐                          │   │
-│  │       │           user_roles  roles ── role_permissions     │   │
+│  │       │           user_roles  roles -- role_permissions     │   │
 │  │       │                         └───── permissions          │   │
 │  │       │                                                     │   │
-│  │       └── tenant_id ────→ 全局数据隔离                       │   │
+│  │       └── tenant_id ----→ 全局数据隔离                       │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
@@ -688,7 +689,7 @@ CREATE TABLE user_roles (
 │       ▼              ▼                ▼                           │
 │  ┌───────────────────────────────────────────┐                   │
 │  │  查询绑定关系                                │                   │
-│  │  wechat_accounts.openid → user_id          │                   │
+│  │  wechat_accounts.openid -> user_id          │                   │
 │  └──────────────────┬────────────────────────┘                   │
 │                     │                                             │
 │          ┌──────────┼──────────┐                                 │
@@ -804,13 +805,13 @@ Response: {
 ```
 权限判断流程（每次 API 请求）：
 ┌─────────────────────────────────────────────────────┐
-│ 1. JWT 中间件解析 token → user_id, tenant_id, roles  │
+│ 1. JWT 中间件解析 token -> user_id, tenant_id, roles │
 │ 2. 租户上下文注入 tenant_id                            │
 │ 3. 权限装饰器检查：@require_permission("student:read") │
-│    → 查询 user_roles → roles → role_permissions      │
-│    → 匹配 resource + action                          │
-│    → 通过 → 执行业务逻辑                              │
-│    → 拒绝 → 403 Forbidden                            │
+│    -> 查询 user_roles -> roles -> role_permissions      │
+│    -> 匹配 resource + action                          │
+│    -> 通过 -> 执行业务逻辑                              │
+│    -> 拒绝 -> 403 Forbidden                            │
 └─────────────────────────────────────────────────────┘
 
 预置权限（permissions 表初始数据）：
@@ -836,24 +837,24 @@ TENANT_ADMIN 角色权限：
 
 ```
 1. 商业合理性
-   → 舞蹈机构是 B2B2C 模式，机构付费，学员使用
-   → 学员身份必须由机构确认（报名=创建）或管理员创建
-   → 不能让用户自己选"我是学员"，这是业务逻辑不是技术问题
+   -> 舞蹈机构是 B2B2C 模式，机构付费，学员使用
+   -> 学员身份必须由机构确认（报名=创建）或管理员创建
+   -> 不能让用户自己选"我是学员"，这是业务逻辑不是技术问题
 
 2. 安全性
-   → 教师不能自主注册，防止冒充
-   → 微信绑定需要手机号匹配，双重验证
-   → 租户隔离，数据不会跨机构泄露
+   -> 教师不能自主注册，防止冒充
+   -> 微信绑定需要手机号匹配，双重验证
+   -> 租户隔离，数据不会跨机构泄露
 
 3. 扩展性
-   → wechat_accounts 与 users 分离，支持多种登录方式
-   → users 与 students/teachers 分离，支持新增角色
-   → RBAC 可自定义，支持不同机构的差异化需求
+   -> wechat_accounts 与 users 分离，支持多种登录方式
+   -> users 与 students/teachers 分离，支持新增角色
+   -> RBAC 可自定义，支持不同机构的差异化需求
 
 4. 用户体验
-   → 老学员只需扫码绑定，不重复填信息
-   → 新学员报名后自动创建，管理员零额外操作
-   → 管理员批量导入，降低迁移成本
+   -> 老学员只需扫码绑定，不重复填信息
+   -> 新学员报名后自动创建，管理员零额外操作
+   -> 管理员批量导入，降低迁移成本
 ```
 
 ### 8.7 后续扩展能力
@@ -861,29 +862,29 @@ TENANT_ADMIN 角色权限：
 ```
 1. 会员体系
    在 users 基础上扩展 memberships 表：
-   → 会员等级（普通/银卡/金卡/钻石）
-   → 积分体系
-   → 优惠券
+   -> 会员等级（普通/银卡/金卡/钻石）
+   -> 积分体系
+   -> 优惠券
 
 2. 多端统一
    unionid 打通：
-   → 学员小程序 + 公众号 + H5 商城
-   → 同一微信用户在不同端的身份统一
+   -> 学员小程序 + 公众号 + H5 商城
+   -> 同一微信用户在不同端的身份统一
 
 3. 企业微信集成
-   → 教师通过企业微信登录管理后台
-   → 排课提醒通过企业微信推送
-   → 家校沟通（学员家长通过微信服务号接收通知）
+   -> 教师通过企业微信登录管理后台
+   -> 排课提醒通过企业微信推送
+   -> 家校沟通（学员家长通过微信服务号接收通知）
 
 4. 开放平台
-   → 第三方系统通过 OAuth2.0 接入
-   → 例如：对接美团/大众点评的团购核销
-   → 例如：对接智能门禁系统（签到自动开门）
+   -> 第三方系统通过 OAuth2.0 接入
+   -> 例如：对接美团/大众点评的团购核销
+   -> 例如：对接智能门禁系统（签到自动开门）
 
 5. 数据合规
-   → 用户数据导出（GDPR/个保法）
-   → 数据脱敏（手机号中间4位隐藏）
-   → 操作审计日志（谁在什么时间做了什么）
+   -> 用户数据导出（GDPR/个保法）
+   -> 数据脱敏（手机号中间4位隐藏）
+   -> 操作审计日志（谁在什么时间做了什么）
 ```
 
 ---
