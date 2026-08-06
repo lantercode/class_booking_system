@@ -304,7 +304,7 @@ packages/api-client/src/           # API 客户端（扩展）
 #### 3. 种子数据系统
 
 ```sql
--- 租户: 舞蹈机构 (dance-school) [ID=2]
+-- 租户: 沐里舞蹈 (dance-school) [ID=2]
 -- 角色: super_admin, admin, teacher, student (4个)
 -- 权限: course(3) + schedule(2) + booking(2) + user(1) + stats(1) = 9个
 -- 管理员: 12345678901 / super_admin [ID=1]
@@ -337,6 +337,15 @@ packages/api-client/src/           # API 客户端（扩展）
 - ✅ 审计日志追踪
 
 ---
+
+## 近期修复（2026-08）
+
+| 问题 | 描述 | 修复位置 |
+|------|------|----------|
+| 小程序课程列表无参报错 | `buildQuery({})` 导致 URL 末尾带 `/`，与后端路由不匹配 404 | `miniapp/src/api/index.ts`（7 处） |
+| 预约列表无课程名称 | `BookingResponse` 缺少 schedule/course/classroom/teacher 关联字段 | `booking/schemas.py`、`booking/service.py` |
+| auth router 冗余 responses | 删除 4 个 `422`（FastAPI 自动生成）和 3 个通用 `401`（依赖注入已处理） | `auth/router.py` |
+| 项目文档完善 | 新增业务错误码体系计划、CI/CD 接入计划、面试问答（🎤/📋/🔧 标签体系） | `note.md` |
 
 ## 近期修复（2026-07）
 

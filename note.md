@@ -1,534 +1,216 @@
-# pnpm
-1、why？ pnpm install 在 monorepo 根目录跑一次就够了，会自动给 apps/* 和 packages/* 都装好。这是 workspace 的好处。
+# 项目实战问题记录 & 面试问答
 
-# redis
-1、Redis 容器已启动但仍连接失败，测试方法test_refresh_token_success时报的错
+> class_booking_system 开发过程中的真实问题排查与解决方案
+
+**图例**：🎤 = 面试背诵（真实问题排查 + 面试问答）　🔧 = 待开发任务（后续计划）　📋 = 速查备忘
 
 ---
-
-# 🐳 Docker 网络架构面试题集
-
-> **基于实战项目：RedisInsight 容器连接 Redis 容器的排查过程**
 
 ## 目录
-- [第一部分：基础概念篇](#第一部分基础概念篇)
-- [第二部分：核心原理篇](#第二部分核心原理篇)
-- [第三部分：实战场景篇](#第三部分实战场景篇)
-- [第四部分：高级优化篇](#第四部分高级优化篇)
-- [参考答案速查表](#参考答案速查表)
+
+| 序号 | 标签 | 问题 | 涉及技术 |
+|------|------|------|---------|
+| 一 | 🎤 | [Docker 容器间通信 — RedisInsight 连不上 Redis](#一docker-容器间通信--redisinsight-连不上-redis) | 网络隔离、host.docker.internal |
+| 二 | 🎤 | [本地开发微信登录报 IP 不在白名单](#二本地开发微信登录报-ip-不在白名单) | 公网出口 IP、代理、微信平台安全 |
+| 三 | 🎤 | [个人版小程序 getPhoneNumber 不可用](#三个人版小程序-getphonenumber-不可用) | 小程序主体类型、前端降级 |
+| 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
+| 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五环境速查--pnpm-workspace--redis-连接) | 开发工具 |
+| 六 | 🔧 | [业务错误码体系](#六业务错误码体系) | 状态码设计、架构规范 |
+| 七 | 🔧 | [CI/CD 接入计划](#七cicd-接入计划) | GitHub Actions、自动化测试部署 |
+| 八 | 🔧 | [真机模式页面渲染后闪现消失](#八真机模式页面渲染后闪现消失) | 前端、loading状态管理、微信小程序渲染机制 |
 
 ---
 
-## 第一部分：基础概念篇
+---
 
-### Q1: 什么是 Docker 容器的网络隔离性？
+## 一 🎤 Docker 容器间通信 — RedisInsight 连不上 Redis
 
-**考察点**：Docker 网络命名空间的基本概念
+### 现象
 
-**核心要点**：
-- 每个 Docker 容器拥有**独立的网络命名空间**（Network Namespace）
-- 容器内的 `127.0.0.1` / `localhost` 指向的是**容器自身**，不是宿主机
-- 不同容器之间默认通过 **Bridge 网桥**进行通信
-- 端口映射（Port Mapping）只对**从外部访问容器**有效
+RedisInsight 容器中填 `Host: 127.0.0.1, Port: 6379`，测试连接失败。但从宿主机 `redis-cli ping` 正常。
 
-**类比理解**：
-```
-Docker 宿主机 = 一栋公寓楼
-每个容器 = 一个独立房间（有独立门牌号）
-127.0.0.1 = 我自己的房间
-host.docker.internal = 公寓楼前台/总机
-```
+### 原因
+
+`127.0.0.1` 在容器内指向容器自身，不是宿主机。RedisInsight 和 Redis 都在 Docker 容器中，用了错误地址。
+
+### 解决
+
+把 `Host` 改为 `host.docker.internal`（Docker Desktop 提供的特殊 DNS，容器内访问宿主机用）。
+
+### 面试要点
+
+- **容器网络隔离**：每个容器有独立网络命名空间，`127.0.0.1` 指向自身
+- **host.docker.internal**：Docker Desktop 专有，容器访问宿主机的标准方式。Linux 需手动添加 `--add-host`
+- **端口映射方向性**：只对"外部→容器"生效，不对"容器内部→宿主机"生效
+- **Bridge 网络**：Docker 默认网络模式，通过虚拟网桥 `docker0` 连接容器，内部用 172.17.x.x 通信
+- **排查方法**：确认容器运行 → 确认端口监听 → 测试服务可用性 → 分析网络拓扑
 
 ---
 
-### Q2: 为什么在容器内访问 `127.0.0.1:6379` 连不上宿主机的 Redis？
+## 二 🎤 本地开发微信登录报 IP 不在白名单
 
-**考察点**：容器网络隔离的实际影响
+### 现象
 
-**错误认知 vs 正确理解**：
-
-| 错误认知 | 正确理解 |
-|---------|---------|
-| 127.0.0.1 = 宿主机 | 127.0.0.1 = 容器自己 |
-| localhost = 宿主机 | localhost = 容器自己 |
-| 端口映射对内部生效 | 端口映射只对外部生效 |
-
-**实际数据流**：
+后端本地启动（localhost:8000），调用微信 `jscode2session` 返回：
 ```
-❌ 容器内执行：
-   RedisInsight → 127.0.0.1:6379 → RedisInsight自己的6379端口（不存在）→ 连接失败
-
-✅ 从宿主机执行：
-   浏览器/Python脚本 → 127.0.0.1:6379 → Docker代理 → Redis容器的6379 → 成功
+"微信登录失败：invalid ip 116.169.1.54, not in whitelist"
 ```
+
+### 原因
+
+后端调用微信 API 是**出站请求**，微信看到的是你网络链路的公网出口 IP，不是 `127.0.0.1`。
+
+### 解决
+
+1. 终端执行 `curl -4 ifconfig.me` 获取公网 IPv4 地址
+2. 登录微信公众平台 → 开发管理 → 开发设置 → IP 白名单 → 添加该 IP
+3. 等几分钟生效
+
+### 面试要点
+
+- **为什么终端 curl 和浏览器查到的 IP 不同？** 浏览器可能走了代理，出口 IP 是代理服务器的。后端 `httpx` 走系统直连，和终端 `curl -4` 一致，以终端结果为准
+- **微信为什么要求 IP 白名单？** 防止 AppSecret 泄露后被恶意调用，安全基线要求
+- **本地 IP 不固定怎么办？** 家庭宽带是动态 IP，每次变更后手动添加，或部署到固定 IP 的云服务器
 
 ---
 
-### Q3: 什么是 `host.docker.internal`？
+## 三 🎤 个人版小程序 getPhoneNumber 不可用
 
-**考察点**：Docker Desktop 提供的特殊 DNS 解析
+### 现象
 
-**定义**：
-> `host.docker.internal` 是 Docker Desktop (Mac/Windows) 提供的特殊 DNS 名称，
-> 专门用于**容器内部访问宿主机上的服务**
-
-**工作原理**：
-```bash
-# Docker Desktop 启动时自动配置：
-
-1. 在容器内的 /etc/hosts 添加条目：
-   192.168.65.2  host.docker.internal  host-gateway
-
-2. 设置网络路由：
-   容器 → host.docker.internal (192.168.65.2)
-         → Docker Desktop 虚拟机
-         → Mac/Windows 宿主机
-         → 访问宿主机服务 ✅
+用户点击「微信手机号一键授权」报错：
+```
+getPhoneNumber:fail operateWXData:fail jsapi has no permission
 ```
 
-**使用示例**：
-```yaml
-# docker-compose.yml 或连接配置中：
-Host: host.docker.internal  # 不是 127.0.0.1！
-Port: 6379
+### 原因
+
+个人主体注册的小程序不支持 `getPhoneNumber` 接口，该接口需要企业/组织主体。
+
+### 解决
+
+**前端降级**：检测 `no permission` 错误后自动跳转手动输入手机号页面：
+
+```ts
+if (e.detail.errMsg?.includes('no permission')) {
+  uni.showToast({ title: '请手动输入手机号', icon: 'none' })
+  setTimeout(() => goToManualBind(), 1200)
+}
 ```
+
+### 面试要点
+
+- **个人版 vs 企业版**：个人版免费但接口受限（无 getPhoneNumber、微信支付），企业版需营业执照 + 300元/年认证
+- **降级策略**：前端检测权限错误 → 自动切换手动输入 → 后端 `/auth/wechat-login` 支持手动绑定
+- **长期方案**：注册企业版小程序
 
 ---
 
-## 第二部分：核心原理篇
+## 四 🎤 FastAPI 307 重定向导致 401 未认证
 
-### Q4: 请详细解释 Docker 的 Bridge 网络模式
+### 现象
 
-**考察点**：Docker 默认网络的底层实现
-
-**架构图解**：
+管理后台已登录，但接口请求报：
 ```
-┌─────────────────────────────────────────────────────┐
-│ Docker 宿主机                                        │
-│                                                     │
-│   ┌──────────────────────────────────────────┐      │
-│   │          docker0 网桥 (虚拟交换机)         │      │
-│   │                                          │      │
-│   │   ┌─────────┐    ┌─────────┐             │      │
-│   │   │ veth-ABC│    │ veth-XYZ│             │      │
-│   │   └────┬────┘    └────┬────┘             │      │
-│   │        │              │                  │      │
-│   │   ┌────┴────┐   ┌────┴────┐            │      │
-│   │   │ContainerA│   │ContainerB│           │      │
-│   │   │(Redis)   │   │(Insight)│            │      │
-│   │   │172.17.0.2│   │172.17.0.3│           │      │
-│   │   └─────────┘   └─────────┘             │      │
-│   └──────────────────────────────────────────┘      │
-│                                                     │
-│   宿主机网卡：192.168.1.100                          │
-│   端口映射：6379→ContainerA:6379                     │
-└─────────────────────────────────────────────────────┘
+GET /api/v1/users?page=1&page_size=10  → 307 Temporary Redirect
+GET /api/v1/users/?page=1&page_size=10 → 401 Unauthorized
 ```
 
-**关键特性**：
-1. 每个容器获得独立的虚拟网卡和 IP 地址
-2. 容器间可以通过 IP 或容器名通信
-3. 容器无法直接访问宿主机的 127.0.0.1
-4. 需要通过端口映射暴露服务给外部
+### 原因
+
+```
+前端请求:  GET /api/v1/users     ← 没带 /
+后端路由:  @router.get("/") + prefix="/users" → /api/v1/users/  ← 带了 /
+                                                                  ↑
+Starlette 默认 redirect_slashes=True → 自动 307 重定向
+重定向时 axios 创建新请求，不会复制 Authorization header → 401
+```
+
+### 解决
+
+**方案一（推荐）**：前端 API 路径统一加尾部 `/`
+
+**方案二**：后端 `FastAPI(redirect_slashes=False)`，所有 `@router.get("/")` 改为 `@router.get("")`
+
+### 面试要点
+
+- **Starlette 默认行为**：`redirect_slashes=True` 会纠正 URL 尾部斜杠，自动 307 重定向
+- **为什么 307 会丢 Authorization？** axios 重定向时创建新请求，不复制自定义 header；跨域重定向浏览器也会剥离
+- **307 vs 302**：307 保持原始 HTTP 方法（POST 还是 POST），302 会变成 GET
+- **预防措施**：前后端约定 URL 风格（统一带 `/` 或不带 `/`），或使用 OpenAPI 自动生成 API 客户端
 
 ---
 
-### Q5: 端口映射（Port Mapping）的工作机制是什么？
+## 五 📋 环境速查
 
-**考察点**：Docker 如何将外部流量转发到容器
+### pnpm workspace
 
-**配置方式**：
-```yaml
-services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"  # 格式：宿主机端口:容器端口
-```
+`pnpm install` 在根目录跑一次，自动给 `apps/*` 和 `packages/*` 都装好，这是 workspace 的好处。
 
-**数据流向详解**：
-```
-外部请求流程：
-浏览器/客户端
-    ↓
-127.0.0.1:6379 (宿主机)
-    ↓
-docker-proxy 进程（用户空间）
-    ↓
-iptables NAT 规则（内核空间）
-    ↓
-veth-xxx 虚拟网卡
-    ↓
-docker0 网桥
-    ↓
-容器内部的 6379 端口
-    ↓
-Redis 进程处理请求 ✅
-```
+使用 `workspace:*` 协议声明本地包依赖，pnpm 用符号链接连接，改一处所有项目生效。
 
-**重要限制**：
-```bash
-# ❌ 这个规则只对"从外部进入"的流量生效
-# 容器内部访问 127.0.0.1 不会触发端口映射！
+### Redis 连接
 
-# 验证方法：
-docker exec redisinsight wget -qO- http://127.0.0.1:6379
-# 失败！因为 127.0.0.1 是容器自己，不是宿主机
-```
+容器间访问 Redis 用 `host.docker.internal`，不能用 `127.0.0.1`。
 
 ---
 
-### Q6: `host.docker.internal` 在不同平台上的实现差异？
+## 六 🔧 业务错误码体系
 
-**考察点**：跨平台兼容性和底层实现
-
-| 平台 | 支持情况 | 实现方式 |
-|------|---------|---------|
-| **Docker Desktop (Mac)** | ✅ 原生支持 | 特殊网关 + DNS 注入 |
-| **Docker Desktop (Windows)** | ✅ 原生支持 | 同上 |
-| **Linux (原生 Docker)** | ⚠️ 不支持 | 需要手动配置 |
-
-**Linux 解决方案**：
-```bash
-# 方法1：使用 --add-host 参数
-docker run --add-host=host.docker.internal:host-gateway myapp
-
-# 方法2：使用 docker-compose extra_hosts
-services:
-  myapp:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-# 方法3：直接使用宿主机 IP（不推荐）
-# 先获取：hostname -I | awk '{print $1}'
-# 然后硬编码到配置中
-```
-
-**获取宿主机 IP 的通用方法**：
-```bash
-Mac:
-  ipconfig getifaddr en0
-
-Linux:
-  ip route get 1 | awk '{print $7; exit}'
-
-Windows:
-  ipconfig | findstr /i "IPv4"
-```
+> 当前 HTTP 状态码和业务错误码混用，所有业务校验失败统一返回 `400`，前端只能靠 `msg` 字符串匹配区分错误，不可靠。后续应引入 5 位业务错误码（`XXYYY`，前 2 位模块 + 后 3 位子码），与 HTTP 状态码解耦：HTTP 状态码给拦截器做流程控制（401 跳登录、403 无权限），业务码给页面做精准 UI 反馈（33003 弹窗推荐其他排期、33006 toast 提示重复预约）。详见 `class_booking_system_plan.md` 5.1 节。
 
 ---
 
-## 第三部分：实战场景篇
+## 七 🔧 CI/CD 接入计划
 
-### Q7: 你在实际项目中遇到过容器网络问题吗？如何解决的？
+> 当前项目没有 CI/CD，所有质量检查（lint、test、build）依赖手动执行。`package.json` 中已有 `lint`/`test`/`build` 脚本，接入 GitHub Actions 只需新增一个 workflow 文件。
 
-**考察点**：故障排查能力和实战经验
+### 接入步骤
 
-**真实案例（你的项目）**：
+| Step | 内容 | 工时 |
+|------|------|------|
+| 1 | 新增 `.github/workflows/ci.yml`，每次 push/PR 自动跑 lint + test | 0.5h |
+| 2 | Python 后端接入 `ruff check` + `pytest --cov` | 0.5h |
+| 3 | 前端接入 `pnpm lint` + `pnpm typecheck` | 0.5h |
+| 4 | 新增 `.github/workflows/deploy.yml`，main 分支 push 自动部署 | 2h |
 
-#### **问题描述**
-```
-环境：
-- Redis 运行在 Docker 容器中（dance-saas-redis:6379）
-- RedisInsight 也运行在 Docker 容器中（redisinsight:5540）
-- 需要在 RedisInsight GUI 中连接 Redis 查看缓存数据
+### 面试要点
 
-现象：
-- RedisInsight 中填写 Host: 127.0.0.1, Port: 6379
-- 点击 Test Connection 报错："Could not connect to 127.0.0.1:6379"
-- 但从宿主机命令行执行 redis-cli ping 返回 PONG ✅
-```
-
-#### **排查步骤**
-
-```bash
-Step 1: 确认 Redis 容器运行正常
-  docker ps | grep redis
-  # 输出：Up 49 minutes (healthy) ✅
-
-Step 2: 确认端口监听
-  lsof -i :6379
-  # 输出：*:6379 (LISTEN) ✅
-
-Step 3: 测试 Redis 功能
-  docker exec dance-saas-redis redis-cli ping
-  # 输出：PONG ✅
-
-Step 4: 发现关键线索
-  docker ps | grep redisinsight
-  # 输出：redisinsight 也在容器中运行！
-
-Step 5: 定位根因
-  # 两个容器都在 Docker 内部
-  # RedisInsight 的 127.0.0.1 ≠ 宿主机的 127.0.0.1
-```
-
-#### **解决方案**
-
-```bash
-修改 RedisInsight 连接配置：
-  Old: Host = 127.0.0.1  ❌
-  New: Host = host.docker.internal  ✅
-
-验证：
-  点击 Test Connection → Connection successful ✅
-  可以看到 Redis 缓存数据（包括 Token 黑名单）
-```
-
-#### **经验总结**
-
-```markdown
-✅ 学到的知识点：
-1. 容器网络隔离是 Docker 的基本特性
-2. 不能假设容器内的 127.0.0.1 就是宿主机
-3. host.docker.internal 是容器访问宿主机的标准方案
-4. 排查问题时要从网络层面思考，不能只看应用层
-
-🛠️ 故障排查方法论：
-1. 确认基础设施状态（容器是否运行）
-2. 确认网络连通性（端口监听）
-3. 测试服务可用性（功能验证）
-4. 分析网络拓扑（容器 vs 宿主机）
-5. 应用正确的连接方式
-```
+- **CI/CD 是什么？** CI（持续集成）= 每次提代码自动跑检查，CD（持续部署）= 检查通过后自动上线。本质是通过自动化消除人工操作的低效和失误。
+- **为什么需要 CI/CD？** 没有的话代码质量靠人肉保证（容易遗漏），上线靠手动 SSH（半夜容易搞错）。有 CI/CD 后，`git push` 一条命令完成检查+部署。
+- **GitHub Actions 的工作原理？** 在 `.github/workflows/*.yml` 中定义事件（push/PR）→ 触发 job → 在 GitHub 提供的虚拟机中依次执行 steps → 全部通过即成功，任何一步失败即终止。
 
 ---
 
-### Q8: 如何选择合适的容器间通信方式？
+## 八 🔧 真机模式页面渲染后闪现消失
 
-**考察点**：架构设计决策能力
+> **分类：前端** | **影响范围：排期页面、课程列表、历史记录等所有数据加载页面** | **优先级：P0（致命）** | **状态：待解决 ⚠️**
 
-**四种方案对比**：
+### 现象
 
-| 方案 | 适用场景 | 配置示例 | 优缺点 |
-|------|---------|----------|--------|
-| **host.docker.internal** | 容器访问宿主机服务 | `Host: host.docker.internal` | ✅ 简单直观<br>❌ 仅限访问宿主机 |
-| **容器名称/DNS** | 同一 compose 文件中的服务 | `Host: service_name` | ✅ 服务发现自动<br>❌ 只能访问同网络容器 |
-| **宿主机 IP** | 跨网络或特殊需求 | `Host: 192.168.1.100` | ✅ 通用性强<br>❌ IP 可能变化 |
-| **共享网络** | 多个 compose 项目通信 | 自定义 network | ✅ 灵活可控<br>❌ 配置复杂 |
+在微信小程序**真机模式**（特别是低端 Android 设备）下，用户执行以下操作后出现**数据闪现后立即消失**的问题：
 
-**决策树**：
-```
-需要连接的目标是什么？
-│
-├─ 宿主机上的服务（非容器化）
-│   └─ 使用 host.docker.internal ✅
-│
-├─ 同一个 docker-compose.yml 中的其他服务
-│   └─ 使用 service name（容器名）✅
-│
-├─ 不同 docker-compose.yml 中的服务
-│   ├─ 共享自定义 network
-│   └─ 或使用 host.docker.internal（如果目标在宿主机暴露了端口）
-│
-└─ 外部服务器
-    └─ 使用实际的 IP 或域名
-```
+1. **排期页面**：切换日期后，排期列表短暂显示（0.5-1秒），然后突然消失，页面回到空状态或持续 loading
+2. **课程列表**：切换舞蹈种类分类后，课程卡片闪现一下就没了
+3. **历史记录**：进入页面时数据一闪而过，随后白屏
+4. **通用特征**：
+   - 开发者工具模拟器正常，仅在真机复现
+   - 弱网环境下更明显
+   - 快速连续操作时必现
+
+### 待排查方向
+
+- [ ] Loading 状态生命周期管理（是否及时释放）
+- [ ] Vue 响应式更新时机（v-model + @change 执行顺序）
+- [ ] 真机环境性能差异（JS引擎、内存、网络）
+- [ ] 数据竞态条件（并发请求导致的状态覆盖）
 
 ---
 
-### Q9: 如何在生产环境中管理 Docker 网络？
-
-**考察点**：生产环境的最佳实践
-
-**推荐配置**：
-
-```yaml
-version: '3.8'
-
-services:
-  api:
-    networks:
-      - backend     # 数据库/Redis 层
-      - frontend    # 对外暴露层
-  
-  redis:
-    networks:
-      - backend     # 只允许后端访问
-    # 不加入 frontend 网络 → 安全隔离
-  
-  postgres:
-    networks:
-      - backend     # 只允许后端访问
-
-networks:
-  backend:
-    driver: bridge
-    internal: true  # 内部网络，禁止外部访问
-    
-  frontend:
-    driver: bridge
-    # 允许外部通过端口映射访问
-```
-
-**安全最佳实践**：
-```bash
-1. 最小权限原则
-   - 只暴露必要的端口
-   - 限制网络访问范围
-
-2. 网络分段
-   - 前端/后端/数据库分离
-   - internal: true 保护敏感服务
-
-3. 避免使用 host 网络模式
-   - 除非绝对必要
-   - 会失去隔离性优势
-
-4. 使用 secrets 管理敏感信息
-   - 不要在环境变量中传密码
-```
-
----
-
-## 第四部分：高级优化篇
-
-### Q10: Docker 网络性能如何优化？
-
-**考察点**：性能调优经验
-
-**常见瓶颈与优化策略**：
-
-```markdown
-1. 减少网络跳数
-   问题：容器 A → 网桥 → 容器 B（多次上下文切换）
-   优化：使用 host 网络模式（牺牲安全性换性能）
-
-2. 批量操作减少往返
-   问题：频繁的小请求导致延迟累积
-   优化：使用 Pipeline / 事务批量提交
-
-3. 选择合适的驱动
-   Bridge: 通用性好，性能中等
-   Overlay: 跨主机，性能较差
-   Host: 性能最好，无隔离
-   IPvlan/Macvlan: 接近物理网络性能
-
-4. 调整 MTU 大小
-   默认 1500，某些场景可调整提升吞吐量
-```
-
-**监控指标**：
-```bash
-# 查看容器网络统计
-docker stats --no-stream
-
-# 关注指标：
-- NET I/O: 网络输入输出量
-- PIDs: 进程数（间接反映连接数）
-- CPU/MEM: 资源占用
-```
-
----
-
-### Q11: 如何设计多租户系统的 Docker 部署架构？
-
-**考察点**：结合业务场景的架构设计
-
-**基于你的项目的推荐架构**：
-
-```yaml
-# 方案A：单实例多租户（当前方案）
-version: '3.8'
-services:
-  api:
-    build: .
-    environment:
-      - DATABASE_URL=postgresql://...
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - app-network
-
-  postgres:
-    image: postgres:15-alpine
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - app-network
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redisdata:/data
-    networks:
-      - app-network
-
-networks:
-  app-network:
-
-volumes:
-  pgdata:
-  redisdata:
-```
-
-**扩展方案（未来）**：
-```yaml
-# 方案B：每个大租户独立部署（高隔离要求时）
-# 使用 Docker Compose profiles 或多个 compose 文件
-
-# tenant-a/docker-compose.yml
-services:
-  api-tenant-a:
-    environment:
-      - TENANT_ID=a
-      - REDIS_URL=redis://redis-a:6379/0
-  redis-a:
-    # ...
-
-# tenant-b/docker-compose.yml  
-services:
-  api-tenant-b:
-    environment:
-      - TENANT_ID=b
-      - REDIS_URL=redis://redis-b:6379/0
-  redis-b:
-    # ...
-```
-
----
-
-## 参考答案速查表
-
-### ⭐ 必背知识点（5个）
-
-1. **容器网络隔离**：每个容器有独立的网络栈，127.0.0.1 指向自身
-2. **host.docker.internal**：容器访问宿主机的标准 DNS 名称
-3. **端口映射方向性**：只对外部→容器生效，不对容器内部→宿主机生效
-4. **Bridge 网络模式**：Docker 默认网络，通过虚拟网桥连接容器
-5. **服务发现**：同一 compose 中的容器可通过服务名互相访问
-
-### 🔥 TOP5 高频面试题
-
-| 排名 | 问题 | 出现频率 | 难度 |
-|------|------|---------|------|
-| 1 | 为什么容器内 127.0.0.1 连不上宿主机？ | ★★★★★ | ★★☆ |
-| 2 | host.docker.internal 是什么原理？ | ★★★★☆ | ★★★ |
-| 3 | 如何排查 Docker 网络问题？ | ★★★★☆ | ★★★ |
-| 4 | Bridge vs Host 网络模式区别？ | ★★★☆☆ | ★★☆ |
-| 5 | 生产环境如何设计网络架构？ | ★★★☆☆ | ★★★★ |
-
-### 💡 加分技巧
-
-1. **画图说明**：面试时画出网络拓扑图，展示清晰思路
-2. **举实例**：用你项目中的 RedisInsight+Redis 案例
-3. **讲权衡**：不同方案的 trade-off（安全 vs 性能 vs 复杂度）
-4. **提监控**：主动提到网络监控和故障排查工具
-5. **联系业务**：从多租户隔离角度谈网络设计的重要性
-
----
-
-## 📚 学习资源
-
-- [Docker Networking Documentation](https://docs.docker.com/network/)
-- [Understanding Container Networking](https://kubernetes.io/docs/concepts/cluster-administration/networking/)
-- [Docker Compose Networking](https://docs.docker.com/compose/networking/)
-- [host.docker.internal Explanation](https://docs.docker.com/desktop/networking/#i-want-to-connect-from-a-container-to-the-host)
-
----
-
-*文档版本：v1.0*
-*最后更新：2026-06-30*
-*基于项目实战：RedisInsight 连接 Redis 容器排查过程*
+<!-- TODO: 解决此问题后补充以下章节 -->
+<!-- ### 原因 -->
+<!-- ### 解决方案 -->
+<!-- ### 修复前后对比 -->
+<!-- ### 涉及文件 -->
+<!-- ### 面试要点 -->
+<!-- ### 扩展优化建议 -->

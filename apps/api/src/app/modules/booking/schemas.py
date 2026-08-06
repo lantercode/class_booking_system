@@ -24,23 +24,29 @@ class BookingUpdate(BaseModel):
 
 class BookingResponse(BaseModel):
     """预约响应体"""
-    id: int
-    public_id: str
-    tenant_id: int
-    schedule_id: int
-    student_id: int
-    status: int
-    source: str
-    membership_card_id: Optional[int] = None
-    booked_at: datetime
-    cancelled_at: Optional[datetime] = None
-    cancelled_reason: Optional[str] = None
-    checked_in_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    id: int = Field(..., description="预约ID")
+    public_id: str = Field(..., description="对外公开ID（UUID）")
+    tenant_id: int = Field(..., description="租户ID")
+    schedule_id: int = Field(..., description="排期ID")
+    student_id: int = Field(..., description="学员ID")
+    status: int = Field(..., description="状态：1已预约/2已取消/3已签到/4已完成/5未到场")
+    source: str = Field(..., description="预约来源：self=学员自行预约/admin=管理员代约/teacher=教师代约")
+    membership_card_id: Optional[int] = Field(None, description="会员卡ID")
+    booked_at: datetime = Field(..., description="预约时间")
+    cancelled_at: Optional[datetime] = Field(None, description="取消时间")
+    cancelled_reason: Optional[str] = Field(None, description="取消原因")
+    checked_in_at: Optional[datetime] = Field(None, description="签到时间")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
     
-    student_nickname: Optional[str] = None
-    student_phone: Optional[str] = None
+    student_nickname: Optional[str] = Field(None, description="学员昵称（关联查询）")
+    student_phone: Optional[str] = Field(None, description="学员手机号（关联查询）")
+
+    course_name: Optional[str] = Field(None, description="课程名称（关联查询）")
+    start_at: Optional[datetime] = Field(None, description="上课开始时间（关联查询）")
+    end_at: Optional[datetime] = Field(None, description="上课结束时间（关联查询）")
+    classroom_name: Optional[str] = Field(None, description="教室名称（关联查询）")
+    teacher_name: Optional[str] = Field(None, description="教师名称（关联查询）")
 
     model_config = {"from_attributes": True}
 

@@ -227,7 +227,8 @@ class BookingService:
         booking = await self.repo.get_by_id(db, booking_id)
         if not booking:
             raise NotFoundException("预约不存在")
-        return self._to_response(booking)
+        schedule_map = await self._get_schedule_info_map(db, [booking.schedule_id])
+        return self._to_response(booking, schedule_info=schedule_map.get(booking.schedule_id))
 
     async def list_bookings(
         self,
@@ -253,11 +254,15 @@ class BookingService:
         student_ids = list({b.student_id for b in items})
         student_map = await self._get_student_info_map(db, student_ids)
 
+        # 获取所有排期ID并批量查询排期关联信息（课程名、教室名、教师名、时间）
+        schedule_ids = list({b.schedule_id for b in items})
+        schedule_map = await self._get_schedule_info_map(db, schedule_ids)
+
         return BookingListResponse(
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(b, student_map.get(b.student_id)) for b in items],
+            items=[self._to_response(b, student_map.get(b.student_id), schedule_map.get(b.schedule_id)) for b in items],
         )
 
     async def _get_student_info_map(self, db: AsyncSession, student_ids: List[int]) -> Dict[int, Tuple[str, str]]:
@@ -275,9 +280,54 @@ class BookingService:
             for user in users
         }
 
-    def _to_response(self, booking: Booking, student_info: Optional[Tuple[str, str]] = None) -> BookingResponse:
+    async def _get_schedule_info_map(self, db: AsyncSession, schedule_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """批量获取排期关联信息（课程名、教室名、教师名、时间）"""
+        if not schedule_ids:
+            return {}
+
+        from app.modules.schedule.models import CourseSchedule
+        from app.modules.course.models import Course, Classroom
+        from app.modules.user.models import User
+
+        query = (
+            select(
+                CourseSchedule.id,
+                CourseSchedule.start_at,
+                CourseSchedule.end_at,
+                CourseSchedule.teacher_id,
+                CourseSchedule.classroom_id,
+                Course.name.label("course_name"),
+                Classroom.name.label("classroom_name"),
+            )
+            .outerjoin(Course, CourseSchedule.course_id == Course.id)
+            .outerjoin(Classroom, CourseSchedule.classroom_id == Classroom.id)
+            .where(CourseSchedule.id.in_(schedule_ids))
+        )
+        result = await db.execute(query)
+        rows = result.all()
+
+        teacher_ids = [row.teacher_id for row in rows if row.teacher_id]
+        teacher_map = {}
+        if teacher_ids:
+            teacher_query = select(User.id, User.nickname).where(User.id.in_(teacher_ids))
+            teacher_result = await db.execute(teacher_query)
+            teacher_map = {row.id: row.nickname for row in teacher_result.all()}
+
+        return {
+            row.id: {
+                "start_at": row.start_at,
+                "end_at": row.end_at,
+                "course_name": row.course_name,
+                "classroom_name": row.classroom_name,
+                "teacher_name": teacher_map.get(row.teacher_id),
+            }
+            for row in rows
+        }
+
+    def _to_response(self, booking: Booking, student_info: Optional[Tuple[str, str]] = None, schedule_info: Optional[Dict[str, Any]] = None) -> BookingResponse:
         """将 ORM 模型转换为响应对象"""
         nickname, phone = student_info if student_info else (None, None)
+        schedule_info = schedule_info or {}
         return BookingResponse(
             id=booking.id,
             public_id=str(booking.public_id),
@@ -295,4 +345,9 @@ class BookingService:
             updated_at=booking.updated_at,
             student_nickname=nickname,
             student_phone=phone,
+            course_name=schedule_info.get("course_name"),
+            start_at=schedule_info.get("start_at"),
+            end_at=schedule_info.get("end_at"),
+            classroom_name=schedule_info.get("classroom_name"),
+            teacher_name=schedule_info.get("teacher_name"),
         )
