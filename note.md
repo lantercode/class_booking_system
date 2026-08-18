@@ -17,7 +17,8 @@
 | 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五环境速查--pnpm-workspace--redis-连接) | 开发工具 |
 | 六 | 🔧 | [业务错误码体系](#六业务错误码体系) | 状态码设计、架构规范 |
 | 七 | 🔧 | [CI/CD 接入计划](#七cicd-接入计划) | GitHub Actions、自动化测试部署 |
-| 八 | 🔧 | [真机模式页面渲染后闪现消失](#八真机模式页面渲染后闪现消失) | 前端、loading状态管理、微信小程序渲染机制 |
+| 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
+
 
 ---
 
@@ -182,35 +183,90 @@ Starlette 默认 redirect_slashes=True → 自动 307 重定向
 
 ---
 
-## 八 🔧 真机模式页面渲染后闪现消失
+## 八 🎤 微信小程序页面栈溢出与 iOS 真机渲染问题
 
-> **分类：前端** | **影响范围：排期页面、课程列表、历史记录等所有数据加载页面** | **优先级：P0（致命）** | **状态：待解决 ⚠️**
+### 问题一：连续切换页面卡死
 
-### 现象
+**现象**：Tab 之间连续切换约 10 次后，界面卡死，点击无反应。
 
-在微信小程序**真机模式**（特别是低端 Android 设备）下，用户执行以下操作后出现**数据闪现后立即消失**的问题：
+**根因**：Tab 切换使用了 `uni.navigateTo`（push 新页面），页面栈上限 10 层，超限后静默失败。同时路由比较逻辑有 bug（`url.replace('/pages/', '').replace('/index', '')` 结果带尾部 `/`，与 `currentPage.route` 永远不匹配），防重复跳转完全失效。
 
-1. **排期页面**：切换日期后，排期列表短暂显示（0.5-1秒），然后突然消失，页面回到空状态或持续 loading
-2. **课程列表**：切换舞蹈种类分类后，课程卡片闪现一下就没了
-3. **历史记录**：进入页面时数据一闪而过，随后白屏
-4. **通用特征**：
-   - 开发者工具模拟器正常，仅在真机复现
-   - 弱网环境下更明显
-   - 快速连续操作时必现
+**解决**：目标页已在栈中时 `navigateBack` 返回，否则 `redirectTo` 替换当前页。页面栈始终保持在 1-2 层。
 
-### 待排查方向
+```js
+const goTo = (url) => {
+  const pages = getCurrentPages()
+  const targetRoute = url.replace(/^\//, '').replace(/\/index$/, '')
+  if (currentPage.route === targetRoute) return
+  if (pages.some(p => p.route === targetRoute)) {
+    const delta = pages.length - 1 - pages.findIndex(p => p.route === targetRoute)
+    uni.navigateBack({ delta })
+  } else {
+    uni.redirectTo({ url })
+  }
+}
+```
 
-- [ ] Loading 状态生命周期管理（是否及时释放）
-- [ ] Vue 响应式更新时机（v-model + @change 执行顺序）
-- [ ] 真机环境性能差异（JS引擎、内存、网络）
-- [ ] 数据竞态条件（并发请求导致的状态覆盖）
+### 面试要点 — 页面栈
+
+| API | 行为 | 页面栈变化 | 适用场景 |
+|-----|------|-----------|---------|
+| `navigateTo` | 打开新页，保留当前 | push +1 | 列表→详情 |
+| `redirectTo` | 关闭当前，打开新页 | replace | Tab 切换 |
+| `navigateBack` | 返回上一页或多页 | pop -delta | 返回 |
+| `switchTab` | 跳转 tabBar 页面 | 清空→目标页 | Tab 切换 |
+| `reLaunch` | 关闭所有，打开新页 | 清空→1 层 | 登录后跳转首页 |
+
+- **页面栈上限 10 层**，超限后 `navigateTo` 静默失败（不报错、不跳转）
+- `navigateTo` / `redirectTo` 不能跳转 tabBar 页面，只能用 `switchTab`
+- 排查：`getCurrentPages().length` 查看当前栈深度
+
+### 问题二：iOS 真机 scroll-view 内容不显示
+
+**现象**：课程详情页数据已查询成功（console 有日志），但 iOS 真机上 scroll-view 区域空白。
+
+**根因**：详情页使用了双层 flex 嵌套（`scroll-wrapper` → `scroll-view`），iOS 上原生 `scroll-view` 组件需要**显式 px 高度**，`flex: 1; height: 0` 的 CSS 技巧在 iOS 真机上高度塌陷为 0。
+
+**解决**：用 `uni.getSystemInfoSync()` 动态计算可用高度，设为内联 px 样式。
+
+```js
+const systemInfo = uni.getSystemInfoSync()
+const heroHeightPx = (520 / 750) * systemInfo.windowWidth  // rpx → px
+scrollViewHeight.value = systemInfo.windowHeight - heroHeightPx
+```
+
+```html
+<scroll-view :style="{ height: scrollViewHeight + 'px' }" />
+```
+
+### 问题三：iOS 真机滑动列表内容消失
+
+**现象**：手指滑动 scroll-view 时，列表内容消失（被裁剪），松手后可能恢复。
+
+**根因**：CSS 属性触发了 **GPU 合成层（Compositing Layer）**，合成层覆盖在原生 `scroll-view` 上方，滑动时遮挡内容。
+
+**定位过程**（三次修复）：
+1. 移除 `page { transform: translateZ(0) }` → 未解决
+2. 移除 `page { animation: page-fade-in }` → 未解决
+3. 移除 `backdrop-filter` + 祖先 `overflow: hidden` → 解决
+
+### 面试要点 — 合成层
+
+| 触发属性 | 机制 | 风险 |
+|---------|------|:---:|
+| `transform: translateZ(0)` / `translate3d` | 3D 变换必然创建合成层 | 🔴 |
+| `animation` / `transition`（任意属性） | 动画/过渡期间提升 | 🔴 |
+| `will-change` | 提前声明需要合成层 | 🔴 |
+| `opacity < 1` | 需要与背景混合 | 🔴 |
+| `backdrop-filter` / `filter` | 滤镜效果需要合成层 | 🟡 |
+| `position: fixed`（iOS） | iOS 上创建合成层 | 🟡 |
+| `overflow: hidden` | 创建 BFC，间接触发 | 🟡 |
+
+**核心原则**：合成层是独立 GPU 纹理，覆盖在原生组件上方。微信小程序中，**永远不要在 `page` 或 `scroll-view` 祖先元素上使用会触发合成层的 CSS 属性**。合成层只安全用于浮层（Navbar、TabBar、弹窗）。
+
+**安全法则**：
+- `backdrop-filter` 仅用于浮层，别放 scroll-view 兄弟元素上
+- `overflow: hidden` 别放 scroll-view 祖先元素上，改为 `overflow: visible`
+- 页面过渡动画用 `opacity` 而非 `transform`
 
 ---
-
-<!-- TODO: 解决此问题后补充以下章节 -->
-<!-- ### 原因 -->
-<!-- ### 解决方案 -->
-<!-- ### 修复前后对比 -->
-<!-- ### 涉及文件 -->
-<!-- ### 面试要点 -->
-<!-- ### 扩展优化建议 -->

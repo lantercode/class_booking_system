@@ -17,6 +17,7 @@ dependencies = [
     "bcrypt==4.1.*",
     "passlib[bcrypt]>=1.7.4",
     "redis>=4.0,<5.0",
+    "fastmcp>=3.4.7",
 ]
 
 [dependency-groups]
