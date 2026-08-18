@@ -79,6 +79,7 @@ class_booking_system/
 | **T07-T12** | ✅ 完成 | 2026-07-21 | **业务功能开发完成** |
 | **T13** | ✅ 完成 | 2026-08-05 | **微信小程序端 (miniapp) 完整开发** — 22 个页面、12 个组件、8 个 API 模块、双角色入口 |
 | **T14** | ✅ 完成 | 2026-08-05 | **近期修复 + 文档完善** — 小程序 API 路径修复、预约列表关联查询、auth router 冗余清理、note.md 面试/任务标签体系 |
+| **T15** | ✅ 完成 | 2026-08-17 | **AI Agent 智能助手** — MCP Server + AgentRuntime + 多轮对话 + 小程序 AI 组件 |
 
 ---
 
@@ -118,6 +119,7 @@ class_booking_system/
 | 取消时间限制 | 开课前90分钟不可取消 |
 | 多租户支持 | 支持多机构部署 |
 | RBAC权限 | 角色权限控制 |
+| AI 智能助手 | 自然语言对话预约/查询/取消课程 |
 
 ---
 
@@ -474,6 +476,10 @@ packages/api-client/src/           # API 客户端（扩展）
 | 预约列表无课程名称 | `BookingResponse` 缺少 schedule/course/classroom/teacher 关联字段 | `booking/schemas.py`、`booking/service.py` |
 | auth router 冗余 responses | 删除 4 个 `422`（FastAPI 自动生成）和 3 个通用 `401`（依赖注入已处理） | `auth/router.py` |
 | 项目文档完善 | 新增业务错误码体系计划、CI/CD 接入计划、面试问答（🎤/📋/🔧 标签体系） | `note.md` |
+| AI Agent 智能助手 | MCP Server + AgentRuntime + 意图识别 + 多轮对话 + 小程序 AI 组件 | `app/ai/`、`modules/ai/router.py`、`miniapp/src/components/AiAssistant.vue` |
+| 预约状态筛选 | `status` 参数支持逗号分隔多状态（数字/英文/中文） | `booking/router.py`、`booking/service.py`、`booking/repository.py` |
+| 预约时间校验 | 过期排期禁止预约 + 最多约未来两周 | `booking/service.py` |
+| AI 路由 Bug 修复 | `get_messages`→`get_history`、`clear_session`→`clear`、`current_user.id`→`current_user.get("user_id")` | `modules/ai/router.py` |
 
 ## 近期修复（2026-07）
 

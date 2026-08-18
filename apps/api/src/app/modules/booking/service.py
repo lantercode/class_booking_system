@@ -11,7 +11,7 @@ Booking Service - 预约业务逻辑层
 
 import logging
 from typing import Optional, Dict, Any, List, Tuple
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,6 +64,16 @@ class BookingService:
             raise BusinessException("该排期已约满", code=400)
 
         now = datetime.utcnow()
+
+        # 校验：排期是否已开始
+        if schedule.start_at and now > schedule.start_at:
+            raise BusinessException("该课程已开始，无法预约", code=400)
+
+        # 校验：是否超过预约窗口（最多未来两周）
+        max_booking_date = now + timedelta(days=14)
+        if schedule.start_at and schedule.start_at > max_booking_date:
+            raise BusinessException("只能预约未来两周内的课程", code=400)
+
         if schedule.booking_opens_at and now < schedule.booking_opens_at:
             raise BusinessException("预约尚未开放", code=400)
         if schedule.booking_closes_at and now > schedule.booking_closes_at:
@@ -237,6 +247,7 @@ class BookingService:
         schedule_id: Optional[int] = None,
         student_id: Optional[int] = None,
         status: Optional[int] = None,
+        statuses: Optional[List[int]] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> BookingListResponse:
@@ -246,6 +257,7 @@ class BookingService:
             schedule_id=schedule_id,
             student_id=student_id,
             status=status,
+            statuses=statuses,
             page=page,
             page_size=page_size,
         )

@@ -22,13 +22,35 @@ interface ApiResponse<T = any> {
 /**
  * 创建带超时的 Promise 包装器
  * 防止 Promise 永远挂起导致 timeout 错误
+ * 超时后会自动 abort 底层 uni.request，避免回调泄漏
  */
-function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage?: string): Promise<T> {
+function withTimeout<T>(
+  promise: Promise<T>, 
+  ms: number, 
+  errorMessage?: string,
+  abortFn?: () => void
+): Promise<T> {
+  let timerId: ReturnType<typeof setTimeout>
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
+      abortFn?.()
+      reject(new Error(errorMessage || `操作超时 (${ms}ms)`))
+    }, ms)
+  })
+  
   return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage || `操作超时 (${ms}ms)`)), ms)
-    )
+    promise.then(
+      (result) => {
+        clearTimeout(timerId)
+        return result
+      },
+      (err) => {
+        clearTimeout(timerId)
+        throw err
+      }
+    ),
+    timeoutPromise
   ])
 }
 
@@ -43,9 +65,10 @@ async function refreshToken(): Promise<boolean> {
   }
 
   try {
+    let refreshTask: ReturnType<typeof uni.request> | null = null
     const result = await withTimeout(
       new Promise<ApiResponse>((resolve, reject) => {
-        uni.request({
+        refreshTask = uni.request({
           url: `${BASE_URL}/auth/refresh-token`,
           method: 'POST',
           header,
@@ -56,7 +79,8 @@ async function refreshToken(): Promise<boolean> {
         })
       }),
       6000,  // ✅ 新增：Promise 总超时 6秒
-      '刷新 Token 超时'
+      '刷新 Token 超时',
+      () => refreshTask?.abort()
     )
 
     if (result.code === 0 || result.code === 200) {
@@ -94,15 +118,23 @@ async function request<T>(
   }
 
   const isLoginRequest = url.includes('/auth/login') || url.includes('/auth/wechat-login') || url.includes('/auth/wechat-auto-login') || url.includes('/auth/register') || url.includes('/auth/refresh-token')
+
+  if (isLoginRequest) {
+    hasLoggedOut = false
+    isHandling401 = false
+  }
+
   const requestTimeout = isLoginRequest ? 10000 : 30000
   const totalTimeout = requestTimeout + 2000  // ✅ Promise 总超时比请求超时多 2 秒
+
+  let requestTask: ReturnType<typeof uni.request> | null = null
 
   return withTimeout(
     new Promise((resolve, reject) => {
       const fullUrl = `${BASE_URL}${url}`
       console.log(`API请求: ${method} ${fullUrl}`, data || '')
 
-      uni.request({
+      requestTask = uni.request({
         url: fullUrl,
         method,
         data,
@@ -185,7 +217,8 @@ async function request<T>(
       })
     }),
     totalTimeout,
-    `请求超时: ${method} ${url}`
+    `请求超时: ${method} ${url}`,
+    () => requestTask?.abort()
   )
 }
 
@@ -380,5 +413,20 @@ export const classroomApi = {
   list(params?: any) {
     const query = buildQuery(params)
     return request(`/classrooms${query}`)
+  }
+}
+
+export const aiChatApi = {
+  chat(message: string, session_id: string = 'default') {
+    return request('/ai/chat', 'POST', { message, session_id }, undefined, false)
+  },
+
+  getHistory(session_id: string = 'default') {
+    const query = buildQuery({ session_id })
+    return request(`/ai/history${query}`)
+  },
+
+  clearHistory(session_id: string = 'default') {
+    return request(`/ai/history`, 'DELETE', { session_id })
   }
 }

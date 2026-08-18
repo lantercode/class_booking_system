@@ -26,6 +26,7 @@ class BookingRepository(TenantAwareRepository[Booking]):
         schedule_id: Optional[int] = None,
         student_id: Optional[int] = None,
         status: Optional[int] = None,
+        statuses: Optional[List[int]] = None,
         page: int = 1,
         page_size: int = 20,
     ) -> Tuple[List[Booking], int]:
@@ -41,7 +42,10 @@ class BookingRepository(TenantAwareRepository[Booking]):
             base_query = base_query.where(Booking.student_id == student_id)
             count_query = count_query.where(Booking.student_id == student_id)
 
-        if status is not None:
+        if statuses:
+            base_query = base_query.where(Booking.status.in_(statuses))
+            count_query = count_query.where(Booking.status.in_(statuses))
+        elif status is not None:
             base_query = base_query.where(Booking.status == status)
             count_query = count_query.where(Booking.status == status)
 
