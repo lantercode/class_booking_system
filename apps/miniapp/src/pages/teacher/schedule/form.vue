@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { teacherApi, scheduleApi } from '@/api'
 import { extractList } from '@/utils/helpers'
 
@@ -124,6 +124,9 @@ const isEdit = ref(false)
 const scheduleId = ref(0)
 const isLoading = ref(false)
 const showCoursePicker = ref(false)
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const courses = ref<any[]>([])
 const selectedCourse = ref<any>(null)
@@ -160,9 +163,17 @@ onMounted(() => {
   }
 })
 
+onUnmounted(() => {
+  isUnmounted = true
+})
+
 const loadCourses = async () => {
   try {
     const result = await teacherApi.getCourses()
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     courses.value = extractList(result)
   } catch {
     uni.showToast({ title: '加载课程失败', icon: 'none' })
@@ -173,6 +184,10 @@ const loadSchedule = async () => {
   isLoading.value = true
   try {
     const result = await scheduleApi.get(scheduleId.value)
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     if (result.code === 0 || result.code === 200) {
       const schedule = result.data
       selectedCourse.value = { id: schedule.course_id, name: schedule.course_name }

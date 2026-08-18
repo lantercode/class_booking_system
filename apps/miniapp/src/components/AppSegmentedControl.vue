@@ -131,7 +131,8 @@ function handleSelect(value: string | number) {
     background: $primary-gradient;
     border-radius: calc(#{$radius-sm} - 2rpx);
     z-index: 1;
-    transition: all $duration-normal $ease-spring;
+    transition: left $duration-normal $ease-spring,
+              width $duration-normal $ease-spring;
     box-shadow: 0 2rpx 8rpx rgba(102, 126, 234, 0.3);
   }
 }

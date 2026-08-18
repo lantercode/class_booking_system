@@ -91,7 +91,9 @@ function handleTap() {
   position: relative;
   border-radius: $radius-md;
   overflow: hidden;
-  transition: all $duration-normal $ease-standard;
+  transition: transform $duration-normal $ease-standard,
+            box-shadow $duration-normal $ease-standard,
+            opacity $duration-normal $ease-standard;
 
   .card-inner {
     position: relative;
@@ -252,7 +254,7 @@ function handleTap() {
 
   &.card-active {
     border-color: $primary-border;
-    box-shadow: $glow-primary;
+    // box-shadow: $glow-primary;
 
     .card-glow {
       opacity: 1;

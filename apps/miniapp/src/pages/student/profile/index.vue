@@ -64,18 +64,26 @@
     </view>
 
     <StudentTabBar currentRoute="/pages/student/profile/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'student_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { studentApi, bookingApi } from '@/api'
 import { checkLogin, logout } from '@/utils/auth'
 import { extractList } from '@/utils/helpers'
 import StudentTabBar from '@/components/StudentTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 import AppNavbar from '@/components/AppNavbar.vue'
 
 const userInfo = ref<any>(null)
+const userId = ref('')
 const stats = ref({
   total_bookings: 0,
   completed_classes: 0,
@@ -83,6 +91,9 @@ const stats = ref({
 })
 // ✅ 状态栏高度已由 AppNavbar 统一处理，此处保留备用
 // const statusBarHeight = ref(44)
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 onMounted(() => {
   console.log('\n👤 ===== 学员"我的"页面 - onMounted 触发 =====\n')
@@ -96,11 +107,17 @@ onMounted(() => {
   loadStats()
 })
 
+onUnmounted(() => {
+  isUnmounted = true
+})
+
 const loadUserInfo = () => {
   const info = uni.getStorageSync('user_info')
   if (info) {
-    userInfo.value = JSON.parse(info)
-    console.log('✅ 用户信息已加载:', userInfo.value?.nickname || '未知')
+    const parsed = JSON.parse(info)
+    userInfo.value = parsed
+    userId.value = parsed.id || ''
+    console.log('✅ 用户信息已加载:', parsed?.nickname || '未知')
   }
 }
 
@@ -140,6 +157,9 @@ const loadStats = async () => {
 
     const result = await bookingApi.list({})
     console.log('✅ API 返回:', result)
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     const responseData = result?.data as any
     let allBookings: any[] = []
@@ -199,26 +219,25 @@ const handleLogout = () => {
 }
 
 const goToEdit = () => {
-  uni.navigateTo({ url: '/pages/student/profile/edit' })
+  navigateTo({ url: '/pages/student/profile/edit' })
 }
 
 const goToHistory = () => {
-  uni.navigateTo({ url: '/pages/student/profile/history' })
+  navigateTo({ url: '/pages/student/profile/history' })
 }
 
 const goToSettings = () => {
-  uni.navigateTo({ url: '/pages/student/profile/settings' })
+  navigateTo({ url: '/pages/student/profile/settings' })
 }
 
 const goToCourses = () => {
-  uni.navigateTo({ url: '/pages/student/courses/index' })
+  navigateTo({ url: '/pages/student/courses/index' })
 }
 
 const goToBookings = () => {
-  // ✅ 修复：项目使用自定义StudentTabBar组件，不是原生tabBar
-  // 因此必须使用navigateTo而不是switchTab
-  uni.navigateTo({ url: '/pages/student/bookings/index' })
+  navigateTo({ url: '/pages/student/bookings/index' })
 }
+
 </script>
 
 <style lang="scss">
@@ -379,8 +398,10 @@ const goToBookings = () => {
   backdrop-filter: blur(10rpx);
   -webkit-backdrop-filter: blur(10rpx);
   border: 1rpx solid rgba(255, 255, 255, 0.3);   // 新增：边框
-  border-radius: $radius-2xl;             // ✅ 更新：使用圆角系统
-  transition: all $duration-fast $ease-standard;
+  border-radius: $radius-2xl;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              opacity $duration-fast $ease-standard;
 
   &:active {
     background: rgba(255, 255, 255, 0.35);
@@ -413,7 +434,8 @@ const goToBookings = () => {
   color: $primary-solid;                // ✅ 更新：香槟金色
   display: block;
   margin-bottom: $space-2xs;
-  transition: all $duration-normal $ease-standard;
+  transition: transform $duration-normal $ease-standard,
+              color $duration-normal $ease-standard;
 
   &.highlight {
     color: $primary-solid;              // 累计预约 - 香槟金色
@@ -475,8 +497,10 @@ const goToBookings = () => {
   border-radius: $radius-lg;            // ✅ 更新：使用圆角系统
   overflow: hidden;
   box-shadow: $shadow-card;             // ✅ 更新：使用阴影系统
-  border: 1rpx solid $border-subtle;     // 新增：浅边框
-  transition: all $duration-fast $ease-standard;
+  border: 1rpx solid $border-subtle;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
 
   &:active {
     transform: translateY(-2rpx);
@@ -488,8 +512,8 @@ const goToBookings = () => {
   display: flex;
   align-items: center;
   padding: $space-md $space-lg;
-  border-bottom: 1rpx solid $border-subtle;  // ✅ 更新：使用边框变量
-  transition: all $duration-fast $ease-standard;
+  border-bottom: 1rpx solid $border-subtle;
+  transition: background $duration-fast $ease-standard;
 
   &:last-child {
     border-bottom: none;
@@ -517,8 +541,9 @@ const goToBookings = () => {
 
 .menu-arrow {
   font-size: $font-size-body-sm;
-  color: $text-tertiary;               // ✅ 更新：使用文本变量
-  transition: all $duration-fast $ease-standard;
+  color: $text-tertiary;
+  transition: transform $duration-fast $ease-standard,
+              color $duration-fast $ease-standard;
 
   .menu-item:active & {
     transform: translateX(4rpx);        // 点击时向右移动
@@ -555,13 +580,13 @@ const goToBookings = () => {
 .tab-icon {
   font-size: $icon-size-md;
   margin-bottom: $space-2xs;
-  color: $text-tertiary;                // ✅ 更新：使用文本变量
-  transition: all $duration-fast $ease-standard;
+  color: $text-tertiary;
+  transition: color $duration-fast $ease-standard;
 }
 
 .tab-text {
   font-size: $font-size-caption;
-  color: $text-tertiary;                // ✅ 更新：使用文本变量
-  transition: all $duration-fast $ease-standard;
+  color: $text-tertiary;
+  transition: color $duration-fast $ease-standard;
 }
 </style>

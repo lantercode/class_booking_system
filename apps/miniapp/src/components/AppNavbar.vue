@@ -52,10 +52,13 @@ const emit = defineEmits<{
 }>()
 
 // 胶囊按钮位置信息
-const menuButtonTop = ref(0)
-const menuButtonHeight = ref(0)
-const menuButtonRight = ref(0)
-const statusBarHeight = ref(0)
+const systemInfo = uni.getSystemInfoSync()
+const menuButton = uni.getMenuButtonBoundingClientRect()
+
+const menuButtonTop = ref(menuButton.top || 0)
+const menuButtonHeight = ref(menuButton.height || 32)
+const menuButtonRight = ref(systemInfo.screenWidth - menuButton.right || 10)
+const statusBarHeight = ref(systemInfo.statusBarHeight || 0)
 
 // 计算导航栏动态样式
 const navbarStyle = computed(() => {
@@ -69,31 +72,7 @@ const navbarStyle = computed(() => {
 })
 
 onMounted(() => {
-  try {
-    const systemInfo = uni.getSystemInfoSync()
-    const menuButton = uni.getMenuButtonBoundingClientRect()
-
-    statusBarHeight.value = systemInfo.statusBarHeight || 0
-    menuButtonTop.value = menuButton.top || 0
-    menuButtonHeight.value = menuButton.height || 32
-    menuButtonRight.value = systemInfo.screenWidth - menuButton.right || 10
-
-    console.log('[AppNavbar] 系统信息:', {
-      statusBarHeight: statusBarHeight.value,
-      menuButton: {
-        top: menuButtonTop.value,
-        height: menuButtonHeight.value,
-        right: menuButton.right
-      },
-      navbarStyle: navbarStyle.value
-    })
-  } catch (error) {
-    console.error('[AppNavbar] 获取系统信息失败:', error)
-    // 使用默认值作为降级方案
-    statusBarHeight.value = 20
-    menuButtonHeight.value = 32
-    menuButtonRight.value = 10
-  }
+  console.log('[AppNavbar] navbarStyle:', navbarStyle.value)
 })
 
 function handleBack() {
@@ -119,7 +98,9 @@ function handleBack() {
   padding-left: $space-md;
   box-sizing: border-box;
   z-index: $z-sticky;
-  transition: all $duration-normal $ease-standard;
+  transition: background $duration-normal $ease-standard,
+              box-shadow $duration-normal $ease-standard,
+              color $duration-normal $ease-standard;
 
   // 左侧区域 - 动态适配
   .navbar-left {
@@ -163,7 +144,8 @@ function handleBack() {
     height: 60rpx;  // 稍小于胶囊按钮
     border-radius: $radius-full;
     background: rgba(255, 255, 255, 0.1);
-    transition: all $duration-fast $ease-standard;
+    transition: background $duration-fast $ease-standard,
+                transform $duration-fast $ease-standard;
 
     &:active {
       transform: scale(0.92);

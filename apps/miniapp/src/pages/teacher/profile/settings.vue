@@ -30,6 +30,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { navigateTo } from '@/utils/navigation'
 
 const notificationsEnabled = ref(true)
 
@@ -46,7 +47,7 @@ const goBack = () => {
 }
 
 const goToAbout = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/about' })
+  navigateTo({ url: '/pages/teacher/profile/about' })
 }
 </script>
 
@@ -92,7 +93,8 @@ const goToAbout = () => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &:active {
     background: rgba(201, 166, 107, 0.1); // ✅ 品牌色点击反馈
@@ -128,8 +130,8 @@ const goToAbout = () => {
   display: flex;
   align-items: center;
   padding: $space-lg $space-lg;           // ✅ 统一间距
-  border-bottom: 1rpx solid $border-light; // ✅ 替代#f5f5f5
-  transition: all $duration-fast $ease-standard;
+  border-bottom: 1rpx solid $border-light;
+  transition: background $duration-fast $ease-standard;
 
   &:active {
     background: rgba(245, 237, 228, 0.6); // ✅ 暖灰色点击反馈

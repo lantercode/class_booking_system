@@ -63,11 +63,13 @@ const goTo = (url: string) => {
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1]
   
-  if (currentPage && currentPage.route === url.replace('/pages/', '').replace('/index', '')) {
+  const targetRoute = url.replace(/^\//, '').replace(/\/index$/, '')
+  
+  if (currentPage && currentPage.route === targetRoute) {
     return
   }
   
-  uni.navigateTo({ url })
+  uni.redirectTo({ url, animationType: 'fade-in', animationDuration: 250 })
 }
 </script>
 

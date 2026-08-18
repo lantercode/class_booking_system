@@ -140,6 +140,7 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "舞蹈约课",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f5f5f5"
+    "backgroundColor": "#f5f5f5",
+    "disableScroll": true
   }
 }

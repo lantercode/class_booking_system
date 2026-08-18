@@ -55,6 +55,11 @@
 
     <TeacherTabBar currentRoute="/pages/teacher/schedule/index" />
 
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'teacher_' + (userId || 'default')"
+    />
+
     <view v-if="showDetail" class="modal-overlay" @tap="closeDetail">
       <view class="detail-modal" @tap.stop>
         <view class="modal-header">
@@ -97,16 +102,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { teacherApi, scheduleApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import { formatDateTime } from '@/utils/date'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 
 const currentWeekStart = ref('')
+const userId = ref('')
 const schedules = ref<any[]>([])
 const showDetail = ref(false)
 const selectedSchedule = ref<any>(null)
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const timeSlots = [
   { time: '08:00' }, { time: '09:00' }, { time: '10:00' }, { time: '11:00' },
@@ -150,7 +161,20 @@ function getWeekStart(date: Date): Date {
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
+
   loadSchedules()
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 const loadSchedules = async () => {
@@ -159,6 +183,10 @@ const loadSchedules = async () => {
       start_from: weekDays.value[0]?.date,
       start_to: weekDays.value[6]?.date
     })
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     schedules.value = extractList(result)
   } catch {
     uni.showToast({ title: '加载失败', icon: 'none' })
@@ -225,24 +253,24 @@ const cancelSchedule = async () => {
 const editSchedule = () => {
   closeDetail()
   if (selectedSchedule.value) {
-    uni.navigateTo({ url: `/pages/teacher/schedule/form?id=${selectedSchedule.value.id}` })
+    navigateTo({ url: `/pages/teacher/schedule/form?id=${selectedSchedule.value.id}` })
   }
 }
 
 const goToCreate = () => {
-  uni.navigateTo({ url: '/pages/teacher/schedule/form' })
+  navigateTo({ url: '/pages/teacher/schedule/form' })
 }
 
 const goToCourses = () => {
-  uni.navigateTo({ url: '/pages/teacher/courses/index' })
+  navigateTo({ url: '/pages/teacher/courses/index' })
 }
 
 const goToStudents = () => {
-  uni.navigateTo({ url: '/pages/teacher/students/index' })
+  navigateTo({ url: '/pages/teacher/students/index' })
 }
 
 const goToProfile = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/index' })
+  navigateTo({ url: '/pages/teacher/profile/index' })
 }
 </script>
 
@@ -298,8 +326,10 @@ const goToProfile = () => {
   padding: $space-sm $space-md;
   color: #fff;
   @include text-body;
-  box-shadow: $shadow-sm;                 // ✅ 添加阴影
-  transition: all $duration-fast $ease-standard;
+  box-shadow: $shadow-sm;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              background $duration-fast $ease-standard;
 
   &:active {
     transform: scale(0.97);
@@ -332,7 +362,9 @@ const goToProfile = () => {
   border-radius: 50%;
   @include text-body;
   color: $text-primary;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard,
+              color $duration-fast $ease-standard;
 
   &:active {
     background: rgba(201, 166, 107, 0.15);
@@ -375,7 +407,10 @@ const goToProfile = () => {
   justify-content: center;
   border-radius: 50%;
   @include text-body;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              color $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              font-weight $duration-fast $ease-standard;
 
   &.today {
     background: $primary-gradient;         // ✅ 品牌渐变（替代#667eea）
@@ -452,7 +487,9 @@ const goToProfile = () => {
   padding: $space-xs;
   margin-bottom: $space-xs;
   min-height: 60rpx;
-  transition: all $duration-fast $ease-standard;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              opacity $duration-fast $ease-standard;
 
   &:active {
     transform: scale(0.98);

@@ -6,16 +6,28 @@ export function checkLogin(role?: string): boolean {
   
   if (!token) {
     uni.showToast({ title: '请先登录', icon: 'none' })
+    const currentPages = getCurrentPages()
+    const currentRoute = currentPages[currentPages.length - 1]?.route
     setTimeout(() => {
-      redirectToHome()
+      const pages = getCurrentPages()
+      const latestRoute = pages[pages.length - 1]?.route
+      if (latestRoute === currentRoute) {
+        redirectToHome()
+      }
     }, 1500)
     return false
   }
   
   if (role && userRole !== role) {
     uni.showToast({ title: '权限不足', icon: 'none' })
+    const currentPages = getCurrentPages()
+    const currentRoute = currentPages[currentPages.length - 1]?.route
     setTimeout(() => {
-      redirectToHome()
+      const pages = getCurrentPages()
+      const latestRoute = pages[pages.length - 1]?.route
+      if (latestRoute === currentRoute) {
+        redirectToHome()
+      }
     }, 1500)
     return false
   }

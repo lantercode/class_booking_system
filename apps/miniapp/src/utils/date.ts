@@ -394,3 +394,47 @@ export function toAPIDateTime(dateStr: string | null | undefined): { start: stri
     return { start: '', end: '' }
   }
 }
+
+/**
+ * 判断排期是否已过期（开始时间已过）
+ * @param startAt - 排期开始时间字符串
+ * @returns true = 已过期
+ */
+export function isScheduleExpired(startAt: string | null | undefined): boolean {
+  if (!startAt) {
+    console.warn('[isScheduleExpired] startAt 为空，默认不阻止')
+    return false
+  }
+  try {
+    return new Date(startAt).getTime() < Date.now()
+  } catch {
+    console.warn('[isScheduleExpired] 日期解析失败:', startAt)
+    return false
+  }
+}
+
+/**
+ * 判断排期是否在可预约时间窗口内（默认两周）
+ * @param startAt - 排期开始时间字符串
+ * @param maxDays - 最大提前预约天数，默认 14 天
+ * @returns true = 在窗口内
+ */
+export function isWithinBookingWindow(
+  startAt: string | null | undefined,
+  maxDays: number = 14
+): boolean {
+  if (!startAt) {
+    console.warn('[isWithinBookingWindow] startAt 为空，默认允许')
+    return true
+  }
+  try {
+    const now = new Date()
+    const maxDate = new Date(now)
+    maxDate.setDate(now.getDate() + maxDays)
+    maxDate.setHours(23, 59, 59, 999)
+    return new Date(startAt).getTime() <= maxDate.getTime()
+  } catch {
+    console.warn('[isWithinBookingWindow] 日期解析失败:', startAt)
+    return true
+  }
+}

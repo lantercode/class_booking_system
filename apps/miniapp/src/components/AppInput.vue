@@ -206,7 +206,8 @@ function togglePasswordVisibility() {
     border: 2rpx solid transparent;
     border-radius: $radius-sm;
     color: $text-primary;
-    transition: all $duration-fast $ease-standard;
+    transition: box-shadow $duration-fast $ease-standard,
+              background $duration-fast $ease-standard;
 
     &:hover,
     &.input-focused {
@@ -235,11 +236,13 @@ function togglePasswordVisibility() {
   &.input-filled {
     height: $input-height;
     padding: 0 $space-md;
-    background: $bg-tertiary;           // ✅ 更新：使用三级背景（暖灰白 #EDE9E3）
+    background: $bg-tertiary;
     border: none;
     border-radius: $radius-sm;
     color: $text-primary;
-    transition: all $duration-fast $ease-standard;
+    transition: border-color $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              background $duration-fast $ease-standard;
 
     &:hover,
     &.input-focused {
@@ -272,13 +275,15 @@ function togglePasswordVisibility() {
     color: $text-primary;
     box-shadow: inset 0 2rpx 6rpx rgba(0, 0, 0, 0.10);  // ✅ 显著增强内阴影（更深更广，强烈立体感）
 
-    transition: all $duration-fast $ease-standard;
+    transition: border-color $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              background $duration-fast $ease-standard;
 
     &:hover,
     &.input-focused {
       border-color: $primary-solid;
-      box-shadow: inset 0 2rpx 6rpx rgba(0, 0, 0, 0.10),  // 保留显著的内阴影
-                  0 0 0 4rpx rgba(201, 166, 107, 0.15);   // 外部香槟金光晕增强
+      box-shadow: inset 0 2rpx 6rpx rgba(0, 0, 0, 0.10),
+                  0 0 0 4rpx rgba(201, 166, 107, 0.15);
     }
 
     .input-icon {

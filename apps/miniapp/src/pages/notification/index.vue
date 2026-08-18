@@ -154,7 +154,9 @@ function clearAll() {
   border-radius: $radius-full;
   background: rgba(201, 166, 107, 0.08);   // ✅ 香槟金浅色背景
   position: relative;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              color $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &:active {
     transform: scale(0.97);
@@ -194,8 +196,9 @@ function clearAll() {
   padding: $space-lg;
   margin-bottom: $space-md;
   position: relative;
-  box-shadow: $shadow-card;                // ✅ 统一阴影
-  transition: all $duration-fast $ease-standard;
+  box-shadow: $shadow-card;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
 
   &:active {
     transform: translateY(-2rpx);
@@ -360,7 +363,8 @@ function clearAll() {
   @include text-body;
   color: $text-primary;                   // ✅ 替代#666
   box-shadow: $shadow-card;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &:active {
     background: rgba(245, 237, 228, 0.9); // ✅ 暖灰色点击反馈

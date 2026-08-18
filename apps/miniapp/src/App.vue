@@ -1,3 +1,7 @@
+<template>
+  <!-- AI 助手在各页面独立引入，不在此处渲染 -->
+</template>
+
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { validateToken, redirectToHome } from '@/utils/auth'
@@ -113,6 +117,7 @@ page {
   font-size: $font-size-body;
   color: $text-primary;
   line-height: $line-height-normal;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* 全局容器 */

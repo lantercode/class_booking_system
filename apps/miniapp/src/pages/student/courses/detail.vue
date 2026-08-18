@@ -40,6 +40,7 @@
       <scroll-view
         scroll-y
         class="details-content"
+        :style="{ height: scrollViewHeight + 'px' }"
         :show-scrollbar="false"
         :refresher-enabled="true"
         :refresher-triggered="refreshing"
@@ -94,9 +95,10 @@
 
         <view v-else class="schedule-list">
           <view
-            v-for="schedule in displaySchedules"
+            v-for="(schedule, index) in displaySchedules"
             :key="schedule._key"
             class="schedule-card"
+            :style="{ animationDelay: `${index * 0.04}s` }"
           >
             <!-- 第一行：日期 + 时间 + 状态 -->
             <view class="card-row">
@@ -157,22 +159,36 @@
     <view v-if="loading" class="loading-overlay">
       <AppLoading type="skeleton" />
     </view>
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'student_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { courseApi, scheduleApi, bookingApi } from '@/api'
 import { formatDate, formatTime } from '@/utils/date'
 import { extractList } from '@/utils/helpers'
+import AiAssistant from '@/components/AiAssistant.vue'
 
 const courseId = ref(0)
+const userId = ref('')
 const course = ref<any>({})
 const schedules = ref<any[]>([])
 const myBookings = ref<any[]>([])
 const loading = ref(false)
 const refreshing = ref(false)
 const bookingLoading = reactive<Record<number, boolean>>({})
+
+const systemInfo = uni.getSystemInfoSync()
+const heroHeightPx = (520 / 750) * systemInfo.windowWidth
+const scrollViewHeight = ref(Math.max(systemInfo.windowHeight - heroHeightPx, 400))
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 // ✅ 企业级优化：Computed预处理所有显示数据（参照排期页面）
 const displaySchedules = computed(() => {
@@ -206,8 +222,20 @@ const displaySchedules = computed(() => {
   })
 })
 
+onUnmounted(() => {
+  isUnmounted = true
+})
+
 onMounted(() => {
   console.log('=== 📚 课程详情页 - 开始初始化 ===')
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
 
   // ✅ 多种方式尝试获取课程ID（增强兼容性）
   let id: number | null = null
@@ -283,6 +311,9 @@ const loadInitialData = async () => {
     console.log('📖 [Detail] Step 1: 加载课程信息...')
     await loadCourse()
 
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+
     if (!course.value || !course.value.id) {
       throw new Error('课程信息加载失败或数据为空')
     }
@@ -295,6 +326,9 @@ const loadInitialData = async () => {
       loadSchedules(),
       loadMyBookings()
     ])
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     console.log('✅✅✅ [Detail] 所有数据加载完成！')
 
@@ -366,6 +400,9 @@ const loadSchedules = async () => {
       status: 1  // 1=进行中/可预约的排期
     })
 
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+
     console.log('📦 [Detail] 排期API返回:', {
       code: result?.code,
       hasData: !!result?.data,
@@ -427,6 +464,9 @@ const loadMyBookings = async () => {
   try {
     console.log('=== 课程详情页 - 加载我的预约 ===')
     const result = await bookingApi.list({ status: 1 })
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     const responseData = result?.data as any
 
@@ -709,11 +749,9 @@ const cancelBooking = async (scheduleId: number) => {
 
 .details-content {
   flex: 1;
-  height: 0;
-  padding: $space-lg $space-xl;
+  padding: $space-lg $space-md;
   padding-bottom: calc($space-xl + env(safe-area-inset-bottom));
   box-sizing: border-box;
-  overflow-y: auto;
 }
 
 /* ========== 统计卡片 ========== */
@@ -814,13 +852,20 @@ const cancelBooking = async (scheduleId: number) => {
 .schedule-card {
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
   border-radius: $radius-lg;
+  border: 1rpx solid $border-subtle;
   padding: $space-md $space-lg;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  box-shadow: $shadow-card;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
+  animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 
   &:active {
-    transform: scale(0.985);
+    transform: translateY(-2rpx);
+    box-shadow: $shadow-card-hover;
   }
 }
 
@@ -952,12 +997,13 @@ const cancelBooking = async (scheduleId: number) => {
   border-radius: $radius-full;
   font-size: $font-size-body-sm;
   font-weight: $font-weight-semibold;
-  background: $primary-solid;
+  background: $primary-gradient;
   color: #fff;
   border: none;
   line-height: 1.5;
   flex-shrink: 0;
   margin-left: auto;
+  box-shadow: $shadow-button;
 
   &:active {
     transform: scale(0.95);
@@ -999,6 +1045,17 @@ const cancelBooking = async (scheduleId: number) => {
   from {
     opacity: 0;
     transform: translateY(30rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
   }
   to {
     opacity: 1;

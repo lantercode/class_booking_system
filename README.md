@@ -80,6 +80,7 @@ class_booking_system/
 | **T13** | ✅ 完成 | 2026-08-05 | **微信小程序端 (miniapp) 完整开发** — 22 个页面、12 个组件、8 个 API 模块、双角色入口 |
 | **T14** | ✅ 完成 | 2026-08-05 | **近期修复 + 文档完善** — 小程序 API 路径修复、预约列表关联查询、auth router 冗余清理、note.md 面试/任务标签体系 |
 | **T15** | ✅ 完成 | 2026-08-17 | **AI Agent 智能助手** — MCP Server + AgentRuntime + 多轮对话 + 小程序 AI 组件 |
+| **T16** | ✅ 完成 | 2026-08-18 | **小程序 UI 统一优化** — 视觉一致性、CSS 性能、间距标准化 |
 
 ---
 
@@ -1126,6 +1127,34 @@ cd /root && pnpm gen:types
 | | T14 教师端联调 | 6h | Mock → 真实 API |
 | | T15 管理后台联调 | 6h | Mock → 真实 API |
 | **4. 测试部署** | T16-T20 | 36h | E2E/性能/部署/灰度/上线 |
+
+---
+
+## T16 小程序 UI 统一优化 (2026-08-18)
+
+### 核心改动
+
+#### 1. 视觉一致性
+- 统一卡片背景为毛玻璃效果：`rgba(255,255,255,0.95)` + `backdrop-filter: blur(20rpx)`
+- 覆盖范围：课程列表、课程详情、排期列表、预约列表、历史记录
+- 修复课程详情页卡片阴影从 `$glass-shadow` 到 `$shadow-card` 与其他页面一致
+
+#### 2. CSS 性能优化
+- 全局清除 `transition: all`（19 个文件，39 处），替换为精确属性（transform/box-shadow/background 等）
+- 消除布局抖动隐患，减少不必要的 repaint
+- 影响范围：全局 mixins 3 处、共享组件 4 处、学生端 12 处、教师端 8 处、其他页面 9 处
+
+#### 3. 入场动画标准化
+- 统一卡片入场动画：`cardFadeIn`，0.35s，cubic-bezier(0.22, 0.61, 0.36, 1)，位移 8rpx
+- 逐条延迟：`index * 0.04s`
+- 统一卡片 active 交互效果：`translateY(-2rpx)` + 阴影加深
+
+#### 4. 间距体系标准化
+- 内容区水平 padding：统一 `$space-md` (32rpx)
+- 卡片间距：统一 `$space-md` (32rpx)
+- 卡片内部 padding：统一 `$space-md` (32rpx)
+- 空状态 padding：统一 120rpx
+- 筛选→内容过渡：统一 `$space-md` (32rpx)
 
 ---
 

@@ -91,6 +91,8 @@ export async function wechatAutoLogin(tenantSlug?: string): Promise<AutoLoginRes
 
     console.log('🎉 登录成功！角色:', role)
 
+    uni.$emit('login-success')
+
     return {
       success: true,
       role: role as 'student' | 'teacher',
@@ -161,6 +163,8 @@ export async function wechatBindPhone(
 
     console.log('🎉 绑定成功！角色:', role)
 
+    uni.$emit('login-success')
+
     return {
       success: true,
       role: role as 'student' | 'teacher',
@@ -224,6 +228,8 @@ export async function wechatBindPhoneManual(
 
     console.log('🎉 手动绑定成功！')
 
+    uni.$emit('login-success')
+
     return {
       success: true,
       role: role as 'student' | 'teacher',
@@ -269,6 +275,7 @@ export async function wxLogin(role: 'student' | 'teacher'): Promise<WxLoginResul
             uni.setStorageSync('refresh_token', refresh_token || '')
             uni.setStorageSync('user_info', JSON.stringify(user || {}))
             uni.setStorageSync('user_role', role)
+            uni.$emit('login-success')
             resolve({ code: 0, data: result.data })
           } else {
             resolve({ code: -1, msg: result.msg || '登录失败' })

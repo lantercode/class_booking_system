@@ -90,13 +90,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { wechatBindPhoneManual } from '@/utils/wechat'
 import { redirectToHome } from '@/utils/auth'
 
 const bindToken = ref('')
 const isLoading = ref(false)
 const isPhoneFocused = ref(false)
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const formData = ref({
   value: ''
@@ -110,6 +113,10 @@ onMounted(() => {
   bindToken.value = decodeURIComponent(options.bindToken || '')
   
   console.log('📝 手动输入页加载, bindToken:', bindToken.value ? '已获取' : '未获取')
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 const isFormValid = computed(() => {
@@ -130,6 +137,9 @@ async function handleSubmit() {
     uni.showLoading({ title: '绑定中...' })
     
     const result = await wechatBindPhoneManual(bindToken.value, formData.value.value)
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     uni.hideLoading()
 
@@ -311,7 +321,9 @@ async function handleSubmit() {
           border: 2rpx solid $border-light;
           border-radius: $radius-lg;
           padding: 0 $space-md;
-          transition: all $duration-fast $ease-standard;
+          transition: border-color $duration-fast $ease-standard,
+                      box-shadow $duration-fast $ease-standard,
+                      background $duration-fast $ease-standard;
 
           &.input-focused {
             border-color: $primary-solid;
@@ -390,8 +402,10 @@ async function handleSubmit() {
       border-radius: $radius-2xl;
       border: none;
       margin-bottom: $space-xl;
-      box-shadow: $shadow-button;            // 香槟金阴影（替代微信绿）
-      transition: all $duration-fast $ease-standard;
+      box-shadow: $shadow-button;
+      transition: transform $duration-fast $ease-standard,
+                  box-shadow $duration-fast $ease-standard,
+                  opacity $duration-fast $ease-standard;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -477,7 +491,8 @@ async function handleSubmit() {
         -webkit-background-clip: text;            // iOS Safari 兼容
         -webkit-text-fill-color: transparent;     // 渐变文字效果
         background-clip: text;
-        transition: all $duration-slow $ease-out;
+        transition: opacity $duration-slow $ease-out,
+                    transform $duration-slow $ease-out;
 
         &:active {
           opacity: 1;

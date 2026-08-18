@@ -24,6 +24,7 @@
       <scroll-view
         :scroll-y="bookings.length > 0"
         class="booking-list"
+        :style="{ height: scrollViewHeight + 'px' }"
         :class="{ 'no-scroll': bookings.length === 0 }"
         :show-scrollbar="false"
         @scrolltolower="onScrollToLower"
@@ -41,6 +42,7 @@
           v-for="(booking, index) in bookings"
           :key="booking.id || index"
           class="booking-card"
+          :style="{ animationDelay: `${index * 0.04}s` }"
         >
           <view class="booking-status-bar" :class="getStatusClass(booking.status)"></view>
           <view class="booking-content">
@@ -69,17 +71,24 @@
     </view><!-- /main-content -->
 
     <StudentTabBar currentRoute="/pages/student/bookings/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'student_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { bookingApi } from '@/api'
 import { checkLogin, getUserId } from '@/utils/auth'
 import { formatDateTime, formatTime } from '@/utils/date'
 import StudentTabBar from '@/components/StudentTabBar.vue'
 import AppNavbar from '@/components/AppNavbar.vue'
 import AppFilterTabs from '@/components/AppFilterTabs.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 import { extractList } from '@/utils/helpers'
 
 const BOOKING_STATUS = {
@@ -92,6 +101,18 @@ const BOOKING_STATUS = {
 
 const activeFilter = ref<string | number>('all')
 const bookings = ref<any[]>([])
+const userId = ref('')
+
+const systemInfo = uni.getSystemInfoSync()
+const navbarHeight = systemInfo.statusBarHeight + 44
+const tabbarHeight = (100 / 750) * systemInfo.windowWidth
+const scrollViewHeight = ref(Math.max(
+  systemInfo.windowHeight - navbarHeight - tabbarHeight - 110,
+  400
+))
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 // ✅ 不再需要手动计算 scrollHeight，使用 CSS Flex 布局自动填充
 
@@ -116,9 +137,14 @@ onMounted(() => {
 
   console.log('✓ 用户已登录，开始初始化页面')
 
-  // ✅ 加载预约数据（不再需要手动计算高度）
+  userId.value = String(getUserId() || '')
+
   console.log('🚀 准备调用 loadBookings()...')
   loadBookings()
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 // ✅ 滚动到底部事件（可选，用于加载更多）
@@ -154,6 +180,9 @@ const loadBookings = async () => {
         bookingApi.list(params),
         timeoutPromise
       ])
+      
+      // ✅ 页面已卸载，不再更新数据
+      if (isUnmounted) return
       
       console.log('✅ Step 2 - API 请求成功！')
       
@@ -334,7 +363,7 @@ const handleCancel = async (bookingId: number) => {
 }
 
 const goToCourses = () => {
-  uni.navigateTo({ url: '/pages/student/courses/index' })
+  navigateTo({ url: '/pages/student/courses/index' })
 }
 
 // ✅ 强制刷新方法（调试用）
@@ -368,10 +397,8 @@ const forceRefresh = async () => {
 // ============================================
 // 可滚动内容区域 - 自适应屏幕高度（筛选标签已提取为AppFilterTabs组件）
 .booking-list {
-  flex: 1;                                // 填充剩余空间
-  min-height: 0;                          // 允许收缩到内容高度
   max-height: calc(100vh - 200rpx);       // 最大不超过屏幕减去导航栏+筛选栏
-  padding: $space-lg $space-lg;
+  padding-bottom: $space-md;
   padding-bottom: 180rpx;                 // 底部舒适间距
   box-sizing: border-box;
   overflow-y: auto;                       // 只在内容超出时显示滚动条
@@ -430,8 +457,10 @@ const forceRefresh = async () => {
   border: 1rpx solid $border-subtle;     // ✅ 新增：浅边框
   margin-bottom: $space-md;
   overflow: hidden;
-  box-shadow: $shadow-card;             // ✅ 更新：使用阴影系统
-  transition: all $duration-fast $ease-standard;
+  box-shadow: $shadow-card;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
+  animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 
   &:active {
     transform: translateY(-2rpx);
@@ -545,7 +574,9 @@ const forceRefresh = async () => {
   border-radius: $radius-xl;
   font-size: $font-size-body-sm;
   font-weight: $font-weight-medium;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              color $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &.cancel {
     background: $error-bg;             // ✅ 更新：错误背景
@@ -573,7 +604,18 @@ const forceRefresh = async () => {
   -webkit-backdrop-filter: blur(20rpx);
   padding: $space-sm 0 $space-2xl;
   border-top: 1rpx solid $border-light;     // ✅ 更新：使用边框变量
-  box-shadow: 0 -4rpx 16rpx rgba(26, 26, 26, 0.04);  // ✅ 新增：顶部阴影
+  box-shadow: 0 -4rpx 16rpx rgba(26, 26, 26, 0.04);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tab-item {

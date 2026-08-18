@@ -59,21 +59,32 @@
     </view>
 
     <TeacherTabBar currentRoute="/pages/teacher/profile/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'teacher_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { teacherApi } from '@/api'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 import { checkLogin, logout } from '@/utils/auth'
 
 const userInfo = ref<any>(null)
+const userId = ref('')
 const stats = ref({
   courses: 0,
   schedules: 0,
   students: 0
 })
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
@@ -81,16 +92,26 @@ onMounted(() => {
   loadStats()
 })
 
+onUnmounted(() => {
+  isUnmounted = true
+})
+
 const loadUserInfo = () => {
   const info = uni.getStorageSync('user_info')
   if (info) {
-    userInfo.value = JSON.parse(info)
+    const parsed = JSON.parse(info)
+    userInfo.value = parsed
+    userId.value = parsed.id || ''
   }
 }
 
 const loadStats = async () => {
   try {
     const result = await teacherApi.getStats()
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     stats.value = result.data
   } catch {
     console.error('Failed to load stats')
@@ -110,31 +131,31 @@ const handleLogout = () => {
 }
 
 const goToEdit = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/edit' })
+  navigateTo({ url: '/pages/teacher/profile/edit' })
 }
 
 const goToBookingHistory = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/history' })
+  navigateTo({ url: '/pages/teacher/profile/history' })
 }
 
 const goToMyWallet = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/wallet' })
+  navigateTo({ url: '/pages/teacher/profile/wallet' })
 }
 
 const goToSettings = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/settings' })
+  navigateTo({ url: '/pages/teacher/profile/settings' })
 }
 
 const goToCourses = () => {
-  uni.navigateTo({ url: '/pages/teacher/courses/index' })
+  navigateTo({ url: '/pages/teacher/courses/index' })
 }
 
 const goToSchedule = () => {
-  uni.navigateTo({ url: '/pages/teacher/schedule/index' })
+  navigateTo({ url: '/pages/teacher/schedule/index' })
 }
 
 const goToStudents = () => {
-  uni.navigateTo({ url: '/pages/teacher/students/index' })
+  navigateTo({ url: '/pages/teacher/students/index' })
 }
 </script>
 
@@ -256,7 +277,8 @@ const goToStudents = () => {
   background: rgba(255, 255, 255, 0.25); // ✅ 提高背景可见度
   backdrop-filter: blur(10rpx);
   border-radius: $radius-full;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &:active {
     background: rgba(255, 255, 255, 0.35);
@@ -329,8 +351,8 @@ const goToStudents = () => {
   display: flex;
   align-items: center;
   padding: $space-lg $space-lg;           // ✅ 统一间距
-  border-bottom: 1rpx solid $border-light; // ✅ 替代#f5f5f5
-  transition: all $duration-fast $ease-standard;
+  border-bottom: 1rpx solid $border-light;
+  transition: background $duration-fast $ease-standard;
 
   &:active {
     background: rgba(245, 237, 228, 0.6); // ✅ 暖灰色点击反馈

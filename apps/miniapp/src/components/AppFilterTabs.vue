@@ -46,8 +46,8 @@ function handleTabClick(value: string | number) {
 // 筛选标签滚动容器 - 统一背景色设计
 .filter-scroll {
   white-space: nowrap;
-  margin-bottom: $space-sm;
-  padding: $space-sm $space-md;
+  margin-bottom: $space-md;
+  padding: 0 $space-md;
   border-radius: $radius-lg;
   background: rgba(255, 255, 255, 0.85);
   @include hide-scrollbar;
@@ -67,7 +67,12 @@ function handleTabClick(value: string | number) {
   box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
   line-height: 1.2;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              color $duration-fast $ease-standard,
+              border-color $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
+  margin: 24rpx 0;
 
   &:active {
     transform: scale(0.96);

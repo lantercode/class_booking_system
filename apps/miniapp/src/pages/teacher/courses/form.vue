@@ -121,13 +121,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { courseApi } from '@/api'
 import { AnyARecord } from 'dns'
 
 const isEdit = ref(false)
 const courseId = ref(0)
 const isLoading = ref(false)
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const form = reactive({
   name: '',
@@ -189,10 +192,18 @@ onMounted(() => {
   }
 })
 
+onUnmounted(() => {
+  isUnmounted = true
+})
+
 const loadCourse = async () => {
   isLoading.value = true
   try {
     const result = await courseApi.get(courseId.value)
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     if (result.code === 0 || result.code === 200) {
       const course = result.data as Course
       form.name = course.name

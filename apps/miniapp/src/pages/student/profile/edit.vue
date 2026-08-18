@@ -268,7 +268,9 @@ const goBack = () => {
   padding: 0 $space-md;
   font-size: $font-size-body;
   color: $text-primary;
-  transition: all $duration-fast $ease-standard;
+  transition: border-color $duration-fast $ease-standard,
+              background $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
 
   &:focus {
     border-color: $primary-solid;
@@ -305,7 +307,9 @@ const goBack = () => {
   padding: $space-md;
   font-size: $font-size-body;
   color: $text-primary;
-  transition: all $duration-fast $ease-standard;
+  transition: border-color $duration-fast $ease-standard,
+              background $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
 
   &:focus {
     border-color: $primary-solid;
@@ -351,7 +355,9 @@ const goBack = () => {
   align-items: center;
   justify-content: center;
   box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.3);
-  transition: all $duration-fast $ease-standard;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              opacity $duration-fast $ease-standard;
 
   &:active {
     transform: scale(0.98);

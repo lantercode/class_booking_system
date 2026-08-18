@@ -212,9 +212,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { wechatAutoLogin, wechatBindPhone } from '@/utils/wechat'
 import { redirectToHome, validateToken } from '@/utils/auth'
+import { navigateTo } from '@/utils/navigation'
 
 const isLoading = ref(false)
 const isLoggingIn = ref(false)
@@ -232,6 +233,12 @@ const showBindModal = ref(false)
 const bindToken = ref('')
 const isBinding = ref(false)
 
+// ✅ 页面卸载标记
+let isUnmounted = false
+// ✅ 定时器追踪
+let redirectTimer: number | null = null
+let finallyTimer: number | null = null
+
 onMounted(async () => {
   console.log('🎉 授权页加载完成')
   
@@ -246,9 +253,9 @@ onMounted(async () => {
     
     if (isValid) {
       loadingText.value = '正在跳转...'
-      setTimeout(() => {
+      redirectTimer = setTimeout(() => {
         redirectToHome()
-      }, 500)
+      }, 500) as unknown as number
     } else {
       console.log('⚠️ Token 已过期，需要重新授权')
       clearError()
@@ -293,9 +300,9 @@ async function handleWechatLogin() {
         duration: 1000
       })
 
-      setTimeout(() => {
+      redirectTimer = setTimeout(() => {
         redirectToHome(result.role)
-      }, 1000)
+      }, 1000) as unknown as number
 
     } else {
       throw new Error(result.msg || '登录失败')
@@ -316,10 +323,10 @@ async function handleWechatLogin() {
     })
 
   } finally {
-    setTimeout(() => {
+    finallyTimer = setTimeout(() => {
       isLoading.value = false
       isLoggingIn.value = false
-    }, 2000)
+    }, 2000) as unknown as number
   }
 }
 
@@ -327,6 +334,18 @@ function clearError() {
   hasError.value = false
   errorMessage.value = ''
 }
+
+onUnmounted(() => {
+  isUnmounted = true
+  if (redirectTimer) {
+    clearTimeout(redirectTimer)
+    redirectTimer = null
+  }
+  if (finallyTimer) {
+    clearTimeout(finallyTimer)
+    finallyTimer = null
+  }
+})
 
 /**
  * 关闭绑定弹窗
@@ -460,7 +479,7 @@ function goToManualBind() {
   
   showBindModal.value = false
   
-  uni.navigateTo({
+  navigateTo({
     url: `/pages/bind/manual?bindToken=${encodeURIComponent(bindToken.value)}`
   })
 }
@@ -773,7 +792,8 @@ async function completeNewUserGuide() {
   box-shadow: $shadow-modal;              // 使用新的柔和阴影
   position: relative;
   overflow: hidden;
-  transition: all $duration-normal $ease-standard;
+  transition: transform $duration-normal $ease-standard,
+              box-shadow $duration-normal $ease-standard;
 
   &::before {
     content: '';
@@ -939,7 +959,9 @@ async function completeNewUserGuide() {
     justify-content: center;
     position: relative;
     overflow: hidden;
-    transition: all $duration-normal $ease-standard;
+    transition: transform $duration-normal $ease-standard,
+                box-shadow $duration-normal $ease-standard,
+                opacity $duration-normal $ease-standard;
     box-shadow: $shadow-button;     // 使用新的香槟金阴影系统
 
     &:active {
@@ -1038,7 +1060,8 @@ async function completeNewUserGuide() {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease,
+                border-color 0.2s ease;
     background: rgba(255, 255, 255, 0.05);
 
     &.checked {
@@ -1285,7 +1308,8 @@ async function completeNewUserGuide() {
         &:active:not(.is-loading) {
           transform: scale(0.97) translateY(2rpx);
           box-shadow: $shadow-sm;   // 更柔和的阴影
-          transition: all $duration-fast $ease-standard;
+          transition: transform $duration-fast $ease-standard,
+                      box-shadow $duration-fast $ease-standard;
         }
       }
     }
@@ -1330,7 +1354,9 @@ async function completeNewUserGuide() {
         background: $gradient-card;  // 卡片渐变背景
         border: 1rpx solid $border-light;
         border-radius: $radius-lg;
-        transition: all $duration-fast $ease-standard;
+        transition: background $duration-fast $ease-standard,
+                    border-color $duration-fast $ease-standard,
+                    transform $duration-fast $ease-standard;
 
         &:active {
           background: $bg-secondary;  // 激活时变暗
@@ -1582,7 +1608,9 @@ async function completeNewUserGuide() {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
+      transition: transform 0.2s ease,
+                  background 0.2s ease,
+                  opacity 0.2s ease;
 
       &.secondary {
         background: rgba(255, 255, 255, 0.05);

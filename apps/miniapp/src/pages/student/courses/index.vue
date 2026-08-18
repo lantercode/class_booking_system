@@ -4,7 +4,7 @@
     <AppNavbar
       title=""
       :show-back="false"
-      variant="dark">
+      variant="default">
 
       <template #left>
         <view>课程列表</view>
@@ -36,6 +36,7 @@
       <scroll-view
         scroll-y
         class="course-scroll"
+        :style="{ height: scrollViewHeight + 'px' }"
         :show-scrollbar="false"
         :refresher-enabled="true"
         :refresher-triggered="refreshing"
@@ -59,11 +60,11 @@
           <AppCard
             v-for="(course, index) in courses"
             :key="course.id"
-            variant="elevated"
+            variant="glass"
             padding="none"
             clickable
             class="course-card-wrapper"
-            :style="{ animationDelay: `${index * 0.05}s` }"
+            :style="{ animationDelay: `${index * 0.04}s` }"
             @tap="goToCourseDetail(course.id)"
           >
             <view class="course-card">
@@ -125,6 +126,11 @@
 
     <!-- 底部导航栏 -->
     <StudentTabBar currentRoute="/pages/student/courses/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'student_' + (userId || 'default')"
+    />
   </view>
 </template>
 
@@ -133,6 +139,8 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { studentApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import StudentTabBar from '@/components/StudentTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 import { extractList } from '@/utils/helpers'
 import AppNavbar from '@/components/AppNavbar.vue'
 import AppCard from '@/components/AppCard.vue'
@@ -147,6 +155,15 @@ const activeFilter = ref('all')
 const courses = ref<any[]>([])
 const loading = ref(false)
 const refreshing = ref(false)
+const userId = ref('')
+
+const systemInfo = uni.getSystemInfoSync()
+const navbarHeight = systemInfo.statusBarHeight + 44
+const tabbarHeight = (100 / 750) * systemInfo.windowWidth
+const scrollViewHeight = ref(Math.max(
+  systemInfo.windowHeight - navbarHeight - tabbarHeight - 120,
+  400
+))
 
 // ✅ 新增：防抖定时器（用于搜索）
 let searchTimer: ReturnType<typeof setTimeout> | null = null
@@ -156,6 +173,9 @@ let filterDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 // ✅ 新增：加载锁（防止并发请求）
 let isLoadingCourses = false
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const filterTabs = [
   { label: '全部', value: 'all' },
@@ -180,10 +200,20 @@ const filterTabs = [
 
 onMounted(() => {
   if (!checkLogin('student')) return
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
+
   loadCourses()
 })
 
 onUnmounted(() => {
+  isUnmounted = true
   // ✅ 清理所有定时器
   if (searchTimer) clearTimeout(searchTimer)
   if (filterDebounceTimer) clearTimeout(filterDebounceTimer)
@@ -246,6 +276,9 @@ const loadCourses = async () => {
 
     const result = await studentApi.getCourses(params)
     
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     console.log('=== 📚 课程列表 - API 返回 ===')
     console.log('result.code:', result.code)
     console.log('result.data:', result?.data)
@@ -294,7 +327,7 @@ const loadCourses = async () => {
 }
 
 const goToCourseDetail = (id: number) => {
-  uni.navigateTo({ url: `/pages/student/courses/detail?id=${id}` })
+  navigateTo({ url: `/pages/student/courses/detail?id=${id}` })
 }
 </script>
 
@@ -310,7 +343,7 @@ const goToCourseDetail = (id: number) => {
 
   // 搜索区域 - 统一背景色设计
   .search-section {
-    padding-bottom: $space-sm; 
+    padding-bottom: $space-md; 
     // background: rgba(255, 255, 255, 0.75);  // ✅ 统一：75%白色背景（与内容区协调）
     position: relative;
     z-index: 10;
@@ -334,10 +367,9 @@ const goToCourseDetail = (id: number) => {
 
   // 课程列表滚动区域 - 统一背景色（筛选标签已提取为AppFilterTabs组件）
   .course-scroll {
-    flex: 1;
-    height: 0;
-    padding: 0 $space-md;
+    padding: 0 0;
     padding-bottom: $tabbar-height-safe;
+    box-sizing: border-box;
   }
 
   // 加载容器
@@ -349,16 +381,24 @@ const goToCourseDetail = (id: number) => {
   .course-grid {
     display: flex;
     flex-direction: column;
-    gap: $space-sm;
-    
-    @include fade-in-up;
+    gap: $space-md;
   }
 
   // 课程卡片包装器
   .course-card-wrapper {
-    animation-fill-mode: both;
-    opacity: 0;
-    animation: fadeInUp 0.5s ease-out forwards;
+    animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    // box-shadow: $shadow-card;
+  }
+
+  @keyframes cardFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8rpx);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   // 课程卡片内部结构

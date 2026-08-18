@@ -83,19 +83,30 @@
     </scroll-view>
 
     <TeacherTabBar currentRoute="/pages/teacher/courses/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'teacher_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { teacherApi, courseApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 import { extractList } from '@/utils/helpers'
 
 const searchKeyword = ref('')
 const activeFilter = ref('all')
 const courses = ref<any[]>([])
+const userId = ref('')
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const filterTabs = [
   { label: '全部', value: 'all' },
@@ -105,7 +116,20 @@ const filterTabs = [
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
+
   loadCourses()
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 const loadCourses = async () => {
@@ -115,6 +139,10 @@ const loadCourses = async () => {
     if (activeFilter.value !== 'all') params.status = activeFilter.value === 'active' ? 1 : 0
 
     const result = await teacherApi.getCourses(params)
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     courses.value = extractList(result)
   } catch {
     uni.showToast({ title: '加载失败', icon: 'none' })
@@ -122,11 +150,11 @@ const loadCourses = async () => {
 }
 
 const goToCreate = () => {
-  uni.navigateTo({ url: '/pages/teacher/courses/form' })
+  navigateTo({ url: '/pages/teacher/courses/form' })
 }
 
 const editCourse = (id: number) => {
-  uni.navigateTo({ url: `/pages/teacher/courses/form?id=${id}` })
+  navigateTo({ url: `/pages/teacher/courses/form?id=${id}` })
 }
 
 const deleteCourse = async (id: number) => {
@@ -152,15 +180,15 @@ const deleteCourse = async (id: number) => {
 }
 
 const goToSchedule = () => {
-  uni.navigateTo({ url: '/pages/teacher/schedule/index' })
+  navigateTo({ url: '/pages/teacher/schedule/index' })
 }
 
 const goToStudents = () => {
-  uni.navigateTo({ url: '/pages/teacher/students/index' })
+  navigateTo({ url: '/pages/teacher/students/index' })
 }
 
 const goToProfile = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/index' })
+  navigateTo({ url: '/pages/teacher/profile/index' })
 }
 </script>
 

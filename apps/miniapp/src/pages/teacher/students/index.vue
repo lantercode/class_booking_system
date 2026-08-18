@@ -76,19 +76,30 @@
     </scroll-view>
 
     <TeacherTabBar currentRoute="/pages/teacher/students/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'teacher_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { teacherApi, bookingApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import { formatDate, formatTime } from '@/utils/date'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
+import { navigateTo } from '@/utils/navigation'
 
 const students = ref<any[]>([])
 const scheduleList = ref<any[]>([])
 const selectedSchedule = ref<number | null>(null)
+const userId = ref('')
+
+// ✅ 页面卸载标记
+let isUnmounted = false
 
 const totalStudents = computed(() => students.value.length)
 const todayBookings = computed(() => students.value.filter(s => s.booking_status === 'booked').length)
@@ -96,13 +107,30 @@ const checkedInCount = computed(() => students.value.filter(s => s.booking_statu
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
+
   loadSchedules()
+})
+
+onUnmounted(() => {
+  isUnmounted = true
 })
 
 const loadSchedules = async () => {
   try {
     const today = new Date().toISOString().split('T')[0]
     const result = await teacherApi.getSchedules({ start_from: today, start_to: today, status: 1 })
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     scheduleList.value = extractList(result)
     if (scheduleList.value.length > 0) {
       selectedSchedule.value = scheduleList.value[0].id
@@ -118,6 +146,10 @@ const loadStudents = async () => {
   
   try {
     const result = await bookingApi.list({ schedule_id: selectedSchedule.value })
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     students.value = extractList(result)
   } catch {
     uni.showToast({ title: '加载失败', icon: 'none' })
@@ -171,15 +203,15 @@ const handleCheckIn = async (bookingId: number) => {
 }
 
 const goToCourses = () => {
-  uni.navigateTo({ url: '/pages/teacher/courses/index' })
+  navigateTo({ url: '/pages/teacher/courses/index' })
 }
 
 const goToSchedule = () => {
-  uni.navigateTo({ url: '/pages/teacher/schedule/index' })
+  navigateTo({ url: '/pages/teacher/schedule/index' })
 }
 
 const goToProfile = () => {
-  uni.navigateTo({ url: '/pages/teacher/profile/index' })
+  navigateTo({ url: '/pages/teacher/profile/index' })
 }
 </script>
 

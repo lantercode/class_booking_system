@@ -13,6 +13,7 @@
           v-for="(record, index) in filteredHistory"
           :key="record.id || index"
           class="history-card"
+          :style="{ animationDelay: `${index * 0.04}s` }"
           :class="getStatusClass(record.status)"
         >
           <view class="history-header">
@@ -57,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { bookingApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import { extractList } from '@/utils/helpers'
@@ -87,7 +88,14 @@ const filteredHistory = computed(() => {
 })
 
 const activeFilter = ref('all')
-const scrollHeight = ref(600)
+
+const sysInfo = uni.getSystemInfoSync()
+const scrollHeight = ref(Math.max(sysInfo.windowHeight - 150, 400))
+
+// ✅ 页面卸载标记
+let isUnmounted = false
+// ✅ 定时器追踪
+let navigateBackTimer: number | null = null
 
 const filterTabs = [
   { label: '全部', value: 'all' },
@@ -102,22 +110,22 @@ onMounted(() => {
   if (!checkLogin('student')) {
     console.warn('⚠️ 用户未登录或角色不匹配')
     uni.showToast({ title: '请先登录', icon: 'none' })
-    setTimeout(() => {
+    navigateBackTimer = setTimeout(() => {
       uni.navigateBack()
-    }, 1500)
+    }, 1500) as unknown as number
     return
   }
 
-  calculateScrollHeight()
   loadHistory()
 })
 
-const calculateScrollHeight = () => {
-  const systemInfo = uni.getSystemInfoSync()
-  const windowHeight = systemInfo.windowHeight
-  const otherHeight = 250
-  scrollHeight.value = Math.max(windowHeight - otherHeight, 400)
-}
+onUnmounted(() => {
+  isUnmounted = true
+  if (navigateBackTimer) {
+    clearTimeout(navigateBackTimer)
+    navigateBackTimer = null
+  }
+})
 
 const loadHistory = async () => {
   try {
@@ -130,6 +138,10 @@ const loadHistory = async () => {
       // 或者尝试数字格式（取决于后端实现）：
       // status: '3,4,5'  // 3=已完成, 4=已取消, 5=缺课
     })
+    
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
+    
     console.log('✅ API 返回:', result)
     console.log('📝 请求参数: status=completed,cancelled,no_show (仅历史记录)')
 
@@ -259,7 +271,7 @@ const getCurrentFilterLabel = (): string => {
 // ============================================
 // 历史记录列表（筛选标签已提取为AppFilterTabs组件）
 .history-list {
-  padding: $space-md $space-lg;
+  padding: $space-md 0;
   padding-bottom: 100rpx;                // 底部留白
   box-sizing: border-box;
 }
@@ -268,19 +280,24 @@ const getCurrentFilterLabel = (): string => {
   min-height: 100%;
 }
 
-// ✨ 卡片设计 - 高级轻奢风格
 .history-card {
-  background: $card-background;          // ✅ 卡片背景
-  border-radius: $radius-lg;            // ✅ 大圆角
-  padding: $space-lg;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20rpx);
+  -webkit-backdrop-filter: blur(20rpx);
+  border-radius: $radius-lg;
+  border: 1rpx solid $border-subtle;
+  padding: $space-md;
   margin-bottom: $space-md;
-  box-shadow: $shadow-card;              // ✅ 卡片阴影
+  box-shadow: $shadow-card;
   border-left: 8rpx solid transparent;
-  transition: all $duration-fast $ease-elegant;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              opacity $duration-fast $ease-standard;
+  animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 
   &:active {
-    transform: scale(0.98);
-    box-shadow: $shadow-card-hover;      // ✅ 悬停阴影
+    transform: translateY(-2rpx);
+    box-shadow: $shadow-card-hover;
   }
 
   // 状态颜色 - 保持语义化但使用更柔和的色调
@@ -406,7 +423,7 @@ const getCurrentFilterLabel = (): string => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $space-3xl $space-lg;
+  padding: 120rpx 0;
 }
 
 .empty-icon {
@@ -416,7 +433,18 @@ const getCurrentFilterLabel = (): string => {
 }
 
 .empty-text {
-  font-size: $font-size-body;           // ✅ 正文标准（28rpx）
-  color: $text-tertiary;               // ✅ 柔和的文字
+  font-size: $font-size-body;
+  color: $text-tertiary;
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

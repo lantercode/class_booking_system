@@ -34,7 +34,7 @@
         </view>
       </view>
 
-    <scroll-view scroll-y class="schedule-scroll" :show-scrollbar="false">
+    <scroll-view scroll-y class="schedule-scroll" :style="{ height: scrollViewHeight + 'px' }" :show-scrollbar="false">
       <view v-if="loading" class="loading-state">
         <text class="loading-text">加载中...</text>
       </view>
@@ -45,9 +45,10 @@
 
       <view
         v-else
-        v-for="schedule in displaySchedules"
+        v-for="(schedule, index) in displaySchedules"
         :key="schedule._key"
         class="schedule-card"
+        :style="{ animationDelay: `${index * 0.04}s` }"
       >
         <view class="schedule-time">
           <text class="time-start">{{ schedule._startTime }}</text>
@@ -87,15 +88,21 @@
     </view><!-- /main-content -->
 
     <StudentTabBar currentRoute="/pages/student/schedule/index" />
+
+    <!-- AI 智能助手 -->
+    <AiAssistant
+      :session-id="'student_' + (userId || 'default')"
+    />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watchEffect } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watchEffect } from 'vue'
 import { scheduleApi, bookingApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
-import { formatTime, formatDate, toAPIDateTime } from '@/utils/date'
+import { formatTime, formatDate, toAPIDateTime, isScheduleExpired, isWithinBookingWindow } from '@/utils/date'
 import StudentTabBar from '@/components/StudentTabBar.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
 import AppNavbar from '@/components/AppNavbar.vue'
 import { extractList } from '@/utils/helpers'
 
@@ -104,43 +111,83 @@ const selectedDate = ref('')
 const daySchedules = ref<any[]>([])
 const bookings = ref<any[]>([])
 const loading = ref(false)
+const userId = ref('')
 
-// ✅ 新增：防重复调用锁
+const systemInfo = uni.getSystemInfoSync()
+const navbarHeight = systemInfo.statusBarHeight + 44
+const tabbarHeight = (100 / 750) * systemInfo.windowWidth
+const scrollViewHeight = ref(Math.max(
+  systemInfo.windowHeight - navbarHeight - tabbarHeight - 160,
+  400
+))
+
+// ✅ 防重复调用锁
 let isLoadingSchedules = false
 let isLoadingBookings = false
 
-// ✅ 新增：防抖定时器
+// ✅ 防抖定时器
 let debounceTimer: number | null = null
+
+// ✅ 保存watchEffect的stop函数
+let stopWatcher: (() => void) | null = null
+
+let loadBookingsTimer: number | null = null
+let retryTimer: number | null = null
+
+// ✅ 页面卸载标记（防止异步回调更新已销毁的页面）
+let isUnmounted = false
 
 // ✅ 企业级优化：Computed预处理所有显示数据（性能关键！）
 const displaySchedules = computed(() => {
-  // 1. 预构建预约ID集合（O(m)，只需一次）
   const bookedScheduleIds = new Set(
     bookings.value.map((b: any) => b.schedule_id)
   )
   
-  // 2. 为每条排期预计算所有显示属性（O(n)）
   return daySchedules.value.map((schedule: any, index: number) => {
     const isBooked = bookedScheduleIds.has(schedule.id)
     const isFull = schedule.booked_count >= schedule.capacity
+    const isExpired = isScheduleExpired(schedule.start_at)
+    const isOutOfWindow = !isWithinBookingWindow(schedule.start_at, 14)
+    
+    const isDisabled = isExpired || isOutOfWindow || (isFull && !isBooked)
+    
+    let statusText: string
+    let btnText: string
+    let statusClass: string
+    
+    if (isBooked) {
+      statusText = '已预约'
+      btnText = '取消'
+      statusClass = 'booked'
+    } else if (isExpired) {
+      statusText = '已过期'
+      btnText = '已过期'
+      statusClass = 'expired'
+    } else if (isOutOfWindow) {
+      statusText = '超出范围'
+      btnText = '不可预约'
+      statusClass = 'expired'
+    } else if (isFull) {
+      statusText = '已满'
+      btnText = '已满'
+      statusClass = 'full'
+    } else {
+      statusText = '可预约'
+      btnText = '预约'
+      statusClass = 'available'
+    }
     
     return {
-      ...schedule,                              // 保留原始数据
-      
-      // 预计算的UI属性（模板直接读取，无需重复计算）
+      ...schedule,
       _key: schedule.id || `schedule-${selectedDate.value}-${index}`,
       _startTime: formatTime(schedule.start_at),
       _endTime: formatTime(schedule.end_at),
-      
-      // 预计算的预约状态
       _isBooked: isBooked,
       _isFull: isFull,
-      _isDisabled: isFull && !isBooked,
-      
-      // 预计算的UI状态类和文本
-      _statusClass: isBooked ? 'booked' : (isFull ? 'full' : 'available'),
-      _statusText: isBooked ? '已预约' : (isFull ? '已满' : '可预约'),
-      _btnText: isBooked ? '取消' : (isFull ? '已满' : '预约')
+      _isDisabled: isDisabled,
+      _statusClass: statusClass,
+      _statusText: statusText,
+      _btnText: btnText
     }
   })
 })
@@ -184,12 +231,21 @@ function getWeekStart(date: Date): Date {
 
 onMounted(() => {
   if (!checkLogin('student')) return
+
+  const userInfo = uni.getStorageSync('user_info')
+  if (userInfo) {
+    try {
+      const parsed = JSON.parse(userInfo)
+      userId.value = parsed.id || ''
+    } catch {}
+  }
+
   const today = new Date().toISOString().split('T')[0]
   selectedDate.value = today
   loadSchedules()
 
   // ✅ 状态监控（调试用，可在生产环境删除）
-  watchEffect(() => {
+  stopWatcher = watchEffect(() => {
     console.log('🔍 [State Watcher]', {
       timestamp: new Date().toLocaleTimeString(),
       loading: loading.value,
@@ -200,6 +256,25 @@ onMounted(() => {
       selectedDate: selectedDate.value
     })
   })
+})
+onUnmounted(() => {
+  isUnmounted = true
+  if (stopWatcher) {
+    stopWatcher()
+    stopWatcher = null
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (loadBookingsTimer) {
+    clearTimeout(loadBookingsTimer)
+    loadBookingsTimer = null
+  }
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
 })
 
 const loadSchedules = async () => {
@@ -227,6 +302,9 @@ const loadSchedules = async () => {
       start_to: apiDateTime.end,
       status: 1
     })
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     console.log('=== 排期列表 - API 返回 ===')
     console.log('result.data:', result?.data)
@@ -270,9 +348,10 @@ const loadSchedules = async () => {
     console.log('🎯 [Schedule] DOM更新完成，准备加载预约数据...')
 
     // ✅ 延迟加载预约数据（后台静默更新按钮状态）
-    setTimeout(() => {
+    loadBookingsTimer = setTimeout(() => {
       loadBookings()
-    }, 150)
+      loadBookingsTimer = null
+    }, 150) as unknown as number
 
   } catch (error) {
     console.error('❌ 排期列表 - 加载失败:', error)
@@ -300,9 +379,10 @@ const onAllDataLoaded = () => {
     pendingDateRefresh = null  // 清除标记
     
     // 延迟一小段时间再执行，确保状态完全重置
-    setTimeout(() => {
-      loadSchedules()  // 注意：selectedDate在selectDate时已经更新过了
-    }, 50)
+    retryTimer = setTimeout(() => {
+      loadSchedules()
+      retryTimer = null
+    }, 50) as unknown as number
     return
   }
   
@@ -324,6 +404,9 @@ const loadBookings = async () => {
     console.log('请求参数:', { status: 1 })
 
     const result = await bookingApi.list({ status: 1 })  // 1=已预约
+
+    // ✅ 页面已卸载，不再更新数据
+    if (isUnmounted) return
 
     console.log('📦 [Booking] API 返回:', result)
     console.log('📦 [Booking] result.data:', result?.data)
@@ -378,14 +461,31 @@ const loadBookings = async () => {
 
 const prevWeek = () => {
   const start = new Date(currentWeekStart.value || new Date())
-  start.setDate(start.getDate() - 7)
-  currentWeekStart.value = start.toISOString().split('T')[0]
+  const todayWeekStart = getWeekStart(new Date())
+  const newStart = new Date(start)
+  newStart.setDate(start.getDate() - 7)
+  
+  if (newStart.getTime() < todayWeekStart.getTime()) {
+    uni.showToast({ title: '无法查看更早的课程', icon: 'none' })
+    return
+  }
+  currentWeekStart.value = newStart.toISOString().split('T')[0]
 }
 
 const nextWeek = () => {
   const start = new Date(currentWeekStart.value || new Date())
-  start.setDate(start.getDate() + 7)
-  currentWeekStart.value = start.toISOString().split('T')[0]
+  const todayWeekStart = getWeekStart(new Date())
+  const maxWeekStart = new Date(todayWeekStart)
+  maxWeekStart.setDate(todayWeekStart.getDate() + 14)
+  
+  const newStart = new Date(start)
+  newStart.setDate(start.getDate() + 7)
+  
+  if (newStart.getTime() > maxWeekStart.getTime()) {
+    uni.showToast({ title: '仅可预约两周内的课程', icon: 'none' })
+    return
+  }
+  currentWeekStart.value = newStart.toISOString().split('T')[0]
 }
 
 const selectDate = (date: string) => {
@@ -421,6 +521,22 @@ const isScheduleBooked = (scheduleId: number): boolean => {
 }
 
 const handleBooking = async (scheduleId: number) => {
+  const schedule = daySchedules.value.find((s: any) => s.id === scheduleId)
+  if (!schedule) {
+    uni.showToast({ title: '排期不存在', icon: 'none' })
+    return
+  }
+
+  if (isScheduleExpired(schedule.start_at)) {
+    uni.showToast({ title: '该课程已过期，无法预约', icon: 'none' })
+    return
+  }
+
+  if (!isWithinBookingWindow(schedule.start_at, 14)) {
+    uni.showToast({ title: '仅可预约两周内的课程', icon: 'none' })
+    return
+  }
+
   if (isScheduleBooked(scheduleId)) {
     uni.showModal({
       title: '取消预约',
@@ -478,19 +594,19 @@ const cancelBooking = async (scheduleId: number) => {
 
 <style lang="scss">
 .schedule-container {
-  @include page-container;           // ✅ 使用统一的页面容器Mixin（默认$bg-primary）
+  @include page-container;
+  overflow: visible;                     // ✅ iOS兼容：覆盖full-screen的overflow:hidden
 }
 
 // 主内容区域 - 统一结构
 .main-content {
-  @include main-content;             // ✅ 使用统一的主内容区Mixin
-  padding: $space-lg $space-md $space-sm;   // 上边距增大
+  @include main-content;
+  overflow: visible;                     // ✅ iOS兼容：移除overflow:hidden避免裁剪scroll-view内容
+  padding: $space-lg $space-md $space-sm;
 }
 .box-selector {
   border-radius: $radius-lg;
-  background: rgba(255, 255, 255, 0.95);  // 近白色背景
-  backdrop-filter: blur(20rpx);            // 毛玻璃效果
-  -webkit-backdrop-filter: blur(20rpx);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .date-selector {
@@ -512,7 +628,8 @@ const cancelBooking = async (scheduleId: number) => {
   border-radius: $radius-full;
   font-size: $font-size-body;
   color: $text-primary;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard;
 
   &:active {
     background: $primary-bg;
@@ -554,7 +671,10 @@ const cancelBooking = async (scheduleId: number) => {
   justify-content: center;
   border-radius: $radius-full;
   font-size: $font-size-body-sm;
-  transition: all $duration-fast $ease-standard;
+  transition: background $duration-fast $ease-standard,
+              color $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              font-weight $duration-fast $ease-standard;
 
   &.today {
     background: $primary-solid;           // ✅ 更新：香槟金色
@@ -570,12 +690,9 @@ const cancelBooking = async (scheduleId: number) => {
 }
 
 .schedule-scroll {
-  flex: 1;
-  height: 0;
-  padding: $space-lg $space-lg;           // ✅ 调整：增加顶部内边距
-  padding-bottom: 180rpx;                 // 底部舒适间距
+  padding: $space-md 0;
+  padding-bottom: 180rpx;
   box-sizing: border-box;
-  overflow-y: auto;
 }
 
 .loading-state,
@@ -601,15 +718,17 @@ const cancelBooking = async (scheduleId: number) => {
 
 .schedule-card {
   display: flex;
-  background: rgba(255, 255, 255, 0.95);   // ✅ 更新：玻璃态背景
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20rpx);
   -webkit-backdrop-filter: blur(20rpx);
-  border-radius: $radius-lg;              // ✅ 更新：使用圆角系统
-  border: 1rpx solid $border-subtle;       // ✅ 新增：浅边框
+  border-radius: $radius-lg;
+  border: 1rpx solid $border-subtle;
   padding: $space-md $space-lg;
   margin-bottom: $space-md;
-  box-shadow: $shadow-card;               // ✅ 更新：使用阴影系统
-  transition: all $duration-fast $ease-standard;
+  box-shadow: $shadow-card;
+  transition: transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard;
+  animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 
   &:active {
     transform: translateY(-2rpx);
@@ -674,8 +793,13 @@ const cancelBooking = async (scheduleId: number) => {
   }
 
   &.available {
-    background: $success-bg;        // ✅ 更新：成功背景
-    color: $success-color;          // ✅ 更新：成功颜色
+    background: $success-bg;
+    color: $success-color;
+  }
+
+  &.expired {
+    background: $bg-tertiary;
+    color: $text-tertiary;
   }
 }
 
@@ -713,8 +837,11 @@ const cancelBooking = async (scheduleId: number) => {
   font-size: $font-size-body-sm;
   font-weight: $font-weight-medium;
   letter-spacing: $letter-spacing-tight;
-  transition: all $duration-fast $ease-standard;
-  box-shadow: $shadow-button;     // ✅ 更新：按钮阴影
+  transition: background $duration-fast $ease-standard,
+              transform $duration-fast $ease-standard,
+              box-shadow $duration-fast $ease-standard,
+              opacity $duration-fast $ease-standard;
+  box-shadow: $shadow-button;
 
   &::after {
     border: none;
@@ -763,6 +890,17 @@ const cancelBooking = async (scheduleId: number) => {
       transform: scale(0.95);
       box-shadow: 0 1rpx 4rpx rgba(198, 40, 40, 0.35);
     }
+  }
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
