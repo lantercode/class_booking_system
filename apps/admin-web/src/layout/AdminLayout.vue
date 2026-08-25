@@ -83,11 +83,18 @@ import { useRoute } from 'vue-router'
 import { Management, Fold, Expand, ArrowDown, SwitchButton, Odometer, User, Key, Avatar, UserFilled, Reading, Calendar, OfficeBuilding, Setting } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
+interface MenuItem {
+  path: string
+  title: string
+  icon: any
+  children?: MenuItem[]
+}
+
 const route = useRoute()
 const authStore = useAuthStore()
 const isCollapse = ref(false)
 
-const menuItems = [
+const menuItems: MenuItem[] = [
   { path: '/dashboard', title: '控制台', icon: Odometer },
   { path: '/users', title: '用户管理', icon: User },
   { path: '/roles', title: '角色权限', icon: Key },

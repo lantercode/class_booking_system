@@ -385,15 +385,11 @@ function updateSingleEndTime() {
     ? new Date(form.value.start_date) 
     : form.value.start_date
   
-  // 处理时间可能是字符串的情况
+  // 处理时间
   let hours = 0, minutes = 0
   if (form.value.start_time instanceof Date) {
     hours = form.value.start_time.getHours()
     minutes = form.value.start_time.getMinutes()
-  } else if (typeof form.value.start_time === 'string') {
-    const timeParts = form.value.start_time.split(':')
-    hours = parseInt(timeParts[0], 10) || 0
-    minutes = parseInt(timeParts[1], 10) || 0
   }
   
   const startAt = new Date(startDate)
