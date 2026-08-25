@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.100:8000/api/v1'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://172.20.10.2:8000/api/v1'
 
 console.log('API Base URL:', BASE_URL)
 
