@@ -8,6 +8,7 @@
 - **前端**: Vue 3 + Vite + TypeScript + Element Plus + Pinia
 - **构建**: Monorepo (pnpm + Turborepo)
 - **部署**: Docker Compose + Nginx
+- **CI/CD**: GitHub Actions (自动构建、测试、部署)
 
 ## 快速开始
 
