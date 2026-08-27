@@ -20,9 +20,8 @@ jobs:
             set -e
             cd /opt/dance-saas
             
-            # 1. 配置 Git（避免 HTTP/2 和 TLS 网络问题）
+            # 1. 配置 Git（避免 HTTP/2 网络问题）
             git config --global http.version HTTP/1.1
-            git config --global http.sslBackend openssl
             git config --global http.postBuffer 524288000
             git config --global core.compression -1
             
