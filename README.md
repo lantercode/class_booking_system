@@ -10,6 +10,8 @@
 - **部署**: Docker Compose + Nginx
 - **CI/CD**: GitHub Actions (自动构建、测试、部署)
 
+> 最后更新：2026-08-27
+
 ## 快速开始
 
 ### 前置依赖
