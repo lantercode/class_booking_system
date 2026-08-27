@@ -102,9 +102,10 @@ async function fetchTeacherInfo() {
     profileForm.intro = res.data.intro || ''
     // 更新store中的教师信息
     authStore.teacherInfo = {
-      ...authStore.teacherInfo,
-      nickname: res.data.nickname,
-      intro: res.data.intro,
+      id: authStore.teacherInfo?.id ?? 0,
+      phone: authStore.teacherInfo?.phone ?? '',
+      nickname: res.data.nickname ?? '',
+      intro: res.data.intro ?? '',
     }
   } catch (_) {}
 }
@@ -133,9 +134,10 @@ async function handleSave() {
     })
     // 更新store中的教师信息
     authStore.teacherInfo = {
-      ...authStore.teacherInfo,
-      nickname: res.data.nickname,
-      intro: res.data.intro,
+      id: authStore.teacherInfo?.id ?? 0,
+      phone: authStore.teacherInfo?.phone ?? '',
+      nickname: res.data.nickname ?? '',
+      intro: res.data.intro ?? '',
     }
     ElMessage.success('保存成功')
   } catch (e: any) {

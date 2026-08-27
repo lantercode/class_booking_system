@@ -20,6 +20,7 @@ export interface Schedule {
   updated_at: string
   teacher_name?: string | null
   classroom_name?: string | null
+  course_name?: string | null
 }
 
 export interface ScheduleListParams {
