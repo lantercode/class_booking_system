@@ -2,8 +2,8 @@ import base64
 import json
 
 import httpx
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from app.core.config import get_settings
 from app.core.exceptions import AuthException

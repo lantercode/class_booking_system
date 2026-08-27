@@ -4,15 +4,14 @@ Schedule Repository - 排期数据访问层
 提供排期相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-from typing import Optional, List, Tuple
 from datetime import datetime
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
-from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.course.models import Course
+from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 
 
 class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
@@ -24,16 +23,16 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         self,
         db: AsyncSession,
         *,
-        course_id: Optional[int] = None,
-        course_name: Optional[str] = None,
-        teacher_id: Optional[int] = None,
-        classroom_id: Optional[int] = None,
-        status: Optional[int] = None,
-        start_from: Optional[datetime] = None,
-        start_to: Optional[datetime] = None,
+        course_id: int | None = None,
+        course_name: str | None = None,
+        teacher_id: int | None = None,
+        classroom_id: int | None = None,
+        status: int | None = None,
+        start_from: datetime | None = None,
+        start_to: datetime | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[CourseSchedule], int]:
+    ) -> tuple[list[CourseSchedule], int]:
         """搜索排期（支持多条件筛选）"""
         base_query = select(CourseSchedule)
         count_query = select(func.count()).select_from(CourseSchedule)
@@ -93,12 +92,12 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         self,
         db: AsyncSession,
         *,
-        classroom_id: Optional[int] = None,
-        teacher_id: Optional[int] = None,
+        classroom_id: int | None = None,
+        teacher_id: int | None = None,
         start_at: datetime,
         end_at: datetime,
-        exclude_id: Optional[int] = None,
-    ) -> List[CourseSchedule]:
+        exclude_id: int | None = None,
+    ) -> list[CourseSchedule]:
         """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）"""
         from app.core.tenant_context import get_tenant_id
 

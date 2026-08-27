@@ -9,10 +9,10 @@ RBAC 权限使用示例:
 
     # 基于权限的细粒度控制
     @require_permissions("user:create")
-    
+
     # 基于角色的快速判断
     @require_roles("admin")
-    
+
     # 组合使用（双重验证）
     @require_roles("teacher")
     @require_permissions("grade:input")

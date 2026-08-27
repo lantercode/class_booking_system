@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.user.models import User
 from app.modules.auth.models import Role, UserRole, WechatAccount
 from app.modules.tenant.models import Tenant
+from app.modules.user.models import User
 
 
 class AuthRepository:

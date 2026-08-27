@@ -1,5 +1,5 @@
 """统一响应包装 - 所有 API 返回 { code, data, msg, request_id }."""
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 T = TypeVar("T")
 
 
-class StandardResponse(BaseModel, Generic[T]):
+class StandardResponse[T](BaseModel):
     code: int = 0
     data: T | None = None
     msg: str = "ok"

@@ -3,7 +3,6 @@ FAQ 向量化
 职责：将文本转为向量，存入 Milvus
 """
 
-from typing import List
 
 
 class Embedder:
@@ -18,7 +17,7 @@ class Embedder:
         self.model = "text-embedding-3-small"
         self.dimension = 1536
 
-    async def embed(self, texts: List[str]) -> List[List[float]]:
+    async def embed(self, texts: list[str]) -> list[list[float]]:
         """
         将文本列表转为向量列表
 

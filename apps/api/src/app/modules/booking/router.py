@@ -1,15 +1,13 @@
 """预约模块路由"""
 
-from typing import Optional, List
 
-from fastapi import APIRouter, Depends, Query, Path, Body
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.response import success
 from app.core.database import get_session
-from app.deps.auth import get_current_user
 from app.core.rbac import require_permissions
-
+from app.core.response import success
+from app.deps.auth import get_current_user
 from app.modules.booking.schemas import BookingCreate
 from app.modules.booking.service import BookingService
 
@@ -50,8 +48,8 @@ async def create_booking(
 async def list_bookings(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=500, description="每页数量"),
-    schedule_id: Optional[int] = Query(None, description="排期ID"),
-    status: Optional[str] = Query(None, description="状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"),
+    schedule_id: int | None = Query(None, description="排期ID"),
+    status: str | None = Query(None, description="状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -132,7 +130,7 @@ async def cancel_booking(
 )
 async def cancel_booking_by_schedule(
     schedule_id: int = Body(..., description="排期ID"),
-    reason: Optional[str] = Body(None, description="取消原因"),
+    reason: str | None = Body(None, description="取消原因"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):

@@ -15,28 +15,28 @@ AI 智能助手 API 路由
   GET  /api/v1/ai/intents       - 获取支持的意图列表（调试用）
 """
 
+import time
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
-import time
 
 from app.ai.agent.runtime import AgentRuntime
-from app.deps.auth import get_current_user, get_redis_client
 from app.core.exceptions import DanceSaasException
+from app.deps.auth import get_current_user, get_redis_client
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI 智能助手"])
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=500)
-    session_id: Optional[str] = Field(default="default")
+    session_id: str | None = Field(default="default")
 
 
 class ChatResponse(BaseModel):
     code: int = 0
     msg: str = "success"
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 class HistoryResponse(BaseModel):
@@ -62,17 +62,17 @@ async def chat(
     agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
     start_time = time.time()
-    
+
     try:
         response_text = await agent_runtime.chat(
             user_input=body.message,
             session_id=body.session_id
         )
-        
+
         state = await agent_runtime.session.get_state(body.session_id)
         has_pending_state = bool(state)
         latency_ms = int((time.time() - start_time) * 1000)
-        
+
         return ChatResponse(
             code=0,
             msg="success",
@@ -84,11 +84,11 @@ async def chat(
                 "latency_ms": latency_ms
             }
         )
-        
+
     except DanceSaasException as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
-        
-    except Exception as e:
+
+    except Exception:
         raise HTTPException(
             status_code=500,
             detail={"code": 50001, "message": "AI 服务暂时不可用"}
@@ -102,7 +102,7 @@ async def get_history(
 ):
     try:
         messages = await agent_runtime.session.get_history(session_id)
-        
+
         return HistoryResponse(
             data=[
                 {
@@ -113,8 +113,8 @@ async def get_history(
                 for msg in messages[-50:]
             ]
         )
-        
-    except Exception as e:
+
+    except Exception:
         raise HTTPException(status_code=500, detail="获取历史记录失败")
 
 
@@ -126,16 +126,16 @@ async def clear_history(
     try:
         await agent_runtime.session.clear(session_id)
         return {"code": 0, "msg": "已清空对话历史"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="清空失败")
 
 
 @router.get("/intents")
 async def get_supported_intents():
     from app.ai.agent.intent import IntentRecognizer
-    
+
     recognizer = IntentRecognizer()
-    
+
     intents = []
     for intent_name, intent_config in recognizer.intents.items():
         intents.append({
@@ -143,5 +143,5 @@ async def get_supported_intents():
             "description": intent_config.get("description", ""),
             "examples": intent_config.get("examples", [])
         })
-    
+
     return {"code": 0, "data": intents}

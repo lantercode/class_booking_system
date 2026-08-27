@@ -5,19 +5,20 @@ Classroom Service - 教室业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any
+from datetime import UTC
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import NotFoundException, ValidationException
 from app.modules.classroom.repository import ClassroomRepository
-from app.modules.course.models import Classroom, ClassroomStatus
 from app.modules.classroom.schemas import (
     ClassroomCreate,
-    ClassroomUpdate,
-    ClassroomResponse,
     ClassroomListResponse,
+    ClassroomResponse,
+    ClassroomUpdate,
 )
-from app.core.exceptions import ValidationException, NotFoundException
+from app.modules.course.models import Classroom, ClassroomStatus
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class ClassroomService:
         self,
         db: AsyncSession,
         data: ClassroomCreate,
-        operator_id: Optional[int] = None,
+        operator_id: int | None = None,
     ) -> ClassroomResponse:
         """创建教室"""
         logger.info(f"[ClassroomService] 创建教室: name={data.name}")
@@ -40,7 +41,7 @@ class ClassroomService:
         if await self.repo.exists_by_name(db, data.name):
             raise ValidationException("教室名称已存在")
 
-        classroom_data: Dict[str, Any] = {
+        classroom_data: dict[str, Any] = {
             "name": data.name,
             "status": ClassroomStatus.ACTIVE.value,
         }
@@ -67,7 +68,7 @@ class ClassroomService:
         if not classroom:
             raise NotFoundException("教室不存在")
 
-        update_data: Dict[str, Any] = {}
+        update_data: dict[str, Any] = {}
 
         if data.name is not None and data.name != classroom.name:
             if await self.repo.exists_by_name(db, data.name, exclude_id=classroom_id):
@@ -99,16 +100,18 @@ class ClassroomService:
         if not classroom:
             raise NotFoundException("教室不存在")
 
-        from app.modules.schedule.models import CourseSchedule, ScheduleStatus
-        from datetime import datetime, timezone
+        from datetime import datetime
+
         from sqlalchemy import select
+
         from app.core.tenant_context import get_tenant_id as _get_tenant_id
+        from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 
         tenant_id = _get_tenant_id()
         active_schedule_query = select(CourseSchedule).where(
             CourseSchedule.classroom_id == classroom_id,
             CourseSchedule.status == ScheduleStatus.NORMAL.value,
-            CourseSchedule.start_at > datetime.now(timezone.utc),
+            CourseSchedule.start_at > datetime.now(UTC),
         )
         if tenant_id:
             active_schedule_query = active_schedule_query.where(
@@ -141,8 +144,8 @@ class ClassroomService:
         self,
         db: AsyncSession,
         *,
-        keyword: Optional[str] = None,
-        status: Optional[int] = None,
+        keyword: str | None = None,
+        status: int | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> ClassroomListResponse:

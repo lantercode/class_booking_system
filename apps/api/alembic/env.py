@@ -23,23 +23,14 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 
 from app.core.config import get_settings
+
 setting = get_settings()
 config.set_main_option("sqlalchemy.url", setting.DATABASE_URL)
 # target_metadata = None
 from app.shared.base_model import Base
+
 target_metadata = Base.metadata
 
-from app.modules.tenant.models import Tenant
-from app.modules.user.models import User
-from app.modules.auth.models import Role, Permission, UserRole, RolePermission, WechatAccount
-from app.modules.teacher.models import TeacherProfile
-from app.modules.student.models import StudentProfile
-from app.modules.course.models import Classroom, Course
-from app.modules.schedule.models import CourseSchedule
-from app.modules.booking.models import Booking
-from app.modules.notification.models import AuditLog
-from app.modules.order.models import MembershipCard, Order
-from app.modules.payment.models import Payment
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

@@ -4,10 +4,8 @@ Booking Repository - 预约数据访问层
 提供预约相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-from typing import Optional, List, Tuple
-from datetime import datetime
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
@@ -23,13 +21,13 @@ class BookingRepository(TenantAwareRepository[Booking]):
         self,
         db: AsyncSession,
         *,
-        schedule_id: Optional[int] = None,
-        student_id: Optional[int] = None,
-        status: Optional[int] = None,
-        statuses: Optional[List[int]] = None,
+        schedule_id: int | None = None,
+        student_id: int | None = None,
+        status: int | None = None,
+        statuses: list[int] | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[Booking], int]:
+    ) -> tuple[list[Booking], int]:
         """搜索预约（支持多条件筛选）"""
         base_query = select(Booking)
         count_query = select(func.count()).select_from(Booking)
@@ -73,7 +71,7 @@ class BookingRepository(TenantAwareRepository[Booking]):
         db: AsyncSession,
         schedule_id: int,
         student_id: int,
-    ) -> Optional[Booking]:
+    ) -> Booking | None:
         """通过排期ID和学员ID查找预约"""
         from app.core.tenant_context import get_tenant_id
 
@@ -96,7 +94,7 @@ class BookingRepository(TenantAwareRepository[Booking]):
         db: AsyncSession,
         schedule_id: int,
         student_id: int,
-    ) -> Optional[Booking]:
+    ) -> Booking | None:
         """查找学员在指定排期的有效预约（已预约/已签到/已完成）"""
         from app.core.tenant_context import get_tenant_id
 

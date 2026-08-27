@@ -9,16 +9,13 @@
 """
 
 import logging
-from typing import Optional
 
-from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.tenant_context import (
     set_tenant_id,
-    set_user_id,
-    get_tenant_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,7 +107,7 @@ class TenantASGIMiddleware:
                 return True
         return False
 
-    async def _extract_tenant(self, request: Request) -> Optional[int]:
+    async def _extract_tenant(self, request: Request) -> int | None:
         """
         从请求头提取租户 ID
 
@@ -158,6 +155,7 @@ class TenantASGIMiddleware:
             return None
 
         from sqlalchemy import select
+
         from app.modules.tenant.models import Tenant
 
         async with self.session_factory() as session:

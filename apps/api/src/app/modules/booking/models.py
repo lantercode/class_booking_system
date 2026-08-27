@@ -1,11 +1,12 @@
 from datetime import datetime
+from enum import Enum
+from uuid import uuid4
 
-from app.shared.base_model import Base, TimestampMixin, TenantMixin
-from sqlalchemy import BigInteger, String, SmallInteger, DateTime, ForeignKey, Index, func, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, SmallInteger, String, func, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from uuid import uuid4
-from enum import Enum
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class BookingStatus(Enum):

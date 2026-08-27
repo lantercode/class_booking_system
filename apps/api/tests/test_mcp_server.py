@@ -8,13 +8,13 @@ MCP Server 数据连通性测试脚本
 """
 
 import asyncio
+
 from app.ai.mcp_server import (
+    create_booking,
+    get_my_balance,
+    get_my_bookings,
     query_courses,
     query_schedules,
-    get_my_bookings,
-    get_my_balance,
-    create_booking,
-    cancel_booking,
 )
 
 # 替换为你数据库中实际存在的 student_id
@@ -87,12 +87,12 @@ async def test_create_and_cancel():
 
 
 async def main():
-    print("""
+    print(f"""
 ╔══════════════════════════════════════════════════════╗
 ║         MCP Server 数据连通性测试                      ║
-║         测试用户 ID: {user_id:<30} ║
+║         测试用户 ID: {TEST_USER_ID:<30} ║
 ╚══════════════════════════════════════════════════════╝
-""".format(user_id=TEST_USER_ID))
+""")
 
     await test_query_courses()
     await test_query_schedules()

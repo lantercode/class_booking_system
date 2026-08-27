@@ -1,11 +1,13 @@
 from datetime import datetime
-
-from app.shared.base_model import Base, TimestampMixin, TenantMixin
-from sqlalchemy import BigInteger, String, SmallInteger, Text, Numeric, DateTime, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
-from sqlalchemy.orm import Mapped, mapped_column
-from uuid import uuid4
 from enum import Enum
+from uuid import uuid4
+
+from sqlalchemy import BigInteger, DateTime, Index, Numeric, SmallInteger, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class ClassroomStatus(Enum):

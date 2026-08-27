@@ -1,11 +1,12 @@
 from datetime import datetime
+from enum import Enum
+from uuid import uuid4
 
-from app.shared.base_model import Base, TimestampMixin, TenantMixin
-from sqlalchemy import BigInteger, SmallInteger, Text, DateTime, ForeignKey, Index, CheckConstraint
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
-from uuid import uuid4
-from enum import Enum
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class ScheduleStatus(Enum):

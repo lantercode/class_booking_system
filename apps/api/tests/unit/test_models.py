@@ -13,12 +13,12 @@ T02 单元测试 - ORM 模型验证
 """
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.auth.models import Permission, Role
 
 # 导入要测试的模型
 from app.modules.tenant.models import Tenant, TenantStatus
 from app.modules.user.models import User, UserStatus
-from app.modules.auth.models import Role, Permission
 
 
 class TestTenantModel:

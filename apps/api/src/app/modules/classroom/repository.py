@@ -4,12 +4,12 @@ Classroom Repository - 教室数据访问层
 提供教室相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-from typing import Optional, List, Tuple
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
-from app.modules.course.models import Classroom, ClassroomStatus
+from app.modules.course.models import Classroom
 
 
 class ClassroomRepository(TenantAwareRepository[Classroom]):
@@ -21,11 +21,11 @@ class ClassroomRepository(TenantAwareRepository[Classroom]):
         self,
         db: AsyncSession,
         *,
-        keyword: Optional[str] = None,
-        status: Optional[int] = None,
+        keyword: str | None = None,
+        status: int | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[Classroom], int]:
+    ) -> tuple[list[Classroom], int]:
         """搜索教室"""
         base_query = select(Classroom)
         count_query = select(func.count()).select_from(Classroom)
@@ -63,7 +63,7 @@ class ClassroomRepository(TenantAwareRepository[Classroom]):
         db: AsyncSession,
         name: str,
         *,
-        exclude_id: Optional[int] = None,
+        exclude_id: int | None = None,
     ) -> bool:
         """检查教室名称是否已存在"""
         query = select(func.count()).select_from(Classroom).where(

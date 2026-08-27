@@ -10,25 +10,29 @@ Booking Service - 预约业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any, List, Tuple
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import (
+    BusinessException,
+    NotFoundException,
+    PermissionException,
+    ValidationException,
+)
+from app.modules.booking.models import Booking, BookingSource, BookingStatus
 from app.modules.booking.repository import BookingRepository
-from app.modules.schedule.repository import ScheduleRepository
-from app.modules.user.repository import UserRepository
-from app.modules.booking.models import Booking, BookingStatus, BookingSource
-from app.modules.schedule.models import CourseSchedule, ScheduleStatus
-from app.modules.user.models import User
 from app.modules.booking.schemas import (
     BookingCreate,
-    BookingUpdate,
-    BookingResponse,
     BookingListResponse,
+    BookingResponse,
 )
-from app.core.exceptions import ValidationException, NotFoundException, BusinessException, PermissionException
+from app.modules.schedule.models import CourseSchedule, ScheduleStatus
+from app.modules.schedule.repository import ScheduleRepository
+from app.modules.user.models import User
+from app.modules.user.repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +49,7 @@ class BookingService:
         db: AsyncSession,
         data: BookingCreate,
         student_id: int,
-        operator_id: Optional[int] = None,
+        operator_id: int | None = None,
     ) -> BookingResponse:
         """创建预约"""
         logger.info(
@@ -95,7 +99,7 @@ class BookingService:
         if source not in [s.value for s in BookingSource]:
             raise ValidationException(f"无效的预约来源: {source}")
 
-        booking_data: Dict[str, Any] = {
+        booking_data: dict[str, Any] = {
             "schedule_id": data.schedule_id,
             "student_id": student_id,
             "status": BookingStatus.BOOKED.value,
@@ -116,7 +120,7 @@ class BookingService:
         db: AsyncSession,
         booking_id: int,
         student_id: int,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> BookingResponse:
         """取消预约"""
         logger.warning(f"[BookingService] 取消预约: booking_id={booking_id}")
@@ -135,7 +139,7 @@ class BookingService:
         db: AsyncSession,
         schedule_id: int,
         student_id: int,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> BookingResponse:
         """通过排期ID取消预约（学员端）"""
         logger.warning(f"[BookingService] 通过排期ID取消预约: schedule_id={schedule_id}, student_id={student_id}")
@@ -150,7 +154,7 @@ class BookingService:
         self,
         db: AsyncSession,
         booking: Booking,
-        reason: Optional[str] = None,
+        reason: str | None = None,
     ) -> BookingResponse:
         """执行取消预约操作"""
         if booking.status == BookingStatus.CANCELLED.value:
@@ -161,15 +165,15 @@ class BookingService:
 
         schedule = await self.schedule_repo.get_by_id(db, booking.schedule_id)
         if schedule:
-            if schedule.cancel_deadline and datetime.now(timezone.utc) > schedule.cancel_deadline:
+            if schedule.cancel_deadline and datetime.now(UTC) > schedule.cancel_deadline:
                 raise BusinessException("已超过取消截止时间", code=400)
-            
-            time_diff = schedule.start_at - datetime.now(timezone.utc)
+
+            time_diff = schedule.start_at - datetime.now(UTC)
             if time_diff.total_seconds() < 90 * 60:
                 raise BusinessException("开课前90分钟内不可取消预约", code=400)
 
         booking.status = BookingStatus.CANCELLED.value
-        booking.cancelled_at = datetime.now(timezone.utc)
+        booking.cancelled_at = datetime.now(UTC)
         if reason:
             booking.cancelled_reason = reason
 
@@ -197,7 +201,7 @@ class BookingService:
             raise BusinessException("当前预约状态无法签到", code=400)
 
         booking.status = BookingStatus.CHECKED_IN.value
-        booking.checked_in_at = datetime.now(timezone.utc)
+        booking.checked_in_at = datetime.now(UTC)
 
         await db.commit()
         await db.refresh(booking)
@@ -244,10 +248,10 @@ class BookingService:
         self,
         db: AsyncSession,
         *,
-        schedule_id: Optional[int] = None,
-        student_id: Optional[int] = None,
-        status: Optional[int] = None,
-        statuses: Optional[List[int]] = None,
+        schedule_id: int | None = None,
+        student_id: int | None = None,
+        status: int | None = None,
+        statuses: list[int] | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> BookingListResponse:
@@ -277,28 +281,27 @@ class BookingService:
             items=[self._to_response(b, student_map.get(b.student_id), schedule_map.get(b.schedule_id)) for b in items],
         )
 
-    async def _get_student_info_map(self, db: AsyncSession, student_ids: List[int]) -> Dict[int, Tuple[str, str]]:
+    async def _get_student_info_map(self, db: AsyncSession, student_ids: list[int]) -> dict[int, tuple[str, str]]:
         """批量获取学员信息映射"""
         if not student_ids:
             return {}
-        
-        user_repo = UserRepository()
+
+        UserRepository()
         query = select(User).where(User.id.in_(student_ids))
         result = await db.execute(query)
         users = result.scalars().all()
-        
+
         return {
             user.id: (user.nickname, user.phone)
             for user in users
         }
 
-    async def _get_schedule_info_map(self, db: AsyncSession, schedule_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+    async def _get_schedule_info_map(self, db: AsyncSession, schedule_ids: list[int]) -> dict[int, dict[str, Any]]:
         """批量获取排期关联信息（课程名、教室名、教师名、时间）"""
         if not schedule_ids:
             return {}
 
-        from app.modules.schedule.models import CourseSchedule
-        from app.modules.course.models import Course, Classroom
+        from app.modules.course.models import Classroom, Course
         from app.modules.user.models import User
 
         query = (
@@ -336,7 +339,7 @@ class BookingService:
             for row in rows
         }
 
-    def _to_response(self, booking: Booking, student_info: Optional[Tuple[str, str]] = None, schedule_info: Optional[Dict[str, Any]] = None) -> BookingResponse:
+    def _to_response(self, booking: Booking, student_info: tuple[str, str] | None = None, schedule_info: dict[str, Any] | None = None) -> BookingResponse:
         """将 ORM 模型转换为响应对象"""
         nickname, phone = student_info if student_info else (None, None)
         schedule_info = schedule_info or {}

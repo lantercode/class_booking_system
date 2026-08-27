@@ -7,18 +7,17 @@ Role Router - 角色权限管理路由
 - 角色-权限绑定
 """
 
-from fastapi import APIRouter, Depends, Query, Path, Body
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.response import success
 from app.core.database import get_session
-from app.deps.auth import get_current_user, get_redis_client
 from app.core.rbac import require_permissions
-
+from app.core.response import success
+from app.deps.auth import get_current_user, get_redis_client
 from app.modules.role.schemas import (
+    AssignPermissionsRequest,
     RoleCreate,
     RoleUpdate,
-    AssignPermissionsRequest,
 )
 from app.modules.role.service import RoleService
 

@@ -1,11 +1,13 @@
 from datetime import datetime
-
-from app.shared.base_model import Base, TimestampMixin, TenantMixin
-from sqlalchemy import BigInteger, String, SmallInteger, Numeric, DateTime, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
-from uuid import uuid4
 from enum import Enum
+from uuid import uuid4
+
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Numeric, SmallInteger, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class PaymentChannel(Enum):

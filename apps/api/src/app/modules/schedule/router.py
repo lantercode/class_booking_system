@@ -1,16 +1,14 @@
 """排期模块路由"""
 
 from datetime import datetime
-from typing import Optional, List
 
-from fastapi import APIRouter, Depends, Query, Path, Body
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.response import success
 from app.core.database import get_session
-from app.deps.auth import get_current_user
 from app.core.rbac import require_permissions
-
+from app.core.response import success
+from app.deps.auth import get_current_user
 from app.modules.schedule.schemas import ScheduleCreate, ScheduleUpdate
 from app.modules.schedule.service import ScheduleService
 
@@ -24,7 +22,7 @@ DATETIME_FORMATS = [
 ]
 
 
-def parse_datetime(value: Optional[str]) -> Optional[datetime]:
+def parse_datetime(value: str | None) -> datetime | None:
     """解析日期时间字符串，支持多种格式"""
     if value is None:
         return None
@@ -73,7 +71,7 @@ async def create_schedule(
 )
 @require_permissions("schedule:create")
 async def batch_create_schedules(
-    items: List[ScheduleCreate] = Body(..., description="排期列表"),
+    items: list[ScheduleCreate] = Body(..., description="排期列表"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -93,13 +91,13 @@ async def batch_create_schedules(
 async def list_schedules(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=500, description="每页数量"),
-    course_id: Optional[int] = Query(None, description="课程ID"),
-    course_name: Optional[str] = Query(None, description="课程名称（模糊搜索）"),
-    teacher_id: Optional[int] = Query(None, description="教师ID"),
-    classroom_id: Optional[int] = Query(None, description="教室ID"),
-    status: Optional[int] = Query(None, ge=1, le=3, description="状态筛选"),
-    start_from: Optional[str] = Query(None, description="开始时间范围-起"),
-    start_to: Optional[str] = Query(None, description="开始时间范围-止"),
+    course_id: int | None = Query(None, description="课程ID"),
+    course_name: str | None = Query(None, description="课程名称（模糊搜索）"),
+    teacher_id: int | None = Query(None, description="教师ID"),
+    classroom_id: int | None = Query(None, description="教室ID"),
+    status: int | None = Query(None, ge=1, le=3, description="状态筛选"),
+    start_from: str | None = Query(None, description="开始时间范围-起"),
+    start_to: str | None = Query(None, description="开始时间范围-止"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):

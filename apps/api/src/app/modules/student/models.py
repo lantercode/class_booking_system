@@ -1,7 +1,8 @@
-from app.shared.base_model import Base, TenantMixin, TimestampMixin
-from sqlalchemy import BigInteger, String, Text, ForeignKey, Index
+from sqlalchemy import BigInteger, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class StudentProfile(Base, TenantMixin, TimestampMixin):

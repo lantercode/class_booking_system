@@ -4,12 +4,12 @@ Course Repository - 课程数据访问层
 提供课程相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-from typing import Optional, List, Tuple
-from sqlalchemy import select, func, or_
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
-from app.modules.course.models import Course, CourseStatus
+from app.modules.course.models import Course
 
 
 class CourseRepository(TenantAwareRepository[Course]):
@@ -21,13 +21,13 @@ class CourseRepository(TenantAwareRepository[Course]):
         self,
         db: AsyncSession,
         *,
-        keyword: Optional[str] = None,
-        category: Optional[str] = None,
-        level: Optional[str] = None,
-        status: Optional[int] = None,
+        keyword: str | None = None,
+        category: str | None = None,
+        level: str | None = None,
+        status: int | None = None,
         page: int = 1,
         page_size: int = 20,
-    ) -> Tuple[List[Course], int]:
+    ) -> tuple[list[Course], int]:
         """搜索课程（支持关键词、分类、等级、状态筛选、分页）"""
         base_query = select(Course).where(Course.deleted_at.is_(None))
         count_query = select(func.count()).select_from(Course).where(Course.deleted_at.is_(None))
@@ -77,7 +77,7 @@ class CourseRepository(TenantAwareRepository[Course]):
         db: AsyncSession,
         name: str,
         *,
-        exclude_id: Optional[int] = None,
+        exclude_id: int | None = None,
     ) -> bool:
         """检查课程名称是否已存在"""
         query = select(func.count()).select_from(Course).where(

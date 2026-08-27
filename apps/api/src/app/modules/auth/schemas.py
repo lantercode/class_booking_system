@@ -1,7 +1,6 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
 
+from pydantic import BaseModel, Field
 
 # ==================== 请求 Schemas ====================
 
@@ -87,7 +86,7 @@ class WechatLoginRequest(BaseModel):
         examples=["dance-school"]
     )
 
-    app_id: Optional[str] = Field(
+    app_id: str | None = Field(
         None,
         description="小程序 AppId，不传则使用默认配置"
     )
@@ -100,19 +99,19 @@ class WechatBindRequest(BaseModel):
         description="上一步自动登录返回的临时凭证"
     )
 
-    phone: Optional[str] = Field(
+    phone: str | None = Field(
         None,
         pattern=r"^1[3-9]\d{9}$",
         description="手机号码（手动输入时使用）",
         examples=["13800138000"]
     )
 
-    encrypted_data: Optional[str] = Field(
+    encrypted_data: str | None = Field(
         None,
         description="微信手机号授权返回的加密数据"
     )
 
-    iv: Optional[str] = Field(
+    iv: str | None = Field(
         None,
         description="微信手机号授权返回的初始向量"
     )
@@ -138,7 +137,7 @@ class RefreshTokenRequest(BaseModel):
 
 class UpdateUserRequest(BaseModel):
     """更新用户信息请求"""
-    nickname: Optional[str] = Field(
+    nickname: str | None = Field(
         None,
         min_length=2,
         max_length=20,
@@ -146,13 +145,13 @@ class UpdateUserRequest(BaseModel):
         examples=["新昵称"]
     )
 
-    avatar: Optional[str] = Field(
+    avatar: str | None = Field(
         None,
         description="头像 URL",
         examples=["https://example.com/avatar.jpg"]
     )
 
-    gender: Optional[str] = Field(
+    gender: str | None = Field(
         None,
         pattern=r"^(male|female|other)$",
         description="性别（male/female/other）",
@@ -230,13 +229,13 @@ class UserResponse(BaseModel):
         examples=["小明"]
     )
 
-    avatar: Optional[str] = Field(
+    avatar: str | None = Field(
         None,
         description="头像 URL",
         examples=["https://example.com/avatar.jpg"]
     )
 
-    gender: Optional[str] = Field(
+    gender: str | None = Field(
         None,
         description="性别",
         examples=["male"]
@@ -269,19 +268,19 @@ class WechatLoginResponse(BaseModel):
         description="是否需要绑定手机号",
         examples=[True]
     )
-    bind_token: Optional[str] = Field(
+    bind_token: str | None = Field(
         None,
         description="绑定凭证"
     )
-    access_token: Optional[str] = Field(
+    access_token: str | None = Field(
         None,
         description="访问令牌"
     )
-    refresh_token: Optional[str] = Field(
+    refresh_token: str | None = Field(
         None,
         description="刷新令牌"
     )
-    token_type: Optional[str] = Field(
+    token_type: str | None = Field(
         default="bearer",
         description="令牌类型",
         examples=["bearer"]
@@ -291,16 +290,16 @@ class WechatLoginResponse(BaseModel):
         description="访问令牌过期时间（秒）",
         examples=[7200]
     )
-    user: Optional[UserResponse] = Field(
+    user: UserResponse | None = Field(
         None,
         description="当前用户信息"
     )
-    decrypted_phone: Optional[str] = Field(
+    decrypted_phone: str | None = Field(
         None,
         description="解密后的微信绑定手机号（手机号未注册时返回）",
         examples=["13800138000"]
     )
-    error_msg: Optional[str] = Field(
+    error_msg: str | None = Field(
         None,
         description="错误提示信息",
         examples=["该手机号未在系统中注册，请联系机构前台"]

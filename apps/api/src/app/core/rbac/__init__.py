@@ -21,8 +21,8 @@ RBAC (基于角色的访问控制) 权限系统
         pass
 """
 
-from .decorator import require_permissions, require_roles
 from .cache import clear_user_permission_cache
+from .decorator import require_permissions, require_roles
 
 __all__ = [
     "require_permissions",

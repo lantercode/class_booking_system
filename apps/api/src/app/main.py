@@ -5,28 +5,25 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.modules.common.router import router as common_router
-from app.modules.auth.router import router as auth_router
-from app.modules.admin.router import router as admin_router  # ⭐ 新增：管理后台路由
-from app.modules.user.router import router as user_router  # ⭐ 新增：用户管理路由
-from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
-from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
-from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
-from app.modules.schedule.router import router as schedule_router  # ⭐ 新增：排期路由
-from app.modules.booking.router import router as booking_router  # ⭐ 新增：预约路由
-from app.modules.teacher.router import router as teacher_router  # ⭐ 新增：教师路由
-from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能助手路由
 
-from app.middleware.error_handler import dance_saas_exception_handler
-from app.core.exceptions import DanceSaasException
-from app.middleware.tenant_middleware import TenantASGIMiddleware
-
-from contextlib import asynccontextmanager
-from app.deps.auth import get_redis_client
 # from starlette.middleware.sessions import Session
-
 from app.core.database import SessionLocal
+from app.core.exceptions import DanceSaasException
 from app.core.tenant_query import setup_tenant_query_injection
+from app.deps.auth import get_redis_client
+from app.middleware.error_handler import dance_saas_exception_handler
+from app.middleware.tenant_middleware import TenantASGIMiddleware
+from app.modules.admin.router import router as admin_router  # ⭐ 新增：管理后台路由
+from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能助手路由
+from app.modules.auth.router import router as auth_router
+from app.modules.booking.router import router as booking_router  # ⭐ 新增：预约路由
+from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
+from app.modules.common.router import router as common_router
+from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
+from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
+from app.modules.schedule.router import router as schedule_router  # ⭐ 新增：排期路由
+from app.modules.teacher.router import router as teacher_router  # ⭐ 新增：教师路由
+from app.modules.user.router import router as user_router  # ⭐ 新增：用户管理路由
 
 settings = get_settings()
 

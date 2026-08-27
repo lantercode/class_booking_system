@@ -1,14 +1,14 @@
-from fastapi import Header, Depends
-from typing import Optional
 
-from app.core.security import decode_token
-from app.core.exceptions import AuthException
-from app.core.tenant_context import set_tenant_id, set_user_id, set_role_id
+from fastapi import Header
+
 from app.core.config import get_settings
+from app.core.exceptions import AuthException
+from app.core.security import decode_token
+from app.core.tenant_context import set_role_id, set_tenant_id, set_user_id
 
 _redis_client = None
 
-async def get_current_user(authorization: Optional[str] = Header(None)):
+async def get_current_user(authorization: str | None = Header(None)):
     """获取当前登录用户信息"""
     # 1. 检查 authorization 是否为空 → raise AuthException("未提供认证信息")
     if not authorization:
@@ -30,7 +30,7 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     # 7. 返回 payload
     return payload
 
-async def get_optional_user(authorization: Optional[str] = Header(None)):
+async def get_optional_user(authorization: str | None = Header(None)):
     """
         获取当前登录用户信息可选认证 - 尝试获取当前用户，但不会强制要求登录
 

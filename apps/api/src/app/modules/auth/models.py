@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, String, Index, ForeignKey, func, text, true
+from sqlalchemy import BigInteger, ForeignKey, Index, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.base_model import Base, TenantMixin, TimestampMixin

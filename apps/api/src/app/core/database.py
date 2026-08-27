@@ -1,8 +1,10 @@
 
 # 数据库连接和会话管理的核心模块，为整个Fast API应用提供统一的数据库访问层
 # import
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.config import get_settings
 
 # 模块级单例（engine + sessionmaker）
@@ -13,7 +15,7 @@ engine = create_async_engine(
     pool_pre_ping=True
 )
 SessionLocal = async_sessionmaker(
-    engine, 
+    engine,
     expire_on_commit=False
 )
 

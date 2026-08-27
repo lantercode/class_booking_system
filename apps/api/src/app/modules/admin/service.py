@@ -9,13 +9,12 @@
 """
 
 import logging
-from typing import List, Optional, Tuple
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import BusinessException
 from app.core.rbac.cache import clear_user_permission_cache
-from app.core.exceptions import NotFoundException, BusinessException
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +30,21 @@ class AdminUserService:
     ) -> dict:
         """
         创建新用户
-        
+
         业务规则：
         1. 只有拥有 user:create 权限的用户才能调用（由装饰器保证）
         2. 检查手机号是否已存在
         3. 创建用户并分配角色
         4. （可选）清除相关缓存
-        
+
         Args:
             db: 数据库会话
             data: 用户数据（来自请求体）
             current_user: 当前操作人信息
-            
+
         Returns:
             新创建的用户信息
-            
+
         Raises:
             BusinessException: 手机号已存在
         """
@@ -53,20 +52,20 @@ class AdminUserService:
             f"[Admin] 用户 {current_user['user_id']} 正在创建用户: "
             f"phone={data.get('phone')}"
         )
-        
+
         # TODO: 实际实现
         # 1. 检查手机号唯一性
         # existing = await user_repo.get_by_phone(db, data['phone'])
         # if existing:
         #     raise BusinessException("该手机号已被注册")
-        
+
         # 2. 创建用户
         # user = await user_repo.create(db, data)
-        
+
         # 3. 分配角色
         # if data.get('role_ids'):
         #     await user_role_repo.assign_roles(db, user.id, data['role_ids'])
-        
+
         # 返回模拟数据
         new_user = {
             "id": 9999,
@@ -79,7 +78,7 @@ class AdminUserService:
             "updated_at": datetime.now(),
             "roles": ["student"],  # 默认角色
         }
-        
+
         logger.info(f"[Admin] ✅ 用户创建成功: id={new_user['id']}")
         return new_user
 
@@ -92,24 +91,24 @@ class AdminUserService:
     ) -> dict:
         """
         更新用户信息
-        
+
         权限要求：user:update + user:read（AND 逻辑）
-        
+
         重要：如果修改了用户的角色，需要清除其权限缓存！
         """
         logger.info(
             f"[Admin] 用户 {current_user['user_id']} 正在更新用户 {user_id}"
         )
-        
+
         # TODO: 实际实现
         # 1. 检查用户是否存在
         # user = await user_repo.get_by_id(db, user_id)
         # if not user:
         #     raise NotFoundException("用户不存在")
-        
+
         # 2. 更新字段
         # updated_user = await user_repo.update(db, user_id, data)
-        
+
         # 3. 如果角色变更，清除缓存 ⚠️ 关键步骤！
         # if 'role_ids' in data:
         #     redis_client = get_redis_client()  # 从依赖获取
@@ -119,7 +118,7 @@ class AdminUserService:
         #         user_id=user_id
         #     )
         #     logger.info(f"[Admin] 已清除用户 {user_id} 的权限缓存")
-        
+
         updated_user = {
             "id": user_id,
             "tenant_id": current_user.get("tenant_id"),
@@ -131,7 +130,7 @@ class AdminUserService:
             "updated_at": datetime.now(),
             "roles": ["teacher"],
         }
-        
+
         logger.info(f"[Admin] ✅ 用户 {user_id} 更新成功")
         return updated_user
 
@@ -144,9 +143,9 @@ class AdminUserService:
     ) -> dict:
         """
         删除用户（高危操作）
-        
+
         权限要求：user:delete（专门的高危权限）
-        
+
         安全措施：
         1. 需要专门的删除权限
         2. 不能删除自己
@@ -154,18 +153,18 @@ class AdminUserService:
         4. 记录详细审计日志
         """
         operator_id = current_user["user_id"]
-        
+
         if user_id == operator_id:
             raise BusinessException("不能删除自己的账号")
-        
+
         logger.warning(
             f"[Admin] ⚠️ 危险操作：用户 {operator_id} 正在删除用户 {user_id}"
         )
-        
+
         # TODO: 实际实现
         # 1. 软删除或硬删除
         # await user_repo.delete(db, user_id)
-        
+
         # 2. 清除缓存
         if redis_client:
             await clear_user_permission_cache(
@@ -173,7 +172,7 @@ class AdminUserService:
                 tenant_id=current_user.get("tenant_id"),
                 user_id=user_id
             )
-        
+
         logger.warning(f"[Admin] ✅ 用户 {user_id} 已被删除，操作人: {operator_id}")
         return {"message": f"用户 {user_id} 已删除"}
 
@@ -182,23 +181,23 @@ class AdminUserService:
         db: AsyncSession,
         page: int = 1,
         page_size: int = 20,
-        keyword: Optional[str] = None,
+        keyword: str | None = None,
     ) -> dict:
         """
         获取用户列表（分页）
-        
+
         权限要求：user:read
         """
         logger.debug(f"[Admin] 获取用户列表: page={page}, size={page_size}")
-        
+
         # TODO: 实际实现
         # users, total = await user_repo.paginate(
-        #     db, 
-        #     page=page, 
+        #     db,
+        #     page=page,
         #     page_size=page_size,
         #     keyword=keyword
         # )
-        
+
         return {
             "total": 100,
             "page": page,
@@ -227,26 +226,26 @@ class AdminUserService:
     ) -> dict:
         """
         获取当前用户的完整权限列表（用于前端渲染菜单/按钮）
-        
+
         这是一个很好的 RBAC 使用示例：
         - 前端调用此接口获取当前用户的所有权限
         - 根据返回的权限列表控制 UI 元素的显示/隐藏
         - 如：有 'user:create' 权限才显示"新建用户"按钮
         """
         from app.core.rbac.checker import get_user_permissions
-        
+
         user_id = current_user["user_id"]
         tenant_id = current_user["tenant_id"]
-        
+
         logger.info(f"[Admin] 获取用户 {user_id} 的权限列表")
-        
+
         permissions = await get_user_permissions(
             db_session=db,
             redis_client=redis_client,
             user_id=user_id,
             tenant_id=tenant_id,
         )
-        
+
         return {
             "user_id": user_id,
             "tenant_id": tenant_id,

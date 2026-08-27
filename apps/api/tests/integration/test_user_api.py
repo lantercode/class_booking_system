@@ -16,15 +16,13 @@ T04 User 模块集成测试
     uv run pytest tests/integration/test_user_api.py -v
 """
 
+import random
+import time
+
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.core.config import get_settings
-
-import time
-import random
 
 settings = get_settings()
 
@@ -47,10 +45,10 @@ async def admin_token(client: AsyncClient):
         "verify_code": "123456",
         "nickname": "测试管理员"
     }
-    
+
     register_response = await client.post("/api/v1/auth/register", json=register_data)
     assert register_response.status_code == 201
-    
+
     token = register_response.json()["data"]["access_token"]
     return {
         "token": token,
@@ -99,12 +97,12 @@ class TestUserCRUD:
 
         print(f"Create User Response: {response.text}")
         assert response.status_code == 201 or response.status_code == 403  # 403 是权限问题，非代码错误
-        
+
         if response.status_code == 201:
             data = response.json()
             assert data["code"] == 0
             assert data["msg"] == "用户创建成功"
-            
+
             user = data["data"]
             assert "id" in user
             assert user["phone"] == create_user_data["phone"]
@@ -123,11 +121,11 @@ class TestUserCRUD:
 
         print(f"List Users Response: {response.text}")
         assert response.status_code == 200 or response.status_code == 403  # 403 是权限问题
-        
+
         if response.status_code == 200:
             data = response.json()
             assert data["code"] == 0
-            
+
             result = data["data"]
             assert "total" in result
             assert "page" in result
@@ -147,11 +145,11 @@ class TestUserCRUD:
 
         print(f"Get User Detail Response: {response.text}")
         assert response.status_code == 200 or response.status_code == 403
-        
+
         if response.status_code == 200:
             data = response.json()
             assert data["code"] == 0
-            
+
             user = data["data"]
             assert user["id"] == admin_token["user_id"]
             assert user["phone"] == admin_token["phone"]
@@ -174,12 +172,12 @@ class TestUserCRUD:
 
         print(f"Update User Response: {response.text}")
         assert response.status_code == 200 or response.status_code == 403
-        
+
         if response.status_code == 200:
             data = response.json()
             assert data["code"] == 0
             assert data["msg"] == "用户信息更新成功"
-            
+
             user = data["data"]
             assert user["nickname"] == update_data["nickname"]
 
@@ -200,7 +198,7 @@ class TestUserCRUD:
 
         print(f"Change Password Response: {response.text}")
         assert response.status_code == 200
-        
+
         if response.status_code == 200:
             data = response.json()
             assert data["code"] == 0
@@ -221,49 +219,49 @@ class TestUserAPIAvailability:
             "/api/v1/users/1",
             "/api/v1/users/1/roles",
         ]
-        
+
         for endpoint in get_endpoints:
             response = await client.get(endpoint, headers={"X-Tenant-Slug": "dance-school"})
             assert response.status_code in [401, 403, 200, 404], f"Endpoint {endpoint} returned {response.status_code}"
             print(f"GET {endpoint}: {response.status_code}")
-        
+
         # POST 端点
         post_endpoints = [
             "/api/v1/users",
             "/api/v1/users/1/password/change",
             "/api/v1/users/1/password/reset",
         ]
-        
+
         for endpoint in post_endpoints:
             response = await client.post(endpoint, headers={"X-Tenant-Slug": "dance-school"})
             assert response.status_code in [401, 403, 200, 422], f"Endpoint {endpoint} returned {response.status_code}"
             print(f"POST {endpoint}: {response.status_code}")
-        
+
         # PUT 端点
         put_endpoints = [
             "/api/v1/users/1/roles",
         ]
-        
+
         for endpoint in put_endpoints:
             response = await client.put(endpoint, headers={"X-Tenant-Slug": "dance-school"})
             assert response.status_code in [401, 403, 200, 422], f"Endpoint {endpoint} returned {response.status_code}"
             print(f"PUT {endpoint}: {response.status_code}")
-        
+
         # PATCH 端点
         patch_endpoints = [
             "/api/v1/users/1",
         ]
-        
+
         for endpoint in patch_endpoints:
             response = await client.patch(endpoint, headers={"X-Tenant-Slug": "dance-school"})
             assert response.status_code in [401, 403, 200, 422], f"Endpoint {endpoint} returned {response.status_code}"
             print(f"PATCH {endpoint}: {response.status_code}")
-        
+
         # DELETE 端点
         delete_endpoints = [
             "/api/v1/users/1",
         ]
-        
+
         for endpoint in delete_endpoints:
             response = await client.delete(endpoint, headers={"X-Tenant-Slug": "dance-school"})
             assert response.status_code in [401, 403, 200, 404], f"Endpoint {endpoint} returned {response.status_code}"

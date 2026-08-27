@@ -1,8 +1,10 @@
-from app.shared.base_model import Base, TimestampMixin, TenantMixin
-from sqlalchemy import BigInteger, String, SmallInteger, Text, ForeignKey, Index
+from enum import Enum
+
+from sqlalchemy import BigInteger, ForeignKey, Index, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
-from enum import Enum
+
+from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class TeacherStatus(Enum):

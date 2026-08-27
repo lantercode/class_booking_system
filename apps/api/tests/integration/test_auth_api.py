@@ -14,17 +14,13 @@ T03 Auth 模块集成测试
     uv run pytest tests/integration/test_auth_api.py -v
 """
 
-import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.main import app
-from app.core.config import get_settings
-from app.modules.auth.schemas import RegisterRequest, LoginRequest
-
-import time
 import random
-import string
+import time
+
+import pytest
+from httpx import AsyncClient
+
+from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -146,7 +142,7 @@ class TestRegister:
         # Pydantic 校验失败返回 422
         assert response.status_code == 422
 
-        print(f"✅ 无效手机号格式被正确拦截")
+        print("✅ 无效手机号格式被正确拦截")
 
     @pytest.mark.asyncio
     async def test_register_weak_password(self, client: AsyncClient):
@@ -166,7 +162,7 @@ class TestRegister:
         # 密码长度不足或复杂度不够
         assert response.status_code == 422
 
-        print(f"✅ 弱密码被正确拦截")
+        print("✅ 弱密码被正确拦截")
 
 
 class TestLogin:
@@ -205,7 +201,7 @@ class TestLogin:
         assert "refresh_token" in auth_data
         assert "user" in auth_data
 
-        print(f"✅ 登录成功: token 已生成")
+        print("✅ 登录成功: token 已生成")
 
     @pytest.mark.asyncio
     async def test_login_wrong_password(self, client: AsyncClient, register_data: dict):
@@ -250,7 +246,7 @@ class TestLogin:
         data = response.json()
         assert data["code"] == 401
 
-        print(f"✅ 不存在的用户登录被拒绝")
+        print("✅ 不存在的用户登录被拒绝")
 
 
 class TestGetMe:
@@ -278,7 +274,7 @@ class TestGetMe:
         assert "user_id" in data["data"]
         assert "tenant_id" in data["data"]
 
-        print(f"✅ 成功获取当前用户信息")
+        print("✅ 成功获取当前用户信息")
 
     @pytest.mark.asyncio
     async def test_get_me_without_token(self, client: AsyncClient):
@@ -292,7 +288,7 @@ class TestGetMe:
         assert data["code"] == 401
         assert "未提供" in data["msg"] or "认证" in data["msg"]
 
-        print(f"✅ 未认证请求被正确拒绝")
+        print("✅ 未认证请求被正确拒绝")
 
     @pytest.mark.asyncio
     async def test_get_me_invalid_token(self, client: AsyncClient):
@@ -306,7 +302,7 @@ class TestGetMe:
 
         assert response.status_code == 401
 
-        print(f"✅ 无效 Token 被正确拒绝")
+        print("✅ 无效 Token 被正确拒绝")
 
 
 class TestRefreshToken:
@@ -346,7 +342,7 @@ class TestRefreshToken:
         new_refresh_token = new_tokens["refresh_token"]
         assert new_refresh_token != old_refresh_token, "刷新后应生成新的 refresh_token"
 
-        print(f"✅ Token 刷新成功，旧 RT 已失效")
+        print("✅ Token 刷新成功，旧 RT 已失效")
 
     @pytest.mark.asyncio
     async def test_refresh_token_already_used(self, client: AsyncClient, register_data: dict):
@@ -379,7 +375,7 @@ class TestRefreshToken:
         assert data["code"] == 401
         assert "失效" in data["msg"] or "无效" in data["msg"]
 
-        print(f"✅ 重复使用的 refresh_token 被正确拒绝（黑名单机制生效）")
+        print("✅ 重复使用的 refresh_token 被正确拒绝（黑名单机制生效）")
 
     @pytest.mark.asyncio
     async def test_refresh_token_invalid(self, client: AsyncClient):
@@ -393,7 +389,7 @@ class TestRefreshToken:
 
         assert response.status_code == 401
 
-        print(f"✅ 无效 refresh_token 被正确拒绝")
+        print("✅ 无效 refresh_token 被正确拒绝")
 
 
 class TestLogout:
@@ -431,7 +427,7 @@ class TestLogout:
 
         assert refresh_after_logout.status_code == 401
 
-        print(f"✅ 登出成功，refresh_token 已加入黑名单")
+        print("✅ 登出成功，refresh_token 已加入黑名单")
 
     @pytest.mark.asyncio
     async def test_logout_without_refresh_token(self, client: AsyncClient, register_data: dict):
@@ -452,7 +448,7 @@ class TestLogout:
         # 应该仍然成功（refresh_token 是可选的）
         assert logout_response.status_code == 200
 
-        print(f"✅ 无 refresh_token 的登出也成功了")
+        print("✅ 无 refresh_token 的登出也成功了")
 
 
 class TestCompleteAuthFlow:
@@ -509,7 +505,7 @@ class TestCompleteAuthFlow:
         me_data_1 = me_resp_1.json()["data"]
         assert me_data_1["user_id"] == user_id
 
-        print(f"   ✅ 用户信息获取成功")
+        print("   ✅ 用户信息获取成功")
 
         # ===== Step 3: 刷新 Token =====
         print("📝 Step 3: 刷新 Token...")
@@ -527,7 +523,7 @@ class TestCompleteAuthFlow:
         assert access_token_2 != access_token_1, "应生成新的 access_token"
         assert refresh_token_2 != refresh_token_1, "应生成新的 refresh_token"
 
-        print(f"   ✅ Token 刷新成功，获得新 Token 对")
+        print("   ✅ Token 刷新成功，获得新 Token 对")
 
         # ===== Step 4: 使用新 Token 访问 =====
         print("📝 Step 4: 使用新 Token 访问...")
@@ -537,7 +533,7 @@ class TestCompleteAuthFlow:
         )
         assert me_resp_2.status_code == 200, "新 Token 应该有效"
 
-        print(f"   ✅ 新 Token 有效")
+        print("   ✅ 新 Token 有效")
 
         # ===== Step 5: 登出 =====
         print("📝 Step 5: 登出...")
@@ -548,13 +544,13 @@ class TestCompleteAuthFlow:
         )
         assert logout_resp.status_code == 200, f"登出失败: {logout_resp.text}"
 
-        print(f"   ✅ 登出成功")
+        print("   ✅ 登出成功")
 
         # ===== Step 6: 验证 Token 失效 =====
         print("📝 Step 6: 验证 Token 失效...")
 
         # 尝试使用旧的 access_token
-        old_at_resp = await client.get(
+        await client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {access_token_1}"}
         )
@@ -568,7 +564,7 @@ class TestCompleteAuthFlow:
         )
         assert old_rt_resp.status_code == 401, "已登出的 refresh_token 应该失效"
 
-        print(f"   ✅ refresh_token 已失效（黑名单机制验证通过）")
+        print("   ✅ refresh_token 已失效（黑名单机制验证通过）")
 
         print("\n" + "=" * 60)
         print("🎉 完整认证链路测试全部通过！")
@@ -594,7 +590,7 @@ class TestEdgeCases:
         response = await client.post("/api/v1/auth/register", json=incomplete_data)
         assert response.status_code == 422
 
-        print(f"✅ 缺少必填字段被正确拦截")
+        print("✅ 缺少必填字段被正确拦截")
 
     @pytest.mark.asyncio
     async def test_extra_fields_ignored(self, client: AsyncClient, register_data: dict):
@@ -610,7 +606,7 @@ class TestEdgeCases:
         # Pydantic 默认忽略额外字段，所以应该成功
         assert response.status_code == 201
 
-        print(f"✅ 额外字段被正确忽略")
+        print("✅ 额外字段被正确忽略")
 
     @pytest.mark.asyncio
     async def test_sql_injection_protection(self, client: AsyncClient):
@@ -629,7 +625,7 @@ class TestEdgeCases:
         # 不应该崩溃，要么成功（作为普通字符串），要么校验失败
         assert response.status_code in [201, 400, 422]
 
-        print(f"✅ SQL 注入防护正常工作")
+        print("✅ SQL 注入防护正常工作")
 
 
 if __name__ == "__main__":

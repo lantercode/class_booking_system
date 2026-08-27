@@ -7,16 +7,17 @@ T02 测试配置 - 使用真实 HTTP 服务器进行集成测试
 - 更接近生产环境的测试方式
 """
 
-import pytest
 import asyncio
-from redis.asyncio import Redis
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from app.core.config import get_settings
-from app.main import app as fastapi_app
 import threading
 import time
 
+import pytest
+from httpx import AsyncClient
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.config import get_settings
+from app.main import app as fastapi_app
 
 settings = get_settings()
 TEST_DATABASE_URL = settings.DATABASE_URL
@@ -53,21 +54,21 @@ async def ensure_redis_available():
 def live_server(event_loop):
     """
     启动真实的 Uvicorn 服务器用于测试
-    
+
     这是解决 asyncpg 事件循环冲突的根本方案：
     - 真实的服务器进程有自己的事件循环
     - 完全隔离于测试进程的事件循环
     - 避免 ASGITransport 的各种兼容性问题
     """
     global _server_thread, _server_url
-    
+
+
     import uvicorn
-    from unittest.mock import patch
-    
+
     # 随机端口避免冲突
     port = 8765
     _server_url = f"http://127.0.0.1:{port}"
-    
+
     # 在后台线程中启动服务器
     def run_server():
         config = uvicorn.Config(
@@ -78,10 +79,10 @@ def live_server(event_loop):
         )
         server = uvicorn.Server(config)
         server.run()
-    
+
     _server_thread = threading.Thread(target=run_server, daemon=True)
     _server_thread.start()
-    
+
     # 等待服务器启动
     max_wait = 5  # 最大等待 5 秒
     start_time = time.time()
@@ -99,9 +100,9 @@ def live_server(event_loop):
         time.sleep(0.1)
     else:
         raise RuntimeError(f"❌ 服务器在 {max_wait} 秒内未能启动")
-    
+
     yield _server_url
-    
+
     # 清理（daemon 线程会自动结束）
     _server_thread = None
     _server_url = None
@@ -111,7 +112,7 @@ def live_server(event_loop):
 async def client(live_server):
     """
     Function 级别的 HTTP 客户端
-    
+
     每个测试创建新的客户端连接到真实服务器
     """
     async with AsyncClient(base_url=live_server) as ac:
@@ -123,7 +124,7 @@ async def db_session():
     """Function 级别的数据库会话 - 每个测试独立事务"""
     engine = None
     session = None
-    
+
     try:
         engine = create_async_engine(
             TEST_DATABASE_URL,
@@ -132,17 +133,17 @@ async def db_session():
             max_overflow=5,
             pool_pre_ping=True,
         )
-        
+
         session_factory = async_sessionmaker(
             bind=engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
-        
+
         session = session_factory()
         await session.begin()
         yield session
-        
+
     finally:
         if session:
             try:
@@ -151,7 +152,7 @@ async def db_session():
                 pass
             finally:
                 await session.close()
-        
+
         if engine:
             try:
                 await engine.dispose()

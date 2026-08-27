@@ -3,7 +3,6 @@
 职责：根据用户问题检索最相关的 FAQ
 """
 
-from typing import List, Dict
 
 
 class Retriever:
@@ -19,7 +18,7 @@ class Retriever:
         self.collection = "faq_collection"
         self.top_k = 3
 
-    async def search(self, query: str) -> List[Dict]:
+    async def search(self, query: str) -> list[dict]:
         """
         检索与问题最相关的 FAQ
 

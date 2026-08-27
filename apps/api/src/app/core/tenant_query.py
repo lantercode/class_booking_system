@@ -17,9 +17,8 @@
 """
 
 import logging
-from typing import Optional
 
-from sqlalchemy import event, true
+from sqlalchemy import event
 from sqlalchemy.orm import Session, with_loader_criteria
 
 from app.core.tenant_context import get_tenant_id
@@ -46,7 +45,7 @@ def _add_tenant_filter_to_orm_query(orm_context):
         return
 
     statement = orm_context.statement
-    
+
     # 获取查询涉及的所有实体类
     entities_to_filter = []
 
@@ -75,7 +74,7 @@ def _add_tenant_filter_to_orm_query(orm_context):
 
     # 直接修改 orm_context，不返回值！
     orm_context.statement = modified_statement
-    
+
     logger.debug(f"[Tenant Query] Injected tenant_id={current_tenant_id} for {len(set(entities_to_filter))} entity(ies)")
 
 

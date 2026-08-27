@@ -9,14 +9,13 @@ T04 租户隔离测试 - 验证多租户查询自动注入
 """
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.main import app
 from app.core.database import SessionLocal
 from app.core.tenant_query import setup_tenant_query_injection
-from app.modules.tenant.models import Tenant, TenantStatus
+from app.main import app
 from app.modules.user.models import User
 
 
@@ -52,7 +51,7 @@ class TestTenantIsolation:
     async def test_tenant_a_cannot_see_b_data(self, db_session: AsyncSession):
         """
         测试目标：验证A租户无法查询到B租户的数据
-        
+
         场景：
         - 设置当前租户为 A (ID=1)
         - 查询所有用户
@@ -81,7 +80,7 @@ class TestTenantIsolation:
     async def test_different_tenants_get_different_data(self, db_session: AsyncSession):
         """
         测试目标：不同租户看到不同的数据集
-        
+
         场景：
         - 先以租户A身份查询，记录数量
         - 再以租户B身份查询，记录数量
@@ -110,15 +109,15 @@ class TestTenantIsolation:
     async def test_no_tenant_context_returns_all(self, db_session: AsyncSession):
         """
         测试目标：无租户上下文时不注入过滤条件
-        
+
         场景：
         - 不设置 tenant_id
         - 查询用户表
         - 应该能查到所有租户的数据（或根据业务需求报错）
-        
+
         注意：当前实现是无租户ID时跳过注入
         """
-        from app.core.tenant_context import get_tenant_id, set_tenant_id
+        from app.core.tenant_context import get_tenant_id
 
         # 确保没有设置租户ID
         current_tenant = get_tenant_id()
@@ -138,7 +137,7 @@ class TestTenantIsolation:
     async def test_non_tenant_model_not_affected(self, db_session: AsyncSession):
         """
         测试目标：非租户模型不受影响
-        
+
         场景：
         - 设置租户ID
         - 查询 Permission 表（无 tenant_id 字段）
@@ -165,7 +164,7 @@ class TestTenantIsolation:
     async def test_manual_filter_still_works(self, db_session: AsyncSession):
         """
         测试目标：手动添加的过滤条件仍然生效
-        
+
         场景：
         - 设置租户ID
         - 手动添加额外的 WHERE 条件

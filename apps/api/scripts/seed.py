@@ -13,12 +13,14 @@ T02 种子数据脚本 - 创建系统运行所需的初始数据
 """
 
 import asyncio
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import SessionLocal
+from app.core.security import hash_password
+from app.modules.auth.models import Permission, Role, RolePermission, UserRole
 from app.modules.tenant.models import Tenant, TenantStatus
 from app.modules.user.models import User, UserStatus
-from app.modules.auth.models import Role, Permission, UserRole, RolePermission
-from app.core.security import hash_password
 
 
 async def create_default_tenant(session: AsyncSession) -> Tenant:

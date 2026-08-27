@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, String, DateTime, Index, func, text
-from sqlalchemy.dialects.postgresql import JSONB, INET
+from sqlalchemy import BigInteger, DateTime, Index, String, func, text
+from sqlalchemy.dialects.postgresql import INET, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.base_model import Base

@@ -1,9 +1,12 @@
-from app.shared.base_model import Base, TimestampMixin
-from sqlalchemy import BigInteger, String, SmallInteger, Index
-from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
-from uuid import uuid4
 from enum import Enum
+from uuid import uuid4
+
+from sqlalchemy import BigInteger, Index, SmallInteger, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.shared.base_model import Base, TimestampMixin
 
 
 class TenantStatus(Enum):

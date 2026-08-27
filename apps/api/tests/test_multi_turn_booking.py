@@ -15,10 +15,10 @@ Day 4 测试：多轮对话预约流程
 
 import asyncio
 import sys
+
 sys.path.insert(0, 'src')
 
 from app.ai.agent.runtime import AgentRuntime
-from app.ai.agent.session import SessionManager
 
 
 async def test_multi_turn_booking():

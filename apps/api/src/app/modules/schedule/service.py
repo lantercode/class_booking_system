@@ -5,26 +5,26 @@ Schedule Service - 排期业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.schedule.repository import ScheduleRepository
-from app.modules.schedule.models import CourseSchedule, ScheduleStatus
-from app.modules.schedule.schemas import (
-    ScheduleCreate,
-    ScheduleUpdate,
-    ScheduleResponse,
-    ScheduleListResponse,
-)
+from app.core.exceptions import BusinessException, NotFoundException, ValidationException
 from app.modules.classroom.repository import ClassroomRepository
-from app.modules.user.repository import UserRepository
-from app.modules.user.models import User
 from app.modules.course.models import Classroom, Course
 from app.modules.course.repository import CourseRepository
-from app.core.exceptions import ValidationException, NotFoundException, BusinessException
+from app.modules.schedule.models import CourseSchedule, ScheduleStatus
+from app.modules.schedule.repository import ScheduleRepository
+from app.modules.schedule.schemas import (
+    ScheduleCreate,
+    ScheduleListResponse,
+    ScheduleResponse,
+    ScheduleUpdate,
+)
+from app.modules.user.models import User
+from app.modules.user.repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class ScheduleService:
         self,
         db: AsyncSession,
         data: ScheduleCreate,
-        operator_id: Optional[int] = None,
+        operator_id: int | None = None,
     ) -> ScheduleResponse:
         """创建排期"""
         logger.info(
@@ -71,7 +71,7 @@ class ScheduleService:
             )
             raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
 
-        schedule_data: Dict[str, Any] = {
+        schedule_data: dict[str, Any] = {
             "course_id": data.course_id,
             "teacher_id": data.teacher_id,
             "start_at": data.start_at,
@@ -110,7 +110,7 @@ class ScheduleService:
         if not schedule:
             raise NotFoundException("排期不存在")
 
-        update_data: Dict[str, Any] = {}
+        update_data: dict[str, Any] = {}
 
         if data.course_id is not None:
             update_data["course_id"] = data.course_id
@@ -205,12 +205,12 @@ class ScheduleService:
         schedule = await self.repo.get_by_id(db, schedule_id)
         if not schedule:
             raise NotFoundException("排期不存在")
-        
+
         # 获取课程、教师和教室名称
         course_map = await self._get_course_info_map(db, [schedule.course_id])
         teacher_map = await self._get_teacher_info_map(db, [schedule.teacher_id])
         classroom_map = await self._get_classroom_info_map(db, [schedule.classroom_id] if schedule.classroom_id else [])
-        
+
         return self._to_response(
             schedule,
             course_map.get(schedule.course_id),
@@ -222,13 +222,13 @@ class ScheduleService:
         self,
         db: AsyncSession,
         *,
-        course_id: Optional[int] = None,
-        course_name: Optional[str] = None,
-        teacher_id: Optional[int] = None,
-        classroom_id: Optional[int] = None,
-        status: Optional[int] = None,
-        start_from: Optional[datetime] = None,
-        start_to: Optional[datetime] = None,
+        course_id: int | None = None,
+        course_name: str | None = None,
+        teacher_id: int | None = None,
+        classroom_id: int | None = None,
+        status: int | None = None,
+        start_from: datetime | None = None,
+        start_to: datetime | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> ScheduleListResponse:
@@ -250,7 +250,7 @@ class ScheduleService:
         course_ids = list({s.course_id for s in items})
         teacher_ids = list({s.teacher_id for s in items})
         classroom_ids = list({s.classroom_id for s in items if s.classroom_id})
-        
+
         course_map = await self._get_course_info_map(db, course_ids)
         teacher_map = await self._get_teacher_info_map(db, teacher_ids)
         classroom_map = await self._get_classroom_info_map(db, classroom_ids)
@@ -262,52 +262,52 @@ class ScheduleService:
             items=[self._to_response(s, course_map.get(s.course_id), teacher_map.get(s.teacher_id), classroom_map.get(s.classroom_id)) for s in items],
         )
 
-    async def _get_course_info_map(self, db: AsyncSession, course_ids: List[int]) -> Dict[int, str]:
+    async def _get_course_info_map(self, db: AsyncSession, course_ids: list[int]) -> dict[int, str]:
         """批量获取课程信息映射"""
         if not course_ids:
             return {}
-        
-        course_repo = CourseRepository()
+
+        CourseRepository()
         query = select(Course).where(Course.id.in_(course_ids))
         result = await db.execute(query)
         courses = result.scalars().all()
-        
+
         return {
             course.id: course.name
             for course in courses
         }
 
-    async def _get_teacher_info_map(self, db: AsyncSession, teacher_ids: List[int]) -> Dict[int, str]:
+    async def _get_teacher_info_map(self, db: AsyncSession, teacher_ids: list[int]) -> dict[int, str]:
         """批量获取教师信息映射"""
         if not teacher_ids:
             return {}
-        
-        user_repo = UserRepository()
+
+        UserRepository()
         query = select(User).where(User.id.in_(teacher_ids))
         result = await db.execute(query)
         users = result.scalars().all()
-        
+
         return {
             user.id: user.nickname or user.phone
             for user in users
         }
 
-    async def _get_classroom_info_map(self, db: AsyncSession, classroom_ids: List[int]) -> Dict[int, str]:
+    async def _get_classroom_info_map(self, db: AsyncSession, classroom_ids: list[int]) -> dict[int, str]:
         """批量获取教室信息映射"""
         if not classroom_ids:
             return {}
-        
-        classroom_repo = ClassroomRepository()
+
+        ClassroomRepository()
         query = select(Classroom).where(Classroom.id.in_(classroom_ids))
         result = await db.execute(query)
         classrooms = result.scalars().all()
-        
+
         return {
             classroom.id: classroom.name
             for classroom in classrooms
         }
 
-    def _to_response(self, schedule: CourseSchedule, course_name: Optional[str] = None, teacher_name: Optional[str] = None, classroom_name: Optional[str] = None) -> ScheduleResponse:
+    def _to_response(self, schedule: CourseSchedule, course_name: str | None = None, teacher_name: str | None = None, classroom_name: str | None = None) -> ScheduleResponse:
         """将 ORM 模型转换为响应对象"""
         return ScheduleResponse(
             id=schedule.id,
@@ -335,9 +335,9 @@ class ScheduleService:
     async def batch_create_schedules(
         self,
         db: AsyncSession,
-        items: List[ScheduleCreate],
-        operator_id: Optional[int] = None,
-    ) -> List[ScheduleResponse]:
+        items: list[ScheduleCreate],
+        operator_id: int | None = None,
+    ) -> list[ScheduleResponse]:
         """批量创建排期"""
         logger.info(f"[ScheduleService] 批量创建排期: count={len(items)}")
 

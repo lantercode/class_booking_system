@@ -9,17 +9,16 @@ Agent 运行时核心
 """
 
 import logging
-from typing import Optional
 
 from app.ai.agent.intent import IntentRecognizer
 from app.ai.agent.session import SessionManager
 from app.ai.mcp_server import (
+    cancel_booking,
+    create_booking,
+    get_my_balance,
+    get_my_bookings,
     query_courses,
     query_schedules,
-    get_my_bookings,
-    get_my_balance,
-    create_booking,
-    cancel_booking,
 )
 
 
@@ -468,28 +467,28 @@ class AgentRuntime:
     def _parse_schedules(self, raw: str) -> list[dict]:
         """
         从 Tool 返回的原始文本中解析出结构化排期列表
-        
+
         输入示例：
             "📅 排期查询结果：\n共 3 个排期：\n- ID:5 | 2026-08-14 | 14:00-15:00 | 王老师 | 剩余:3"
-        
+
         输出示例：
             [{"id": 5, "date": "2026-08-14", "time": "14:00-15:00", "teacher": "王老师", "remaining": 3}]
         """
         import re
-        
+
         schedules = []
-        
+
         for line in raw.split('\n'):
             line = line.strip()
-            
+
             if not line.startswith('- ID:'):
                 continue
-            
+
             match = re.search(
                 r'ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)',
                 line
             )
-            
+
             if match:
                 schedules.append({
                     "id": int(match.group(1)),
@@ -498,50 +497,50 @@ class AgentRuntime:
                     "teacher": match.group(4).strip(),
                     "remaining": int(match.group(5)),
                 })
-        
+
         return schedules
 
     def _format_schedule_options(self, schedules: list[dict]) -> str:
         """将排期列表格式化为选项展示给用户"""
         lines = ["📅 找到以下排期，请回复数字选择：\n"]
-        
+
         for i, s in enumerate(schedules, 1):
             lines.append(
                 f"  [{i}] {s['date']} {s['time']} {s['teacher']}（剩余{s['remaining']}个）"
             )
-        
+
         lines.append("\n例如回复 \"1\" 或 \"第1个\"")
-        
+
         return "\n".join(lines)
 
     def _parse_user_selection(self, user_input: str, max_index: int) -> int | None:
         """
         解理用户的选择，返回 1-based index 或 None
-        
+
         支持格式：
           - 数字："1"、"2"、"3"
           - 中文："第1个"、"第一个"、"选二"
         """
         import re
-        
+
         chinese_map = {
             "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
             "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
         }
-        
+
         match = re.search(r'(\d+)|[选拿选]?(?:第)?([一二三四五六七八九十]+)[个号号]?', user_input)
-        
+
         if not match:
             return None
-        
+
         num_str = match.group(1) or match.group(2)
-        
+
         if num_str.isdigit():
             num = int(num_str)
         else:
             num = chinese_map.get(num_str, 0)
-        
+
         if 1 <= num <= max_index:
             return num
-        
+
         return None

@@ -15,30 +15,26 @@
     访问 http://localhost:8000/docs 查看 API 文档
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Query, Path
-from sqlalchemy import select, func, and_, or_
+from fastapi import APIRouter, Depends, Path, Query
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_session
 from app.core.rbac import require_permissions, require_roles
 from app.core.response import success
-from app.core.database import get_session
 from app.core.tenant_context import get_tenant_id
 from app.deps.auth import get_current_user, get_redis_client
-
-from app.modules.user.models import User, UserStatus
 from app.modules.auth.models import Role, UserRole
+from app.modules.booking.models import Booking
 from app.modules.course.models import Course, CourseStatus
 from app.modules.schedule.models import CourseSchedule
-from app.modules.booking.models import Booking
+from app.modules.user.models import User, UserStatus
 
 from .schemas import (
     UserCreate,
     UserUpdate,
-    UserResponse,
-    UserListResponse,
-    PermissionListResponse,
 )
 from .service import admin_user_service
 
@@ -220,7 +216,7 @@ async def admin_dashboard(
     )
     active_courses = active_courses_result.scalar() or 0
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     monthly_schedules_result = await db.execute(

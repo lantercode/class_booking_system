@@ -1,25 +1,23 @@
 """认证模块路由 - 注册、登录、登出、刷新 Token、微信登录."""
 
-from fastapi import APIRouter, Depends, Request, Body
+from fastapi import APIRouter, Body, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.response import success
 from app.core.database import get_session
+from app.core.response import success
 from app.deps.auth import get_current_user, get_redis_client
-from app.core.exceptions import ValidationException
 from app.modules.auth.schemas import (
-    RegisterRequest,
+    AuthResponse,
     LoginRequest,
     RefreshTokenRequest,
-    AuthResponse,
+    RegisterRequest,
     TokenResponse,
     UserResponse,
-    WechatLoginRequest,
     WechatBindRequest,
+    WechatLoginRequest,
     WechatLoginResponse,
 )
 from app.modules.auth.service import AuthService
-
 
 router = APIRouter(prefix="/auth", tags=["认证管理"])
 

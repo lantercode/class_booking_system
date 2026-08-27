@@ -4,7 +4,6 @@
 """
 
 import json
-from typing import List, Dict, Optional
 
 
 class SessionManager:
@@ -23,7 +22,7 @@ class SessionManager:
     def _key(self, session_id: str) -> str:
         return f"ai:session:{session_id}"
 
-    async def get_history(self, session_id: str) -> List[Dict]:
+    async def get_history(self, session_id: str) -> list[dict]:
         """
         获取会话历史，供 LLM 作为上下文使用
 
@@ -94,7 +93,7 @@ class SessionManager:
     async def set_state(self, session_id: str, state: dict):
         """
         存储对话中间状态（如用户正在选择哪个排期）
-        
+
         用途：多轮对话时暂存上下文，例如：
           - 用户说"帮我约瑜伽课" → 查到3个排期 → 存到这里 → 等用户选择
           - TTL=600秒，10分钟后自动过期（防止僵尸状态）
@@ -114,7 +113,7 @@ class SessionManager:
     async def get_state(self, session_id: str) -> dict:
         """
         获取当前对话的中间状态
-        
+
         Returns:
             dict: 状态字典，如 {"action": "selecting_schedule", "schedules": [...]}
                   如果没有状态或已过期，返回 {}

@@ -1,11 +1,10 @@
 from contextvars import ContextVar
-from typing import Optional
 
 tenant_id = ContextVar("tenant_id", default=None)
 user_id = ContextVar("user_id", default=None)
 role_id = ContextVar("role_id", default=None)
 
-def get_tenant_id() -> Optional[int]:
+def get_tenant_id() -> int | None:
     """
         获取当前租户 ID
 
@@ -14,7 +13,7 @@ def get_tenant_id() -> Optional[int]:
     """
     return tenant_id.get()
 
-def get_user_id() -> Optional[int]:
+def get_user_id() -> int | None:
     """
         获取当前用户 ID
 
@@ -23,7 +22,7 @@ def get_user_id() -> Optional[int]:
     """
     return user_id.get()
 
-def get_role_id() -> Optional[int]:
+def get_role_id() -> int | None:
     """
         获取当前角色 ID
 

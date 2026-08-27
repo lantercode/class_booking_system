@@ -14,9 +14,11 @@ Day 5 测试：企业级功能验证（面向面试）
 
 import asyncio
 import sys
+
 sys.path.insert(0, 'src')
 
 import redis.asyncio as aioredis
+
 from app.ai.agent.runtime import AgentRuntime
 
 
@@ -52,7 +54,7 @@ async def test_distributed_lock():
     task1 = asyncio.create_task(
         runtime.chat("帮我约瑜伽课", session_id)
     )
-    
+
     await asyncio.sleep(0.01)
 
     task2 = asyncio.create_task(

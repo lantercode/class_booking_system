@@ -11,18 +11,17 @@ Tool 分类：
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 from fastmcp import FastMCP
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from app.core.database import SessionLocal
-from app.modules.course.service import CourseService
-from app.modules.schedule.service import ScheduleService
-from app.modules.booking.service import BookingService
-from app.modules.booking.schemas import BookingCreate
 from app.modules.booking.models import BookingStatus
+from app.modules.booking.schemas import BookingCreate
+from app.modules.booking.service import BookingService
+from app.modules.course.service import CourseService
 from app.modules.order.models import MembershipCard, MembershipCardStatus
+from app.modules.schedule.service import ScheduleService
 
 # 创建 MCP Server 实例
 mcp = FastMCP("dance-saas-agent")

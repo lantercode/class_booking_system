@@ -7,7 +7,7 @@
 """
 
 import re
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 class IntentRecognizer:
@@ -39,7 +39,7 @@ class IntentRecognizer:
         self._last_intent = None
         self._last_params = None
 
-    def recognize(self, user_input: str) -> Dict[str, Any]:
+    def recognize(self, user_input: str) -> dict[str, Any]:
         """
         识别用户意图 + 提取参数
 
@@ -107,7 +107,7 @@ class IntentRecognizer:
 
         return params
 
-    def _extract_course_keyword(self, text: str) -> Optional[str]:
+    def _extract_course_keyword(self, text: str) -> str | None:
         """提取课程关键词"""
         course_keywords = ["瑜伽", "街舞", "芭蕾", "拉丁", "现代舞", "爵士", "中国舞", "普拉提"]
         for kw in course_keywords:
@@ -115,7 +115,7 @@ class IntentRecognizer:
                 return kw
         return None
 
-    def _extract_date(self, text: str) -> Optional[str]:
+    def _extract_date(self, text: str) -> str | None:
         """提取日期，返回 YYYY-MM-DD 格式"""
         from datetime import datetime, timedelta
 
@@ -131,7 +131,7 @@ class IntentRecognizer:
 
         return None
 
-    def _extract_booking_status(self, text: str) -> Optional[str]:
+    def _extract_booking_status(self, text: str) -> str | None:
         """提取预约状态"""
         if any(w in text for w in ["已完成", "已上"]):
             return "completed"
@@ -141,7 +141,7 @@ class IntentRecognizer:
             return "no_show"
         return None  # 默认全部
 
-    def _extract_booking_id(self, text: str) -> Optional[int]:
+    def _extract_booking_id(self, text: str) -> int | None:
         """提取预约 ID"""
         match = re.search(r"(\d{3,})", text)
         if match:
@@ -149,5 +149,5 @@ class IntentRecognizer:
         return None
 
     @property
-    def last_intent(self) -> Optional[str]:
+    def last_intent(self) -> str | None:
         return self._last_intent

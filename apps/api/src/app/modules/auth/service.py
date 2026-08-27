@@ -2,30 +2,27 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.schemas import(
-    RegisterRequest,
-    AuthResponse,
-    UserResponse,
-    LoginRequest,
-    WechatLoginResponse
-)
+from app.core.config import get_settings
+from app.core.exceptions import AuthException, ValidationException
 from app.core.security import (
-    hash_password,
+    add_token_to_blacklist,
     create_access_token,
     create_refresh_token,
-    verify_password,
-    add_token_to_blacklist,
+    decode_token,
+    hash_password,
     is_token_blacklisted,
-    decode_token
+    verify_password,
 )
-from app.modules.tenant.models import Tenant
-from app.modules.user.models import User, UserStatus
-from app.modules.auth.models import Role
 from app.modules.auth.repository import AuthRepository
-from app.core.config import get_settings
-from app.core.exceptions import ValidationException, AuthException
+from app.modules.auth.schemas import (
+    AuthResponse,
+    LoginRequest,
+    RegisterRequest,
+    UserResponse,
+    WechatLoginResponse,
+)
 from app.modules.auth.wechat_service import WechatService
-
+from app.modules.user.models import UserStatus
 
 settings = get_settings()
 
@@ -40,35 +37,35 @@ class AuthService:
     ) -> UserResponse:
         """
         更新当前登录用户的个人信息（学员端）
-        
+
         限制：只能修改 nickname 和 avatar_url，不能修改敏感字段
-        
+
         Args:
             session: 数据库会话
             user_id: 用户 ID
             data: 更新数据（只允许 nickname, avatar_url）
-        
+
         Returns:
             更新后的用户信息
-            
+
         Raises:
             AuthException: 用户不存在
         """
         user = await AuthRepository.get_user_by_id(session, user_id)
         if not user:
             raise AuthException("用户不存在")
-        
+
         # 只允许修改的字段
         allowed_fields = ["nickname", "avatar_url"]
         update_data = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
-        
+
         if not update_data:
             raise ValidationException("没有可更新的字段")
-        
+
         await AuthRepository.update_user(session, user, update_data)
         await session.commit()
         await session.refresh(user)
-        
+
         return UserResponse(
             id=user.id,
             phone=user.phone,
@@ -321,10 +318,10 @@ class AuthService:
         # 提示：调用 security.py 的 decode_jwt() 或 jwt.decode()
         # 需要捕获 jwt.ExpiredSignatureError 和 jwt.InvalidTokenError
         # 如果解码失败 → raise AuthException("Token 无效或已过期")
-        print(f"🔄 Step 1: 解码 Token...")
+        print("🔄 Step 1: 解码 Token...")
         decoded_payload = decode_token(current_refresh_token)
         if not decoded_payload:
-            print(f"❌ Token 解码失败")
+            print("❌ Token 解码失败")
             raise AuthException("Token 无效或已过期")
         print(f"✅ Token 解码成功, user_id={decoded_payload.get('user_id')}")
 
@@ -336,11 +333,11 @@ class AuthService:
         if redis_client:
             is_exist = await is_token_blacklisted(current_refresh_token, redis_client)
             if is_exist:
-                print(f"❌ Token 在黑名单中")
+                print("❌ Token 在黑名单中")
                 raise AuthException("Token 已失效")
-            print(f"✅ 黑名单检查通过")
+            print("✅ 黑名单检查通过")
         else:
-            print(f"⚠️  Redis 客户端为空，跳过黑名单检查")
+            print("⚠️  Redis 客户端为空，跳过黑名单检查")
 
         # TODO 3: 提取 user_id
         # 提示：从 decoded_payload 中获取 "user_id" 字段
@@ -365,12 +362,12 @@ class AuthService:
         # TODO 6: 将旧的 refresh_token 加入黑名单（关键步骤！）
         # 提示：调用 add_token_to_blacklist()
         # 这确保了 refresh_token 只能使用一次（旋转机制）
-        print(f"🔄 Step 6: 将旧 Token 加入黑名单...")
+        print("🔄 Step 6: 将旧 Token 加入黑名单...")
         if redis_client:
             await add_token_to_blacklist(current_refresh_token, redis_client)
-            print(f"✅ 已加入黑名单")
+            print("✅ 已加入黑名单")
         else:
-            print(f"⚠️  Redis 客户端为空，跳过加入黑名单")
+            print("⚠️  Redis 客户端为空，跳过加入黑名单")
 
         # TODO 7: 生成新的双 Token
         # 提示：调用 create_access_token() 和 create_refresh_token()

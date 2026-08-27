@@ -17,20 +17,26 @@ OSS (Object Storage Service) - 对象存储服务模块
 
 使用示例：
     from app.core.oss import get_oss_service
-    
+
     oss = get_oss_service()
-    
+
     # 上传文件
     result = await oss.upload(file, "avatars/", allowed_types=["image/jpeg", "image/png"])
-    
+
     # 删除文件
     await oss.delete("avatars/user_1001.jpg")
-    
+
     # 生成预签名 URL（私有文件的临时访问链接）
     url = await oss.get_presigned_url("documents/contract.pdf", expires_in=3600)
 """
 
-from .service import OSSService, get_oss_service, LocalStorageService, AliyunOSSService, UploadResult
+from .service import (
+    AliyunOSSService,
+    LocalStorageService,
+    OSSService,
+    UploadResult,
+    get_oss_service,
+)
 
 __all__ = [
     "OSSService",

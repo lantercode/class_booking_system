@@ -7,19 +7,17 @@ User Router - 用户管理路由
 - 角色绑定
 """
 
-from fastapi import APIRouter, Depends, Query, Path, Body
+from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.response import success
 from app.core.database import get_session
-from app.deps.auth import get_current_user, get_redis_client
 from app.core.rbac import require_permissions
-
+from app.core.response import success
+from app.deps.auth import get_current_user, get_redis_client
 from app.modules.user.schemas import (
+    ChangePasswordRequest,
     UserCreate,
     UserUpdate,
-    UserResponse,
-    ChangePasswordRequest,
 )
 from app.modules.user.service import UserService
 

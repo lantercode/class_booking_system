@@ -1,11 +1,13 @@
 
-from datetime import timedelta, datetime, timezone
+from datetime import UTC, datetime, timedelta
 
-from jose import jwt, JWTError
+from jose import JWTError, jwt
+
 # 第一步：导入需要的模块（提示：bcrypt）
 from passlib.context import CryptContext
 
 from app.core.config import get_settings
+
 settings = get_settings()
 
 # 第二步：创建 CryptContext 实例（提示：指定算法为 bcrypt）
@@ -53,7 +55,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         """
     to_encode = data.copy()
     import uuid
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     to_encode["iat"] = now # 签发时间（确保唯一性）
     to_encode["jti"] = str(uuid.uuid4())
     if expires_delta is not None:
@@ -87,7 +89,7 @@ def create_refresh_token(data: dict) -> str:
     """ 创建刷新令牌（7天有效） """
     import uuid
     to_encode = data.copy()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     to_encode["iat"] = now # 签发时间（确保唯一性）
     to_encode["exp"] = now + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode["type"] = "refresh"

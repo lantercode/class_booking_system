@@ -8,19 +8,19 @@ Course Service - 课程业务逻辑层
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.course.repository import CourseRepository
+from app.core.exceptions import NotFoundException, ValidationException
 from app.modules.course.models import Course, CourseStatus
+from app.modules.course.repository import CourseRepository
 from app.modules.course.schemas import (
     CourseCreate,
-    CourseUpdate,
-    CourseResponse,
     CourseListResponse,
+    CourseResponse,
+    CourseUpdate,
 )
-from app.core.exceptions import ValidationException, NotFoundException
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class CourseService:
         self,
         db: AsyncSession,
         data: CourseCreate,
-        operator_id: Optional[int] = None,
+        operator_id: int | None = None,
     ) -> CourseResponse:
         """创建课程"""
         logger.info(f"[CourseService] 创建课程: name={data.name}")
@@ -43,7 +43,7 @@ class CourseService:
         if await self.repo.exists_by_name(db, data.name):
             raise ValidationException("课程名称已存在")
 
-        course_data: Dict[str, Any] = {
+        course_data: dict[str, Any] = {
             "name": data.name,
             "duration_minutes": data.duration_minutes,
             "price": data.price,
@@ -80,7 +80,7 @@ class CourseService:
         if not course:
             raise NotFoundException("课程不存在")
 
-        update_data: Dict[str, Any] = {}
+        update_data: dict[str, Any] = {}
 
         if data.name is not None and data.name != course.name:
             if await self.repo.exists_by_name(db, data.name, exclude_id=course_id):
@@ -142,10 +142,10 @@ class CourseService:
         self,
         db: AsyncSession,
         *,
-        keyword: Optional[str] = None,
-        category: Optional[str] = None,
-        level: Optional[str] = None,
-        status: Optional[int] = None,
+        keyword: str | None = None,
+        category: str | None = None,
+        level: str | None = None,
+        status: int | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> CourseListResponse:
