@@ -20,18 +20,28 @@ jobs:
             set -e
             cd /opt/dance-saas
             
-            # 1. 配置 Git 使用 HTTP/1.1（避免 HTTP/2 网络问题）
+            # 1. 配置 Git（避免 HTTP/2 和 TLS 网络问题）
             git config --global http.version HTTP/1.1
+            git config --global http.sslBackend openssl
             
-            # 2. 拉取最新代码
-            git pull origin main
+            # 2. 切换到 SSH 协议拉取（避免 HTTPS TLS 问题）
+            git remote set-url origin git@github.com:lantercode/class_booking_system.git
             
-            # 3. 重新构建并启动容器
+            # 3. 拉取最新代码（最多重试 3 次）
+            for i in 1 2 3; do
+              if git pull origin main; then
+                break
+              fi
+              echo "⚠️  Pull failed, retrying ($i/3)..."
+              sleep 5
+            done
+            
+            # 4. 重新构建并启动容器
             docker compose -f infra/docker/docker-compose.prod.yml \
               --env-file .env.prod \
               up -d --build
             
-            # 4. 清理无用镜像
+            # 5. 清理无用镜像
             docker image prune -f
             
             echo "✅ Deploy succeeded"
