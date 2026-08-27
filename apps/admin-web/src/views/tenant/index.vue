@@ -7,7 +7,7 @@
     <el-card shadow="never" style="max-width:640px">
       <el-form label-width="100px" label-position="left">
         <el-form-item label="机构名称">
-          <el-input value="沐里舞蹈" />
+          <el-input value="奕欣舞蹈" />
         </el-form-item>
         <el-form-item label="机构标识">
           <el-input value="dance-school" disabled />

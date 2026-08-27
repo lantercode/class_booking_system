@@ -435,7 +435,7 @@ packages/api-client/src/           # API 客户端（扩展）
 #### 3. 种子数据系统
 
 ```sql
--- 租户: 沐里舞蹈 (dance-school) [ID=2]
+-- 租户: 奕欣舞蹈 (dance-school) [ID=2]
 -- 角色: super_admin, admin, teacher, student (4个)
 -- 权限: course(3) + schedule(2) + booking(2) + user(1) + stats(1) = 9个
 -- 管理员: 12345678901 / super_admin [ID=1]

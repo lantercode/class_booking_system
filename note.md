@@ -18,6 +18,7 @@
 | 六 | 🔧 | [业务错误码体系](#六业务错误码体系) | 状态码设计、架构规范 |
 | 七 | 🔧 | [CI/CD 接入计划](#七cicd-接入计划) | GitHub Actions、自动化测试部署 |
 | 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
+| 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九-生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
 
 
 ---
@@ -268,5 +269,377 @@ scrollViewHeight.value = systemInfo.windowHeight - heroHeightPx
 - `backdrop-filter` 仅用于浮层，别放 scroll-view 兄弟元素上
 - `overflow: hidden` 别放 scroll-view 祖先元素上，改为 `overflow: visible`
 - 页面过渡动画用 `opacity` 而非 `transform`
+
+---
+
+## 九 🎤 生产部署实战复盘 → 企业级面试知识图谱
+
+> 记录 2026-08-25 首次生产部署（阿里云 ECS + Docker Compose + Nginx）过程中真实遇到的 19 个问题，按面试维度整理成可复用的知识图谱。每个问题给出**现象 / 根因 / 方案 / 面试考点**四要素。
+
+**部署环境**：阿里云 ECS（华东2 上海，2C4G，Ubuntu 22.04）+ Docker + Nginx + Let's Encrypt + GitHub
+
+### 部署阶段回顾
+
+| # | 阶段 | 关键动作 | 耗时 |
+|---|-----|---------|------|
+| 1 | 采购 ECS + 开安全组 | 22/80/443 端口 | 30 分钟 |
+| 2 | 装 Docker / Nginx / Certbot | 换 Docker 官方源 | 20 分钟 |
+| 3 | GitHub clone 代码 | Public 仓库无需认证 | 5 分钟 |
+| 4 | 配置 `.env.prod` | 5 个变量（生成密钥）| 10 分钟 |
+| 5 | Docker Compose 启动三容器 | 首次构建 32 分钟（用清华源加速）| 40 分钟 |
+| 6 | Alembic 迁移 + Seed | 建表 + 默认租户 | 3 分钟 |
+| 7 | 构建 admin-web + Nginx 部署 | 修复 3 处 TS 错误 | 25 分钟 |
+| 8 | 浏览器访问 http://IP 验证 | ✅ 阶段 A 完成 | — |
+
+---
+
+### 一、Linux 运维 & 系统管理
+
+#### 🔴 问题 1：`docker-compose-plugin` 装不上
+
+- **现象**：`apt install docker-compose-plugin` 报 `Unable to locate package`
+- **根因**：Ubuntu 官方源没这个包，它属于 Docker 官方源
+- **方案**：添加 Docker 官方 apt 源（用阿里云镜像加速），或改用 `docker.io` 老版本 + 独立 compose 二进制
+- **面试考点**：
+  - Linux 软件包管理机制（apt/yum/dnf 的仓库结构）
+  - 官方源 vs 第三方源，如何添加 GPG key
+  - `/etc/apt/sources.list.d/` 与主 `sources.list` 的加载顺序
+
+#### 🔴 问题 2：`needrestart` 弹窗打断脚本
+
+- **现象**：apt upgrade 后弹出紫色对话框询问重启服务
+- **根因**：Ubuntu 22.04+ 默认启用交互式服务重启确认
+- **方案**：`sed -i 's/#$nrconf{restart} = .*/$nrconf{restart} = "a";/' /etc/needrestart/needrestart.conf`
+- **面试考点**：
+  - 无人值守自动化脚本设计（避免任何交互 prompt）
+  - `DEBIAN_FRONTEND=noninteractive` 环境变量的作用
+  - Ansible / Chef / Puppet 里如何保证幂等性
+
+---
+
+### 二、容器化 & Docker
+
+#### 🔴 问题 3：Docker Hub 拉镜像 `i/o timeout`
+
+- **现象**：`docker pull redis:7-alpine` 超时报 `dial tcp 103.200.30.143:443: i/o timeout`
+- **根因**：大陆服务器访问 `registry-1.docker.io` 网络受限
+- **方案**：`/etc/docker/daemon.json` 配置 `registry-mirrors`，用阿里云个人加速器 / DaoCloud / 1ms.run
+- **面试考点**：
+  - Docker 镜像仓库分层机制（Registry → Repository → Image → Layer）
+  - 镜像加速器原理（HTTP 反向代理 + 中转缓存）
+  - Harbor 私有仓库、自建 Registry 的必要性
+  - 企业内网如何搭建统一的镜像代理层
+  - `docker save` / `docker load` 离线迁移镜像
+
+#### 🔴 问题 4：Dockerfile 构建慢（首次 40+ 分钟）
+
+- **现象**：`RUN apt-get install build-essential` 卡在 `deb.debian.org` 下载，`RUN uv sync` 卡在 pypi
+- **根因**：Debian/PyPI 官方源海外，国内服务器慢
+- **方案**：Dockerfile 里用 `sed` 替换清华 Debian 镜像 + `pip install -i` 指定清华 pypi + `ENV UV_INDEX_URL`
+- **改造前后对比**：apt 阶段 2305s → 29s（78 倍提速）
+- **面试考点**：
+  - **Dockerfile 分层缓存原理**：为什么 `COPY pyproject.toml` 要在 `COPY . .` 之前？依赖不变时才能命中缓存
+  - **多阶段构建**（multi-stage build）：build 阶段装编译工具，runtime 阶段只带运行时，减小镜像体积
+  - **`.dockerignore` 的作用**：减少构建上下文体积，避免 `node_modules` 被拷进容器
+  - **BuildKit** 并发构建 + 缓存挂载（`--mount=type=cache`）
+  - **layer 顺序优化**：变化频率低的放前面（依赖），变化频率高的放后面（源码）
+
+#### 🔴 问题 5：容器间网络通信
+
+- **现象**：为什么 API 容器里 `DATABASE_URL=postgresql://...@postgres:5432/...` 能连通？为什么不写 `localhost`？
+- **根因**：Docker Compose 自动创建 bridge 网络，服务名作为 DNS 别名
+- **面试考点**：
+  - Docker 4 种网络模式：bridge / host / none / overlay
+  - 容器 DNS 解析（`/etc/resolv.conf` 指向 `127.0.0.11`）
+  - `depends_on.condition: service_healthy` vs 简单 `depends_on` 的区别（后者只等启动，不等就绪）
+  - Kubernetes 里 Service 的 ClusterIP 和 DNS（`svc-name.namespace.svc.cluster.local`）
+  - 跨 host 容器通信：Docker Swarm overlay / K8s CNI
+
+#### 🔴 问题 6：`docker-compose.prod.yml` 端口暴露 `127.0.0.1:8000:8000`
+
+- **考点**：
+  - 为什么不写成 `8000:8000`（这样会暴露到 `0.0.0.0` 公网）
+  - **Nginx 反代 → 后端服务不直接对外**的分层安全设计
+  - 生产环境的**最小暴露原则**
+  - K8s 中 `ClusterIP` / `NodePort` / `LoadBalancer` 的暴露层次
+
+---
+
+### 三、GitOps & DevOps 工作流
+
+#### 🔴 问题 7：服务器上直接改文件会被 git pull 覆盖吗？
+
+- **答**：会。Git 认为远程仓库是权威版本，本地未提交的改动会被覆盖或触发冲突
+- **考点（超高频）**：
+  - **GitOps 核心思想**：Git 是唯一的 Single Source of Truth，服务器只是"消费者"
+  - **本地开发 → git push → 服务器 git pull → 重新部署** 的闭环
+  - **服务器绝不能有"本地改动"**，否则出现"雪花服务器"（snowflake servers）—— 环境漂移、无法复现
+  - **Infrastructure as Code**（IaC）：配置文件与代码同仓库管理
+  - Immutable Infrastructure（不可变基础设施）：容器 vs 传统虚机
+- **进阶延伸**：ArgoCD / FluxCD 实现 K8s 层面的自动 GitOps
+
+#### 🔴 问题 8：`.env.prod` 为什么不进 git？
+
+- **考点**：
+  - **12-Factor App** 中的 "Config" 原则：配置从环境变量注入，不写死在代码
+  - `.gitignore` 保护敏感文件（`.env.prod` / `credentials.json` / `*.pem`）
+  - **秘密管理**方案：HashiCorp Vault、AWS Secrets Manager、K8s Sealed Secrets、SOPS
+  - 已经 commit 过的 secret 如何清理：BFG Repo-Cleaner、`git filter-repo`（旧的 `git filter-branch` 已废弃）
+  - **重置密钥比擦 git 历史更重要**（因为 fork / 备份可能已经拿到）
+
+#### 🔴 问题 9：`WECHAT_SECRET` 硬编码进代码
+
+- **现象**：`config.py:39` 明文写 `afc51f233d8ea454ba8df6435750b4dd`
+- **面试考点**：
+  - **密钥泄露事故复盘**：即使删除代码，git 历史仍能查到（`git log -S "secret"`）
+  - **正确姿势**：立刻在微信平台重置 → 环境变量注入 → 用 `git filter-repo` 清历史
+  - **Pre-commit hook**：`gitleaks` / `detect-secrets` 阻止密钥入库
+  - **企业级方案**：所有 secret 集中管理 + 短期凭证轮换（Vault Dynamic Secrets）
+
+---
+
+### 四、数据库 & ORM
+
+#### 🔴 问题 10：seed.py 报 "relation tenants does not exist"
+
+- **根因**：直接跑 seed 没先跑 `alembic upgrade head`，表还没建
+- **面试考点**：
+  - **数据库迁移工具**（Alembic / Flyway / Liquibase）的工作原理
+  - **`alembic_version` 表**：记录已应用的版本号，实现幂等升级
+  - **迁移文件的"向前兼容"设计**：`upgrade()` + `downgrade()` 必须双向可逆
+  - **生产迁移的最佳实践**：
+    - 大表加列先用 `NULL` 默认值，避免锁表（在线 DDL）
+    - 分批数据迁移，避免长事务撑爆 WAL
+    - Blue-Green 部署时的 schema 兼容性（"先加字段后改代码，删字段是两个 release"）
+  - **零停机迁移**：`pt-online-schema-change` / `gh-ost`
+
+#### 🔴 问题 11：POSTGRES_PASSWORD 含 `/` 和 `+` 特殊字符
+
+- **面试考点**：
+  - URL 中的特殊字符必须做 **percent-encoding**（`+` → `%2B`，`/` → `%2F`，`@` → `%40`）
+  - 生产密码建议限制字符集，避免连接串解析歧义
+  - **密码熵**：至少 64 bits 熵值才算安全（12 位混合密码 ≈ 76 bits）
+  - **密钥生成**：`openssl rand -base64 24` 生成 24 字节 → base64 编码为 32 字符
+
+#### 🔴 问题 12：连接字符串 `postgresql+asyncpg://` vs `postgresql://`
+
+- **面试考点**：
+  - **SQLAlchemy** 的 `dialect+driver://user:pw@host:port/db` 表达式
+  - **asyncpg**（异步）vs **psycopg2**（同步）性能对比
+  - **异步 ORM 的意义**：I/O 密集应用同一时刻可承接更多请求（避免 GIL + 线程池瓶颈）
+  - **N+1 查询**：`selectinload` / `joinedload` / `contains_eager` 三种解法差异
+  - **连接池**：`pool_size` / `max_overflow` / `pool_recycle` / `pool_pre_ping`
+
+---
+
+### 五、前端工程化
+
+#### 🔴 问题 13：vue-tsc 报 3 处 TypeScript 类型错误
+
+**错误 A**：`Property 'children' does not exist on type ...`
+- **根因**：数组字面量类型推导为最窄类型，没有 `children` 字段的对象无法访问该字段
+- **修复**：显式声明 `interface MenuItem { children?: MenuItem[] }`
+- **考点**：TS 类型推导（inference）vs 类型标注（annotation）
+
+**错误 B**：`Property 'split' does not exist on type 'never'`
+- **根因**：**类型收窄**（type narrowing）—— `instanceof Date` 分支后剩余类型被推导为 `null`，else 分支的 `typeof === 'string'` 就是 `never`
+- **修复**：要么扩展联合类型（`Date | string | null`），要么删掉不可达分支
+- **考点**：
+  - TS 的 **discriminated union**、**exhaustive check**
+  - `never` 类型的意义（unreachable code / bottom type）
+  - `strict` 模式下 `strictNullChecks` / `noImplicitAny` 的意义
+  - **类型体操**：`Partial` / `Required` / `Pick` / `Omit` / `ReturnType`
+
+#### 🔴 问题 14：Vite build 警告 "chunks larger than 500 kB"
+
+- **面试考点**：
+  - **代码分割**（code splitting）：`import()` 动态引入、路由级懒加载
+  - **manualChunks** 手动分包：把 vendor / element-plus / echarts 单独打
+  - **Tree Shaking** 的原理（ES Module 静态分析 + `sideEffects: false`）
+  - **HTTP/2 多路复用** → 允许更细粒度分包（不再需要"一个大 bundle"的假设）
+  - **CDN 化第三方库**：`externals` + `<script>` 引入
+  - **preload / prefetch** 提示浏览器优先级
+
+---
+
+### 六、Nginx & 反向代理
+
+#### 🔴 问题 15：为什么前端 API 用相对路径 `/api/v1`？
+
+- **面试考点**：
+  - **同源策略**：Nginx 把 admin + API 放同一个域名 → 无需处理 CORS
+  - **CORS 三要素**：`Access-Control-Allow-Origin` / `Credentials` / `Preflight OPTIONS`
+  - **`proxy_pass` 反代**：为什么后端能看到真实客户端 IP？`X-Real-IP` / `X-Forwarded-For` / `X-Forwarded-Proto`
+  - **SPA 路由 fallback**：`try_files $uri $uri/ /index.html;` 的作用（history 模式路由）
+  - **反向代理 vs 正向代理**的区别
+
+#### 🔴 问题 16：Nginx `sites-available` vs `sites-enabled`
+
+- **面试考点**：
+  - Debian/Ubuntu 的双目录约定：`available` 放所有可用配置、`enabled` 是软链接
+  - `include /etc/nginx/sites-enabled/*` 的加载机制
+  - CentOS/RHEL 系用 `conf.d/` 单目录
+  - **`nginx -t`** 语法测试 + **`nginx -s reload`** 热更新（不断连接）
+
+---
+
+### 七、网络 & 安全
+
+#### 🔴 问题 17：Mac 翻墙了为什么服务器还是连不上外网？
+
+- **面试考点**：
+  - **网络协议栈是分层且独立的**：Mac 的 VPN 只影响 Mac 的路由表
+  - **HTTP_PROXY / HTTPS_PROXY** 环境变量、**透明代理**、**MITM** 原理
+  - **企业级方案**：出口代理（Squid）/ NAT 网关 / 云上"跳板机"
+  - **Docker daemon 代理**：`~/.docker/config.json` + `systemctl edit docker`
+
+#### 🔴 问题 18：安全组 vs 服务器内部防火墙
+
+- **面试考点**：
+  - **两层防火墙**：云平台 SG（云侧，先过） + 主机 `iptables` / `ufw`（主机侧）
+  - **深度防御**（Defense in Depth）原则
+  - **最小权限原则**：SSH 22 端口只允许办公 IP、生产数据库不对外
+  - **Zero Trust** 架构（永不信任、始终验证）
+  - **DDoS 防护**：云平台的高防 IP、CDN 分流
+
+#### 🔴 问题 19：为什么小程序强制 HTTPS + 域名备案？
+
+- **面试考点**：
+  - **HTTPS 的三个作用**：机密性（加密）/ 完整性（防篡改）/ 身份认证（证书）
+  - **TLS 握手过程**（1.2 与 1.3 的差异，1.3 减少一个 RTT）
+  - **Let's Encrypt 的 ACME 协议**：HTTP-01 challenge、DNS-01 challenge、TLS-ALPN-01
+  - **证书链**：Root CA → Intermediate → Leaf；OCSP stapling
+  - **HSTS**（Strict-Transport-Security）防止 SSL Stripping
+
+---
+
+### 八、JWT 认证 & 权限（项目自带高频考点）
+
+**JWT 双 Token 设计**（本项目已实现）：
+- Access Token 短命（2h） + Refresh Token 长命（7d）
+- **Token 旋转**（Rotation）：每次 refresh 换新 RT，旧 RT 加黑名单
+- **Redis 黑名单**：Token 撤销机制，TTL 自动清理
+
+**面试考点**：
+- JWT vs Session：无状态优势、注销困难的代价
+- JWT 三段结构：Header.Payload.Signature（HMAC / RSA / ECDSA 签名算法）
+- `jti`（JWT ID）唯一性 + `iat` 微秒精度防止 replay attack
+- **CSRF vs XSS** 攻击场景对比：JWT 存 localStorage 防 CSRF 但怕 XSS，HttpOnly Cookie 相反
+- **OAuth 2.0** 各种 Grant Type（Authorization Code / Client Credentials / Device Flow）
+- **OpenID Connect** 与 OAuth 2.0 的关系
+
+---
+
+### 九、多租户 SaaS 架构（本项目核心）
+
+**面试超高频问题**："如何设计一个 SaaS 系统的多租户？"
+
+三种方案对比（本项目用方案 3）：
+
+| 方案 | 数据隔离度 | 成本 | 适用场景 |
+|------|----------|------|---------|
+| 独立数据库（DB per Tenant）| ⭐⭐⭐ | 高 | 银行、医疗（合规严格）|
+| 独立 Schema（Schema per Tenant）| ⭐⭐ | 中 | 中大型 SaaS |
+| 共享表 + tenant_id（Row-level）| ⭐ | 低 | 中小型 SaaS ✅ |
+
+**本项目的实现**：
+- `TenantMixin` 给所有租户表加 `tenant_id` 字段
+- `TenantAwareRepository` 基类自动注入 `WHERE tenant_id = ?`
+- **ContextVar** 存储当前请求的 tenant_id（比 `threading.local` 更适合 asyncio）
+- 中间件从 `x-tenant-slug` 请求头解析租户
+- `setup_tenant_query_injection()` 拦截所有 SQL 自动加租户过滤
+
+**面试延伸**：
+- **数据泄露风险**：忘写 `WHERE tenant_id` → 跨租户看到别人的数据（本项目自动注入防止）
+- 大 B 用户需要独立数据库怎么办？→ 分片路由（sharding router）
+- Schema 演进：所有租户共享一份 schema，如何做灰度？
+- **PostgreSQL RLS**（Row Level Security）：数据库层面的租户隔离方案
+
+---
+
+### 十、可用性 & 运维
+
+#### 项目已有的健康检查
+
+`docker-compose.prod.yml` 里的 healthcheck：
+```yaml
+test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+interval: 5s
+```
+
+**面试考点**：
+- **Liveness / Readiness / Startup Probe**（K8s 三种探针的语义差异）
+- **HTTP 200 ≠ 服务就绪**：可能只是进程活着但数据库连不上
+- **优雅关闭**（graceful shutdown）：SIGTERM → 停止接新请求 → 处理完在途请求 → 退出
+- **SIGKILL 是最后一招**（无法捕获），关闭前必须能收到 SIGTERM
+
+#### 数据备份策略
+
+**面试考点**：
+- **3-2-1 备份原则**：3 份数据、2 种介质、1 份异地
+- **PITR**（Point-in-Time Recovery）：`pg_dump` 全量 + WAL 归档增量
+- **备份验证**：定期恢复演练，未验证的备份 = 没备份
+- **RPO / RTO 指标**（Recovery Point/Time Objective）
+
+---
+
+### 十一、通用面试话术模板
+
+**"讲一个你排查过的最难的线上问题"** → 你现在可以讲：
+
+> 云服务器首次部署 Docker 镜像构建卡了 40 分钟。排查发现是 apt-get 从境外 debian.org 拉包超时（`2305.6s` 单步耗时），pypi 装 Python 包也慢。
+>
+> **根因**：跨境网络延迟 + 镜像构建 layer 无缓存首次拉取，`RUN apt-get install` 单条指令下载 200MB+ 的 build-essential。
+>
+> **方案**：Dockerfile 里替换清华 Debian/PyPI 镜像源，构建时间从 40 分钟降到 5 分钟（apt 环节 2305s → 29s，78 倍提速）。
+>
+> **反思**：
+> 1. 生产 Dockerfile 应该考虑多环境（国内/海外）适配 —— 用 ARG 参数化镜像源
+> 2. CI/CD 应缓存 base image + 依赖层，避免每次全量构建
+> 3. 私有镜像仓库 + 分层复用是根治方案，把 base + deps 层预烘焙成"团队公共基础镜像"
+
+---
+
+### 十二、可主动展示的项目亮点（简历 & 面试话术）
+
+面试时可主动讲这些"我踩过、我理解、我解决了"的点：
+
+1. **多租户 ContextVar 自动查询注入** —— 展示对 asyncio 上下文传递的理解
+2. **JWT 双 Token + Redis 黑名单** —— 展示对无状态认证的深入理解
+3. **纯 ASGI 中间件替代 BaseHTTPMiddleware** —— 展示对 Starlette 底层的了解（避免事件循环冲突）
+4. **异步 SQLAlchemy 2.0 + asyncpg** —— 展示对新一代 Python 异步生态的掌握
+5. **Docker Compose + Nginx + Let's Encrypt 全链路部署** —— DevOps 全流程实操
+6. **GitOps 工作流 + 分阶段上线**（阶段 A IP 调试 + 阶段 B 备案后域名切换）—— 展示项目管理能力
+
+---
+
+### 十三、STAR 故事清单（20 个可展开叙述的案例）
+
+从上述问题中提取，每个可以讲成 3-5 分钟的完整故事：
+
+| # | Story 主题 | 关键词 |
+|---|-----------|--------|
+| 1 | Docker Hub 拉不下镜像 | 镜像加速器 / 国内网络 |
+| 2 | Dockerfile 构建 40 分钟优化到 5 分钟 | 分层缓存 / 国内源 |
+| 3 | seed.py 报表不存在 | 数据库迁移工具 / 幂等性 |
+| 4 | 硬编码 WeChat Secret 泄露事故 | 密钥管理 / git 历史清理 |
+| 5 | TypeScript 类型收窄导致 `never` | 类型系统 / discriminated union |
+| 6 | 前端 chunk 过大警告 | 代码分割 / Tree Shaking |
+| 7 | 相对路径 API 避免 CORS | 同源策略 / 反向代理 |
+| 8 | 服务器改文件被 git pull 覆盖 | GitOps / IaC |
+| 9 | 多租户忘写 tenant_id 泄露 | Row-level 隔离 / 自动注入 |
+| 10 | JWT 双 Token + Redis 黑名单 | 无状态认证 / Token 撤销 |
+| 11 | 微信小程序页面栈溢出 | uni-app 生命周期 |
+| 12 | scroll-view 合成层冲突 | iOS 渲染 / GPU 合成 |
+| 13 | 微信登录 IP 白名单 | 公网出口 IP / 代理透传 |
+| 14 | FastAPI 307 重定向丢 header | redirect_slashes / axios |
+| 15 | asyncpg 事件循环冲突 | 异步测试 / 独立 Uvicorn |
+| 16 | 纯 ASGI 中间件 vs BaseHTTPMiddleware | Starlette 内部机制 |
+| 17 | 密码含特殊字符解析失败 | URL 编码 / 密码策略 |
+| 18 | 安全组只暴露 127.0.0.1:8000 | 最小暴露原则 / 深度防御 |
+| 19 | needrestart 弹窗打断自动化 | 无人值守脚本 |
+| 20 | 分阶段上线（备案前 IP 阶段 A → 备案后域名阶段 B）| 项目管理 / 关键路径 |
+
+**建议做法**：每个 story 用 STAR 框架（Situation-Task-Action-Result）写成 200 字的段落，面试前熟练背诵 3-5 个即可覆盖后端 / 前端 / DevOps 三个方向的问答。
 
 ---

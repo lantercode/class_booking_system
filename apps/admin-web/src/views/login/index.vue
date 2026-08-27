@@ -17,7 +17,7 @@
         </el-form-item>
         <el-form-item prop="tenant_slug">
           <el-select v-model="form.tenant_slug" placeholder="请选择机构" style="width: 100%" :prefix-icon="OfficeBuilding">
-            <el-option label="沐里舞蹈" value="dance-school" />
+            <el-option label="奕欣舞蹈" value="dance-school" />
           </el-select>
         </el-form-item>
         <el-form-item>

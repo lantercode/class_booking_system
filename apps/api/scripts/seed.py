@@ -25,7 +25,7 @@ async def create_default_tenant(session: AsyncSession) -> Tenant:
     """创建默认租户机构"""
     # TODO: 实现这个函数
     tenant = Tenant(
-        name="沐里舞蹈",
+        name="奕欣舞蹈",
         slug="dance-school",
         contact_phone="13800000001",
         status=TenantStatus.ACTIVE.value,
