@@ -23,25 +23,33 @@ jobs:
             # 1. 配置 Git（避免 HTTP/2 和 TLS 网络问题）
             git config --global http.version HTTP/1.1
             git config --global http.sslBackend openssl
+            git config --global http.postBuffer 524288000
+            git config --global core.compression -1
             
-            # 2. 切换到 SSH 协议拉取（避免 HTTPS TLS 问题）
-            git remote set-url origin git@github.com:lantercode/class_booking_system.git
+            # 2. 确保使用 HTTPS 协议
+            git remote set-url origin https://github.com/lantercode/class_booking_system.git
             
             # 3. 拉取最新代码（最多重试 3 次）
             for i in 1 2 3; do
               if git pull origin main; then
                 break
               fi
-              echo "⚠️  Pull failed, retrying ($i/3)..."
+              echo "️  Pull failed, retrying ($i/3)..."
               sleep 5
             done
             
-            # 4. 重新构建并启动容器
+            # 4. 创建 .env.prod 如果不存在（从环境变量或默认值）
+            if [ ! -f .env.prod ]; then
+              echo "⚠️  .env.prod not found, creating from template..."
+              cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
+            fi
+            
+            # 5. 重新构建并启动容器
             docker compose -f infra/docker/docker-compose.prod.yml \
               --env-file .env.prod \
               up -d --build
             
-            # 5. 清理无用镜像
+            # 6. 清理无用镜像
             docker image prune -f
             
             echo "✅ Deploy succeeded"
