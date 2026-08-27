@@ -59,6 +59,30 @@
 | `git pull` 偶尔失败 | 云服务器与 GitHub 之间网络抖动 | 添加重试机制（for 循环，最多 3 次，间隔 5 秒） |
 | `.env.prod` 不存在导致 docker compose 失败 | 首次部署或文件丢失 | 添加文件检查，不存在则自动创建 |
 
+### 8. Git SSL 后端不兼容（部署脚本致命错误）
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| `Unsupported SSL backend 'openssl'. Supported SSL backends: gnutls` | 服务器 Git 使用 GnuTLS 编译，不支持 openssl 后端，但部署脚本设置了 `git config --global http.sslBackend openssl` | 移除 `http.sslBackend openssl` 配置，只保留 `http.version HTTP/1.1` |
+| 服务器代码 15 分钟未更新 | 部署脚本因 `set -e` 在 SSL 配置步骤报错后直接退出，`git pull` 从未执行 | 手动清除错误的全局配置 `git config --global --unset http.sslBackend`，然后执行 `git pull` |
+| `git pull` 报 `untracked working tree files would be overwritten` | 服务器上有未跟踪的文件（如 `vite.config.js`）与远程分支冲突 | 执行 `git clean -fd` 清理未跟踪文件后再 `git pull` |
+
+**问题演进时间线**：
+```
+第 1 次部署失败 → ssh: no key found（密钥格式错误）
+第 2 次部署失败 → unable to authenticate（服务器无公钥）
+第 3 次部署失败 → curl 16 HTTP2 framing error（HTTP/2 不稳定）
+第 4 次部署失败 → GnuTLS recv error（TLS 连接中断）
+第 5 次部署失败 → Host key verification failed（SSH 协议混淆）
+第 6 次部署失败 → unsupported SSL backend openssl（Git 编译差异）← 根本原因
+```
+
+**关键教训**：
+- 服务器的 Git 是用 **GnuTLS** 编译的（Debian/Ubuntu 默认），不支持 `openssl` 后端
+- `git config --global` 是**全局配置**，一旦设置错误会影响所有 git 操作
+- 部署脚本使用 `set -e`（遇到错误立即退出），导致后续 `git pull` 和 `docker compose` 都未执行
+- 即使 CI/CD 显示 "Deploy to Production" 在运行，实际部署可能早已在中途失败
+
 ---
 
 ## 二、企业级面试题
@@ -308,6 +332,94 @@ done
 - 如果项目是私有仓库，可以使用 GitHub Deploy Keys 配合 SSH 协议。
 - 对于国内服务器，可以考虑使用 GitHub 镜像加速（如 `hub.fastgit.org`）。
 - 更彻底的方案：使用自托管 Runner 部署在内网，减少外网依赖。
+
+---
+
+#### 5.4 Git SSL 后端不兼容（部署脚本致命错误）
+
+> **问**：部署脚本中设置了 `git config --global http.sslBackend openssl`，但服务器报错 `Unsupported SSL backend 'openssl'`，导致整个 CI/CD 部署失败。这是为什么？如何避免？
+
+**参考答案**：
+
+**问题根因**：
+- 服务器（Ubuntu/Debian）的 Git 是用 **GnuTLS** 编译的，不支持 `openssl` 后端。
+- `git config --global` 是**全局配置**，设置后影响所有 git 操作。
+- 部署脚本使用 `set -e`（遇到错误立即退出），导致 SSL 配置报错后，后续的 `git pull` 和 `docker compose` 都未执行。
+- 结果：服务器代码 15 分钟未更新，但 CI/CD 日志显示 "Deploy to Production" 在运行。
+
+**排查过程**：
+```bash
+# 1. 对比本地和服务器代码版本
+git log --oneline -1                                    # 本地: f98425a
+ssh root@IP "cd /opt/dance-saas && git log --oneline -1" # 服务器: da0a54a（差了 3 个提交）
+
+# 2. 手动执行 git pull，发现报错
+ssh root@IP "cd /opt/dance-saas && git pull origin main"
+# 输出: fatal: Unsupported SSL backend 'openssl'. Supported SSL backends: gnutls
+
+# 3. 检查 Git 编译信息
+ssh root@IP "git version --build-options"
+# 确认 Git 使用 GnuTLS 编译
+
+# 4. 清除错误的全局配置
+ssh root@IP "git config --global --unset http.sslBackend"
+
+# 5. 清理未跟踪文件（vite.config.js 冲突）
+ssh root@IP "cd /opt/dance-saas && git clean -fd && git pull origin main"
+
+# 6. 重建容器
+ssh root@IP "cd /opt/dance-saas && docker compose up -d --build"
+```
+
+**正确做法**：
+```yaml
+# deploy.yml - 移除无效的 sslBackend 配置
+script: |
+  set -e
+  cd /opt/dance-saas
+  
+  # ✅ 只保留有效的 Git 配置
+  git config --global http.version HTTP/1.1
+  git config --global http.postBuffer 524288000
+  git config --global core.compression -1
+  
+  # ❌ 不要设置 http.sslBackend（取决于 Git 编译方式）
+  # git config --global http.sslBackend openssl
+  
+  git pull origin main
+  docker compose up -d --build
+```
+
+**如何检查 Git 的 SSL 后端**：
+```bash
+# 方法 1：查看编译信息
+git version --build-options | grep -i ssl
+
+# 方法 2：查看支持的 SSL 后端
+git config --get http.sslBackend  # 如果未设置则无输出
+
+# 方法 3：测试不同后端
+git config --global http.sslBackend openssl  # 如果报错则不支持
+```
+
+**关键教训**：
+1. **不要盲目复制网上的配置**：`http.sslBackend openssl` 在某些系统上有效，但不是所有 Git 都支持。
+2. **全局配置要小心**：`--global` 影响所有 git 操作，一旦设置错误很难排查。
+3. **`set -e` 是双刃剑**：虽然能快速失败，但也会掩盖中间步骤的错误。
+4. **CI/CD 日志要仔细看**：不能只看 "Deploy to Production" 在运行，要确认每个步骤都成功。
+5. **部署后一定要验证**：对比 Commit Hash，确认服务器代码确实是最新的。
+
+**延伸思考**：
+- 如果需要在部署脚本中处理不同系统的差异，可以使用条件判断：
+  ```bash
+  # 检测 Git 是否支持 openssl 后端
+  if git config --global http.sslBackend openssl 2>/dev/null; then
+    echo "✅ openssl backend supported"
+  else
+    echo "⚠️  openssl not supported, using default SSL backend"
+    git config --global --unset http.sslBackend 2>/dev/null
+  fi
+  ```
 
 ---
 
