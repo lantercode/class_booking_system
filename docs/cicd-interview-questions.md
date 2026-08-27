@@ -48,6 +48,16 @@
 | 问题 | 原因 | 解决 |
 |------|------|------|
 | `curl 16 Error in the HTTP2 framing layer` | 服务器拉取 GitHub 代码时 HTTP/2 网络不稳定 | 配置 `git config http.version HTTP/1.1` |
+| `GnuTLS recv error (-110): The TLS connection was non-properly terminated` | 服务器 GnuTLS 库与 GitHub HTTPS 连接不稳定 | 切换 SSL 后端为 openssl，添加 postBuffer 和压缩配置 |
+| `Host key verification failed` | 服务器没有 GitHub SSH 密钥（ECS_SSH_KEY 是登录服务器的，不是访问 GitHub 的） | 切回 HTTPS 协议，无需 SSH 密钥 |
+| `couldn't find env file: .env.prod` | 服务器上缺少生产环境配置文件 | 添加自动创建逻辑，从 `.env.example` 复制 |
+
+### 7. 部署脚本容错设计
+
+| 问题 | 原因 | 解决 |
+|------|------|------|
+| `git pull` 偶尔失败 | 云服务器与 GitHub 之间网络抖动 | 添加重试机制（for 循环，最多 3 次，间隔 5 秒） |
+| `.env.prod` 不存在导致 docker compose 失败 | 首次部署或文件丢失 | 添加文件检查，不存在则自动创建 |
 
 ---
 
@@ -229,6 +239,150 @@ ECS_USER=root
 ECS_SSH_KEY=-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ...
 -----END OPENSSH PRIVATE KEY-----
+```
+
+#### 5.1 SSH 密钥混淆问题
+
+> **问**：在 CI/CD 部署中，`ECS_SSH_KEY` 的作用是什么？它能用来访问 GitHub 吗？
+
+**参考答案**：
+- **`ECS_SSH_KEY` 的作用**：用于 GitHub Actions Runner **登录云服务器（ECS）**，执行部署脚本。
+- **不能用来访问 GitHub**：这个密钥是 Mac 本地生成的，用于 Mac → ECS 的 SSH 连接。GitHub 仓库的访问权限由 GitHub 账号的认证机制管理，与 ECS 上的 SSH 密钥无关。
+- **常见误区**：很多人以为把 SSH 密钥配到 Secrets 后，服务器就能用这个密钥拉取 GitHub 代码。实际上服务器拉取代码走的是 HTTPS（公开仓库）或服务器自己的 SSH 密钥（私有仓库）。
+
+**架构示意**：
+```
+GitHub Actions Runner (GitHub 服务器)
+    │
+    │ ECS_SSH_KEY (用于登录 ECS)
+    ↓
+云服务器 ECS
+    │
+    │ HTTPS (公开仓库) 或 服务器自己的 SSH 密钥
+    ↓
+GitHub 仓库 (拉取代码)
+```
+
+**解决方案**：
+- 公开仓库：使用 HTTPS 协议 `https://github.com/user/repo.git`，无需密钥。
+- 私有仓库：在服务器上生成独立的 SSH 密钥对，将公钥添加到 GitHub Deploy Keys。
+
+---
+
+#### 5.2 服务器网络不稳定问题
+
+> **问**：服务器拉取 GitHub 代码时遇到 `GnuTLS recv error (-110)` 和 `HTTP/2 framing layer` 错误，如何优化？
+
+**参考答案**：
+
+**问题原因**：
+- 云服务器（尤其是国内 ECS）与 GitHub 服务器之间的网络连接不稳定。
+- GnuTLS（Linux 默认 SSL 库）与 GitHub 的 HTTPS 连接存在兼容性问题。
+- HTTP/2 协议在某些网络环境下表现不稳定。
+
+**优化方案**：
+```bash
+# 1. 切换 SSL 后端为 openssl（比 GnuTLS 更稳定）
+git config --global http.sslBackend openssl
+
+# 2. 强制使用 HTTP/1.1（避免 HTTP/2 问题）
+git config --global http.version HTTP/1.1
+
+# 3. 增大 postBuffer（避免大文件传输中断）
+git config --global http.postBuffer 524288000  # 500MB
+
+# 4. 禁用压缩（减少 CPU 开销，提升稳定性）
+git config --global core.compression -1
+
+# 5. 添加重试机制
+for i in 1 2 3; do
+  if git pull origin main; then
+    break
+  fi
+  echo "⚠️  Pull failed, retrying ($i/3)..."
+  sleep 5
+done
+```
+
+**延伸思考**：
+- 如果项目是私有仓库，可以使用 GitHub Deploy Keys 配合 SSH 协议。
+- 对于国内服务器，可以考虑使用 GitHub 镜像加速（如 `hub.fastgit.org`）。
+- 更彻底的方案：使用自托管 Runner 部署在内网，减少外网依赖。
+
+---
+
+#### 5.3 部署脚本容错设计
+
+> **问**：如何设计一个健壮的部署脚本，应对各种异常情况？
+
+**参考答案**：
+
+**关键设计原则**：
+
+1. **幂等性**：多次执行结果一致
+   ```bash
+   # docker compose up -d --build 是幂等的
+   # 无论执行多少次，最终状态一致
+   ```
+
+2. **快速失败**：任何步骤失败立即停止
+   ```bash
+   set -e  # 任何命令失败立即退出
+   ```
+
+3. **重试机制**：网络操作添加重试
+   ```bash
+   for i in 1 2 3; do
+     if git pull origin main; then break; fi
+     sleep 5
+   done
+   ```
+
+4. **默认值回退**：配置文件缺失时自动创建
+   ```bash
+   if [ ! -f .env.prod ]; then
+     cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
+   fi
+   ```
+
+5. **资源清理**：部署后清理无用资源
+   ```bash
+   docker image prune -f  # 清理悬空镜像，节省磁盘空间
+   ```
+
+**完整部署脚本示例**：
+```bash
+#!/bin/bash
+set -e
+cd /opt/dance-saas
+
+# 1. Git 配置优化
+git config --global http.version HTTP/1.1
+git config --global http.sslBackend openssl
+git config --global http.postBuffer 524288000
+
+# 2. 拉取代码（带重试）
+for i in 1 2 3; do
+  if git pull origin main; then break; fi
+  sleep 5
+done
+
+# 3. 确保配置文件存在
+if [ ! -f .env.prod ]; then
+  cp .env.example .env.prod 2>/dev/null || true
+fi
+
+# 4. 重建容器
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+# 5. 健康检查
+sleep 10
+curl -f http://localhost:8000/health || exit 1
+
+# 6. 清理资源
+docker image prune -f
+
+echo "✅ Deploy succeeded"
 ```
 
 ---
