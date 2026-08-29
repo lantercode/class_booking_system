@@ -43,24 +43,61 @@ jobs:
               cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
             fi
             
-            # 5. 构建前端
+            # 5. 构建前端（pnpm workspace 项目，不能用 npm）
             echo "🔨 Building frontend..."
+            
+            # 安装 pnpm（如果未安装）
+            if ! command -v pnpm &> /dev/null; then
+              echo "Installing pnpm..."
+              npm install -g pnpm
+            fi
+            
+            # 从根目录安装依赖（workspace 需要根目录执行）
+            cd /opt/dance-saas
+            pnpm install --frozen-lockfile
+            
+            # 构建 admin-web
             cd apps/admin-web
-            npm install
-            npm run build
+            pnpm run build
             mkdir -p /var/www/admin
             cp -r dist/* /var/www/admin/
             echo "✅ Frontend built and deployed"
             
-            # 6. 配置 Nginx（如果未配置）
-            if [ ! -f /etc/nginx/sites-available/dance-saas-ip.conf ]; then
-              echo "Configuring Nginx for IP access..."
-              NGINX_CONF="server {\n    listen 80 default_server;\n    server_name _;\n    root /var/www/admin;\n    index index.html;\n    location / { try_files \$uri \$uri/ /index.html; }\n    location /api/ {\n        proxy_pass http://127.0.0.1:8000;\n        proxy_set_header Host \$host;\n        proxy_set_header X-Real-IP \$remote_addr;\n        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto \$scheme;\n    }\n}"
-              echo -e "$NGINX_CONF" > /etc/nginx/sites-available/dance-saas-ip.conf
-              ln -sf /etc/nginx/sites-available/dance-saas-ip.conf /etc/nginx/sites-enabled/
-            fi
+            # 6. 配置 Nginx（带缓存控制策略）
+            NGINX_CONF='server {
+    listen 80 default_server;
+    server_name _;
+    root /var/www/admin;
+    index index.html;
+
+    location / {
+        # index.html 不缓存，确保用户始终获取最新版本
+        if ($uri = /index.html) {
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+            add_header Expires "0";
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 静态资源长期缓存（文件名含哈希）
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}'
+            echo "$NGINX_CONF" > /etc/nginx/sites-available/dance-saas-ip.conf
+            ln -sf /etc/nginx/sites-available/dance-saas-ip.conf /etc/nginx/sites-enabled/
             nginx -t && systemctl reload nginx
-            echo "Nginx reloaded"
+            echo "✅ Nginx configured with cache-control headers"
             
             # 7. 重新构建并启动容器
             cd /opt/dance-saas
