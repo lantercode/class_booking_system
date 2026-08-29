@@ -19,6 +19,7 @@
 | 七 | 🔧 | [CI/CD 接入计划](#七cicd-接入计划) | GitHub Actions、自动化测试部署 |
 | 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
 | 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九-生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
+| 十 | 🎤 | [CI/CD 部署成功但浏览器端数据不是最新](#十cicd-部署成功但浏览器端数据不是最新) | 浏览器缓存、Nginx Cache-Control、Vite 文件名哈希 |
 
 
 ---
@@ -600,6 +601,236 @@ interval: 5s
 
 ---
 
+## 十 🎤 PyCharm 通过 SSH 隧道连接 ECS 数据库
+
+> 记录 2026-08-29 通过 PyCharm SSH 隧道连接阿里云 ECS 上 PostgreSQL 数据库的完整排查过程。涉及 SSH 密钥配置、Docker 端口映射、pg_hba.conf 认证规则等核心知识点。
+
+**环境**：Mac 本地 PyCharm → SSH 隧道 → 阿里云 ECS（106.14.206.226）→ Docker 容器 PostgreSQL
+
+### 问题排查全流程
+
+#### 问题 1：SSH 密钥文件路径错误
+
+**错误信息**：`SSH tunnel creation failed: Connection refused`
+
+**现象**：终端 `ssh root@106.14.206.226` 能正常登录，但 PyCharm SSH 隧道测试失败。
+
+**排查**：
+```bash
+ls -la /Users/lixiang/.ssh/
+# 实际密钥文件: id_ed25519
+# PyCharm 配置的: id_rsa（不存在）
+```
+
+**根因**：PyCharm SSH 配置中 `Private key file` 路径填错，指向了不存在的 `id_rsa`。
+
+**解决**：修改 PyCharm SSH/SSL 标签页中的密钥路径为 `/Users/lixiang/.ssh/id_ed25519`。
+
+**面试考点**：
+- SSH 密钥类型：`id_rsa`（RSA 旧格式）/ `id_ed25519`（Ed25519 新格式，推荐）/ `id_ecdsa`
+- 密钥权限要求：私钥必须 `600`（`-rw-------`），否则 SSH 拒绝使用
+- `ssh-keygen -y -f <私钥>` 验证密钥是否有效
+- 密钥 passphrase（密码短语）vs 服务器登录密码的区别
+
+---
+
+#### 问题 2：Docker 容器端口未映射到宿主机
+
+**错误信息**：SSH 隧道成功，但数据库连接 `Connection refused`
+
+**现象**：SSH 隧道建立成功，但 PyCharm 连接 `localhost:5432` 失败。
+
+**排查**：
+```bash
+docker port dance-postgres
+# 输出: (空) ← 没有端口映射
+
+docker inspect dance-postgres | grep -A 5 "Ports"
+# "5432/tcp": null ← 确认未映射
+```
+
+**根因**：PostgreSQL 运行在 Docker 容器中，容器内部端口 `5432` 没有映射到宿主机的端口。SSH 隧道转发到宿主机 `localhost:5432`，但宿主机上没有服务监听该端口。
+
+**解决**：重新创建容器并添加端口映射
+```bash
+docker stop dance-postgres
+docker rm dance-postgres
+
+docker run -d \
+  --name dance-postgres \
+  --network docker_default \
+  -p 5432:5432 \              ← 关键参数：宿主机:容器
+  -e POSTGRES_DB=dance_saas \
+  -e POSTGRES_USER=dance \
+  -e POSTGRES_PASSWORD=dance_dev_pass \
+  -v docker_pgdata:/var/lib/postgresql/data \
+  postgres:15-alpine
+```
+
+**验证**：
+```bash
+docker port dance-postgres
+# 输出: 5432/tcp -> 0.0.0.0:5432 ✅
+
+docker ps | grep dance-postgres
+# 输出: Up (healthy) ✅
+```
+
+**面试考点**：
+- **Docker 端口映射原理**：`-p hostPort:containerPort`，iptables DNAT 规则转发
+- **端口映射方向性**：只对"外部→容器"生效，容器内部通信不需要映射
+- **数据卷持久化**：`-v volume_name:/path`，删除容器数据不丢失
+- **Docker 网络模式**：bridge（默认）/ host / none / overlay
+- **容器间通信**：同网络下通过服务名 DNS 解析，不需要端口映射
+
+---
+
+#### 问题 3：pg_hba.conf 认证规则冲突
+
+**错误信息**：`FATAL: password authentication failed for user "dance"`
+
+**现象**：服务器上 `docker exec dance-postgres psql -U dance -d dance_saas` 成功，但 PyCharm 连接报密码错误。
+
+**排查**：
+```bash
+docker exec dance-postgres cat /var/lib/postgresql/data/pg_hba.conf | grep -v "^#"
+# 输出:
+# local   all   all   trust
+# host    all   all   127.0.0.1/32   trust
+# host    all   all   ::1/128        trust
+# host    all   all   all   scram-sha-256  ← 最后一行覆盖前面规则
+```
+
+**根因**：pg_hba.conf 最后一行 `host all all all scram-sha-256` 匹配所有 TCP 连接，要求 `scram-sha-256` 认证，覆盖了前面的 `trust` 规则。PyCharm 通过 SSH 隧道建立的 TCP 连接被这条规则匹配，但密码格式不匹配导致认证失败。
+
+**解决**：注释掉冲突的规则
+```bash
+docker exec dance-postgres sed -i 's/^host all all all scram-sha-256$/# host all all all scram-sha-256/' /var/lib/postgresql/data/pg_hba.conf
+docker restart dance-postgres
+```
+
+**面试考点**：
+- **pg_hba.conf 格式**：`type database user address auth-method`
+- **匹配顺序**：从上到下，第一条匹配的规则生效（类似 iptables）
+- **认证方法**：
+  - `trust`：无需密码（开发环境方便，生产禁用）
+  - `md5`：MD5 密码认证
+  - `scram-sha-256`：更安全的密码认证（PostgreSQL 10+ 默认，推荐生产使用）
+  - `peer`：操作系统用户名匹配（仅 local 连接）
+- **生产环境配置**：
+  ```
+  local   all   all   peer
+  host    all   all   127.0.0.1/32   scram-sha-256
+  host    all   all   ::1/128        scram-sha-256
+  host    all   all   0.0.0.0/0      reject  ← 拒绝其他所有
+  ```
+
+---
+
+#### 问题 4：Docker 网络 IP 不在 pg_hba.conf 允许列表
+
+**错误信息**：`FATAL: no pg_hba.conf entry for host "172.19.0.1", user "dance", database "dance_saas"`
+
+**现象**：SSH 隧道建立成功，端口映射正常，但连接被拒绝，错误显示来源 IP 是 `172.19.0.1`。
+
+**根因**：SSH 隧道建立的连接在 Docker 网络中，来源 IP 是 Docker 网关 `172.19.0.1`，而不是 `127.0.0.1`。pg_hba.conf 中只允许了 `127.0.0.1/32`，没有允许 Docker 网络 IP。
+
+**解决**：添加允许 Docker 网关 IP 的规则
+```bash
+docker exec dance-postgres bash -c 'echo "host    all    all    172.19.0.1/32    trust" >> /var/lib/postgresql/data/pg_hba.conf'
+docker restart dance-postgres
+```
+
+**或者更简单（开发环境）**：允许所有 IP
+```bash
+docker exec dance-postgres bash -c 'echo "host    all    all    0.0.0.0/0    trust" >> /var/lib/postgresql/data/pg_hba.conf'
+docker restart dance-postgres
+```
+
+**面试考点**：
+- **Docker 网络拓扑**：bridge 网络有网关 IP（通常 `172.17.0.1` 或 `172.19.0.1`）
+- **SSH 隧道工作原理**：本地端口 → SSH 加密通道 → 服务器本地端口
+- **连接来源 IP 变化**：通过 SSH 隧道连接时，数据库看到的来源 IP 是隧道出口 IP
+- **CIDR 表示法**：`/32` 表示单个 IP，`/24` 表示 256 个 IP，`/0` 表示所有 IP
+
+---
+
+### 最终正确配置
+
+#### PyCharm SSH/SSL 标签页
+```
+☑ Use SSH tunnel
+Host: 106.14.206.226
+Port: 22
+Username: root
+Authentication type: Key pair
+Private key file: /Users/lixiang/.ssh/id_ed25519
+```
+
+#### PyCharm General 标签页
+```
+Host: localhost      ← 必须是 localhost（通过隧道转发）
+Port: 5432
+User: dance
+Password: dance_dev_pass
+Database: dance_saas
+```
+
+#### 服务器端配置
+```bash
+# 1. Docker 端口映射
+docker port dance-postgres
+# 5432/tcp -> 0.0.0.0:5432
+
+# 2. pg_hba.conf 配置
+docker exec dance-postgres cat /var/lib/postgresql/data/pg_hba.conf | grep -v "^#"
+# local   all   all   trust
+# host    all   all   127.0.0.1/32   trust
+# host    all   all   172.19.0.1/32  trust  ← 添加的 Docker 网关 IP
+```
+
+---
+
+### 排查思路总结
+
+```
+问题排查流程:
+
+1. SSH 隧道测试
+   ↓ 失败 → 检查密钥路径、SSH 服务、防火墙
+   ↓ 成功 ✅
+
+2. 数据库连接测试
+   ↓ Connection refused → 检查 Docker 端口映射
+   ↓ password authentication failed → 检查 pg_hba.conf 认证规则
+   ↓ no pg_hba.conf entry for host → 检查来源 IP 是否在允许列表
+   ↓ 成功 ✅
+```
+
+### 核心知识点
+
+| 问题 | 核心原因 | 解决方案 | 面试考点 |
+|------|---------|---------|---------|
+| SSH 连接失败 | 密钥路径错误 | `ls -la ~/.ssh/` 查找正确密钥 | SSH 密钥类型、权限要求 |
+| 数据库连接拒绝 | Docker 端口未映射 | `docker run -p 5432:5432` | 端口映射原理、数据卷 |
+| 密码认证失败 | pg_hba.conf 规则冲突 | 注释掉 `scram-sha-256` 规则 | 认证方法、匹配顺序 |
+| 来源 IP 拒绝 | Docker 网关 IP 未允许 | 添加 `172.19.0.1/32` 到 pg_hba.conf | Docker 网络、CIDR |
+
+### 安全最佳实践
+
+**开发环境**（当前）：
+- SSH 隧道 + pg_hba.conf `trust`（方便调试）
+- 端口映射到 `0.0.0.0`（本地访问）
+
+**生产环境**（推荐）：
+- 不开放数据库端口到公网
+- 使用 SSH 隧道或堡垒机访问
+- pg_hba.conf 配置 IP 白名单 + `scram-sha-256` 认证
+- 定期轮换密码
+- 配置数据库审计日志
+
+---
+
 ### 十二、可主动展示的项目亮点（简历 & 面试话术）
 
 面试时可主动讲这些"我踩过、我理解、我解决了"的点：
@@ -641,5 +872,172 @@ interval: 5s
 | 20 | 分阶段上线（备案前 IP 阶段 A → 备案后域名阶段 B）| 项目管理 / 关键路径 |
 
 **建议做法**：每个 story 用 STAR 框架（Situation-Task-Action-Result）写成 200 字的段落，面试前熟练背诵 3-5 个即可覆盖后端 / 前端 / DevOps 三个方向的问答。
+
+---
+
+## 十 🎤 CI/CD 部署成功但浏览器端数据不是最新
+
+### 现象
+
+CI/CD 成功执行完成，服务器上的代码和构建产物都是最新的，但用户通过浏览器访问时，看到的仍然是旧版本界面或旧数据。
+
+### 根因分析
+
+这个问题涉及三层缓存，任何一层未正确处理都会导致"部署成功但用户看不到更新"：
+
+#### 1. 浏览器 HTTP 缓存（最常见）
+
+浏览器会缓存静态资源（HTML/CSS/JS/图片），缓存策略由 Nginx 返回的响应头决定：
+
+| 响应头 | 作用 | 未设置的后果 |
+|--------|------|-------------|
+| `Cache-Control` | 控制缓存策略 | 浏览器自行决定缓存时长，可能缓存数小时 |
+| `ETag` / `Last-Modified` | 验证缓存是否过期 | 无法做条件请求，只能等缓存过期 |
+
+**默认行为**：如果 Nginx 没有配置 `Cache-Control`，浏览器可能缓存 HTML 文件数分钟到数小时，导致用户看不到最新部署。
+
+#### 2. index.html 的特殊性
+
+Vite 构建的 SPA 应用中，`index.html` 是入口文件，它引用了带哈希值的 JS/CSS 文件（如 `app.a1b2c3d4.js`）。
+
+**正确的缓存策略**：
+- `index.html` → **不缓存**（`Cache-Control: no-cache`），确保每次访问获取最新入口
+- `assets/*.js, assets/*.css` → **长期缓存**（`Cache-Control: public, max-age=31536000, immutable`），因为文件名含哈希，内容变化时文件名也会变化
+
+**问题场景**：如果 `index.html` 被缓存，浏览器不会请求新的 HTML，也就不会引用新的带哈希的 JS/CSS 文件，导致用户一直看到旧版本。
+
+#### 3. Nginx 配置缺失
+
+当前部署流程中，Nginx 配置（`deploy.yml` 第 6 步自动生成的配置）没有设置任何 `Cache-Control` 响应头：
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+这意味着所有静态资源都走默认缓存策略，浏览器可能长时间缓存 `index.html`。
+
+### 解决方案
+
+#### 方案一：Nginx 层配置缓存策略（推荐）
+
+在 Nginx 配置中区分 `index.html` 和静态资源：
+
+```nginx
+location / {
+    # index.html 不缓存（或每次验证）
+    if ($uri = /index.html) {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires "0";
+    }
+    
+    try_files $uri $uri/ /index.html;
+}
+
+# 静态资源长期缓存（文件名含哈希）
+location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+#### 方案二：Vite 构建时添加内容哈希
+
+Vite 默认已经为 `assets/` 下的文件添加内容哈希（如 `app.a1b2c3d4.js`），无需额外配置。确保 `vite.config.ts` 中没有禁用该功能：
+
+```ts
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].[hash].js',  // 默认已启用
+        chunkFileNames: 'assets/[name].[hash].js',
+        assetFileNames: 'assets/[name].[hash].[ext]',
+      },
+    },
+  },
+})
+```
+
+#### 方案三：用户侧临时解决
+
+在问题修复前，可告知用户以下方法强制刷新：
+
+| 操作 | 快捷键 | 效果 |
+|------|--------|------|
+| 硬刷新 | `Ctrl+Shift+R` (Win) / `Cmd+Shift+R` (Mac) | 忽略缓存，重新请求所有资源 |
+| 清空缓存并硬刷新 | 打开 DevTools → 右键刷新按钮 | 清除当前站点所有缓存 |
+| 无痕模式 | `Ctrl+Shift+N` / `Cmd+Shift+N` | 不使用任何缓存 |
+
+### 完整修复后的 Nginx 配置示例
+
+```nginx
+server {
+    listen 80 default_server;
+    server_name _;
+    
+    root /var/www/admin;
+    index index.html;
+    
+    # SPA history-mode routing
+    location / {
+        # index.html 不缓存
+        if ($uri = /index.html) {
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+            add_header Expires "0";
+        }
+        
+        try_files $uri $uri/ /index.html;
+    }
+    
+    # 静态资源长期缓存
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+    
+    # API 反向代理
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 面试要点
+
+| 问题 | 回答要点 |
+|------|---------|
+| **部署成功但用户看不到更新，可能是什么原因？** | 三层缓存：浏览器 HTTP 缓存（最常见）、Service Worker 缓存、CDN 缓存。优先检查 Nginx 的 `Cache-Control` 响应头 |
+| **SPA 应用的正确缓存策略是什么？** | `index.html` 不缓存（`no-cache`），带哈希的静态资源长期缓存（`max-age=31536000, immutable`） |
+| **为什么带哈希的文件名可以长期缓存？** | 内容变化时文件名也会变化（如 `app.a1b2c3d4.js` → `app.e5f6g7h8.js`），浏览器会当作新资源请求，不会命中旧缓存 |
+| **`Cache-Control: no-cache` 和 `no-store` 的区别？** | `no-cache`：可以缓存，但每次使用前必须向服务器验证；`no-store`：完全不缓存，每次都重新请求 |
+| **如何验证缓存策略是否生效？** | 浏览器 DevTools → Network 面板 → 查看响应头 `Cache-Control`；首次请求状态码 200，刷新后看 304（验证通过）或 200 (disk cache)（命中缓存） |
+| **Vite 的构建产物有什么特点？** | `index.html` 在根目录不含哈希，`assets/` 下的 JS/CSS 文件名含内容哈希（如 `app.a1b2c3d4.js`），确保内容变化时文件名也变化 |
+
+### 排查 checklist
+
+```
+□ 1. 浏览器 DevTools → Network → 查看 index.html 的响应头
+     期望：Cache-Control: no-cache 或 no-store
+     
+□ 2. 查看 JS/CSS 文件的响应头
+     期望：Cache-Control: public, max-age=31536000, immutable
+     
+□ 3. 硬刷新（Ctrl+Shift+R）后是否正常？
+     是 → 确认是缓存问题
+     
+□ 4. Nginx 配置是否包含 Cache-Control 指令？
+     否 → 需要更新 Nginx 配置并 reload
+     
+□ 5. CI/CD 流程中是否包含 Nginx 配置更新步骤？
+     否 → 建议将完整 Nginx 配置纳入版本控制，部署时自动同步
+```
 
 ---
