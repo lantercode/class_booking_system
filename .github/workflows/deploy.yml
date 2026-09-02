@@ -55,7 +55,9 @@ jobs:
 
             # 从根目录安装依赖（workspace 需要根目录执行）
             cd /opt/dance-saas
-            pnpm install --frozen-lockfile
+            
+            # 使用 --no-frozen-lockfile 避免 pnpm 版本不兼容问题
+            pnpm install --no-frozen-lockfile
 
             # 构建 admin-web
             cd apps/admin-web
