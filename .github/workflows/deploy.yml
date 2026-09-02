@@ -33,6 +33,10 @@ jobs:
             git remote set-url origin https://github.com/lantercode/class_booking_system.git
 
             # 3. 拉取最新代码（最多重试 3 次）
+            # 先重置本地改动（避免 pnpm-lock.yaml 等文件被本地修改导致 pull 失败）
+            git checkout -- .
+            git clean -fd
+
             for i in 1 2 3; do
               if git pull origin main; then
                 break

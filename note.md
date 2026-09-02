@@ -16,11 +16,9 @@
 | 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
 | 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五环境速查--pnpm-workspace--redis-连接) | 开发工具 |
 | 六 | 🔧 | [业务错误码体系](#六业务错误码体系) | 状态码设计、架构规范 |
-| 七 | 🔧 | [CI/CD 接入计划](#七cicd-接入计划) | GitHub Actions、自动化测试部署 |
+| 七 | 🎤 | [CI/CD 全流程实战 — 从接入到生产级部署](#七cicd-全流程实战--从接入到生产级部署) | GitHub Actions、浏览器缓存、pnpm、Nginx、测试策略 |
 | 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
 | 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九-生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
-| 十 | 🎤 | [CI/CD 部署成功但浏览器端数据不是最新](#十cicd-部署成功但浏览器端数据不是最新) | 浏览器缓存、Nginx Cache-Control、Vite 文件名哈希 |
-| 十一 | 🔧 | [集成测试理解与 CI 策略优化](#十一集成测试理解与-ci-策略优化) | 单元测试 vs 集成测试、CI 测试范围 |
 
 
 ---
@@ -165,24 +163,266 @@ Starlette 默认 redirect_slashes=True → 自动 307 重定向
 
 ---
 
-## 七 🔧 CI/CD 接入计划
+## 七 🎤 CI/CD 全流程实战 — 从接入到生产级部署
 
-> 当前项目没有 CI/CD，所有质量检查（lint、test、build）依赖手动执行。`package.json` 中已有 `lint`/`test`/`build` 脚本，接入 GitHub Actions 只需新增一个 workflow 文件。
+> 记录从 0 接入 GitHub Actions CI/CD 到生产环境稳定运行的完整过程。涉及 10+ 个真实踩坑问题，涵盖 lint、测试、构建、部署、缓存等全链路。
 
-### 接入步骤
+### 一、CI/CD 架构设计
 
-| Step | 内容 | 工时 |
-|------|------|------|
-| 1 | 新增 `.github/workflows/ci.yml`，每次 push/PR 自动跑 lint + test | 0.5h |
-| 2 | Python 后端接入 `ruff check` + `pytest --cov` | 0.5h |
-| 3 | 前端接入 `pnpm lint` + `pnpm typecheck` | 0.5h |
-| 4 | 新增 `.github/workflows/deploy.yml`，main 分支 push 自动部署 | 2h |
+#### 双 Workflow 设计
 
-### 面试要点
+| Workflow | 触发条件 | 运行内容 | 目的 |
+|---------|---------|---------|------|
+| **ci.yml** | push/PR | lint + typecheck + unit test | 保证代码质量 |
+| **deploy.yml** | push to main | git pull + 构建 + 部署 + 迁移 + 健康检查 | 自动上线 |
+
+#### 面试要点
 
 - **CI/CD 是什么？** CI（持续集成）= 每次提代码自动跑检查，CD（持续部署）= 检查通过后自动上线。本质是通过自动化消除人工操作的低效和失误。
 - **为什么需要 CI/CD？** 没有的话代码质量靠人肉保证（容易遗漏），上线靠手动 SSH（半夜容易搞错）。有 CI/CD 后，`git push` 一条命令完成检查+部署。
 - **GitHub Actions 的工作原理？** 在 `.github/workflows/*.yml` 中定义事件（push/PR）→ 触发 job → 在 GitHub 提供的虚拟机中依次执行 steps → 全部通过即成功，任何一步失败即终止。
+
+---
+
+### 二、真实踩坑记录（10 个问题）
+
+#### 🔴 问题 1：pnpm lockfile 版本不兼容
+
+**现象**：
+```
+[ERR_PNPM_LOCKFILE_BREAKING_CHANGE] Lockfile not compatible with current pnpm
+Run with the --force parameter to recreate the lockfile.
+```
+
+**根因**：服务器上的 pnpm 版本比生成 lockfile 的版本新，`--frozen-lockfile` 要求版本完全一致。
+
+**解决**：`CI=true pnpm install --no-frozen-lockfile`
+- `CI=true`：避免 pnpm 在非 TTY 环境下拒绝删除 modules 目录
+- `--no-frozen-lockfile`：允许 pnpm 根据当前版本重新解析依赖
+
+**面试考点**：
+- `--frozen-lockfile` 的作用（CI 环境保证依赖一致性）
+- pnpm 的 node_modules 管理策略（符号链接 + 严格依赖）
+- lockfile supply-chain policies（安全策略校验）
+
+---
+
+#### 🔴 问题 2：vue-tsc 模块找不到
+
+**现象**：
+```
+Error: Cannot find module '../index.js'
+Require stack: vue-tsc@2.0.0/bin/vue-tsc.js
+```
+
+**根因**：`vue-tsc@2.0.0` 版本过旧，与新版 pnpm（v11.5.3）不兼容。
+
+**解决**：升级 `vue-tsc` 从 `^2.0.0` 到 `^2.2.0`，并重新生成 lockfile。
+
+**面试考点**：
+- 依赖版本锁定 vs 语义化版本范围（`^2.0.0` vs `2.0.0`）
+- pnpm 的严格模式（不允许 phantom dependencies）
+- 前端构建工具链的版本兼容性
+
+---
+
+#### 🔴 问题 3：CI 运行所有测试导致频繁报错
+
+**现象**：集成测试在 CI 空数据库环境下大量失败：
+- `relation "tenants" does not exist`
+- `assert 500 == 201`
+- `asyncio event loop` 冲突
+
+**根因**：`pytest` 命令没有指定路径，运行了 ALL 测试（包括集成测试）。集成测试依赖：
+- 真实数据库 + 种子数据（租户、角色、权限）
+- 完整的应用生命周期（lifespan）
+- 稳定的 asyncio event loop
+
+**解决**：CI 只跑单元测试 `pytest tests/unit`，集成测试留给本地开发验证。
+
+**面试考点**：
+- **测试金字塔**：单元测试（70%）→ 集成测试（20%）→ E2E 测试（10%）
+- **单元测试 vs 集成测试**：单元用 Mock 验证纯逻辑，集成用真实依赖验证组件协作
+- **为什么 CI 不适合跑集成测试**：环境依赖重、运行慢、容易误报
+- **ruff check vs pytest 的区别**：ruff 检查所有 `.py` 文件的代码风格，pytest 只运行指定路径的测试
+
+---
+
+#### 🔴 问题 4：ruff lint 错误
+
+**现象**：
+```
+W292 No newline at end of file
+I001 Import block is un-sorted or un-formatted
+F401 imported but unused
+W605 Invalid escape sequence: \d
+```
+
+**根因**：手动编辑文件时遗漏末尾换行、import 排序不规范、使用了未转义的正则字符串。
+
+**解决**：`uv run ruff check . --fix` 自动修复。
+
+**面试考点**：
+- Lint 工具的作用（代码风格统一、提前发现潜在 bug）
+- Ruff 的优势（Rust 编写、比 flake8/isort 快 10-100 倍）
+- CI 中 lint 失败的常见原因
+
+---
+
+#### 🔴 问题 5：pnpm-lock.yaml 未更新
+
+**现象**：
+```
+[ERR_PNPM_OUTDATED_LOCKFILE] pnpm-lock.yaml is not up to date with package.json
+specifiers in the lockfile don't match: vue-tsc (lockfile: ^2.0.0, manifest: ^2.2.0)
+```
+
+**根因**：修改了 `package.json` 中的依赖版本，但没有重新运行 `pnpm install` 更新 lockfile。
+
+**解决**：本地运行 `pnpm install` 重新生成 lockfile 后提交。
+
+**面试考点**：
+- lockfile 的作用（锁定精确依赖版本，保证可重现构建）
+- 为什么修改依赖后必须更新 lockfile
+- CI 中 `--frozen-lockfile` 的意义（防止 lockfile 与 package.json 不同步）
+
+---
+
+#### 🔴 问题 6：Alembic 迁移未执行
+
+**现象**：测试报 `relation "tenants" does not exist`。
+
+**根因**：CI 的 PostgreSQL 服务容器是全新的，没有任何表。pytest 运行前没有执行 `alembic upgrade head`。
+
+**解决**：在 ci.yml 的 pytest 步骤前添加：
+```yaml
+- name: Run Alembic Migrations
+  run: uv run alembic upgrade head
+  env:
+    DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+```
+
+**面试考点**：
+- 数据库迁移工具的作用（Alembic / Flyway / Liquibase）
+- `alembic_version` 表（记录已应用的迁移版本，实现幂等升级）
+- 迁移文件的 `upgrade()` + `downgrade()` 双向可逆设计
+
+---
+
+#### 🔴 问题 7：部署脚本路径错误
+
+**现象**：
+```
+cp: cannot stat 'infra/nginx/nginx.conf': No such file or directory
+```
+
+**根因**：构建前端后当前目录变成了 `apps/admin-web`，但复制 nginx.conf 时用的是相对路径 `infra/nginx/nginx.conf`，实际路径变成了 `apps/admin-web/infra/nginx/nginx.conf`。
+
+**解决**：复制前先 `cd /opt/dance-saas` 回到项目根目录。
+
+**面试考点**：
+- Shell 脚本中工作目录的变化（cd 命令的影响）
+- 绝对路径 vs 相对路径的选择
+- CI/CD 脚本的调试技巧（`set -e`、`echo` 输出当前目录）
+
+---
+
+#### 🔴 问题 8：部署成功但浏览器数据不是最新
+
+**现象**：CI/CD 成功执行，服务器代码和构建产物都是最新的，但用户看到的是旧版本。
+
+**根因**：浏览器 HTTP 缓存。Nginx 没有配置 `Cache-Control` 响应头，浏览器自行决定缓存时长。
+
+**解决**：Nginx 配置区分缓存策略：
+- `index.html` → `Cache-Control: no-cache`（不缓存，确保获取最新入口）
+- `assets/*.js, *.css` → `Cache-Control: public, max-age=31536000, immutable`（长期缓存，文件名含哈希）
+
+**面试考点**：
+- **SPA 应用的正确缓存策略**：入口文件不缓存，静态资源长期缓存
+- **为什么带哈希的文件名可以长期缓存**：内容变化时文件名也变化，浏览器当作新资源
+- **`no-cache` vs `no-store`**：`no-cache` 可以缓存但需验证，`no-store` 完全不缓存
+- **Vite 构建产物特点**：`index.html` 不含哈希，`assets/` 下文件名含内容哈希
+
+---
+
+#### 🔴 问题 9：域名占位符替换
+
+**现象**：Nginx 配置中使用 `admin.yourdomain.com` 占位符，部署时需要替换为实际域名。
+
+**解决**：从 `.env.prod` 读取域名变量，用 `sed` 替换：
+```bash
+ADMIN_DOMAIN=$(grep '^ADMIN_DOMAIN=' .env.prod | cut -d'=' -f2 | tr -d '"')
+sed -i "s/admin\.yourdomain\.com/$ADMIN_DOMAIN/g" /etc/nginx/sites-available/dance-saas
+```
+
+**面试考点**：
+- 配置与代码分离（12-Factor App 的 Config 原则）
+- 敏感信息不进 Git（`.env.prod` 在 `.gitignore` 中）
+- 部署脚本中的环境变量注入
+
+---
+
+#### 🔴 问题 10：健康检查验证
+
+**现象**：部署完成后需要验证服务是否真正可用。
+
+**解决**：
+```bash
+for i in $(seq 1 6); do
+  if curl -sf http://127.0.0.1:8000/api/v1/common/health > /dev/null 2>&1; then
+    echo "✅ Health check passed"
+    break
+  fi
+  sleep 5
+done
+```
+
+**面试考点**：
+- **Liveness vs Readiness Probe**：进程活着 ≠ 服务就绪
+- **HTTP 200 ≠ 服务就绪**：可能只是进程启动但数据库连不上
+- **优雅关闭**（graceful shutdown）：SIGTERM → 停止接新请求 → 处理完在途请求 → 退出
+
+---
+
+### 三、完整 CI/CD 流程
+
+```
+git push → GitHub Actions 触发
+    │
+    ├─ ci.yml（每次 push/PR）
+    │   ├─ Checkout 代码
+    │   ├─ Setup Python + uv
+    │   ├─ Install dependencies
+    │   ├─ Ruff lint check
+    │   ├─ Mypy type check
+    │   ├─ Alembic migration（创建表）
+    │   └─ Pytest unit tests ← 只跑单元测试
+    │
+    └─ deploy.yml（push to main）
+        ├─ SSH 到 ECS
+        ├─ git pull 最新代码
+        ├─ pnpm install + build（前端）
+        ├─ 复制 nginx.conf + 替换域名
+        ├─ nginx -t && reload
+        ├─ Docker build + up（后端 API）
+        ├─ Alembic migration（数据库迁移）
+        ├─ Health check（验证服务可用）
+        └─ Docker image tag（版本追溯）
+```
+
+---
+
+### 四、面试话术模板
+
+**"讲一个你搭建 CI/CD 的经历"**
+
+> 我的舞蹈教室 SaaS 项目最初没有 CI/CD，每次上线都要手动 SSH 到服务器拉代码、装依赖、构建、重启。后来我接入了 GitHub Actions，实现了 `git push` 自动检查+部署。
+>
+> **CI 阶段**：每次 push/PR 自动跑 ruff lint、mypy 类型检查、pytest 单元测试。一开始我把集成测试也放进 CI，结果因为 CI 环境是空数据库，缺少种子数据，大量测试失败。后来我改成 CI 只跑单元测试，集成测试留给本地验证，CI 时间从 5 分钟降到 1 分钟。
+>
+> **CD 阶段**：push 到 main 分支后，通过 SSH 到阿里云 ECS，自动拉代码、构建前端、配置 Nginx、重建 Docker 镜像、执行数据库迁移、健康检查。期间踩了 10+ 个坑：pnpm lockfile 版本不兼容、vue-tsc 模块找不到、部署脚本路径错误、浏览器缓存导致看不到更新等。
+>
+> **收获**：理解了测试金字塔、lockfile 的作用、SPA 缓存策略、Shell 脚本工作目录变化等核心概念。现在一次 `git push` 就能完成从代码检查到生产部署的全流程。
 
 ---
 
@@ -873,283 +1113,5 @@ docker exec dance-postgres cat /var/lib/postgresql/data/pg_hba.conf | grep -v "^
 | 20 | 分阶段上线（备案前 IP 阶段 A → 备案后域名阶段 B）| 项目管理 / 关键路径 |
 
 **建议做法**：每个 story 用 STAR 框架（Situation-Task-Action-Result）写成 200 字的段落，面试前熟练背诵 3-5 个即可覆盖后端 / 前端 / DevOps 三个方向的问答。
-
----
-
-## 十 🎤 CI/CD 部署成功但浏览器端数据不是最新
-
-### 现象
-
-CI/CD 成功执行完成，服务器上的代码和构建产物都是最新的，但用户通过浏览器访问时，看到的仍然是旧版本界面或旧数据。
-
-### 根因分析
-
-这个问题涉及三层缓存，任何一层未正确处理都会导致"部署成功但用户看不到更新"：
-
-#### 1. 浏览器 HTTP 缓存（最常见）
-
-浏览器会缓存静态资源（HTML/CSS/JS/图片），缓存策略由 Nginx 返回的响应头决定：
-
-| 响应头 | 作用 | 未设置的后果 |
-|--------|------|-------------|
-| `Cache-Control` | 控制缓存策略 | 浏览器自行决定缓存时长，可能缓存数小时 |
-| `ETag` / `Last-Modified` | 验证缓存是否过期 | 无法做条件请求，只能等缓存过期 |
-
-**默认行为**：如果 Nginx 没有配置 `Cache-Control`，浏览器可能缓存 HTML 文件数分钟到数小时，导致用户看不到最新部署。
-
-#### 2. index.html 的特殊性
-
-Vite 构建的 SPA 应用中，`index.html` 是入口文件，它引用了带哈希值的 JS/CSS 文件（如 `app.a1b2c3d4.js`）。
-
-**正确的缓存策略**：
-- `index.html` → **不缓存**（`Cache-Control: no-cache`），确保每次访问获取最新入口
-- `assets/*.js, assets/*.css` → **长期缓存**（`Cache-Control: public, max-age=31536000, immutable`），因为文件名含哈希，内容变化时文件名也会变化
-
-**问题场景**：如果 `index.html` 被缓存，浏览器不会请求新的 HTML，也就不会引用新的带哈希的 JS/CSS 文件，导致用户一直看到旧版本。
-
-#### 3. Nginx 配置缺失
-
-当前部署流程中，Nginx 配置（`deploy.yml` 第 6 步自动生成的配置）没有设置任何 `Cache-Control` 响应头：
-
-```nginx
-location / {
-    try_files $uri $uri/ /index.html;
-}
-```
-
-这意味着所有静态资源都走默认缓存策略，浏览器可能长时间缓存 `index.html`。
-
-### 解决方案
-
-#### 方案一：Nginx 层配置缓存策略（推荐）
-
-在 Nginx 配置中区分 `index.html` 和静态资源：
-
-```nginx
-location / {
-    # index.html 不缓存（或每次验证）
-    if ($uri = /index.html) {
-        add_header Cache-Control "no-cache, no-store, must-revalidate";
-        add_header Pragma "no-cache";
-        add_header Expires "0";
-    }
-    
-    try_files $uri $uri/ /index.html;
-}
-
-# 静态资源长期缓存（文件名含哈希）
-location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-    expires 1y;
-    add_header Cache-Control "public, immutable";
-}
-```
-
-#### 方案二：Vite 构建时添加内容哈希
-
-Vite 默认已经为 `assets/` 下的文件添加内容哈希（如 `app.a1b2c3d4.js`），无需额外配置。确保 `vite.config.ts` 中没有禁用该功能：
-
-```ts
-export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        entryFileNames: 'assets/[name].[hash].js',  // 默认已启用
-        chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]',
-      },
-    },
-  },
-})
-```
-
-#### 方案三：用户侧临时解决
-
-在问题修复前，可告知用户以下方法强制刷新：
-
-| 操作 | 快捷键 | 效果 |
-|------|--------|------|
-| 硬刷新 | `Ctrl+Shift+R` (Win) / `Cmd+Shift+R` (Mac) | 忽略缓存，重新请求所有资源 |
-| 清空缓存并硬刷新 | 打开 DevTools → 右键刷新按钮 | 清除当前站点所有缓存 |
-| 无痕模式 | `Ctrl+Shift+N` / `Cmd+Shift+N` | 不使用任何缓存 |
-
-### 完整修复后的 Nginx 配置示例
-
-```nginx
-server {
-    listen 80 default_server;
-    server_name _;
-    
-    root /var/www/admin;
-    index index.html;
-    
-    # SPA history-mode routing
-    location / {
-        # index.html 不缓存
-        if ($uri = /index.html) {
-            add_header Cache-Control "no-cache, no-store, must-revalidate";
-            add_header Pragma "no-cache";
-            add_header Expires "0";
-        }
-        
-        try_files $uri $uri/ /index.html;
-    }
-    
-    # 静态资源长期缓存
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-    
-    # API 反向代理
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-### 面试要点
-
-| 问题 | 回答要点 |
-|------|---------|
-| **部署成功但用户看不到更新，可能是什么原因？** | 三层缓存：浏览器 HTTP 缓存（最常见）、Service Worker 缓存、CDN 缓存。优先检查 Nginx 的 `Cache-Control` 响应头 |
-| **SPA 应用的正确缓存策略是什么？** | `index.html` 不缓存（`no-cache`），带哈希的静态资源长期缓存（`max-age=31536000, immutable`） |
-| **为什么带哈希的文件名可以长期缓存？** | 内容变化时文件名也会变化（如 `app.a1b2c3d4.js` → `app.e5f6g7h8.js`），浏览器会当作新资源请求，不会命中旧缓存 |
-| **`Cache-Control: no-cache` 和 `no-store` 的区别？** | `no-cache`：可以缓存，但每次使用前必须向服务器验证；`no-store`：完全不缓存，每次都重新请求 |
-| **如何验证缓存策略是否生效？** | 浏览器 DevTools → Network 面板 → 查看响应头 `Cache-Control`；首次请求状态码 200，刷新后看 304（验证通过）或 200 (disk cache)（命中缓存） |
-| **Vite 的构建产物有什么特点？** | `index.html` 在根目录不含哈希，`assets/` 下的 JS/CSS 文件名含内容哈希（如 `app.a1b2c3d4.js`），确保内容变化时文件名也变化 |
-
-### 排查 checklist
-
-```
-□ 1. 浏览器 DevTools → Network → 查看 index.html 的响应头
-     期望：Cache-Control: no-cache 或 no-store
-     
-□ 2. 查看 JS/CSS 文件的响应头
-     期望：Cache-Control: public, max-age=31536000, immutable
-     
-□ 3. 硬刷新（Ctrl+Shift+R）后是否正常？
-     是 → 确认是缓存问题
-     
-□ 4. Nginx 配置是否包含 Cache-Control 指令？
-     否 → 需要更新 Nginx 配置并 reload
-     
-□ 5. CI/CD 流程中是否包含 Nginx 配置更新步骤？
-     否 → 建议将完整 Nginx 配置纳入版本控制，部署时自动同步
-```
-
----
-
-## 十一 🔧 集成测试理解与 CI 策略优化
-
-### 什么是集成测试？
-
-集成测试（Integration Test）验证**多个组件协同工作时是否正确**。它不是测试单个函数/类的逻辑（那是单元测试），而是测试组件之间的**接口、数据流、依赖关系**是否正确。
-
-#### 测试金字塔
-
-```
-        /\
-       /  \      E2E 测试（端到端）
-      /----\     模拟真实用户操作浏览器
-     /      \    
-    /--------\   集成测试（多组件协作）
-   /          \  验证 API + DB + Redis 等组件交互
-  /------------\ 
- /              \ 单元测试（单个函数/类）
-/________________\ 验证纯逻辑，用 Mock 替代外部依赖
-```
-
-| 测试类型 | 测试对象 | 外部依赖 | 运行速度 | 数量占比 |
-|---------|---------|---------|---------|---------|
-| **单元测试** | 单个函数/类 | 全部 Mock | 极快（毫秒） | 70% |
-| **集成测试** | 多组件协作 | 真实 DB/Redis | 中等（秒） | 20% |
-| **E2E 测试** | 完整用户流程 | 全部真实 | 慢（分钟） | 10% |
-
-### 集成测试 vs 单元测试
-
-| 维度 | 单元测试 | 集成测试 |
-|------|---------|---------|
-| **目标** | 验证单个函数逻辑正确 | 验证多个组件协作正确 |
-| **数据库** | Mock / 内存数据库 | 真实 PostgreSQL |
-| **Redis** | FakeRedis / Mock | 真实 Redis |
-| **网络请求** | Mock HTTP 响应 | 真实 HTTP 请求 |
-| **运行速度** | 毫秒级 | 秒级 |
-| **脆弱性** | 低（不依赖外部） | 高（依赖环境状态） |
-| **典型场景** | 排序算法、数据转换 | API 注册→登录→鉴权流程 |
-
-### 什么时候推荐运行集成测试？
-
-| 场景 | 是否推荐 | 原因 |
-|------|---------|------|
-| **CI 每次 push/PR** | ❌ 不推荐 | 运行慢、依赖环境状态、容易误报 |
-| **本地开发完成后** | ✅ 推荐 | 验证完整流程，确保组件协作正确 |
-| **发布前回归测试** | ✅ 推荐 | 确保新版本没有破坏已有功能 |
-| **数据库迁移后** | ✅ 推荐 | 验证迁移没有破坏数据访问层 |
-| **生产环境冒烟测试** | ✅ 推荐 | 部署后验证核心功能可用 |
-
-### 当前项目的问题
-
-**CI 配置**（[ci.yml:L64](file:///Users/lixiang/Desktop/class_booking_system/.github/workflows/ci.yml#L64)）：
-```yaml
-- name: Test (Pytest)
-  run: uv run pytest --tb=short -q  # 运行 ALL 测试
-```
-
-这会导致：
-1. **集成测试在空数据库环境运行** → 缺少种子数据（租户、角色、权限）
-2. **测试依赖真实数据库状态** → 表结构、数据顺序敏感
-3. **asyncio event loop 冲突** → module scope fixture 与 CI 环境不兼容
-4. **运行时间长** → 每次 CI 要等集成测试完成
-
-### 优化方案
-
-#### 方案 A：CI 只跑单元测试（推荐）
-
-```yaml
-# ci.yml
-- name: Test (Unit Only)
-  run: uv run pytest tests/unit --tb=short -q
-```
-
-**优点**：快速、稳定、不依赖环境
-**缺点**：集成问题可能漏到生产
-
-#### 方案 B：集成测试标记为可选
-
-```python
-# 集成测试文件顶部
-pytestmark = pytest.mark.integration
-
-# ci.yml 中跳过标记
-- name: Test (Exclude Integration)
-  run: uv run pytest -m "not integration" --tb=short -q
-```
-
-**优点**：灵活控制，本地可手动跑集成测试
-**缺点**：需要给所有集成测试加标记
-
-#### 方案 C：CI 中初始化完整测试环境
-
-在 CI 的 `pytest` 前添加：
-```yaml
-- name: Seed Test Database
-  run: uv run python -m app.scripts.seed_test_data
-```
-
-**优点**：集成测试能正常运行
-**缺点**：CI 时间变长（多 1-2 分钟），维护成本高
-
-### 面试要点
-
-| 问题 | 回答要点 |
-|------|---------|
-| **单元测试和集成测试的区别？** | 单元测试验证单个函数逻辑（用 Mock），集成测试验证多组件协作（用真实依赖） |
-| **为什么 CI 不适合跑集成测试？** | 集成测试依赖环境状态（种子数据、数据库版本），CI 环境是全新的，容易误报且运行慢 |
-| **测试金字塔是什么？** | 单元测试（70%）→ 集成测试（20%）→ E2E 测试（10%），越底层越快越稳定 |
-| **你的项目测试策略是什么？** | CI 只跑单元测试保证代码质量，集成测试本地开发时验证，部署后手动冒烟测试核心功能 |
 
 ---
