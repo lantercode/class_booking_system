@@ -55,6 +55,11 @@ jobs:
         run: uv run mypy src
         continue-on-error: true
 
+      - name: Run Alembic Migrations
+        run: uv run alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
+
       - name: Test (Pytest)
         run: uv run pytest --tb=short -q
         env:
