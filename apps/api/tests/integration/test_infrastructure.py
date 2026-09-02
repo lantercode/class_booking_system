@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.base_repository import BaseRepository, TenantAwareRepository
+from app.core.base_repository import TenantAwareRepository
 from app.core.oss import LocalStorageService
 from app.middleware.rate_limiter import RateLimiter
 

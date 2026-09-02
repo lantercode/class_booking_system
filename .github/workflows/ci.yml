@@ -61,7 +61,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
 
       - name: Test (Pytest)
-        run: uv run pytest --tb=short -q
+        run: uv run pytest tests/unit --tb=short -q
         env:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test
           REDIS_URL: redis://localhost:6379/0

@@ -28,7 +28,7 @@ settings = get_settings()
 
 
 def generate_unique_phone() -> str:
-    """生成唯一的手机号用于测试（符合 ^1[3-9]\d{9}$ 格式，11位）"""
+    r"""生成唯一的手机号用于测试（符合 ^1[3-9]\d{9}$ 格式，11位）"""
     timestamp = int(time.time() * 1000) % 10000  # 4位时间戳
     random_num = random.randint(1000, 9999)  # 4位随机数
     # 138(3位) + timestamp(4位) + random(4位) = 11位
