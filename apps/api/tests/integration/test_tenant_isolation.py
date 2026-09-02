@@ -33,15 +33,28 @@ def register_tenant_query_event():
     注册多租户查询自动注入事件（只需执行一次）
 
     重要：测试环境绕过了FastAPI lifespan，需要手动注册事件
+    注意：需要同时注册到 AsyncSession 的 sync fallback
     """
+    from sqlalchemy.orm import Session
+    from app.core.database import SessionLocal as AsyncSessionLocal
+
+    # 注册到 sync Session（tenant_query.py 默认行为）
     setup_tenant_query_injection()
+
+    # 也注册到 AsyncSession 的 underlying sync session
+    from sqlalchemy import event
+    from app.core.tenant_query import _add_tenant_filter_to_orm_query
+    event.listen(Session, "do_orm_execute", _add_tenant_filter_to_orm_query)
+
     yield
 
+
 @pytest.fixture
-async def db_session(register_tenant_query_event):  # ← 改为 function scope
-    """创建数据库会话（依赖事件注册）"""
+async def db_session(register_tenant_query_event):
+    """创建数据库会话（每个测试独立）"""
     async with SessionLocal() as session:
         yield session
+        await session.rollback()
 
 
 @pytest.mark.asyncio

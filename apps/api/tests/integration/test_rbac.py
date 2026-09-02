@@ -333,13 +333,18 @@ class TestRBACDecorator:
 
         db_session.execute.side_effect = mock_execute
 
-        # 创建装饰器实例
+        # 创建装饰器实例并包装一个 dummy 函数
         perm_checker = require_permissions("user:create")
 
-        # 执行依赖函数（模拟 FastAPI 的调用）
+        async def dummy_handler(current_user, db, redis_client):
+            return {"status": "ok"}
+
+        wrapped = perm_checker(dummy_handler)
+
+        # 执行包装后的函数
         try:
-            result = await perm_checker(current_user=current_user, db=db_session, redis_client=mock_redis)
-            assert result is None, "权限通过时应返回 None"
+            result = await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
+            assert result == {"status": "ok"}, "权限通过时应返回原函数结果"
             print("✅ 权限装饰器：有权限时通过")
         except PermissionException:
             pytest.fail("不应该抛出 PermissionException")
@@ -374,9 +379,14 @@ class TestRBACDecorator:
 
         perm_checker = require_permissions("user:delete")
 
+        async def dummy_handler(current_user, db, redis_client):
+            return {"status": "ok"}
+
+        wrapped = perm_checker(dummy_handler)
+
         # 应该抛出 PermissionException
         with pytest.raises(PermissionException) as exc_info:
-            await perm_checker(current_user=current_user, db=db_session, redis_client=mock_redis)
+            await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
 
         assert "权限不足" in str(exc_info.value.msg)
         print(f"✅ 权限装饰器：无权限时拒绝 ({exc_info.value.msg})")
@@ -401,9 +411,14 @@ class TestRBACDecorator:
 
         role_checker = require_roles("admin", "teacher")
 
+        async def dummy_handler(current_user, db, redis_client):
+            return {"status": "ok"}
+
+        wrapped = role_checker(dummy_handler)
+
         try:
-            result = await role_checker(current_user=current_user, db=db_session, redis_client=mock_redis)
-            assert result is None
+            result = await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
+            assert result == {"status": "ok"}
             print("✅ 角色装饰器：有角色时通过")
         except PermissionException:
             pytest.fail("不应该抛出 PermissionException")
@@ -428,8 +443,13 @@ class TestRBACDecorator:
 
         role_checker = require_roles("admin", "manager")
 
+        async def dummy_handler(current_user, db, redis_client):
+            return {"status": "ok"}
+
+        wrapped = role_checker(dummy_handler)
+
         with pytest.raises(PermissionException) as exc_info:
-            await role_checker(current_user=current_user, db=db_session, redis_client=mock_redis)
+            await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
 
         assert "权限不足" in str(exc_info.value.msg)
         print(f"✅ 角色装饰器：无角色时拒绝 ({exc_info.value.msg})")
