@@ -69,6 +69,7 @@ jobs:
 
             # 6. 配置 Nginx（使用项目中的标准配置，每次部署都更新）
             # 复制项目中的 nginx.conf 到服务器
+            cd /opt/dance-saas
             cp infra/nginx/nginx.conf /etc/nginx/sites-available/dance-saas
 
             # 替换域名占位符为实际域名（从 .env.prod 读取）
