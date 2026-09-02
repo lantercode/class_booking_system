@@ -19,93 +19,137 @@ jobs:
           script: |
             set -e
             cd /opt/dance-saas
-            
+
+            # 记录当前 Commit SHA（用于追溯生产环境版本）
+            COMMIT_SHA=$(git rev-parse --short HEAD)
+            echo "📦 Deploying commit: $COMMIT_SHA"
+
             # 1. 配置 Git（避免 HTTP/2 网络问题）
             git config --global http.version HTTP/1.1
             git config --global http.postBuffer 524288000
             git config --global core.compression -1
-            
+
             # 2. 确保使用 HTTPS 协议
             git remote set-url origin https://github.com/lantercode/class_booking_system.git
-            
+
             # 3. 拉取最新代码（最多重试 3 次）
             for i in 1 2 3; do
               if git pull origin main; then
                 break
               fi
-              echo "️  Pull failed, retrying ($i/3)..."
+              echo "⚠️ Pull failed, retrying ($i/3)..."
               sleep 5
             done
-            
+
             # 4. 创建 .env.prod 如果不存在（从环境变量或默认值）
             if [ ! -f .env.prod ]; then
-              echo "⚠️  .env.prod not found, creating from template..."
+              echo "⚠️ .env.prod not found, creating from template..."
               cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
             fi
-            
-            # 5. 构建前端（pnpm workspace 项目，不能用 npm）
+
+            # 5. 构建前端（pnpm workspace 项目）
             echo "🔨 Building frontend..."
-            
-            # 安装 pnpm（如果未安装）
-            if ! command -v pnpm &> /dev/null; then
-              echo "Installing pnpm..."
-              npm install -g pnpm
-            fi
-            
+
+            # 清理旧文件（避免残留旧 JS/CSS）
+            rm -rf /var/www/admin/*
+
             # 从根目录安装依赖（workspace 需要根目录执行）
             cd /opt/dance-saas
             pnpm install --frozen-lockfile
-            
+
             # 构建 admin-web
             cd apps/admin-web
             pnpm run build
             mkdir -p /var/www/admin
             cp -r dist/* /var/www/admin/
             echo "✅ Frontend built and deployed"
-            
-            # 6. 配置 Nginx（带缓存控制策略）
-            NGINX_CONF='server {
-    listen 80 default_server;
-    server_name _;
-    root /var/www/admin;
-    index index.html;
 
-    location / {
-        # index.html 不缓存，确保用户始终获取最新版本
-        if ($uri = /index.html) {
-            add_header Cache-Control "no-cache, no-store, must-revalidate";
-            add_header Pragma "no-cache";
-            add_header Expires "0";
-        }
-        try_files $uri $uri/ /index.html;
-    }
+            # 6. 配置 Nginx（使用项目中的标准配置，每次部署都更新）
+            # 复制项目中的 nginx.conf 到服务器
+            cp infra/nginx/nginx.conf /etc/nginx/sites-available/dance-saas
 
-    # 静态资源长期缓存（文件名含哈希）
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
+            # 替换域名占位符为实际域名（从 .env.prod 读取）
+            if [ -f .env.prod ]; then
+              ADMIN_DOMAIN=$(grep '^ADMIN_DOMAIN=' .env.prod | cut -d'=' -f2 | tr -d '"' || echo "admin.yourdomain.com")
+              API_DOMAIN=$(grep '^API_DOMAIN=' .env.prod | cut -d'=' -f2 | tr -d '"' || echo "api.yourdomain.com")
+              
+              # 替换 server_name 和 SSL 证书路径中的所有域名占位符
+              sed -i "s/admin\.yourdomain\.com/$ADMIN_DOMAIN/g" /etc/nginx/sites-available/dance-saas
+              sed -i "s/api\.yourdomain\.com/$API_DOMAIN/g" /etc/nginx/sites-available/dance-saas
+            fi
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}'
-            echo "$NGINX_CONF" > /etc/nginx/sites-available/dance-saas-ip.conf
-            ln -sf /etc/nginx/sites-available/dance-saas-ip.conf /etc/nginx/sites-enabled/
+            ln -sf /etc/nginx/sites-available/dance-saas /etc/nginx/sites-enabled/
             nginx -t && systemctl reload nginx
-            echo "✅ Nginx configured with cache-control headers"
-            
-            # 7. 重新构建并启动容器
+            echo "✅ Nginx configured"
+
+            # 7. 执行数据库迁移（Alembic）
+            echo "🗄️ Running database migrations..."
             cd /opt/dance-saas
+
+            # 先构建新镜像（确保新代码在镜像中）
             docker compose -f infra/docker/docker-compose.prod.yml \
               --env-file .env.prod \
-              up -d --build
-            
-            # 8. 清理无用镜像
+              build api
+
+            # 启动新容器（不重建，使用刚构建的镜像）
+            docker compose -f infra/docker/docker-compose.prod.yml \
+              --env-file .env.prod \
+              up -d api
+
+            # 等待容器启动（最多 30 秒）
+            for i in $(seq 1 6); do
+              if docker exec dance-api uv run alembic current 2>/dev/null; then
+                break
+              fi
+              echo "⏳ Waiting for api container... ($i/6)"
+              sleep 5
+            done
+
+            # 执行迁移（在新容器中，使用新代码的 Migration 文件）
+            docker exec dance-api uv run alembic upgrade head
+            echo "✅ Database migrated"
+
+            # 8. 健康检查（验证部署是否成功）
+            echo "🏥 Running health checks..."
+
+            # 等待 API 就绪（最多 30 秒）
+            for i in $(seq 1 6); do
+              if curl -sf http://127.0.0.1:8000/api/v1/common/health > /dev/null 2>&1; then
+                echo "✅ Health check passed"
+                break
+              fi
+              echo "⏳ Waiting for API... ($i/6)"
+              sleep 5
+            done
+
+            # 最终验证
+            HEALTH_RESPONSE=$(curl -sf http://127.0.0.1:8000/api/v1/common/health 2>&1 || echo "FAILED")
+            if [ "$HEALTH_RESPONSE" = "FAILED" ]; then
+              echo "❌ Health check failed after 30 seconds"
+              echo "📋 Recent logs:"
+              docker logs dance-api --tail 30
+              exit 1
+            fi
+
+            echo "✅ Health check response: $HEALTH_RESPONSE"
+
+            # 9. 给新镜像打上 Commit SHA 标签（用于追溯）
+            # Docker Compose 构建的镜像名格式为：<项目目录>-<服务名>
+            API_IMAGE=$(docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod config | grep -A1 'api:' | grep 'image:' | awk '{print $2}' || echo "")
+            if [ -z "$API_IMAGE" ]; then
+              # 如果没有显式指定 image，使用默认命名规则
+              API_IMAGE="docker-dance-saas-api"
+            fi
+            docker tag "$API_IMAGE" "$API_IMAGE:$COMMIT_SHA"
+            echo "✅ Image tagged: $API_IMAGE:$COMMIT_SHA"
+
+            # 10. 清理无用镜像
             docker image prune -f
-            
+
+            # 输出部署信息
+            echo ""
+            echo "========================================="
             echo "✅ Deploy succeeded"
+            echo "📦 Commit: $COMMIT_SHA"
+            echo "🏷️  Image: dance-saas-api:$COMMIT_SHA"
+            echo "========================================="
