@@ -35,9 +35,10 @@ def register_tenant_query_event():
     重要：测试环境绕过了FastAPI lifespan，需要手动注册事件
     注意：需要同时注册到 AsyncSession 的 sync fallback
     """
-    from app.core.tenant_query import _add_tenant_filter_to_orm_query
     from sqlalchemy import event
     from sqlalchemy.orm import Session
+
+    from app.core.tenant_query import _add_tenant_filter_to_orm_query
 
     # 注册到 sync Session（tenant_query.py 默认行为）
     setup_tenant_query_injection()
