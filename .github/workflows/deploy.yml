@@ -57,7 +57,8 @@ jobs:
             cd /opt/dance-saas
             
             # 使用 --no-frozen-lockfile 避免 pnpm 版本不兼容问题
-            pnpm install --no-frozen-lockfile
+            # 设置 CI=true 避免 pnpm 在非 TTY 环境下拒绝删除 modules 目录
+            CI=true pnpm install --no-frozen-lockfile
 
             # 构建 admin-web
             cd apps/admin-web
