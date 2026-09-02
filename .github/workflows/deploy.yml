@@ -134,14 +134,16 @@ jobs:
             echo "✅ Health check response: $HEALTH_RESPONSE"
 
             # 9. 给新镜像打上 Commit SHA 标签（用于追溯）
-            # Docker Compose 构建的镜像名格式为：<项目目录>-<服务名>
-            API_IMAGE=$(docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod config | grep -A1 'api:' | grep 'image:' | awk '{print $2}' || echo "")
-            if [ -z "$API_IMAGE" ]; then
-              # 如果没有显式指定 image，使用默认命名规则
-              API_IMAGE="docker-dance-saas-api"
+            # Docker Compose 构建的镜像名格式为：<目录名>-<服务名>
+            # 由于 compose 文件在 infra/docker/ 目录下，构建上下文是 ../../apps/api
+            # 实际镜像名为: docker-dance-saas-api (docker-compose 的默认命名规则)
+            API_IMAGE="docker-dance-saas-api"
+            if docker image inspect "$API_IMAGE" > /dev/null 2>&1; then
+              docker tag "$API_IMAGE" "$API_IMAGE:$COMMIT_SHA"
+              echo "✅ Image tagged: $API_IMAGE:$COMMIT_SHA"
+            else
+              echo "⚠️ Image $API_IMAGE not found, skipping tag"
             fi
-            docker tag "$API_IMAGE" "$API_IMAGE:$COMMIT_SHA"
-            echo "✅ Image tagged: $API_IMAGE:$COMMIT_SHA"
 
             # 10. 清理无用镜像
             docker image prune -f
