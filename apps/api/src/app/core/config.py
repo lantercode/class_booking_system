@@ -4,12 +4,18 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
+"""
+    Path(__file__)  表示当前文件的路径（相对或绝对）
+    .parents 是一个祖目录序列，parents[0] 是直接父目录，parents[1] 是父的父目录，依次类推。
+    当前parents[5]指向项目根目录class_booking_system
+    路径: config.py → core → app → src → api → apps → class_booking_system(根)
+"""
+PROJECT_ROOT = Path(__file__).resolve().parents[5]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(PROJECT_ROOT / ".env"),
+        env_file=str(PROJECT_ROOT / ".env"), # 加载 /class_booking_system/.env
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,

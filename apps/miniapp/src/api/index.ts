@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://106.14.206.226/api/v1'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.seplume.com/api/v1'
 
 console.log('API Base URL:', BASE_URL)
 
@@ -111,13 +111,19 @@ async function request<T>(
     tenantSlug = data.tenant_slug
   }
 
+  // 🆕 防御性措施：如果仍然没有 tenant_slug，使用默认值（防止 40001 错误）
+  if (!tenantSlug) {
+    tenantSlug = 'dance-school'
+    console.warn('⚠️ [API] 未找到 tenant_slug，使用默认值: dance-school')
+  }
+
   const defaultHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(tenantSlug && { 'x-tenant-slug': tenantSlug })
   }
 
-  const isLoginRequest = url.includes('/auth/login') || url.includes('/auth/wechat-login') || url.includes('/auth/wechat-auto-login') || url.includes('/auth/register') || url.includes('/auth/refresh-token')
+  const isLoginRequest = url.includes('/auth/login') || url.includes('/auth/wechat-login') || url.includes('/auth/wechat-auto-login') || url.includes('/auth/register') || url.includes('/auth/refresh-token') || url.includes('/auth/logout') || url.includes('/auth/wechat-unbind')
 
   if (isLoginRequest) {
     hasLoggedOut = false
@@ -227,6 +233,15 @@ export function resetAuthState() {
   isHandling401 = false
 }
 
+export function clearAuthData() {
+  uni.removeStorageSync('token')
+  uni.removeStorageSync('refresh_token')
+  uni.removeStorageSync('user_info')
+  uni.removeStorageSync('user_role')
+  hasLoggedOut = true
+  isHandling401 = false
+}
+
 export const authApi = {
   login(data: { phone: string; password: string; tenant_slug: string }) {
     return request('/auth/login', 'POST', data, undefined, false)
@@ -275,6 +290,10 @@ export const authApi = {
     tenant_slug?: string 
   }) {
     return request('/auth/bind-account', 'POST', data, undefined, false)
+  },
+
+  wechatUnbind() {
+    return request('/auth/wechat-unbind', 'POST')
   }
 }
 

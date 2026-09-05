@@ -50,7 +50,7 @@ export const bookingApi = {
   },
 
   create(data: BookingCreateParams) {
-    return apiClient.post<Booking>('/bookings', data)
+    return apiClient.post<Booking>('/bookings/', data)
   },
 
   cancel(scheduleId: number, data?: { reason?: string }) {

@@ -66,7 +66,7 @@ export const courseApi = {
   },
 
   create(data: CourseCreateParams) {
-    return apiClient.post<Course>('/courses', data)
+    return apiClient.post<Course>('/courses/', data)
   },
 
   update(id: number, data: CourseUpdateParams) {

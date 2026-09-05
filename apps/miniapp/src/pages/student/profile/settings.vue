@@ -9,6 +9,11 @@
     </view> -->
 
     <view class="menu-list">
+      <view class="menu-item" @tap="handleUnbindWechat">
+        <view class="menu-icon">🔗</view>
+        <text class="menu-text">解绑微信</text>
+        <text class="menu-arrow">→</text>
+      </view>
       <view class="menu-item">
         <view class="menu-icon">🔔</view>
         <text class="menu-text">消息通知</text>
@@ -31,6 +36,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { navigateTo } from '@/utils/navigation'
+import { wechatUnbind } from '@/utils/wechat'
+import { clearAuthData } from '@/api'
 
 const notificationsEnabled = ref(true)
 
@@ -39,6 +46,55 @@ const toggleNotifications = (e: any) => {
   uni.showToast({
     title: notificationsEnabled.value ? '已开启通知' : '已关闭通知',
     icon: 'none'
+  })
+}
+
+const handleUnbindWechat = () => {
+  uni.showModal({
+    title: '解绑微信',
+    content: '解绑后您将退出当前登录状态，需重新通过手机号登录。确定要解绑吗？',
+    confirmText: '确定解绑',
+    cancelText: '取消',
+    confirmColor: '#e74c3c',
+    success: async (res) => {
+      if (res.confirm) {
+        uni.showLoading({ title: '解绑中...', mask: true })
+        const result = await wechatUnbind()
+        uni.hideLoading()
+        if (result.success) {
+          console.log('🔓 微信解绑成功，开始清除本地登录态...')
+
+          // 🆕 设置"刚解绑"标志，防止刷新后自动登录
+          uni.setStorageSync('just_unbound_wechat', 'true')
+          console.log('✅ 已设置 just_unbound_wechat 标志')
+
+          clearAuthData()
+
+          console.log('✅ 本地存储已清除，当前状态:')
+          console.log('  - token:', uni.getStorageSync('token') || '(空)')
+          console.log('  - refresh_token:', uni.getStorageSync('refresh_token') || '(空)')
+          console.log('  - user_role:', uni.getStorageSync('user_role') || '(空)')
+          console.log('  - tenant_slug:', uni.getStorageSync('tenant_slug') || '(空)')
+          console.log('  - just_unbound_wechat:', uni.getStorageSync('just_unbound_wechat') || '(空)')
+
+          uni.showToast({ title: '微信已解绑', icon: 'success', duration: 1500 })
+          setTimeout(() => {
+            console.log('🚀 准备跳转到首页...')
+            uni.reLaunch({
+              url: '/pages/index/index',
+              complete: () => {
+                console.log('✅ 跳转完成')
+              },
+              fail: (err: any) => {
+                console.error('❌ 跳转失败:', err)
+              }
+            })
+          }, 1500)
+        } else {
+          uni.showToast({ title: result.msg, icon: 'none' })
+        }
+      }
+    }
   })
 }
 

@@ -505,3 +505,17 @@ class AuthService:
                 created_at=user.created_at,
             ),
         )
+
+    @staticmethod
+    async def wechat_unbind(
+        session: AsyncSession,
+        user_id: int,
+    ) -> dict:
+        wechat_account = await AuthRepository.get_wechat_account_by_user_id(session, user_id)
+        if not wechat_account:
+            raise AuthException("该账号未绑定微信")
+
+        await AuthRepository.delete_wechat_account(session, wechat_account)
+        await session.commit()
+
+        return {"msg": "微信已解绑", "unbind_at": datetime.now()}

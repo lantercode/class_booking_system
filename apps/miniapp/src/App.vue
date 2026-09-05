@@ -8,23 +8,31 @@ import { validateToken, redirectToHome } from '@/utils/auth'
 
 onLaunch(async () => {
   console.log('🚀 App Launch - 微信小程序启动')
-  
+
+  // 🔍 检查是否刚刚解绑过微信
+  const justUnboundWechat = uni.getStorageSync('just_unbound_wechat')
+  if (justUnboundWechat) {
+    console.log('🔓 检测到刚刚解绑微信，清除标志并跳过自动登录')
+    uni.removeStorageSync('just_unbound_wechat')
+    return  // 直接显示授权页，不检查旧 token
+  }
+
   // 🔍 调试：打印所有关键本地存储数据
   printStorageDebugInfo()
-  
+
   try {
     // 检查是否已有 Token
     const token = uni.getStorageSync('token')
-    
+
     if (token) {
       console.log('✅ 检测到本地存储的 Token')
-      
+
       // 验证 Token 是否有效
       const isValid = await validateToken()
-      
+
       if (isValid) {
         console.log('🎉 Token 有效，准备跳转到主页...')
-        
+
         // 延迟一帧确保页面渲染完成
         setTimeout(() => {
           redirectToHome()
@@ -36,7 +44,7 @@ onLaunch(async () => {
     } else {
       console.log('ℹ️ 未检测到 Token，显示授权页')
     }
-    
+
   } catch (error) {
     console.error('❌ App 启动时验证 Token 失败:', error)
     // 出错时不做任何处理，默认显示授权页

@@ -10,15 +10,17 @@
 
 | 序号 | 标签 | 问题 | 涉及技术 |
 |------|------|------|---------|
-| 一 | 🎤 | [Docker 容器间通信 — RedisInsight 连不上 Redis](#一docker-容器间通信--redisinsight-连不上-redis) | 网络隔离、host.docker.internal |
-| 二 | 🎤 | [本地开发微信登录报 IP 不在白名单](#二本地开发微信登录报-ip-不在白名单) | 公网出口 IP、代理、微信平台安全 |
-| 三 | 🎤 | [个人版小程序 getPhoneNumber 不可用](#三个人版小程序-getphonenumber-不可用) | 小程序主体类型、前端降级 |
-| 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
-| 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五环境速查--pnpm-workspace--redis-连接) | 开发工具 |
-| 六 | 🔧 | [业务错误码体系](#六业务错误码体系) | 状态码设计、架构规范 |
-| 七 | 🎤 | [CI/CD 全流程实战 — 从接入到生产级部署](#七cicd-全流程实战--从接入到生产级部署) | GitHub Actions、浏览器缓存、pnpm、Nginx、测试策略 |
+| 一 | 🎤 | [Docker 容器间通信 — RedisInsight 连不上 Redis](#一-docker-容器间通信--redisinsight-连不上-redis) | 网络隔离、host.docker.internal |
+| 二 | 🎤 | [本地开发微信登录报 IP 不在白名单](#二-本地开发微信登录报-ip-不在白名单) | 公网出口 IP、代理、微信平台安全 |
+| 三 | 🎤 | [个人版小程序 getPhoneNumber 不可用](#三-个人版小程序-getphonenumber-不可用) | 小程序主体类型、前端降级 |
+| 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四-fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
+| 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五-环境速查--pnpm-workspace--redis-连接) | 开发工具 |
+| 六 | 🔧 | [业务错误码体系](#六-业务错误码体系) | 状态码设计、架构规范 |
+| 七 | 🎤 | [CI/CD 全流程实战 — 从接入到生产级部署](#七-cicd-全流程实战--从接入到生产级部署) | GitHub Actions、浏览器缓存、pnpm、Nginx、测试策略 |
 | 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
 | 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九-生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
+| 十 | 🎤 | [PyCharm 通过 SSH 隧道连接 ECS 数据库](#十-pycharm-通过ssh隧道连接ecs数据库) | SSH隧道、Docker端口映射、pg_hba.conf |
+| 十一 | 🎤 | [环境变量管理 — Docker 注入 vs Pydantic 读取 .env](#十一-环境变量管理--docker-注入-vs-pydashic-读取-env) | Pydantic Settings、Docker Compose、12-Factor App、生产级配置 |
 
 
 ---
@@ -1072,46 +1074,513 @@ docker exec dance-postgres cat /var/lib/postgresql/data/pg_hba.conf | grep -v "^
 
 ---
 
-### 十二、可主动展示的项目亮点（简历 & 面试话术）
+## 十一 🎤 环境变量管理 — Docker 注入 vs Pydantic 读取 .env
 
-面试时可主动讲这些"我踩过、我理解、我解决了"的点：
+### 背景
 
-1. **多租户 ContextVar 自动查询注入** —— 展示对 asyncio 上下文传递的理解
-2. **JWT 双 Token + Redis 黑名单** —— 展示对无状态认证的深入理解
-3. **纯 ASGI 中间件替代 BaseHTTPMiddleware** —— 展示对 Starlette 底层的了解（避免事件循环冲突）
-4. **异步 SQLAlchemy 2.0 + asyncpg** —— 展示对新一代 Python 异步生态的掌握
-5. **Docker Compose + Nginx + Let's Encrypt 全链路部署** —— DevOps 全流程实操
-6. **GitOps 工作流 + 分阶段上线**（阶段 A IP 调试 + 阶段 B 备案后域名切换）—— 展示项目管理能力
+项目中发现多个 `.env` 文件（根目录、`apps/api/`、`apps/miniapp/`、`infra/docker/`），需要理清：
+1. `config.py` 中的变量如何与 `.env` 关联？
+2. 生产环境实际使用的是哪个配置文件？
+3. Docker 容器中的环境变量从哪里来？
+
+### 核心机制：两种环境变量读取方式
+
+#### 方式A：Docker 注入（容器环境变量）
+
+**触发时机**：容器创建时
+**数据来源**：`docker-compose.yml` 的 `environment:` 配置
+**优先级**：🔴 **最高**
+**适用场景**：生产部署、Docker 环境
+
+```yaml
+# docker-compose.prod.yml
+services:
+  api:
+    environment:
+      APP_ENV: production                    # 直接写值
+      JWT_SECRET: ${JWT_SECRET}              # 从 .env_prod 引用
+      DATABASE_URL: postgresql+asyncpg://...  # 动态拼接
+```
+
+**工作流程**：
+```
+.env_prod → Docker Compose 替换 ${VAR} → 注入容器 os.environ → Pydantic 读取
+```
+
+#### 方式B：Pydantic 读取 .env 文件
+
+**触发时机**：应用启动时（`Settings()` 实例化）
+**数据来源**：由 `model_config.env_file` 指定的 `.env` 文件
+**优先级**：🟡 **中等**
+**适用场景**：本地开发、测试
+
+```python
+# config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(PROJECT_ROOT / ".env"),  # 指定 .env 路径
+        case_sensitive=False,
+    )
+    
+    APP_NAME: str = "dance-saas"   # 默认值（最低优先级）
+    JWT_SECRET: str = "change_me"
+
+@lru_cache  # 全局单例缓存
+def get_settings() -> Settings:
+    return Settings()
+```
+
+**工作流程**：
+```
+.env 文件 → Pydantic 解析匹配类属性名 → 创建 Settings 对象 → 业务代码使用
+```
+
+### 优先级铁律
+
+```
+环境变量 (Docker注入) > .env文件 > 代码默认值
+     ↑                      ↑           ↑
+   最先查找              其次查找      最后兜底
+```
+
+### 项目实际情况分析
+
+#### config.py 变量分类（15个）
+
+| 类型 | 变量 | 数量 | 生产环境来源 |
+|------|------|------|-------------|
+| **🔴 Docker 注入** | `APP_ENV`, `APP_DEBUG`, `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `WECHAT_APP_ID`, `WECHAT_SECRET` | **8个** | 容器环境变量 |
+| **🟢 代码默认值** | `APP_NAME`, `API_HOST`, `API_PORT`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `JWT_REFRESH_TOKEN_DAYS`, `REDIS_TOKEN_BLACKLIST_PREFIX`, `ENABLE_TOKEN_BLACKLIST` | **7个** | config.py 默认值 |
+
+#### 为什么这样设计？
+
+**Docker 注入的变量（8个）特点**：
+- 🔒 **安全敏感**：`JWT_SECRET`, `WECHAT_*` 不能用默认值
+- 🌐 **环境依赖**：`DATABASE_URL` 开发用 localhost，生产用容器内网络
+- 🔄 **环境差异**：`APP_ENV`, `APP_DEBUG` 生产必须关闭 debug
+- 👤 **部署时才知**：第三方凭证在部署时提供
+
+**使用默认值的变量（7个）特点**：
+- 💚 **通用常量**：`APP_NAME` 始终不变
+- ⚙️ **固定规格**：`API_PORT=8000`, Token 有效期等业务规则
+- 📏 **技术配置**：Redis 黑名单前缀等技术实现细节
+
+#### 关键理解
+
+```python
+# config.py 第17行
+env_file=str(PROJECT_ROOT / ".env")
+
+# 生产环境下：
+# ❌ 这行配置形同虚设（因为 Docker 注入的环境变量优先级更高）
+# ✅ 但保留它方便本地开发（直接 uvicorn 就能跑）
+```
+
+### 项目 .env 文件整理建议
+
+#### 当前状态（已优化）
+
+```
+project-root/
+├── .env                          # 根目录主配置（git ignore）
+├── .example                      # 模板（可提交）
+├── apps/
+│   ├── api/
+│   │   └── .env                  # ❌ 已删除（冗余）
+│   └── miniapp/
+│       ├── .env                  # Vite 前端配置（保留）
+│       ├── .env.development      # 开发环境
+│       ├── .env.production       # 生产环境
+│       └── .env.example          # 模板
+└── infra/docker/
+    ├── .env.prod                 # 生产环境配置（git ignore）⭐
+    ├── .env.prod.example         # 生产模板（可提交）
+    ├── docker-compose.yml        # 开发用
+    └── docker-compose.prod.yml   # 生产用 ⭐
+```
+
+#### 最佳实践原则
+
+1. **敏感信息**：只存在于 `.env_prod`，通过 Docker `environment:` 注入
+2. **通用配置**：使用代码默认值，保持 YAML 简洁
+3. **开发便利**：保留 `config.py` 的 `env_file` 配置
+4. **模板文件**：`.env.example` 和 `.env.prod.example` 可提交到 Git
+
+### 5道核心面试题及答案
+
+#### Q1: 为什么生产环境不能硬编码敏感信息？
+
+**答案**：
+1. **安全性** 🔒：密码、密钥可能被提交到 Git 导致泄露
+2. **灵活性** 🔄：同一镜像部署到 dev/staging/prod 无需改代码
+3. **可维护性** 👥：运维无需懂代码即可修改配置
+4. **审计合规** 📋：满足 SOC2、ISO27001 等安全要求
+
+**错误示范❌**：
+```python
+DB_PASSWORD = "SuperSecret123"  # 绝对禁止！
+```
+
+**正确做法✅**：
+```python
+import os
+DB_PASSWORD = os.environ.get("DB_PASSWORD")  # 从环境变量读取
+```
 
 ---
 
-### 十三、STAR 故事清单（20 个可展开叙述的案例）
+#### Q2: Pydantic BaseSettings 的工作原理？
 
-从上述问题中提取，每个可以讲成 3-5 分钟的完整故事：
+**答案（3步）**：
 
-| # | Story 主题 | 关键词 |
-|---|-----------|--------|
-| 1 | Docker Hub 拉不下镜像 | 镜像加速器 / 国内网络 |
-| 2 | Dockerfile 构建 40 分钟优化到 5 分钟 | 分层缓存 / 国内源 |
-| 3 | seed.py 报表不存在 | 数据库迁移工具 / 幂等性 |
-| 4 | 硬编码 WeChat Secret 泄露事故 | 密钥管理 / git 历史清理 |
-| 5 | TypeScript 类型收窄导致 `never` | 类型系统 / discriminated union |
-| 6 | 前端 chunk 过大警告 | 代码分割 / Tree Shaking |
-| 7 | 相对路径 API 避免 CORS | 同源策略 / 反向代理 |
-| 8 | 服务器改文件被 git pull 覆盖 | GitOps / IaC |
-| 9 | 多租户忘写 tenant_id 泄露 | Row-level 隔离 / 自动注入 |
-| 10 | JWT 双 Token + Redis 黑名单 | 无状态认证 / Token 撤销 |
-| 11 | 微信小程序页面栈溢出 | uni-app 生命周期 |
-| 12 | scroll-view 合成层冲突 | iOS 渲染 / GPU 合成 |
-| 13 | 微信登录 IP 白名单 | 公网出口 IP / 代理透传 |
-| 14 | FastAPI 307 重定向丢 header | redirect_slashes / axios |
-| 15 | asyncpg 事件循环冲突 | 异步测试 / 独立 Uvicorn |
-| 16 | 纯 ASGI 中间件 vs BaseHTTPMiddleware | Starlette 内部机制 |
-| 17 | 密码含特殊字符解析失败 | URL 编码 / 密码策略 |
-| 18 | 安全组只暴露 127.0.0.1:8000 | 最小暴露原则 / 深度防御 |
-| 19 | needrestart 弹窗打断自动化 | 无人值守脚本 |
-| 20 | 分阶段上线（备案前 IP 阶段 A → 备案后域名阶段 B）| 项目管理 / 关键路径 |
+**步骤1：定义配置类**
+```python
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-**建议做法**：每个 story 用 STAR 框架（Situation-Task-Action-Result）写成 200 字的段落，面试前熟练背诵 3-5 个即可覆盖后端 / 前端 / DevOps 三个方向的问答。
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",  # 忽略未知字段
+    )
+    
+    APP_NAME: str = "default"  # 类型注解 + 默认值
+    DEBUG: bool = False
+    PORT: int = 8000
+    
+    @validator("PORT")
+    @classmethod
+    def validate_port(cls, v):
+        if not 1024 <= v <= 65535:
+            raise ValueError("Port must be 1024-65535")
+        return v
+```
+
+**步骤2：加载顺序（优先级从高到低）**
+```python
+# 优先级1: 系统环境变量（最高）
+os.environ["APP_NAME"] = "from_env"
+
+# 优先级2: .env 文件
+# .env: APP_NAME=from_dotenv
+
+# 优先级3: 代码默认值（最低）
+APP_NAME: str = "default_app"
+
+# 最终结果: settings.APP_NAME == "from_env"
+```
+
+**步骤3：类型转换与验证**
+```python
+# .env 中: DEBUG=true, PORT=8080
+# 自动转换为:
+settings.DEBUG == True   # str → bool ✅
+settings.PORT == 8080    # str → int ✅
+
+# 如果转换失败:
+# .env: PORT=abc
+# → ValidationError: Input should be a valid integer ❌
+```
+
+**性能优化**：
+```python
+from functools import lru_cache
+
+@lru_cache  # 缓存结果，全局单例
+def get_settings() -> Settings:
+    return Settings()
+```
+
+---
+
+#### Q3: Docker Compose 的 `--env-file` 如何工作？
+
+**答案**：
+
+**作用**：告诉 Docker Compose 在解析 yml **之前**，先加载指定的环境变量文件，用于替换 `${VAR}` 语法。
+
+**工作流程**：
+```bash
+# 执行命令
+docker-compose -f docker-compose.prod.yml --env-file .env_prod up -d
+
+# 内部执行顺序：
+
+# 1. 读取 .env_prod
+POSTGRES_USER=dance
+JWT_SECRET=my_secret_123
+
+# 2. 建立内存变量表
+env_vars = { "POSTGRES_USER": "dance", "JWT_SECRET": "my_secret_123" }
+
+# 3. 替换 yml 中的 ${VAR}
+# 原文: JWT_SECRET: ${JWT_SECRET}
+# 结果: JWT_SECRET: my_secret_123
+
+# 4. 创建容器并注入
+docker run -e JWT_SECRET=my_secret_123 ...
+```
+
+**与默认 `.env` 的区别**：
+
+| 特性 | 默认 `.env` | `--env-file` 指定 |
+|------|------------|------------------|
+| 文件位置 | compose 同目录 | 任意路径 |
+| 文件名 | 必须叫 `.env` | 任意名字 |
+| 使用场景 | 开发通用配置 | 多环境切换 |
+
+**多环境示例**：
+```bash
+# 开发
+docker-compose --env-file .env.dev up -d
+
+# 测试
+docker-compose --env-file .env.staging up -d
+
+# 生产
+docker-compose --env-file .env_prod up -d
+```
+
+---
+
+#### Q4: 如何防止敏感信息泄露？（5种措施）
+
+**答案**：
+
+**措施1：`.gitignore` 严格配置** 🔒
+```gitignore
+.env
+.env.local
+.env.*.local
+.env.prod
+*.pem
+*.key
+secrets.yaml
+```
+
+**措施2：使用 `.env.example` 作为模板** 📝
+```bash
+# .env.example（可提交到 Git）
+POSTGRES_USER=dance
+POSTGRES_PASSWORD=CHANGE_ME_TO_STRONG_PASSWORD
+JWT_SECRET=CHANGE_ME_TO_LONG_RANDOM_STRING
+WECHAT_APP_ID=your_wechat_app_id_here
+```
+
+**措施3：强密码生成与存储** 🔑
+```bash
+# 生成强密码
+openssl rand -base64 24   # 数据库密码（192位）
+openssl rand -base64 48   # JWT Secret（384位）
+
+# 安全权限
+chmod 600 .env_prod       # 仅 owner 可读写
+chown root:root .env_prod
+```
+
+**措施4：Docker 安全加固** 🐳
+```yaml
+# docker-compose.prod.yml
+services:
+  api:
+    # ✅ 正确：通过 environment 注入（只在内存中）
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+    
+    # ❌ 危险：不要挂载 .env 文件到容器！
+    # volumes:
+    #   - ./.env:/app/.env:ro
+    
+    security_opt:
+    - no-new-privileges:true
+    read_only: true
+    cap_drop: [ALL]
+```
+
+**措施5：CI/CD 流水线安全** 🔄
+```yaml
+# .github/workflows/deploy.yml
+- name: Deploy
+  env:
+    JWT_SECRET: ${{ secrets.JWT_SECRET }}  # GitHub 加密存储
+  run: |
+    docker-compose \
+      -f docker-compose.prod.yml \
+      --env-file <(echo "JWT_SECRET=${{ secrets.JWT_SECRET }}") \
+      up -d
+```
+
+---
+
+#### Q5: "Missing required environment variable" 如何排查？
+
+**答案（7步法）**：
+
+**步骤1：查看错误日志**
+```bash
+docker logs dance-api --tail 50
+# 典型输出：ValidationError: Field required [type=missing]
+```
+
+**步骤2：检查文件存在性**
+```bash
+ls -lah .env_prod
+cat .env_prod | grep -E "^JWT_SECRET|^POSTGRES"
+```
+
+**步骤3：对比变量名（区分大小写！）**
+```bash
+# yml: ${Jwt_Secret}  ≠  env: JWT_SECRET  ❌ 拼写不一致
+grep -E "environment:" -A 10 docker-compose.prod.yml
+```
+
+**步骤4：验证 Compose 解析结果**
+```bash
+docker-compose --env-file .env_prod config | grep -A 20 "api:"
+```
+
+**步骤5：检查容器内实际变量**
+```bash
+docker exec dance-api env | grep -E "JWT_SECRET|POSTGRES"
+```
+
+**步骤6：检查文件权限**
+```bash
+ls -la .env_prod
+# 应该是: -rw------- (600)
+chmod 640 .env_prod  # 修复权限
+```
+
+**步骤7：确认启动命令**
+```bash
+# 确认使用了 --env-file
+ps aux | grep docker-compose
+# 正确: docker-compose --env-file .env_prod up
+# 错误: docker-compose up  (可能加载了错误的 .env)
+```
+
+**常见原因速查表**：
+
+| 原因 | 症状 | 解决方案 |
+|------|------|---------|
+| 文件不存在 | 启动即报错 | 创建文件并填写变量 |
+| 变量名拼写错误 | 特定变量缺失 | 对比 yml 和 env |
+| 文件格式错误 | 解析失败 | 移除多余空格/BOM |
+| 权限不足 | Permission denied | `chmod 640` |
+| 忘记 --env-file | 使用了错误的 .env | 启动命令添加参数 |
+| 变量为空 | 注入了空值 | 检查 .env_prod 内容 |
+
+**预防措施：Pre-deploy 检查脚本**
+```bash
+#!/bin/bash
+ENV_FILE=".env_prod"
+REQUIRED_VARS=("POSTGRES_USER" "POSTGRES_PASSWORD" "JWT_SECRET")
+
+for var in "${REQUIRED_VARS[@]}"; do
+    if ! grep -q "^${var}=" "$ENV_FILE"; then
+        echo "❌ 缺少必需变量: $var"
+        exit 1
+    fi
+done
+echo "✅ 所有必需变量已就绪"
+```
+
+---
+
+### 最佳实践决策标准
+
+#### 什么该注入 Docker？
+
+| ✅ 应该注入 | ❌ 不需要注入 |
+|------------|--------------|
+| 密钥/密码 (`JWT_SECRET`) | 应用名称 (`APP_NAME`) |
+| 数据库地址 (`DATABASE_URL`) | 端口号 (`API_PORT`) |
+| 第三方凭证 (`WECHAT_*`) | Token 有效期（固定业务规则） |
+| 环境标识 (`APP_ENV`) | 技术配置 (`REDIS_PREFIX`) |
+
+#### 项目结构规范
+
+```
+project-root/
+├── .env                 # 本地开发（git ignore）
+├── .env.example         # 模板（可提交）
+├── apps/api/src/app/core/config.py  # Settings 定义
+└── infra/docker/
+    ├── .env_prod         # 生产配置（git ignore）
+    ├── .env.prod.example # 生产模板（可提交）
+    ├── docker-compose.yml        # 开发
+    └── docker-compose.prod.yml   # 生产（含 environment 注入）
+```
+
+### 安全检查清单
+
+```bash
+# 1. 生成强密码
+openssl rand -base64 48  # JWT Secret
+openssl rand -base64 24  # DB Password
+
+# 2. 设置权限
+chmod 600 .env_prod
+
+# 3. 验证不被 git 跟踪
+git check-ignore -v .env .env_prod
+
+# 4. 部署前验证
+docker-compose --env-file .env_prod config > /dev/null && echo "✅ 配置正确"
+
+# 5. 检查容器中的值
+docker exec dance-api env | grep JWT_SECRET
+```
+
+### 核心记忆口诀
+
+```
+开发靠 .env，生产靠 Docker，
+敏感必须注，通用用默认。
+env_file 开发爽，生产其实无所谓，
+因为环境变量，永远排第一位！
+```
+
+### 一页纸速查卡
+
+```
+┌─────────────────────────────────────────────────────┐
+│          环境变量管理 · 核心要点                      │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│ 【机制】                                             │
+│   Docker注入 → 容器内存 → os.environ → 优先级最高    │
+│   Pydantic读.env → 磁盘文件 → 优先级中               │
+│   代码默认值 → 兜底方案    → 优先级最低              │
+│                                                     │
+│ 【原则】                                             │
+│   1. 敏感信息绝不硬编码                              │
+│   2. .env 必须加入 .gitignore                       │
+│   3. 生产环境用 Docker 注入或 Secrets Manager        │
+│   4. 通用配置使用代码默认值                          │
+│   5. 部署前验证所有必需变量                          │
+│                                                     │
+│ 【命令】                                             │
+│   启动: docker-compose --env-file .env_prod up -d   │
+│   验证: docker-compose config                        │
+│   查看: docker exec api env \| grep VAR              │
+│   生成: openssl rand -base64 48                     │
+│                                                     │
+│ 【面试高频】                                         │
+│   Q: 为什么不用硬编码？→ 安全+灵活+可维护            │
+│   Q: Pydantic如何工作？→ 优先级查找+类型转换+单例    │
+│   Q: 如何防泄露？→ gitignore+模板+强密码+Docker注入 │
+│   Q: 如何排查缺失变量？→ 7步法（日志→文件→权限…）  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+### 关键要点总结
+
+> **"开发时 `.env` 文件是主角，生产时它只是配角——真正的主角是 Docker 注入的环境变量。"**
+
+**核心原则**：配置与代码分离，敏感与非敏感分离，开发与生产分离。
 
 ---

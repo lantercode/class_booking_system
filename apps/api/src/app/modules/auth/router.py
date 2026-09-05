@@ -215,3 +215,24 @@ async def wechat_login(
     if result.need_bind:
         return success(data=result, msg=result.error_msg or "绑定失败")
     return success(data=result, msg="绑定成功")
+
+
+@router.post(
+    "/wechat-unbind",
+    summary="微信解绑",
+    description="解除当前用户与微信账号的绑定关系，openid 将被清空",
+    responses={
+        200: {"description": "解绑成功"},
+        401: {"description": "未登录或 token 无效"},
+        400: {"description": "该账号未绑定微信"},
+    },
+)
+async def wechat_unbind(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    result = await AuthService.wechat_unbind(
+        db,
+        user_id=current_user["user_id"],
+    )
+    return success(data=result, msg="微信解绑成功")

@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [main]
+    branches: [production]  # 只有推送到 production 分支才触发部署到生产环境
 
 jobs:
   deploy:

@@ -6,7 +6,8 @@
         "dev:h5": "uni",
         "build:h5": "uni build",
         "dev:mp-weixin": "uni -p mp-weixin",
-        "build:mp-weixin": "uni build -p mp-weixin"
+        "build:mp-weixin": "uni build -p mp-weixin",
+        "build:mp-weixin:dev": "uni build -p mp-weixin --mode development"
     },
     "dependencies": {
         "@dcloudio/uni-app": "3.0.0-4020920240930001",

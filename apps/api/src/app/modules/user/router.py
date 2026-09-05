@@ -233,3 +233,24 @@ async def assign_user_roles(
         redis_client=redis_client,
     )
     return success(msg="角色分配成功")
+
+
+# ============================================================
+# 微信解绑（管理员操作）
+# ============================================================
+
+@router.post(
+    "/{user_id}/wechat/unbind",
+    response_model=dict,
+    summary="解绑微信",
+    description="管理员解除指定用户的微信绑定（需 user:update 权限）",
+)
+@require_permissions("user:update")
+async def admin_unbind_wechat(
+    user_id: int = Path(..., description="用户ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    from app.modules.auth.service import AuthService
+    result = await AuthService.wechat_unbind(db, user_id=user_id)
+    return success(data=result, msg="微信解绑成功")
