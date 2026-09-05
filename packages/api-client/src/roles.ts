@@ -38,7 +38,7 @@ export interface PermissionListResponse {
 
 export const roleApi = {
    create(data: { code: string; name: string; description?: string; permission_ids?: number[] }) {
-    return apiClient.post<Role>('/roles', data)
+    return apiClient.post<Role>('/roles/', data)
   },
 
   list(params?: RoleListParams) {

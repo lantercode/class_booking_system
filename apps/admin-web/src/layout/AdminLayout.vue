@@ -70,9 +70,22 @@
         </div>
       </el-header>
 
-      <el-main class="admin-main">
-        <router-view />
-      </el-main>
+      <div class="admin-content-wrapper">
+        <el-main class="admin-main">
+          <router-view />
+        </el-main>
+        <footer class="admin-footer">
+          <div class="footer-content">
+            <a href="https://beian.mps.gov.cn/#/query/webSearch?code=51012202002638" rel="noreferrer" target="_blank" class="footer-link">
+              <img src="https://beian.mps.gov.cn/img/logo01.dd7ff50e.png" alt="公安备案" class="footer-icon" />
+              <span>川公网安备51012202002638号</span>
+            </a>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="footer-link">
+              <span>蜀ICP备2026050989号-1</span>
+            </a>
+          </div>
+        </footer>
+      </div>
     </el-container>
   </el-container>
 </template>
@@ -212,10 +225,53 @@ const currentTitle = computed(() => {
   }
 }
 
+.admin-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+}
+
 .admin-main {
+  flex: 1;
   background: #f0f2f5;
   padding: 24px;
   overflow-y: auto;
+  min-height: 0;
+}
+
+.admin-footer {
+  flex-shrink: 0;
+  height: 48px;
+  background: #fff;
+  border-top: 1px solid #e4e7ed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .footer-content {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .footer-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #909399;
+    font-size: 13px;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #667eea;
+    }
+
+    .footer-icon {
+      width: 16px;
+      height: 16px;
+    }
+  }
 }
 
 .fade-enter-active,

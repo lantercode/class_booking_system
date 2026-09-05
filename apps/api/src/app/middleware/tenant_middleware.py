@@ -30,6 +30,7 @@ SKIP_TENANT_PATHS = [
     "/api/v1/auth/login",
     "/api/v1/auth/wechat-login",
     "/api/v1/auth/wechat-auto-login",
+    "/api/v1/auth/wechat-unbind",
     "/api/v1/auth/refresh-token",
     "/api/v1/auth/me",
     "/api/v1/courses",

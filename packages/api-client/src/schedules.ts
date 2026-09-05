@@ -78,7 +78,7 @@ export const scheduleApi = {
   },
 
   create(data: ScheduleCreateParams) {
-    return apiClient.post<Schedule>('/schedules', data)
+    return apiClient.post<Schedule>('/schedules/', data)
   },
 
   batchCreate(items: ScheduleCreateParams[]) {

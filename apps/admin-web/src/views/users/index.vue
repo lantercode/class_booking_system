@@ -32,11 +32,12 @@
       <el-table-column prop="created_at" label="注册时间" width="180">
         <template #default="{ row }">{{ row.created_at?.slice(0, 10) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="handleEdit(row)">编辑</el-button>
           <el-button type="warning" size="small" link @click="handleResetPwd(row)">重置密码</el-button>
           <el-button type="danger" size="small" link @click="handleDelete(row)">删除</el-button>
+          <el-button type="info" size="small" link @click="handleUnbindWechat(row)">解绑微信</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -263,6 +264,23 @@ async function handleDelete(user: User) {
   } catch (e: any) {
     if (e !== 'cancel') {
       ElMessage.error(e?.response?.data?.msg || '删除失败')
+    }
+  }
+}
+
+async function handleUnbindWechat(user: User) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要解除用户 "${user.nickname || user.phone}" 的微信绑定吗？解绑后该用户将无法使用微信一键登录。`,
+      '解绑微信确认',
+      { type: 'warning', confirmButtonText: '确定解绑', cancelButtonText: '取消' }
+    )
+    await userApi.unbindWechat(user.id)
+    ElMessage.success('微信解绑成功')
+    fetchUsers()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.response?.data?.msg || '解绑失败')
     }
   }
 }

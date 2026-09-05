@@ -45,7 +45,7 @@ export const classroomApi = {
   },
 
   create(data: ClassroomCreateParams) {
-    return apiClient.post<Classroom>('/classrooms', data)
+    return apiClient.post<Classroom>('/classrooms/', data)
   },
 
   update(id: number, data: ClassroomUpdateParams) {

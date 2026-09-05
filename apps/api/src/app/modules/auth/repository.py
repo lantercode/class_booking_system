@@ -153,3 +153,15 @@ class AuthRepository:
         session.add(wechat_account)
         await session.flush()
         return wechat_account
+
+    @staticmethod
+    async def get_wechat_account_by_user_id(session: AsyncSession, user_id: int) -> WechatAccount | None:
+        result = await session.execute(
+            select(WechatAccount).where(WechatAccount.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def delete_wechat_account(session: AsyncSession, wechat_account: WechatAccount) -> None:
+        await session.delete(wechat_account)
+        await session.flush()

@@ -1,4 +1,4 @@
-import { authApi, resetAuthState } from '@/api'
+import { authApi, resetAuthState, clearAuthData } from '@/api'
 
 export interface WxLoginResult {
   code: number
@@ -45,7 +45,7 @@ export async function wechatAutoLogin(tenantSlug?: string): Promise<AutoLoginRes
       })
     })
 
-    const result = await authApi.wxAutoLogin({
+const result = await authApi.wxAutoLogin({
       code: loginRes.code,
       tenant_slug: tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school'
     })
@@ -160,8 +160,10 @@ export async function wechatBindPhone(
 
     const role = user?.role || 'student'
     uni.setStorageSync('user_role', role)
+    uni.setStorageSync('tenant_slug', tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school')
 
     console.log('🎉 绑定成功！角色:', role)
+    console.log('✅ 已存储 tenant_slug:', uni.getStorageSync('tenant_slug'))
 
     uni.$emit('login-success')
 
@@ -188,7 +190,7 @@ export async function wechatBindPhoneManual(
   try {
     console.log('📱 手动输入手机号绑定:', phone)
 
-    const result = await authApi.wechatLogin({
+ const result = await authApi.wechatLogin({
       bind_token: bindToken,
       phone: phone,
       tenant_slug: tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school'
@@ -225,6 +227,7 @@ export async function wechatBindPhoneManual(
 
     const role = user?.role || 'student'
     uni.setStorageSync('user_role', role)
+    uni.setStorageSync('tenant_slug', tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school')
 
     console.log('🎉 手动绑定成功！')
 
@@ -316,4 +319,33 @@ export async function getUserInfo(): Promise<any> {
  */
 export function getDefaultTenant(): string {
   return uni.getStorageSync('tenant_slug') || 'dance-school'
+}
+
+/**
+ * 微信解绑
+ * 解除当前用户与微信账号的绑定关系
+ * 解绑成功后会自动清除本地登录态并跳转到登录页
+ */
+export async function wechatUnbind(): Promise<{ success: boolean; msg: string }> {
+  try {
+    const result = await authApi.wechatUnbind()
+    if (result.code === 0 || result.code === 200) {
+      try {
+        await authApi.logout()
+      } catch {
+        // 后端注销失败不阻塞流程，本地状态仍然会清除
+        console.warn('⚠️ 后端注销请求失败，已清除本地状态')
+      }
+
+      resetAuthState()
+
+      uni.$emit('logout')
+
+      return { success: true, msg: '微信已解绑' }
+    }
+    return { success: false, msg: result.msg || '解绑失败' }
+  } catch (error: any) {
+    console.error('❌ 微信解绑异常:', error)
+    return { success: false, msg: error.message || '解绑失败，请重试' }
+  }
 }

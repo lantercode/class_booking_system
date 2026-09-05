@@ -60,7 +60,7 @@ export const userApi = {
   },
 
   create(data: UserCreateParams) {
-    return apiClient.post<User>('/users', data)
+    return apiClient.post<User>('/users/', data)
   },
 
   update(id: number, data: UserUpdateParams) {
@@ -77,5 +77,9 @@ export const userApi = {
 
   delete(id: number) {
     return apiClient.delete(`/users/${id}`)
+  },
+
+  unbindWechat(id: number) {
+    return apiClient.post(`/users/${id}/wechat/unbind`)
   },
 }
