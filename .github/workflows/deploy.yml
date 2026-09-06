@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [production]  # 只有推送到 production 分支才触发部署到生产环境
+    branches: [production, main]  # 只有推送到 production 分支才触发部署到生产环境
 
 jobs:
   deploy:
@@ -145,6 +145,12 @@ jobs:
             # 执行迁移（在新容器中，使用新代码的 Migration 文件）
             docker exec dance-api uv run alembic upgrade head
             echo "✅ Database migrated"
+            
+            # Debug: Check if container is actually running
+            echo "🔍 Container status:"
+            docker ps -a | grep dance-api || echo "No container found"
+            echo "🔍 Recent container logs:"
+            docker logs dance-api --tail 20 2>/dev/null || echo "Could not fetch logs"
 
             # 8. 健康检查（验证部署是否成功）
             echo "🏥 Running health checks..."
@@ -174,12 +180,14 @@ jobs:
             # Docker Compose 构建的镜像名格式为：<目录名>-<服务名>
             # 由于 compose 文件在 infra/docker/ 目录下，构建上下文是 ../../apps/api
             # 实际镜像名为: docker-dance-saas-api (docker-compose 的默认命名规则)
-            API_IMAGE="docker-dance-saas-api"
-            if docker image inspect "$API_IMAGE" > /dev/null 2>&1; then
-              docker tag "$API_IMAGE" "$API_IMAGE:$COMMIT_SHA"
-              echo "✅ Image tagged: $API_IMAGE:$COMMIT_SHA"
+            # Get the actual built image name from docker compose
+            API_IMAGE=$(docker compose -f infra/docker/docker-compose.prod.yml images -q api)
+            
+            if [ -n "$API_IMAGE" ]; then
+              docker tag "$API_IMAGE" "${API_IMAGE}:$COMMIT_SHA"
+              echo "✅ Image tagged: ${API_IMAGE}:$COMMIT_SHA"
             else
-              echo "⚠️ Image $API_IMAGE not found, skipping tag"
+              echo "⚠️ Image for 'api' service not found, skipping tag"
             fi
 
             # 10. 清理无用镜像
