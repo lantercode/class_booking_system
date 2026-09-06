@@ -100,20 +100,48 @@ jobs:
               --env-file .env.prod \
               build api
 
+            # Replace lines 103-119 with:
+
             # 启动新容器（不重建，使用刚构建的镜像）
             docker compose -f infra/docker/docker-compose.prod.yml \
               --env-file .env.prod \
               up -d api
-
-            # 等待容器启动（最多 30 秒）
+            
+            # 等待容器启动并检查状态（最多 30 秒）
             for i in $(seq 1 6); do
-              if docker exec dance-api uv run alembic current 2>/dev/null; then
+              CONTAINER_STATE=$(docker inspect -f '{{.State.Status}}' dance-api 2>/dev/null || echo "not_found")
+              
+              if [ "$CONTAINER_STATE" = "running" ]; then
+                echo "✅ Container is running"
                 break
+              elif [ "$CONTAINER_STATE" = "restarting" ]; then
+                echo "⚠️ Container is restarting... ($i/6)"
+              else
+                echo "⚠️ Waiting for container to start... ($i/6) [State: $CONTAINER_STATE]"
               fi
-              echo "⏳ Waiting for api container... ($i/6)"
+              
               sleep 5
             done
-
+            
+            # 检查容器最终状态
+            FINAL_STATE=$(docker inspect -f '{{.State.Status}}' dance-api 2>/dev/null || echo "not_found")
+            if [ "$FINAL_STATE" != "running" ]; then
+              echo "❌ Container failed to start"
+              echo "📋 Full container logs:"
+              docker logs dance-api --timestamps
+              exit 1
+            fi
+            
+            # 等待 Alembic 命令可用
+            for i in $(seq 1 6); do
+              if docker exec dance-api uv run alembic current 2>/dev/null; then
+                echo "✅ Alembic is ready"
+                break
+              fi
+              echo "⏳ Waiting for Alembic... ($i/6)"
+              sleep 5
+            done
+            
             # 执行迁移（在新容器中，使用新代码的 Migration 文件）
             docker exec dance-api uv run alembic upgrade head
             echo "✅ Database migrated"
