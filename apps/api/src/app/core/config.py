@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     WECHAT_APP_ID: str = ""
     WECHAT_SECRET: str = ""
 
+    AUTO_FINISH_ENABLED: bool = True
+    AUTO_FINISH_GRACE_MINUTES: int = 30
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

@@ -5,7 +5,7 @@ Schedule Service - 排期业务逻辑层
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -49,6 +49,17 @@ class ScheduleService:
 
         if data.end_at <= data.start_at:
             raise ValidationException("结束时间必须晚于开始时间")
+
+        if data.booking_opens_at is not None and data.booking_opens_at > data.start_at:
+            raise ValidationException("预约开放时间不能晚于排期开始时间")
+        if data.booking_closes_at is not None and data.booking_closes_at > data.start_at:
+            raise ValidationException("预约截止时间不能晚于排期开始时间")
+        if data.booking_opens_at is not None and data.booking_closes_at is not None:
+            if data.booking_closes_at < data.booking_opens_at:
+                raise ValidationException("预约截止时间不能早于预约开放时间")
+
+        if data.cancel_deadline is not None and data.cancel_deadline > data.start_at:
+            raise ValidationException("取消截止时间不能晚于排期开始时间")
 
         if data.classroom_id is not None:
             classroom_repo = ClassroomRepository()
@@ -109,6 +120,16 @@ class ScheduleService:
         schedule = await self.repo.get_by_id(db, schedule_id)
         if not schedule:
             raise NotFoundException("排期不存在")
+
+        if schedule.status == ScheduleStatus.FINISHED.value:
+            raise BusinessException("排期已完成，无法修改", code=400)
+
+        if schedule.status == ScheduleStatus.CANCELLED.value:
+            raise BusinessException("排期已取消，无法修改", code=400)
+
+        now = datetime.now(UTC)
+        if schedule.start_at < now:
+            raise BusinessException("排期已开始，仅允许查看，无法修改", code=400)
 
         update_data: dict[str, Any] = {}
 
@@ -185,7 +206,14 @@ class ScheduleService:
             raise NotFoundException("排期不存在")
 
         if schedule.status == ScheduleStatus.CANCELLED.value:
-            raise BusinessException("排期已取消")
+            raise BusinessException("排期已取消", code=400)
+
+        if schedule.status == ScheduleStatus.FINISHED.value:
+            raise BusinessException("排期已完成，无法取消", code=400)
+
+        now = datetime.now(UTC)
+        if schedule.start_at < now:
+            raise BusinessException("排期已开始，仅允许查看，无法取消", code=400)
 
         schedule = await self.repo.update(
             db, schedule_id, {"status": ScheduleStatus.CANCELLED.value}
@@ -224,6 +252,7 @@ class ScheduleService:
         *,
         course_id: int | None = None,
         course_name: str | None = None,
+        category: str | None = None,
         teacher_id: int | None = None,
         classroom_id: int | None = None,
         status: int | None = None,
@@ -237,6 +266,7 @@ class ScheduleService:
             db,
             course_id=course_id,
             course_name=course_name,
+            category=category,
             teacher_id=teacher_id,
             classroom_id=classroom_id,
             status=status,
@@ -349,9 +379,18 @@ class ScheduleService:
         teacher_ids = set()
         classroom_ids = set()
 
-        for data in items:
+        for idx, data in enumerate(items):
             if data.end_at <= data.start_at:
-                raise ValidationException("结束时间必须晚于开始时间")
+                raise ValidationException(f"第 {idx + 1} 个排期: 结束时间必须晚于开始时间")
+            if data.booking_opens_at is not None and data.booking_opens_at > data.start_at:
+                raise ValidationException(f"第 {idx + 1} 个排期: 预约开放时间不能晚于排期开始时间")
+            if data.booking_closes_at is not None and data.booking_closes_at > data.start_at:
+                raise ValidationException(f"第 {idx + 1} 个排期: 预约截止时间不能晚于排期开始时间")
+            if data.booking_opens_at is not None and data.booking_closes_at is not None:
+                if data.booking_closes_at < data.booking_opens_at:
+                    raise ValidationException(f"第 {idx + 1} 个排期: 预约截止时间不能早于预约开放时间")
+            if data.cancel_deadline is not None and data.cancel_deadline > data.start_at:
+                raise ValidationException(f"第 {idx + 1} 个排期: 取消截止时间不能晚于排期开始时间")
             time_ranges.append({
                 'start_at': data.start_at,
                 'end_at': data.end_at,

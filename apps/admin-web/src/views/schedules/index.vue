@@ -91,7 +91,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="日期" prop="start_date">
-          <el-date-picker v-model="form.start_date" type="date" placeholder="选择日期" style="width:100%" @change="updateSingleEndTime" />
+          <div style="display:flex;align-items:center;gap:8px;width:100%">
+            <el-date-picker v-model="form.start_date" type="date" placeholder="选择日期" style="flex:1" @change="updateSingleEndTime" :disabled-date="disabledSingleDate" />
+            <el-tooltip v-if="!isEdit" content="勾选后可选择过去日期，用于补录历史课程数据" placement="top">
+              <el-checkbox v-model="allowPastDate" style="white-space:nowrap">补录历史排期</el-checkbox>
+            </el-tooltip>
+          </div>
         </el-form-item>
         <el-form-item label="开始时间" prop="start_time">
           <el-time-picker v-model="form.start_time" placeholder="选择开始时间" style="width:100%" format="HH:mm" @change="updateSingleEndTime" />
@@ -125,7 +130,12 @@
           </el-select>
         </el-form-item>
         <el-form-item label="日期范围" prop="dateRange">
-          <el-date-picker v-model="batchForm.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width:100%" />
+          <div style="display:flex;align-items:center;gap:8px;width:100%">
+            <el-date-picker v-model="batchForm.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="flex:1" :disabled-date="disabledBatchDate" />
+            <el-tooltip content="勾选后可选择过去日期，用于补录历史课程数据" placement="top">
+              <el-checkbox v-model="allowPastDate" style="white-space:nowrap">补录历史排期</el-checkbox>
+            </el-tooltip>
+          </div>
         </el-form-item>
         <el-form-item label="重复模式" prop="weekdays">
           <el-checkbox-group v-model="batchForm.weekdays">
@@ -236,6 +246,20 @@ function formatDateTime(date: Date, timeStr: string): string {
   return `${y}-${m}-${d} ${timeStr}`
 }
 
+function disabledSingleDate(time: Date) {
+  if (allowPastDate.value) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return time.getTime() < today.getTime()
+}
+
+function disabledBatchDate(time: Date) {
+  if (allowPastDate.value) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return time.getTime() < today.getTime()
+}
+
 function formatDate(iso: string) { return iso?.slice(0, 10) || '' }
 function formatTime(iso: string) { return iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '' }
 
@@ -300,6 +324,7 @@ function handlePageChange(p: number) {
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const scheduleMode = ref<'single' | 'batch'>('single')
+const allowPastDate = ref(false)
 const formRef = ref()
 const form = ref({
   id: 0,
@@ -325,6 +350,7 @@ const rules = {
 function showCreateDialog() {
   isEdit.value = false
   scheduleMode.value = 'single'
+  allowPastDate.value = false
   form.value = { id: 0, course_id: null, teacher_id: null, classroom_id: null, start_date: null, start_time: null, end_time: null, capacity: 20, notes: '' }
   dialogVisible.value = true
 }
@@ -404,12 +430,31 @@ async function handleSingleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
+  if (!isEdit.value && !allowPastDate.value) {
+    const selectedDate = new Date(form.value.start_date!)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    if (selectedDate < today) {
+      ElMessage.error('不能选择过去的日期创建排期，如需补录历史排期请勾选"补录历史排期"')
+      return
+    }
+
+    const startAt = new Date(form.value.start_date!)
+    startAt.setHours(form.value.start_time!.getHours(), form.value.start_time!.getMinutes(), 0, 0)
+    
+    if (startAt < new Date()) {
+      ElMessage.error('不能选择过去的时间创建排期，如需补录历史排期请勾选"补录历史排期"')
+      return
+    }
+  }
+
   // 验证课程时长
   if (form.value.course_id && form.value.start_date && form.value.start_time && form.value.end_time) {
-    const startAt = new Date(form.value.start_date)
-    startAt.setHours(form.value.start_time.getHours(), form.value.start_time.getMinutes(), 0, 0)
-    const endAt = new Date(form.value.start_date)
-    endAt.setHours(form.value.end_time.getHours(), form.value.end_time.getMinutes(), 0, 0)
+    const startAt = new Date(form.value.start_date!)
+    startAt.setHours(form.value.start_time!.getHours(), form.value.start_time!.getMinutes(), 0, 0)
+    const endAt = new Date(form.value.start_date!)
+    endAt.setHours(form.value.end_time!.getHours(), form.value.end_time!.getMinutes(), 0, 0)
     
     const courseDuration = getCourseDuration(form.value.course_id)
     const scheduleDuration = Math.round((endAt.getTime() - startAt.getTime()) / 60000)
@@ -422,7 +467,6 @@ async function handleSingleSubmit() {
 
   submitting.value = true
   try {
-    // 合并日期和时间
     const startAt = new Date(form.value.start_date!)
     startAt.setHours(form.value.start_time!.getHours(), form.value.start_time!.getMinutes(), 0, 0)
     const endAt = new Date(form.value.start_date!)
@@ -571,6 +615,7 @@ async function generatePreview() {
   const duration = getCourseDuration(course_id)
   const startDate = dateRange[0]
   const endDate = dateRange[1]
+  const now = allowPastDate.value ? new Date(0) : new Date()
   
   const previews: typeof batchPreview.value = []
   
@@ -582,14 +627,16 @@ async function generatePreview() {
       startAt.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0)
       const endAt = new Date(startAt.getTime() + duration * 60000)
       
-      previews.push({
-        date: currentDate.toLocaleDateString('zh-CN'),
-        time: `${startAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${endAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
-        teacher: getTeacherName(teacher_id),
-        classroom: getClassroomName(classroom_id),
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-      })
+      if (startAt >= now) {
+        previews.push({
+          date: currentDate.toLocaleDateString('zh-CN'),
+          time: `${startAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${endAt.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
+          teacher: getTeacherName(teacher_id),
+          classroom: getClassroomName(classroom_id),
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+        })
+      }
     }
     currentDate.setDate(currentDate.getDate() + 1)
   }

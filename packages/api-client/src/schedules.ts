@@ -28,6 +28,7 @@ export interface ScheduleListParams {
   page_size?: number
   course_id?: number
   course_name?: string
+  category?: string
   teacher_id?: number
   classroom_id?: number
   status?: number

@@ -67,13 +67,11 @@ class BookingService:
         if schedule.booked_count >= schedule.capacity:
             raise BusinessException("该排期已约满", code=400)
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
-        # 校验：排期是否已开始
         if schedule.start_at and now > schedule.start_at:
             raise BusinessException("该课程已开始，无法预约", code=400)
 
-        # 校验：是否超过预约窗口（最多未来两周）
         max_booking_date = now + timedelta(days=14)
         if schedule.start_at and schedule.start_at > max_booking_date:
             raise BusinessException("只能预约未来两周内的课程", code=400)

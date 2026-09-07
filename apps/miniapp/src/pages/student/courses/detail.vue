@@ -545,6 +545,17 @@ const cancelBooking = async (scheduleId: number) => {
       uni.showToast({ title: '未找到预约记录', icon: 'none' })
       return
     }
+
+    if (booking.start_at) {
+      const startTime = new Date(booking.start_at).getTime()
+      const now = Date.now()
+      const minutesBefore = (startTime - now) / (1000 * 60)
+      if (minutesBefore <= 90) {
+        uni.showToast({ title: '开课前90分钟内不可取消', icon: 'none' })
+        return
+      }
+    }
+
     const result = await bookingApi.cancel(booking.id)
     if (result.code === 0 || result.code === 200) {
       uni.showToast({

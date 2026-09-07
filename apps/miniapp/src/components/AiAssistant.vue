@@ -49,8 +49,8 @@
           </view>
         </view>
 
-        <!-- 快捷入口（首次打开时显示） -->
-        <view v-if="messages.length === 0 && !isLoading" class="quick-actions">
+        <!-- 快捷入口（始终显示在底部） -->
+        <view v-if="!isLoading" class="quick-actions">
           <text class="quick-title">💡 您可以问我：</text>
           <view 
             v-for="(item, idx) in quickActions" 
@@ -100,7 +100,7 @@ interface Message {
 const props = withDefaults(defineProps<{
   sessionId?: string
 }>(), {
-  sessionId: () => `student_${Date.now()}`
+  sessionId: ''
 })
 
 const emit = defineEmits<{
@@ -125,11 +125,25 @@ const quickActions = [
   { label: '📋 我的预约', text: '查看我的预约记录' }
 ]
 
-let currentSessionId = props.sessionId
+const buildSessionId = (): string => {
+  if (props.sessionId) return props.sessionId
+
+  const userInfo = uni.getStorageSync('userInfo')
+  const userId = userInfo?.id || userInfo?.user_id || 'anon'
+  return `session_${userId}`
+}
+
+let currentSessionId = buildSessionId()
 
 const checkLogin = () => {
   const token = uni.getStorageSync('token')
+  const wasLoggedIn = isLoggedIn.value
   isLoggedIn.value = !!token
+
+  if (isLoggedIn.value && isLoggedIn.value !== wasLoggedIn) {
+    currentSessionId = buildSessionId()
+    messages.value = []
+  }
 }
 
 onMounted(() => {

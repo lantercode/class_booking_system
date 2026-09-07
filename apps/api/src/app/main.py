@@ -1,6 +1,8 @@
 """FastAPI 应用入口."""
+import logging
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,15 +24,17 @@ from app.modules.common.router import router as common_router
 from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.schedule.router import router as schedule_router  # ⭐ 新增：排期路由
+from app.modules.schedule.scheduler import auto_finish_expired_schedules
 from app.modules.teacher.router import router as teacher_router  # ⭐ 新增：教师路由
 from app.modules.user.router import router as user_router  # ⭐ 新增：用户管理路由
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理器 - 初始化 Redis + 租户注入"""
+    """应用生命周期管理器 - 初始化 Redis + 租户注入 + 定时任务"""
     # 1. 启用多租户查询自动注入
     setup_tenant_query_injection()
     print("✅ 多租户查询自动注入已启用")
@@ -45,10 +49,33 @@ async def lifespan(app: FastAPI):
         )
     print("✅ Redis 连接正常！")
 
-    yield # 应用运行中
+    # 3. 启动 APScheduler 定时任务
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    if settings.AUTO_FINISH_ENABLED:
+        scheduler.add_job(
+            auto_finish_expired_schedules,
+            "interval",
+            minutes=60,
+            id="auto_finish_expired_schedules",
+            replace_existing=True,
+        )
+        scheduler.start()
+        print(
+            f"✅ 定时任务已启动: auto_finish_expired_schedules "
+            f"(每 60min 运行, grace={settings.AUTO_FINISH_GRACE_MINUTES}min)"
+        )
+    else:
+        print("⚠️  AUTO_FINISH_ENABLED=false, 跳过定时任务注册")
+
+    yield
 
     # 关闭时清理
-    pass
+    try:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+            print("⏹️  定时任务已停止")
+    except Exception as e:
+        logger.warning(f"停止定时任务时出错: {e}")
 
 
 app = FastAPI(

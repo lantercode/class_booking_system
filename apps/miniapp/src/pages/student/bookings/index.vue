@@ -60,7 +60,8 @@
             <view class="booking-footer">
               <text class="booking-time">预约时间: {{ formatTime(booking.created_at) }}</text>
               <view v-if="Number(booking.status) === BOOKING_STATUS.BOOKED" class="booking-actions">
-                <button class="action-btn cancel" @tap="handleCancel(booking.id)">取消预约</button>
+                <button v-if="canCancelBooking(booking)" class="action-btn cancel" @tap="handleCancel(booking)">取消预约</button>
+                <text v-else class="cancel-disabled">开课前90分钟内不可取消</text>
               </view>
             </view>
           </view>
@@ -340,14 +341,22 @@ const getStatusText = (status: number | string) => {
   }
 }
 
-const handleCancel = async (bookingId: number) => {
+const canCancelBooking = (booking: any): boolean => {
+  if (!booking.start_at) return true
+  const startTime = new Date(booking.start_at).getTime()
+  const now = Date.now()
+  const minutesBefore = (startTime - now) / (1000 * 60)
+  return minutesBefore > 90
+}
+
+const handleCancel = async (booking: any) => {
   uni.showModal({
     title: '确认取消',
     content: '确定要取消此预约吗？',
     success: async (res) => {
       if (res.confirm) {
         try {
-          const result = await bookingApi.cancel(bookingId)
+          const result = await bookingApi.cancel(booking.id)
           if (result.code === 0 || result.code === 200) {
             uni.showToast({ title: '取消成功', icon: 'success' })
             loadBookings()
@@ -591,6 +600,12 @@ const forceRefresh = async () => {
   &::after {
     border: none;
   }
+}
+
+.cancel-disabled {
+  font-size: $font-size-body-sm;
+  color: $text-tertiary;
+  opacity: 0.6;
 }
 
 .tab-bar {

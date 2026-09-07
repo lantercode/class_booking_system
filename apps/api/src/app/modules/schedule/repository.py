@@ -25,6 +25,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         *,
         course_id: int | None = None,
         course_name: str | None = None,
+        category: str | None = None,
         teacher_id: int | None = None,
         classroom_id: int | None = None,
         status: int | None = None,
@@ -37,13 +38,17 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         base_query = select(CourseSchedule)
         count_query = select(func.count()).select_from(CourseSchedule)
 
+        if course_name or category:
+            base_query = base_query.join(Course, CourseSchedule.course_id == Course.id)
+            count_query = count_query.join(Course, CourseSchedule.course_id == Course.id)
+
         if course_name:
-            base_query = base_query.join(Course, CourseSchedule.course_id == Course.id).where(
-                Course.name.ilike(f"%{course_name}%")
-            )
-            count_query = count_query.join(Course, CourseSchedule.course_id == Course.id).where(
-                Course.name.ilike(f"%{course_name}%")
-            )
+            base_query = base_query.where(Course.name.ilike(f"%{course_name}%"))
+            count_query = count_query.where(Course.name.ilike(f"%{course_name}%"))
+
+        if category:
+            base_query = base_query.where(Course.category == category)
+            count_query = count_query.where(Course.category == category)
 
         if course_id:
             base_query = base_query.where(CourseSchedule.course_id == course_id)

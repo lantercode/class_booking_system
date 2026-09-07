@@ -36,7 +36,7 @@ class AgentRuntime:
 
     def __init__(self, redis_client=None, user_id: int = None):
         self.intent = IntentRecognizer()
-        self.session = SessionManager(redis_client)
+        self.session = SessionManager(redis_client, user_id=user_id)
         self.user_id = user_id
         self.logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class AgentRuntime:
           5. 格式化结果返回
           6. 释放锁
         """
-        lock_key = f"ai:lock:{session_id}"
+        lock_key = self.session._lock_scope_key(session_id)
         lock_acquired = False
 
         try:

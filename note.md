@@ -10,17 +10,18 @@
 
 | 序号 | 标签 | 问题 | 涉及技术 |
 |------|------|------|---------|
-| 一 | 🎤 | [Docker 容器间通信 — RedisInsight 连不上 Redis](#一-docker-容器间通信--redisinsight-连不上-redis) | 网络隔离、host.docker.internal |
-| 二 | 🎤 | [本地开发微信登录报 IP 不在白名单](#二-本地开发微信登录报-ip-不在白名单) | 公网出口 IP、代理、微信平台安全 |
-| 三 | 🎤 | [个人版小程序 getPhoneNumber 不可用](#三-个人版小程序-getphonenumber-不可用) | 小程序主体类型、前端降级 |
-| 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四-fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
-| 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五-环境速查--pnpm-workspace--redis-连接) | 开发工具 |
-| 六 | 🔧 | [业务错误码体系](#六-业务错误码体系) | 状态码设计、架构规范 |
-| 七 | 🎤 | [CI/CD 全流程实战 — 从接入到生产级部署](#七-cicd-全流程实战--从接入到生产级部署) | GitHub Actions、浏览器缓存、pnpm、Nginx、测试策略 |
-| 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八-微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
-| 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九-生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
-| 十 | 🎤 | [PyCharm 通过 SSH 隧道连接 ECS 数据库](#十-pycharm-通过ssh隧道连接ecs数据库) | SSH隧道、Docker端口映射、pg_hba.conf |
-| 十一 | 🎤 | [环境变量管理 — Docker 注入 vs Pydantic 读取 .env](#十一-环境变量管理--docker-注入-vs-pydashic-读取-env) | Pydantic Settings、Docker Compose、12-Factor App、生产级配置 |
+| 一 | 🎤 | [Docker 容器间通信 — RedisInsight 连不上 Redis](#一--docker-容器间通信-redisinsight-连不上-redis) | 网络隔离、host.docker.internal |
+| 二 | 🎤 | [本地开发微信登录报 IP 不在白名单](#二--本地开发微信登录报-ip-不在白名单) | 公网出口 IP、代理、微信平台安全 |
+| 三 | 🎤 | [个人版小程序 getPhoneNumber 不可用](#三--个人版小程序-getphonenumber-不可用) | 小程序主体类型、前端降级 |
+| 四 | 🎤 | [FastAPI 307 重定向导致 401 未认证](#四--fastapi-307-重定向导致-401-未认证) | redirect_slashes、axios header 丢失 |
+| 五 | 📋 | [环境速查 — pnpm workspace / Redis 连接](#五--环境速查) | 开发工具 |
+| 六 | 🔧 | [业务错误码体系](#六--业务错误码体系) | 状态码设计、架构规范 |
+| 七 | 🎤 | [CI/CD 全流程实战 — 从接入到生产级部署](#七--cicd-全流程实战--从接入到生产级部署) | GitHub Actions、浏览器缓存、pnpm、Nginx、测试策略 |
+| 八 | 🎤 | [微信小程序页面栈溢出与 iOS 真机渲染问题](#八--微信小程序页面栈溢出与-ios-真机渲染问题) | 页面栈、合成层、scroll-view、iOS兼容 |
+| 九 | 🎤 | [生产部署实战复盘 → 企业级面试知识图谱](#九--生产部署实战复盘--企业级面试知识图谱) | Docker/GitOps/Nginx/多租户/JWT 全栈 |
+| 十 | 🎤 | [PyCharm 通过 SSH 隧道连接 ECS 数据库](#十--pycharm-通过-ssh-隧道连接-ecs-数据库) | SSH隧道、Docker端口映射、pg_hba.conf |
+| 十一 | 🎤 | [环境变量管理 — Docker 注入 vs Pydantic 读取 .env](#十一--环境变量管理--docker-注入-vs-pydantic-读取-env) | Pydantic Settings、Docker Compose、12-Factor App、生产级配置 |
+| 十二 | 🎤 | [AI 助手会话未隔离 — 所有用户聊天记录混在一起](#十二--ai-助手会话未隔离--所有用户聊天记录混在一起) | Redis Key 隔离、user_id 绑定、越权读取防护、JWT 链路 |
 
 
 ---
@@ -383,6 +384,81 @@ done
 - **Liveness vs Readiness Probe**：进程活着 ≠ 服务就绪
 - **HTTP 200 ≠ 服务就绪**：可能只是进程启动但数据库连不上
 - **优雅关闭**（graceful shutdown）：SIGTERM → 停止接新请求 → 处理完在途请求 → 退出
+
+---
+
+#### 🔴 问题 11：Docker 容器启动崩溃 —— 硬编码 `parents[N]` 越界
+
+**现象**：
+
+CI/CD 部署成功跑完 `docker compose up -d`，但容器不断重启（`restarting`），无法进入 `running` 状态。服务器上 `docker logs dance-api` 输出：
+
+```
+File "/app/src/app/core/config.py", line 13, in <module>
+    PROJECT_ROOT = Path(__file__).resolve().parents[5]
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+File "/usr/local/lib/python3.12/pathlib.py", line 282, in __getitem__
+    raise IndexError(idx)
+IndexError: 5
+```
+
+**根因**：
+
+`config.py` 硬编码了 `parents[5]` 来定位项目根目录，在本地开发环境路径层级刚好匹配：
+
+```
+本地:  class_booking_system/apps/api/src/app/core/config.py  (6级 → parents[5] = class_booking_system)
+容器:  /app/src/app/core/config.py                           (4级 → parents[5] 越界!)
+```
+
+Dockerfile 的 `WORKDIR /app` + `COPY . .` 把 `apps/api/` 下所有文件平铺到容器的 `/app/`，没有了 `apps/api/` 这两层嵌套，`parents[5]` 自然越界。
+
+**解决**：
+
+把硬编码改为**动态向上查找**，同时 `env_file` 做安全降级：
+
+```python
+def _find_project_root(start: Path) -> Path:
+    current = start.resolve()
+    # 优先找 .env 文件（本地开发）
+    for p in [current, *current.parents]:
+        if (p / ".env").exists():
+            return p
+    # 退而找 pyproject.toml（Docker 容器）
+    for p in [current, *current.parents]:
+        if (p / "pyproject.toml").exists():
+            return p
+    return current.parent
+
+PROJECT_ROOT = _find_project_root(Path(__file__))
+
+_env_file = PROJECT_ROOT / ".env"
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(_env_file) if _env_file.exists() else None,
+        ...
+    )
+```
+
+**修复后两种环境都能工作**：
+
+| 环境 | 查找过程 | 找到的根 |
+|------|---------|---------|
+| 本地开发 | `.env` 存在 → `class_booking_system/` | `class_booking_system/` |
+| Docker 容器 | `.env` 不存在 → `pyproject.toml` 存在 → `/app/` | `/app/` |
+
+容器里 `.env` 不存在时 `env_file=None`，Pydantic 跳过 `.env` 读取，完全依赖 docker-compose 的 `environment:` 注入，符合 12-Factor App 原则。
+
+**面试考点**：
+
+- **Dockerfile 的 WORKDIR + COPY 如何改变文件结构**：本地 `apps/api/` 嵌套 → 容器 `/app/` 平铺，路径层级发生变化
+- **硬编码路径的脆弱性**：`parents[N]` 假设了固定的目录层级，换个环境就崩
+- **生产环境配置的正确姿势**：Docker Compose 的 `environment:` 注入环境变量，而不是依赖容器内的 `.env` 文件
+- **Pydantic Settings 的 env_file 安全降级**：文件不存在时传 `None`，不要传不存在的路径
+- **容器内调试手段**：`docker logs <container>` 看 Python traceback 是最直接的定位方法
+- **路径工具函数**：`Path(__file__).resolve()`、`.parents`、`.parent`、`glob()`、`rglob()` 的使用场景
+- **同类问题预防**：任何依赖"相对于项目根目录"的路径计算（找配置文件、找模板、找静态资源）都应该用动态查找，不要硬编码层级
 
 ---
 
@@ -1582,5 +1658,135 @@ env_file 开发爽，生产其实无所谓，
 > **"开发时 `.env` 文件是主角，生产时它只是配角——真正的主角是 Docker 注入的环境变量。"**
 
 **核心原则**：配置与代码分离，敏感与非敏感分离，开发与生产分离。
+
+---
+---
+
+## 十二 🎤 AI 助手会话未隔离 — 所有用户聊天记录混在一起
+
+### 现象
+
+AI 助手上线后发现两个严重安全问题：
+1. 用户 A 问"我的余额是多少？" → 可能拿到用户 B 的余额（会话串台）
+2. 任何人只要猜到 `session_id` 就能 GET 到别人的完整聊天记录（越权读取）
+
+### 根因
+
+三层隔离全部缺失：
+
+```
+【前端层】AiAssistant.vue:103
+sessionId 默认值: `student_${Date.now()}`
+→ 每次组件挂载就变！关闭小程序重开 → 新会话，历史丢失
+→ 没有和登录用户的 user_id 绑定
+
+【后端 Router 层】router.py
+session_id 默认 "default"，完全信任前端传入，不校验归属权
+get_history / clear_history: 谁传 session_id 就能操作谁的数据
+
+【后端 SessionManager 层】session.py
+_key(session_id): return f"ai:session:{session_id}"
+→ Redis key 里没有 user_id，物理层面没隔离
+→ 两个用户用同一个 session_id，数据直接串了
+```
+
+### 修复方案
+
+核心原则：**Redis key 必须带 user_id，物理隔离**。
+
+#### 1. SessionManager 加 user_id（底层隔离）
+
+```python
+# session.py
+class SessionManager:
+    def __init__(self, redis_client=None, user_id: int = None):
+        self.user_id = user_id
+
+    def _session_scope_key(self, session_id: str) -> str:
+        """
+        改之前: ai:session:{session_id}
+        改之后: ai:session:user_{user_id}:{session_id}
+        """
+        user_part = f"user_{self.user_id}" if self.user_id else "anon"
+        return f"ai:session:{user_part}:{session_id}"
+
+    def _state_scope_key(self, session_id: str) -> str:
+        """中间状态也隔离"""
+        return f"ai:state:{user_part}:{session_id}"
+
+    def _lock_scope_key(self, session_id: str) -> str:
+        """并发锁也隔离"""
+        return f"ai:lock:{user_part}:{session_id}"
+```
+
+#### 2. AgentRuntime 传递 user_id
+
+```python
+# runtime.py
+class AgentRuntime:
+    def __init__(self, redis_client=None, user_id: int = None):
+        self.session = SessionManager(redis_client, user_id=user_id)
+        self.user_id = user_id
+```
+
+#### 3. 前端绑定用户 + 持久化
+
+```typescript
+// AiAssistant.vue
+const buildSessionId = (): string => {
+  const userInfo = uni.getStorageSync('userInfo')
+  const userId = userInfo?.id || userInfo?.user_id || 'anon'
+  return `session_${userId}`   // 同一个用户永远用同一个 session_id
+}
+
+// 登录状态变化时重建会话
+const checkLogin = () => {
+  const wasLoggedIn = isLoggedIn.value
+  isLoggedIn.value = !!uni.getStorageSync('token')
+  if (isLoggedIn.value !== wasLoggedIn) {
+    currentSessionId = buildSessionId()
+    messages.value = []  // 切换账号清空本地消息
+  }
+}
+```
+
+### 隔离效果验证
+
+```bash
+# 验证 Redis key 格式（修复后）
+$ redis-cli KEYS "ai:*"
+1) "ai:session:user_1:session_isolation_test"     ← user_id=1 专属
+2) "ai:session:user_2:session_isolation_test"     ← user_id=2 专属（物理隔离）
+3) "ai:state:user_1:session_default"              ← 多轮对话状态也隔离
+```
+
+### 三层防护体系
+
+| 层级 | 防护 | 说明 |
+|------|------|------|
+| **Redis 物理隔离** | key 带 `user_{user_id}` | 即使 session_id 撞了也不会串台 |
+| **JWT→user_id 链路** | Router 从 JWT payload 拿 user_id | 后端说了算，前端传的 session_id 只是"别名" |
+| **前端会话持久化** | sessionId 绑定 userInfo.id | 关闭小程序再打开还是同一个会话 |
+
+### session_id 的新定位
+
+修复后 `session_id` 仍然可以由前端传入，但作用变成了**一个用户区分多个会话的别名**：
+
+```
+user_id=1 的用户可以有多个独立会话:
+  session_id="booking"  → ai:session:user_1:booking   (约课专用)
+  session_id="query"    → ai:session:user_1:query     (查课专用)
+  session_id="default"  → ai:session:user_1:default   (通用)
+```
+
+### 面试要点
+
+- **Redis 多租户/多用户隔离设计**：key 命名空间是最基础的隔离手段（`tenant:{id}:...` / `user:{id}:...`）
+- **"不信任前端"原则**：前端传的 `session_id` 可以当作"偏好设置"，但**隔离的权威来源是 JWT 里的 user_id**
+- **越权读取（IDOR）漏洞**：Insecure Direct Object Reference，OWASP Top 10 里的 A01 Broken Access Control。典型场景：猜 URL 参数就能拿到别人的数据
+- **会话管理的三要素**：唯一标识（session_id）、归属认证（user_id 绑定）、过期清理（TTL）
+- **分布式锁的隔离**：锁 key 不带 user_id → 不同用户可能互相挡住（用户 A 处理请求时，用户 B 拿不到同一个锁）
+- **前后端职责划分**：前端负责"让用户方便"（生成友好的 session_id），后端负责"让系统安全"（强制拼 user_id）
+- **排查越权漏洞的 checklist**：所有"根据 ID 查数据"的接口，都要验证"这个 ID 属于当前用户吗？"
 
 ---

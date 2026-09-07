@@ -12,7 +12,7 @@ BaseRepository - 通用数据访问层（Repository Pattern）
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -345,7 +345,7 @@ class BaseRepository[ModelType]:
                 if not db_obj:
                     return False
 
-                db_obj.deleted_at = datetime.utcnow()
+                db_obj.deleted_at = datetime.now(UTC)
                 success = True
             else:
                 stmt = delete(self.model_class).where(self.model_class.id == id)
