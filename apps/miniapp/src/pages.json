@@ -123,9 +123,27 @@
       }
     },
     {
-      "path": "pages/student/profile/history",
+      "path": "pages/student/membership/index",
       "style": {
-        "navigationBarTitleText": "历史记录",
+        "navigationBarTitleText": "我的会员卡"
+      }
+    },
+    {
+      "path": "pages/student/membership/detail",
+      "style": {
+        "navigationBarTitleText": "会员卡详情"
+      }
+    },
+    {
+      "path": "pages/student/membership/transactions",
+      "style": {
+        "navigationBarTitleText": "消费记录"
+      }
+    },
+    {
+      "path": "pages/student/booking-confirm/index",
+      "style": {
+        "navigationStyle": "custom",
         "disableScroll": true
       }
     },

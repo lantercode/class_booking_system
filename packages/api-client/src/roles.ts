@@ -60,7 +60,7 @@ export const roleApi = {
   },
 
   listPermissions(module?: string) {
-    return apiClient.get<PermissionListResponse>('/roles/permissions', {
+    return apiClient.get<PermissionListResponse>('/roles/permission-list', {
       params: module ? { module } : undefined,
     })
   },

@@ -73,17 +73,24 @@
             </view>
             <view class="schedule-footer">
               <text class="count">{{ schedule.booked_count }}/{{ schedule.capacity }}人</text>
-              <button
-                class="book-btn"
-                :class="{
-                  disabled: schedule._isDisabled,
-                  booked: schedule._isBooked
-                }"
-                :disabled="schedule._isDisabled"
-                @tap="handleBooking(schedule.id)"
-              >
-                {{ schedule._btnText }}
-              </button>
+              <view class="btn-wrapper">
+                <button
+                  class="book-btn"
+                  :class="{
+                    disabled: schedule._isDisabled,
+                    booked: schedule._isBooked,
+                    'no-card': schedule._statusClass === 'no_card',
+                    'not-applicable': schedule._statusClass === 'not_applicable',
+                    'insufficient': schedule._statusClass === 'insufficient',
+                    'weekly-limit': schedule._statusClass === 'weekly_limit'
+                  }"
+                  :disabled="schedule._isDisabled"
+                  @tap="schedule._isBooked ? handleBooking(schedule.id) : openCardSelector(schedule.id)"
+                >
+                  {{ schedule._btnText }}
+                </button>
+                <text v-if="schedule._cancelHint" class="cancel-hint">{{ schedule._cancelHint }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -97,7 +104,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { scheduleApi, bookingApi } from '@/api'
+import { scheduleApi, bookingApi, courseTypeApi, membershipApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import { formatTime, toAPIDateTime, isScheduleExpired, isWithinBookingWindow } from '@/utils/date'
 import StudentTabBar from '@/components/StudentTabBar.vue'
@@ -106,23 +113,26 @@ import AppNavbar from '@/components/AppNavbar.vue'
 import AppFilterTabs from '@/components/AppFilterTabs.vue'
 import { extractList } from '@/utils/helpers'
 
-const filterTabs = [
+const filterTabs = ref<Array<{ label: string; value: string }>>([
   { label: '全部', value: 'all' },
-  { label: '爵士舞', value: '爵士舞' },
-  { label: '街舞', value: '街舞' },
-  { label: '中国舞', value: '中国舞' },
-  { label: '芭蕾', value: '芭蕾' },
-  { label: '拉丁', value: '拉丁' },
-  { label: '现代舞', value: '现代舞' },
-  { label: '瑜伽', value: '瑜伽' },
-]
-
+])
 const selectedCategory = ref('all')
 const selectedDate = ref('')
 const daySchedules = ref<any[]>([])
 const bookings = ref<any[]>([])
 const loading = ref(false)
 const userId = ref('')
+
+// 会员卡相关
+const membershipCards = ref<any[]>([])
+const isLoadingCards = ref(false)
+
+interface CardValidationResult {
+  valid: boolean
+  availableCards: any[]
+  reason?: string
+  reasonType?: 'no_card' | 'not_applicable' | 'insufficient' | 'weekly_limit' | 'expired'
+}
 
 const systemInfo = uni.getSystemInfoSync()
 const navbarHeight = systemInfo.statusBarHeight + 44
@@ -182,31 +192,74 @@ const displaySchedules = computed(() => {
     let statusClass: string
 
     if (isBooked) {
-      if (isWithin90Min || isOngoing) {
-        statusText = '进行中'
-        btnText = isWithin90Min ? '不可取消' : '进行中'
-        statusClass = 'ongoing'
+      if (isOngoing) {
+        statusText = '已预约'
+        btnText = '不可取消'
+        statusClass = 'booked'
+      } else if (isWithin90Min) {
+        statusText = '已预约'
+        btnText = '不可取消'
+        statusClass = 'booked'
       } else {
         statusText = '已预约'
         btnText = '取消'
         statusClass = 'booked'
       }
     } else if (isExpired) {
-      statusText = '已过期'
-      btnText = '已过期'
-      statusClass = 'expired'
+      statusText = '已完成'
+      btnText = '已完成'
+      statusClass = 'completed'
     } else if (isOutOfWindow) {
-      statusText = '超出范围'
+      statusText = '不可预约'
       btnText = '不可预约'
-      statusClass = 'expired'
+      statusClass = 'disabled'
     } else if (isFull) {
       statusText = '已满'
       btnText = '已满'
       statusClass = 'full'
     } else {
-      statusText = '可预约'
-      btnText = '预约'
-      statusClass = 'available'
+      // 检查会员卡状态
+      const cardValidation = validateCardForSchedule(schedule)
+      if (!cardValidation.valid) {
+        switch (cardValidation.reasonType) {
+          case 'no_card':
+            statusText = '无会员卡'
+            btnText = '无会员卡'
+            statusClass = 'no_card'
+            break
+          case 'not_applicable':
+            statusText = '不适用'
+            btnText = '不适用'
+            statusClass = 'not_applicable'
+            break
+          case 'insufficient':
+            statusText = '余额不足'
+            btnText = '余额不足'
+            statusClass = 'insufficient'
+            break
+          case 'weekly_limit':
+            statusText = '已达上限'
+            btnText = '已达上限'
+            statusClass = 'weekly_limit'
+            break
+          default:
+            statusText = '可预约'
+            btnText = '预约'
+            statusClass = 'available'
+        }
+      } else {
+        statusText = '可预约'
+        btnText = '预约'
+        statusClass = 'available'
+      }
+    }
+
+    // 取消提示文案
+    let cancelHint: string = ''
+    if (isBooked && isOngoing) {
+      cancelHint = '课程已开始，不可取消'
+    } else if (isBooked && isWithin90Min) {
+      cancelHint = '开课前90分钟内不可取消'
     }
 
     return {
@@ -216,15 +269,181 @@ const displaySchedules = computed(() => {
       _endTime: formatTime(schedule.end_at),
       _isBooked: isBooked,
       _isFull: isFull,
-      _isDisabled: isDisabled,
+      _isDisabled: isDisabled || (!isBooked && !isExpired && !isOutOfWindow && !isFull && !validateCardForSchedule(schedule).valid),
       _statusClass: statusClass,
       _statusText: statusText,
       _btnText: btnText,
       _isWithin90Min: isWithin90Min,
       _isOngoing: isOngoing,
+      _cancelHint: cancelHint,
+      _cardValidation: !isBooked && !isExpired && !isOutOfWindow && !isFull ? validateCardForSchedule(schedule) : null,
     }
   })
 })
+
+// 会员卡验证函数
+const validateCardForSchedule = (schedule: any): CardValidationResult => {
+  if (membershipCards.value.length === 0) {
+    return {
+      valid: false,
+      availableCards: [],
+      reason: '您需要先办理会员卡才能预约课程',
+      reasonType: 'no_card'
+    }
+  }
+
+  // 筛选有效会员卡
+  const now = new Date()
+  const validCards = membershipCards.value.filter((card: any) => {
+    if (card.status !== 1) return false // 1 = ACTIVE
+    
+    // 检查有效期
+    if (card.expire_at && new Date(card.expire_at) < now) return false
+    if (card.valid_from && new Date(card.valid_from) > now) return false
+    
+    // 检查次卡余额
+    if (card.card_type === 'count') {
+      const remaining = (card.total_credits || 0) - (card.used_credits || 0)
+      if (remaining <= 0) return false
+    }
+    
+    return true
+  })
+
+  if (validCards.length === 0) {
+    // 检查是否有卡但都无效
+    const hasExpiredCards = membershipCards.value.some((card: any) => {
+      if (card.status === 1 && card.expire_at && new Date(card.expire_at) < now) return true
+      if (card.status === 1 && card.card_type === 'count') {
+        const remaining = (card.total_credits || 0) - (card.used_credits || 0)
+        if (remaining <= 0) return true
+      }
+      return false
+    })
+
+    if (hasExpiredCards) {
+      return {
+        valid: false,
+        availableCards: [],
+        reason: '您的会员卡已过期或余额不足，请续费',
+        reasonType: 'expired'
+      }
+    }
+
+    return {
+      valid: false,
+      availableCards: [],
+      reason: '您需要先办理会员卡才能预约课程',
+      reasonType: 'no_card'
+    }
+  }
+
+  // 检查适用课程类型
+  const scheduleCourseTypeCode = schedule.course_type_code
+  const typeApplicableCards = validCards.filter((card: any) => {
+    if (!card.applicable_course_type_codes || card.applicable_course_type_codes.length === 0) {
+      return true // 适用于所有课程类型
+    }
+    if (!scheduleCourseTypeCode) return true
+    return card.applicable_course_type_codes.includes(scheduleCourseTypeCode)
+  })
+
+  if (typeApplicableCards.length === 0) {
+    return {
+      valid: false,
+      availableCards: [],
+      reason: '当前会员卡不适用于此课程类型',
+      reasonType: 'not_applicable'
+    }
+  }
+
+  // 检查适用课程
+  const applicableCards = typeApplicableCards.filter((card: any) => {
+    if (!card.applicable_course_ids || card.applicable_course_ids.length === 0) {
+      return true // 适用于所有课程
+    }
+    return card.applicable_course_ids.includes(schedule.course_id)
+  })
+
+  if (applicableCards.length === 0) {
+    return {
+      valid: false,
+      availableCards: [],
+      reason: '当前会员卡不适用于此课程',
+      reasonType: 'not_applicable'
+    }
+  }
+
+  // 检查每周使用次数限制
+  const cardsWithinWeeklyLimit = applicableCards.filter((card: any) => {
+    if (!card.max_weekly_usage) return true // 无限制
+    
+    // TODO: 需要后端API支持查询本周使用次数
+    // 暂时假设未超限
+    return true
+  })
+
+  if (cardsWithinWeeklyLimit.length === 0) {
+    return {
+      valid: false,
+      availableCards: [],
+      reason: '本周使用次数已达上限',
+      reasonType: 'weekly_limit'
+    }
+  }
+
+  return {
+    valid: true,
+    availableCards: cardsWithinWeeklyLimit
+  }
+}
+
+// 加载会员卡
+const loadMembershipCards = async () => {
+  if (isLoadingCards.value) return
+  isLoadingCards.value = true
+
+  try {
+    const result = await membershipApi.getMyCards()
+    if (isUnmounted) return
+
+    const responseData = result?.data as any
+    let cards: any[] = []
+
+    if (responseData?.items && Array.isArray(responseData.items)) {
+      cards = responseData.items
+    } else if (Array.isArray(responseData)) {
+      cards = responseData
+    }
+
+    membershipCards.value = cards
+  } catch (error) {
+    console.error('加载会员卡失败:', error)
+  } finally {
+    isLoadingCards.value = false
+  }
+}
+
+// 打开预约确认页
+const openCardSelector = (scheduleId: number) => {
+  const schedule = daySchedules.value.find((s: any) => s.id === scheduleId)
+  if (!schedule) return
+
+  const validation = validateCardForSchedule(schedule)
+  if (!validation.valid) {
+    uni.showToast({
+      title: validation.reason || '无法预约',
+      icon: 'none',
+      duration: 2000
+    })
+    return
+  }
+
+  // 跳转到预约确认页
+  uni.navigateTo({
+    url: `/pages/student/booking-confirm/index?scheduleId=${scheduleId}`
+  })
+}
 
 onMounted(() => {
   if (!checkLogin('student')) return
@@ -239,14 +458,51 @@ onMounted(() => {
 
   const today = new Date().toISOString().split('T')[0]
   selectedDate.value = today
+  loadCourseTypes()
   loadSchedules()
+  loadBookings()
+  loadMembershipCards()
+
+  uni.$on('bookingSuccess', handleBookingSuccess)
 })
+
+const loadCourseTypes = async () => {
+  try {
+    const result = await courseTypeApi.list({ status: 1 })
+    if (isUnmounted) return
+    
+    const responseData = result?.data as any
+    let items: any[] = []
+    
+    if (responseData?.items && Array.isArray(responseData.items)) {
+      items = responseData.items
+    } else if (Array.isArray(responseData)) {
+      items = responseData
+    }
+    
+    // 构建 filter tabs，使用课程类型名称作为显示标签
+    const tabs: Array<{ label: string; value: string }> = [
+      { label: '全部', value: 'all' },
+    ]
+    
+    items.forEach((type: any) => {
+      if (type.code && type.status === 1) {
+        tabs.push({ label: type.name, value: type.code })
+      }
+    })
+    
+    filterTabs.value = tabs
+  } catch (error) {
+    console.error('加载课程类型失败:', error)
+  }
+}
 
 onUnmounted(() => {
   isUnmounted = true
   if (debounceTimer) { clearTimeout(debounceTimer); debounceTimer = null }
   if (loadBookingsTimer) { clearTimeout(loadBookingsTimer); loadBookingsTimer = null }
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  uni.$off('bookingSuccess', handleBookingSuccess)
 })
 
 const loadSchedules = async () => {
@@ -266,7 +522,7 @@ const loadSchedules = async () => {
       status: 1,
     }
     if (selectedCategory.value !== 'all') {
-      params.category = selectedCategory.value
+      params.course_type_code = selectedCategory.value
     }
 
     const result = await scheduleApi.list(params)
@@ -404,24 +660,9 @@ const handleBooking = async (scheduleId: number) => {
     return
   }
 
-  uni.showModal({
-    title: '确认预约',
-    content: '确定要预约此课程吗？',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          const result = await bookingApi.create({ schedule_id: scheduleId })
-          if (result.code === 0 || result.code === 200) {
-            uni.showToast({ title: '预约成功', icon: 'success' })
-            await Promise.all([loadSchedules(), loadBookings()])
-          } else {
-            uni.showToast({ title: result.msg || '预约失败', icon: 'none' })
-          }
-        } catch {
-          uni.showToast({ title: '预约失败', icon: 'none' })
-        }
-      }
-    },
+  // 跳转到预约确认页
+  uni.navigateTo({
+    url: `/pages/student/booking-confirm/index?scheduleId=${scheduleId}`
   })
 }
 
@@ -453,6 +694,11 @@ const cancelBooking = async (scheduleId: number) => {
   } catch {
     uni.showToast({ title: '取消失败', icon: 'none' })
   }
+}
+
+const handleBookingSuccess = async () => {
+  console.log('🎉 收到预约成功事件，刷新排期和预约数据')
+  await Promise.all([loadSchedules(), loadBookings(), loadMembershipCards()])
 }
 </script>
 
@@ -560,7 +806,7 @@ const cancelBooking = async (scheduleId: number) => {
 }
 
 .pill-day-date {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-primary;
   font-weight: $font-weight-medium;
 }
@@ -685,6 +931,16 @@ const cancelBooking = async (scheduleId: number) => {
     color: $warning-color;
   }
 
+  &.completed {
+    background: $bg-tertiary;
+    color: $text-tertiary;
+  }
+
+  &.disabled {
+    background: $bg-tertiary;
+    color: $text-tertiary;
+  }
+
   &.expired {
     background: $bg-tertiary;
     color: $text-tertiary;
@@ -696,7 +952,7 @@ const cancelBooking = async (scheduleId: number) => {
 }
 
 .classroom, .teacher {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-secondary;
   display: block;
   margin-bottom: $space-2xs;
@@ -709,8 +965,21 @@ const cancelBooking = async (scheduleId: number) => {
   gap: $space-md;
 }
 
+.btn-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: $space-2xs;
+}
+
+.cancel-hint {
+  font-size: $font-size-caption;
+  color: $text-tertiary;
+  line-height: 1.2;
+}
+
 .count {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-tertiary;
   order: -1;
   margin-right: auto;
@@ -722,7 +991,7 @@ const cancelBooking = async (scheduleId: number) => {
   color: #fff;
   border-radius: $radius-2xl;
   border: none;
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   font-weight: $font-weight-medium;
   letter-spacing: $letter-spacing-tight;
   transition: background $duration-fast $ease-standard,
@@ -786,6 +1055,54 @@ const cancelBooking = async (scheduleId: number) => {
       background-color: #c62828;
       transform: scale(0.95);
       box-shadow: 0 1rpx 4rpx rgba(198, 40, 40, 0.35);
+    }
+  }
+
+  // 无会员卡状态
+  &.no-card {
+    background: $bg-tertiary;
+    color: $text-disabled;
+    box-shadow: none;
+    border: 1rpx solid $border-light;
+
+    &::after {
+      border: none;
+    }
+  }
+
+  // 不适用状态
+  &.not-applicable {
+    background: $warning-bg;
+    color: $warning-color;
+    box-shadow: none;
+    border: 1rpx solid $warning-border;
+
+    &::after {
+      border: none;
+    }
+  }
+
+  // 余额不足状态
+  &.insufficient {
+    background: $warning-bg;
+    color: $warning-color;
+    box-shadow: none;
+    border: 1rpx solid $warning-border;
+
+    &::after {
+      border: none;
+    }
+  }
+
+  // 每周上限状态
+  &.weekly-limit {
+    background: $warning-bg;
+    color: $warning-color;
+    box-shadow: none;
+    border: 1rpx solid $warning-border;
+
+    &::after {
+      border: none;
     }
   }
 }

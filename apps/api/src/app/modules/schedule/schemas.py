@@ -34,8 +34,13 @@ class ScheduleUpdate(BaseModel):
     booking_opens_at: datetime | None = Field(None, description="预约开放时间")
     booking_closes_at: datetime | None = Field(None, description="预约截止时间")
     cancel_deadline: datetime | None = Field(None, description="取消截止时间")
-    status: int | None = Field(None, ge=0, le=3, description="状态：0禁用/1正常/2已取消/3已完成")
+    status: int | None = Field(None, ge=1, le=3, description="状态：1正常/2已取消/3已完成")
     notes: str | None = Field(None, max_length=500, description="备注")
+
+
+class ScheduleCancel(BaseModel):
+    """取消排期请求体"""
+    cancel_reason: str = Field(..., min_length=1, max_length=500, description="取消原因")
 
 
 class ScheduleResponse(BaseModel):
@@ -54,13 +59,18 @@ class ScheduleResponse(BaseModel):
     booking_closes_at: datetime | None = None
     cancel_deadline: datetime | None = None
     status: int
+    display_status: int = Field(..., description="显示状态：1待上课/2上课中/3已取消/4已完成")
     notes: str | None = None
+    cancel_reason: str | None = None
+    cancelled_by: int | None = None
+    cancelled_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
     teacher_name: str | None = None
     course_name: str | None = None
     classroom_name: str | None = None
+    course_type_code: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -336,9 +336,16 @@ class RoleService:
         if not role:
             raise NotFoundException("角色不存在")
 
-        # 检查是否为系统角色
+        # 检查是否为系统角色（超级管理员可以修改系统角色权限）
         if role.is_system:
-            raise ValidationException("不能修改系统内置角色的权限")
+            from app.core.tenant_context import get_user_id
+            from app.core.rbac.checker import check_role
+            
+            user_id = get_user_id()
+            is_super_admin = await check_role(db, "super_admin", user_id=user_id)
+            
+            if not is_super_admin:
+                raise ValidationException("不能修改系统内置角色的权限，仅超级管理员可操作")
 
         # 验证权限ID是否有效
         for permission_id in permission_ids:

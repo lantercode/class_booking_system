@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import BigInteger, DateTime, Index, Numeric, SmallInteger, String, Text
+from sqlalchemy import BigInteger, DateTime, Index, Integer, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,6 +35,37 @@ class CourseStatus(Enum):
     ONLINE = 1
 
 
+class CourseTypeStatus(Enum):
+    DISABLED = 0
+    ACTIVE = 1
+
+
+class CourseType(Base, TenantMixin, TimestampMixin):
+    """课程类型（按授课形式分类：常规课、特色课、私教课等）"""
+    __tablename__ = "course_types"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=True), unique=True, nullable=False, default=uuid4,
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False, comment="类型名称")
+    code: Mapped[str] = mapped_column(String(50), nullable=False, comment="类型代码")
+    description: Mapped[str | None] = mapped_column(Text, comment="描述")
+    required_card_types: Mapped[list[str] | None] = mapped_column(
+        ARRAY(String(50)), nullable=True, comment="需要的会员卡类型列表",
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="排序")
+    status: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=CourseTypeStatus.ACTIVE.value, comment="状态",
+    )
+
+    __table_args__ = (
+        Index("uq_course_types_tenant_code", "tenant_id", "code", unique=True),
+        Index("uq_course_types_tenant_name", "tenant_id", "name", unique=True),
+        Index("idx_course_types_tenant_status", "tenant_id", "status"),
+    )
+
+
 class Course(Base, TenantMixin, TimestampMixin):
     __tablename__ = "courses"
 
@@ -44,6 +75,7 @@ class Course(Base, TenantMixin, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     category: Mapped[str | None] = mapped_column(String(50))
+    course_type_code: Mapped[str | None] = mapped_column(String(50), comment="课程类型代码")
     level: Mapped[str | None] = mapped_column(String(20))
     cover_url: Mapped[str | None] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text)
@@ -61,4 +93,5 @@ class Course(Base, TenantMixin, TimestampMixin):
             postgresql_where=deleted_at.is_(None),
         ),
         Index("idx_courses_tenant_category", "tenant_id", "category"),
+        Index("idx_courses_tenant_type", "tenant_id", "course_type_code"),
     )

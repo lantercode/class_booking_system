@@ -2,13 +2,10 @@
   <view class="book-container">
     <!-- 自定义导航栏 - 统一使用AppNavbar -->
     <AppNavbar
-      title=""
-      :show-back="false"
+      title="预约记录"
+      :show-back="true"
       variant="default"
     >
-      <template #left>
-        <view>预约</view>
-      </template>
     </AppNavbar>
 
     <!-- 主内容区域 - 参照课程页面结构 -->
@@ -29,49 +26,47 @@
         :show-scrollbar="false"
         @scrolltolower="onScrollToLower"
       >
-      <!-- 空状态 -->
-      <view v-if="bookings.length === 0" class="empty-state">
-        <text class="empty-icon">📝</text>
-        <text class="empty-text">暂无预约</text>
-        <button class="empty-btn" @tap="goToCourses">去预约课程</button>
-      </view>
+        <!-- 空状态 -->
+        <view v-if="bookings.length === 0" class="empty-state">
+          <text class="empty-icon">📝</text>
+          <text class="empty-text">暂无预约</text>
+        </view>
 
-      <!-- 预约列表 - 使用 view 包裹确保渲染 -->
-      <view class="booking-list-inner">
-        <view
-          v-for="(booking, index) in bookings"
-          :key="booking.id || index"
-          class="booking-card"
-          :style="{ animationDelay: `${index * 0.04}s` }"
-        >
-          <view class="booking-status-bar" :class="getStatusClass(booking.status)"></view>
-          <view class="booking-content">
-            <view class="booking-header">
-              <text class="course-name">{{ booking.course_name || '未知课程' }}</text>
-              <text class="booking-status" :class="getStatusClass(booking.status)">
-                {{ getStatusText(booking.status) }}
-              </text>
-            </view>
-            <view class="booking-info">
-              <text class="booking-date">{{ formatDateTime(booking.start_at) }}</text>
-              <text class="classroom">📍 {{ booking.classroom_name || '未安排' }}</text>
-              <text class="teacher">👨‍🏫 {{ booking.teacher_name || '未知' }}</text>
-            </view>
-            <view class="booking-footer">
-              <text class="booking-time">预约时间: {{ formatTime(booking.created_at) }}</text>
-              <view v-if="Number(booking.status) === BOOKING_STATUS.BOOKED" class="booking-actions">
-                <button v-if="canCancelBooking(booking)" class="action-btn cancel" @tap="handleCancel(booking)">取消预约</button>
-                <text v-else class="cancel-disabled">开课前90分钟内不可取消</text>
+        <!-- 预约列表 - 使用 view 包裹确保渲染 -->
+        <view class="booking-list-inner">
+          <view
+            v-for="(booking, index) in bookings"
+            :key="booking.id || index"
+            class="booking-card"
+            :style="{ animationDelay: `${index * 0.04}s` }"
+          >
+            <view class="booking-status-bar" :class="getStatusClass(booking.display_status || booking.status)"></view>
+            <view class="booking-content">
+              <view class="booking-header">
+                <text class="course-name">{{ booking.course_name || '未知课程' }}</text>
+                <text class="booking-status" :class="getStatusClass(booking.display_status || booking.status)">
+                  {{ getStatusText(booking.display_status || booking.status) }}
+                </text>
+              </view>
+              <view class="booking-info">
+                <text class="booking-date">{{ formatDateTime(booking.start_at) }}</text>
+                <text class="classroom">📍 {{ booking.classroom_name || '未安排' }}</text>
+                <text class="teacher">👨‍🏫 {{ booking.teacher_name || '未知' }}</text>
+              </view>
+              <view class="booking-footer">
+                <text class="booking-time">预约时间: {{ formatTime(booking.created_at) }}</text>
+                <view v-if="Number(booking.display_status || booking.status) === 1 && canCancelBooking(booking)" class="booking-actions">
+                  <button class="action-btn cancel" @tap="handleCancel(booking)">取消预约</button>
+                </view>
+                <view v-else-if="Number(booking.display_status || booking.status) === 1 && !canCancelBooking(booking)" class="booking-actions">
+                  <text class="cancel-disabled">开课前90分钟内不可取消</text>
+                </view>
               </view>
             </view>
           </view>
         </view>
-      </view>
-    </scroll-view>
-
+      </scroll-view>
     </view><!-- /main-content -->
-
-    <StudentTabBar currentRoute="/pages/student/bookings/index" />
 
     <!-- AI 智能助手 -->
     <AiAssistant
@@ -94,10 +89,10 @@ import { extractList } from '@/utils/helpers'
 
 const BOOKING_STATUS = {
   ALL: 'all',
-  BOOKED: 1,        // 已预约（待上课）
-  CHECKED_IN: 3,    // 已签到
-  COMPLETED: 4,     // 已完成
-  CANCELLED: 2      // 已取消
+  BOOKED: 1,        // 待上课
+  CANCELLED: 2,     // 已取消
+  CHECKED_IN: 3,    // 上课中
+  COMPLETED: 4      // 已完成
 } as const
 
 const activeFilter = ref<string | number>('all')
@@ -120,9 +115,8 @@ let isUnmounted = false
 const filterTabs = [
   { label: '全部', value: BOOKING_STATUS.ALL },
   { label: '待上课', value: BOOKING_STATUS.BOOKED },
-  { label: '已签到', value: BOOKING_STATUS.CHECKED_IN },
-  { label: '已完成', value: BOOKING_STATUS.COMPLETED },
-  { label: '已取消', value: BOOKING_STATUS.CANCELLED }
+  { label: '上课中', value: BOOKING_STATUS.CHECKED_IN },
+  { label: '已完成', value: BOOKING_STATUS.COMPLETED }
 ]
 
 onMounted(() => {
@@ -159,10 +153,12 @@ const loadBookings = async () => {
     console.log('\n🚀 ===== 开始加载我的预约列表 =====\n')
 
     // Step 1: 准备参数
-    const params: any = {}
+    const params: any = {
+      exclude_cancelled: true  // 小程序端：不展示已取消的课程
+    }
     
     if (activeFilter.value !== 'all') {
-      params.status = activeFilter.value
+      params.display_status = activeFilter.value
     }
 
     console.log('📋 Step 1 - 请求参数:', JSON.stringify(params))
@@ -284,7 +280,7 @@ const loadBookings = async () => {
     }
 
     // Step 7: 赋值给响应式变量
-    console.log('\n💾 Step 7 - 更新 Vue 响应式数据:')
+    console.log('\n Step 7 - 更新 Vue 响应式数据:')
     
     // 强制创建新引用
     bookings.value = [...extractedData]
@@ -323,21 +319,26 @@ const loadBookings = async () => {
 }
 
 const getStatusClass = (status: number | string) => {
-  switch (Number(status)) {
-    case BOOKING_STATUS.BOOKED: return 'booked'
-    case BOOKING_STATUS.CHECKED_IN: return 'checked-in'
-    case BOOKING_STATUS.COMPLETED: return 'completed'
-    default: return 'cancelled'
+  const statusNum = Number(status)
+  
+  switch (statusNum) {
+    case 1: return 'booked'
+    case 2: return 'cancelled'
+    case 3: return 'in-progress'
+    case 4: return 'completed'
+    default: return 'booked'
   }
 }
 
 const getStatusText = (status: number | string) => {
-  switch (Number(status)) {
-    case BOOKING_STATUS.BOOKED: return '待上课'
-    case BOOKING_STATUS.CHECKED_IN: return '已签到'
-    case BOOKING_STATUS.COMPLETED: return '已完成'
-    case BOOKING_STATUS.CANCELLED: return '已取消'
-    default: return String(status)
+  const statusNum = Number(status)
+  
+  switch (statusNum) {
+    case 1: return '待上课'
+    case 2: return '已取消'
+    case 3: return '上课中'
+    case 4: return '已完成'
+    default: return '待上课'
   }
 }
 
@@ -371,10 +372,6 @@ const handleCancel = async (booking: any) => {
   })
 }
 
-const goToCourses = () => {
-  navigateTo({ url: '/pages/student/courses/index' })
-}
-
 // ✅ 强制刷新方法（调试用）
 const forceRefresh = async () => {
   console.log('🔄 强制刷新预约列表...')
@@ -406,17 +403,16 @@ const forceRefresh = async () => {
 // ============================================
 // 可滚动内容区域 - 自适应屏幕高度（筛选标签已提取为AppFilterTabs组件）
 .booking-list {
-  max-height: calc(100vh - 200rpx);       // 最大不超过屏幕减去导航栏+筛选栏
-  padding-bottom: $space-md;
-  padding-bottom: 180rpx;                 // 底部舒适间距
+  flex: 1;                              // 撑满剩余空间
+  min-height: 0;                        // 允许flex子项缩小
+  padding-bottom: 180rpx;               // 底部间距，避免被TabBar遮挡
   box-sizing: border-box;
-  overflow-y: auto;                       // 只在内容超出时显示滚动条
+  overflow-y: auto;                     // 只在内容超出时显示滚动条
 
   // 空状态时禁用滚动
   &.no-scroll {
-    overflow-y: hidden;                   // 隐藏滚动条
-    max-height: none;                     // 移除最大高度限制
-    height: auto;                         // 高度自适应内容
+    overflow-y: hidden;                 // 隐藏滚动条
+    height: auto;                       // 高度自适应内容
   }
 }
 
@@ -484,12 +480,12 @@ const forceRefresh = async () => {
     background: $primary-gradient;      // ✅ 更新：香槟金渐变
   }
 
-  &.checked-in {
+  &.in-progress {
     background: linear-gradient(90deg, $info-color, color.adjust($info-color, $lightness: 15%));
   }
 
   &.completed {
-    background: linear-gradient(90deg, $success-color, color.adjust($success-color, $lightness: 10%));
+    background: $bg-tertiary;
   }
 
   &.cancelled {
@@ -526,14 +522,14 @@ const forceRefresh = async () => {
     color: $primary-solid;              // ✅ 更新：香槟金色
   }
 
-  &.checked-in {
+  &.in-progress {
     background: $info-bg;               // ✅ 更新：信息背景
     color: $info-color;                 // ✅ 更新：信息颜色
   }
 
   &.completed {
-    background: $success-bg;            // ✅ 更新：成功背景
-    color: $success-color;              // ✅ 更新：成功颜色
+    background: $bg-tertiary;
+    color: $text-tertiary;
   }
 
   &.cancelled {
@@ -555,7 +551,7 @@ const forceRefresh = async () => {
 }
 
 .classroom, .teacher {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-secondary;              // ✅ 更新：使用文本变量
   display: block;
   margin-bottom: $space-2xs;
@@ -570,7 +566,7 @@ const forceRefresh = async () => {
 }
 
 .booking-time {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-tertiary;
 }
 
@@ -581,7 +577,7 @@ const forceRefresh = async () => {
 .action-btn {
   padding: $space-xs $space-md;
   border-radius: $radius-xl;
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   font-weight: $font-weight-medium;
   transition: background $duration-fast $ease-standard,
               color $duration-fast $ease-standard,
@@ -603,7 +599,7 @@ const forceRefresh = async () => {
 }
 
 .cancel-disabled {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-tertiary;
   opacity: 0.6;
 }
@@ -618,44 +614,6 @@ const forceRefresh = async () => {
   backdrop-filter: blur(20rpx);
   -webkit-backdrop-filter: blur(20rpx);
   padding: $space-sm 0 $space-2xl;
-  border-top: 1rpx solid $border-light;     // ✅ 更新：使用边框变量
-  box-shadow: 0 -4rpx 16rpx rgba(26, 26, 26, 0.04);
-}
-
-@keyframes cardFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8rpx);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tab-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  &.active {
-    .tab-icon, .tab-text {
-      color: $primary-solid;            // ✅ 更新：香槟金色
-    }
-  }
-}
-
-.tab-icon {
-  font-size: $icon-size-md;
-  margin-bottom: $space-2xs;
-  color: $text-tertiary;
-  transition: color $duration-fast $ease-standard;
-}
-
-.tab-text {
-  font-size: $font-size-caption;
-  color: $text-tertiary;
-  transition: color $duration-fast $ease-standard;
+  border-top: 1rpx solid $border-light;     // ✅ 更新�
 }
 </style>

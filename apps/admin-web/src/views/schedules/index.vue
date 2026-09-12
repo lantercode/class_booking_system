@@ -7,12 +7,22 @@
         <el-select v-model="teacherFilter" placeholder="筛选教师" style="width:180px" clearable @change="handleSearch">
           <el-option v-for="t in teachers" :key="t.id" :label="t.nickname || t.phone" :value="t.id" />
         </el-select>
+        <el-select v-model="statusFilter" placeholder="排期状态" style="width:140px" clearable @change="handleSearch">
+          <el-option label="待上课" value="pending" />
+          <el-option label="上课中" value="ongoing" />
+          <el-option label="已取消" value="cancelled" />
+          <el-option label="已完成" value="finished" />
+        </el-select>
         <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width:260px" @change="handleSearch" />
-        <el-button type="primary" @click="showCreateDialog"><el-icon><Plus /></el-icon>新增排期</el-button>
+        <el-button type="primary" @click="showCreateDialog">新增</el-button>
+        <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchDelete">
+          批量删除
+        </el-button>
       </div>
     </div>
 
-    <el-table :data="schedules" stripe v-loading="loading" style="width:100%">
+    <el-table :data="schedules" stripe v-loading="loading" style="width:100%" @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="55" />
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="课程" width="140">
         <template #default="{ row }">{{ getCourseName(row.course_id) }}</template>
@@ -35,26 +45,25 @@
           <span style="font-size:12px;color:#909399">{{ row.booked_count }}/{{ row.capacity }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="80">
+      <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag v-if="row.status === 1" type="success" size="small">启用</el-tag>
-          <el-tag v-else-if="row.status === 0" type="danger" size="small">禁用</el-tag>
-          <el-tag v-else-if="row.status === 2" type="warning" size="small">已取消</el-tag>
-          <el-tag v-else-if="row.status === 3" type="info" size="small">已完成</el-tag>
+          <el-tag v-if="row.display_status === 1" type="success" size="small">待上课</el-tag>
+          <el-tag v-else-if="row.display_status === 2" type="primary" size="small">上课中</el-tag>
+          <el-tag v-else-if="row.display_status === 4" type="info" size="small">已完成</el-tag>
+          <el-tag v-else-if="row.display_status === 3" type="warning" size="small">已取消</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="showEditDialog(row)" :disabled="row.status !== 1">编辑</el-button>
+          <el-button v-if="row.display_status === 1" type="primary" size="small" link @click="showEditDialog(row)">编辑</el-button>
           <el-button type="info" size="small" link @click="showStudents(row)">学员</el-button>
-          <el-button v-if="row.status === 1" type="warning" size="small" link @click="handleDisable(row)">禁用</el-button>
-          <el-button v-else-if="row.status === 0" type="success" size="small" link @click="handleEnable(row)">启用</el-button>
-          <el-button v-if="row.status !== 1" type="danger" size="small" link @click="handleDelete(row)">删除</el-button>
+          <el-button v-if="row.display_status === 1" type="warning" size="small" link @click="handleCancel(row)">取消</el-button>
+          <el-button type="danger" size="small" link @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <div style="display:flex;justify-content:center;margin-top:20px">
+    <div class="pagination-wrapper">
       <el-pagination
         background
         layout="total, prev, pager, next"
@@ -65,7 +74,7 @@
       />
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑排期' : '新增排期'" width="650px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑' : '新增'" width="650px" destroy-on-close>
       <div v-if="!isEdit" style="margin-bottom:16px">
         <el-radio-group v-model="scheduleMode">
           <el-radio label="single">单条排期</el-radio>
@@ -193,9 +202,10 @@
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag v-if="row.status === 1" type="success" size="small">已预约</el-tag>
-            <el-tag v-else-if="row.status === 2" type="warning" size="small">已签到</el-tag>
-            <el-tag v-else-if="row.status === 3" type="info" size="small">已完成</el-tag>
-            <el-tag v-else-if="row.status === 0" type="danger" size="small">已取消</el-tag>
+            <el-tag v-else-if="row.status === 2" type="danger" size="small">已取消</el-tag>
+            <el-tag v-else-if="row.status === 3" type="warning" size="small">已签到</el-tag>
+            <el-tag v-else-if="row.status === 4" type="info" size="small">已完成</el-tag>
+            <el-tag v-else-if="row.status === 5" type="info" size="small">未到场</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="预约时间" width="160">
@@ -206,17 +216,67 @@
         <el-button @click="studentDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="cancelVisible" title="取消排期" width="500px" destroy-on-close>
+      <el-alert 
+        v-if="cancelTarget && cancelTarget.booked_count > 0" 
+        type="warning" 
+        :closable="false"
+        show-icon
+        style="margin-bottom: 16px"
+      >
+        <template #title>
+          该排期已有 {{ cancelTarget.booked_count }} 名学员预约
+        </template>
+        <div>
+          <p style="margin: 8px 0">取消后将:</p>
+          <ul style="margin: 0; padding-left: 20px">
+            <li>自动取消所有学员的预约</li>
+            <li>课时将退还至学员会员卡</li>
+            <li>发送取消通知给所有学员</li>
+          </ul>
+        </div>
+      </el-alert>
+      
+      <el-form :model="cancelForm" label-width="100px">
+        <el-form-item label="取消原因" required>
+          <el-select v-model="cancelForm.reason" placeholder="请选择取消原因" style="width:100%">
+            <el-option label="老师临时有事" value="老师临时有事" />
+            <el-option label="教室不可用" value="教室不可用" />
+            <el-option label="天气原因" value="天气原因" />
+            <el-option label="其他" value="其他" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item v-if="cancelForm.reason === '其他'" label="详细说明">
+          <el-input 
+            v-model="cancelForm.detail" 
+            type="textarea" 
+            :rows="3"
+            placeholder="请输入详细取消原因"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="cancelVisible = false">取消</el-button>
+        <el-button type="warning" @click="confirmCancel" :loading="cancelling">
+          确认取消
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { scheduleApi, courseApi, classroomApi, userApi, bookingApi, type Schedule } from '@dance-saas/api-client'
 
 const loading = ref(false)
 const submitting = ref(false)
+const batchDeleting = ref(false)
 const schedules = ref<Schedule[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -224,6 +284,8 @@ const pageSize = ref(10)
 const dateRange = ref<any[]>([])
 const teacherFilter = ref<number | null>(null)
 const courseNameFilter = ref('')
+const statusFilter = ref<string | null>(null)
+const selectedRows = ref<Schedule[]>([])
 
 const courses = ref<{ id: number; name: string; duration_minutes: number }[]>([])
 const teachers = ref<{ id: number; nickname: string | null; phone: string }[]>([])
@@ -296,6 +358,15 @@ async function fetchSchedules() {
     }
     if (courseNameFilter.value) {
       params.course_name = courseNameFilter.value
+    }
+    if (statusFilter.value === 'pending') {
+      params.display_status = 1
+    } else if (statusFilter.value === 'ongoing') {
+      params.display_status = 2
+    } else if (statusFilter.value === 'cancelled') {
+      params.display_status = 3
+    } else if (statusFilter.value === 'finished') {
+      params.display_status = 4
     }
     if (dateRange.value && dateRange.value.length === 2) {
       params.start_from = formatDateTime(dateRange.value[0], '00:00:00')
@@ -497,35 +568,52 @@ async function handleSingleSubmit() {
   }
 }
 
-async function handleDisable(row: Schedule) {
-  try {
-    const courseName = getCourseName(row.course_id)
-    const dateStr = formatDate(row.start_at)
-    const timeStr = formatTime(row.start_at)
-    await ElMessageBox.confirm(`确定要禁用「${courseName} ${dateStr} ${timeStr}」吗？`, '禁用确认', { type: 'warning' })
-    await scheduleApi.update(row.id, { status: 0 })
-    ElMessage.success('排期已禁用')
-    fetchSchedules()
-  } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(e?.response?.data?.msg || '禁用失败')
-    }
-  }
+const cancelVisible = ref(false)
+const cancelling = ref(false)
+const cancelTarget = ref<Schedule | null>(null)
+const cancelForm = ref({
+  reason: '',
+  detail: '',
+})
+
+function handleCancel(row: Schedule) {
+  cancelTarget.value = row
+  cancelForm.value = { reason: '', detail: '' }
+  cancelVisible.value = true
 }
 
-async function handleEnable(row: Schedule) {
+async function confirmCancel() {
+  if (!cancelForm.value.reason) {
+    ElMessage.warning('请选择取消原因')
+    return
+  }
+  
+  const reason = cancelForm.value.reason === '其他' 
+    ? cancelForm.value.detail 
+    : cancelForm.value.reason
+  
+  if (!reason) {
+    ElMessage.warning('请输入详细取消原因')
+    return
+  }
+
+  cancelling.value = true
   try {
-    const courseName = getCourseName(row.course_id)
-    const dateStr = formatDate(row.start_at)
-    const timeStr = formatTime(row.start_at)
-    await ElMessageBox.confirm(`确定要启用「${courseName} ${dateStr} ${timeStr}」吗？`, '启用确认', { type: 'warning' })
-    await scheduleApi.update(row.id, { status: 1 })
-    ElMessage.success('排期已启用')
+    const res = await scheduleApi.cancel(cancelTarget.value!.id, { cancel_reason: reason })
+    const result = res.data
+    
+    if (result.total_bookings > 0) {
+      ElMessage.success(`排期已取消，已处理 ${result.success_count}/${result.total_bookings} 个学员预约，课时已退还`)
+    } else {
+      ElMessage.success('排期已取消')
+    }
+    
+    cancelVisible.value = false
     fetchSchedules()
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(e?.response?.data?.msg || '启用失败')
-    }
+    ElMessage.error(e?.response?.data?.msg || '取消失败')
+  } finally {
+    cancelling.value = false
   }
 }
 
@@ -534,7 +622,12 @@ async function handleDelete(row: Schedule) {
     const courseName = getCourseName(row.course_id)
     const dateStr = formatDate(row.start_at)
     const timeStr = formatTime(row.start_at)
-    await ElMessageBox.confirm(`确定要删除「${courseName} ${dateStr} ${timeStr}」吗？删除后将无法恢复！`, '删除确认', { type: 'warning' })
+    
+    await ElMessageBox.confirm(
+      `确定要删除「${courseName} ${dateStr} ${timeStr}」吗？删除后将无法恢复！`,
+      '删除确认',
+      { type: 'warning' }
+    )
     await scheduleApi.delete(row.id)
     ElMessage.success('排期已删除')
     fetchSchedules()
@@ -542,6 +635,59 @@ async function handleDelete(row: Schedule) {
     if (e !== 'cancel') {
       ElMessage.error(e?.response?.data?.msg || '删除失败')
     }
+  }
+}
+
+function handleSelectionChange(rows: Schedule[]) {
+  selectedRows.value = rows
+}
+
+async function handleBatchDelete() {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请选择要删除的排期')
+    return
+  }
+
+  const selectedCount = selectedRows.value.length
+  // 仅检查待上课状态的排期是否有学员预约
+  const hasBookedNormalRows = selectedRows.value.filter(r => r.status === 1 && r.booked_count > 0)
+
+  if (hasBookedNormalRows.length > 0) {
+    ElMessage.warning(`选中的 ${selectedCount} 个排期中，有 ${hasBookedNormalRows.length} 个待上课排期已有学员预约，请先取消排期后再删除`)
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要批量删除选中的 ${selectedCount} 个排期吗？删除后将无法恢复！`,
+      '批量删除确认',
+      { type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
+  batchDeleting.value = true
+  try {
+    const ids = selectedRows.value.map(r => r.id)
+    const res = await scheduleApi.batchDelete(ids)
+    const result = res.data
+    
+    if (result.failed_count > 0) {
+      ElMessage.warning(`批量删除完成：成功 ${result.success_count} 个，失败 ${result.failed_count} 个`)
+      if (result.errors && result.errors.length > 0) {
+        console.error('删除失败详情:', result.errors)
+      }
+    } else {
+      ElMessage.success(`成功删除 ${result.success_count} 个排期`)
+    }
+    
+    selectedRows.value = []
+    fetchSchedules()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '批量删除失败')
+  } finally {
+    batchDeleting.value = false
   }
 }
 

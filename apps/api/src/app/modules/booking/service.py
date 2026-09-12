@@ -29,6 +29,7 @@ from app.modules.booking.schemas import (
     BookingListResponse,
     BookingResponse,
 )
+from app.modules.membership.service import membership_card_service
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.user.models import User
@@ -107,6 +108,22 @@ class BookingService:
             booking_data["membership_card_id"] = data.membership_card_id
 
         booking = await self.repo.create(db, booking_data)
+
+        if data.membership_card_id:
+            tenant_id = booking.tenant_id
+            idempotency_key = f"booking_{booking.id}_deduct"
+            try:
+                await membership_card_service.deduct_credit(
+                    db,
+                    card_id=data.membership_card_id,
+                    tenant_id=tenant_id,
+                    booking_id=booking.id,
+                    idempotency_key=idempotency_key,
+                )
+            except Exception as e:
+                logger.error(f"[BookingService] 会员卡扣次失败: {e}")
+                raise BusinessException(f"会员卡扣次失败: {e}", code=400)
+
         await db.commit()
         await db.refresh(booking)
 
@@ -176,6 +193,20 @@ class BookingService:
             booking.cancelled_reason = reason
 
         await self.schedule_repo.decrement_booked_count(db, booking.schedule_id)
+
+        if booking.membership_card_id:
+            tenant_id = booking.tenant_id
+            idempotency_key = f"booking_{booking.id}_restore"
+            try:
+                await membership_card_service.restore_credit(
+                    db,
+                    card_id=booking.membership_card_id,
+                    tenant_id=tenant_id,
+                    booking_id=booking.id,
+                    idempotency_key=idempotency_key,
+                )
+            except Exception as e:
+                logger.error(f"[BookingService] 会员卡恢复次数失败: {e}")
 
         await db.commit()
         await db.refresh(booking)
@@ -250,6 +281,9 @@ class BookingService:
         student_id: int | None = None,
         status: int | None = None,
         statuses: list[int] | None = None,
+        display_status: int | None = None,
+        upcoming: bool = False,
+        exclude_cancelled: bool = False,
         page: int = 1,
         page_size: int = 20,
     ) -> BookingListResponse:
@@ -260,6 +294,7 @@ class BookingService:
             student_id=student_id,
             status=status,
             statuses=statuses,
+            upcoming=upcoming,
             page=page,
             page_size=page_size,
         )
@@ -272,11 +307,27 @@ class BookingService:
         schedule_ids = list({b.schedule_id for b in items})
         schedule_map = await self._get_schedule_info_map(db, schedule_ids)
 
+        # 构建响应对象列表
+        response_items = [
+            self._to_response(b, student_map.get(b.student_id), schedule_map.get(b.schedule_id))
+            for b in items
+        ]
+
+        # 小程序端：自动过滤掉已取消的记录（display_status=2）
+        if exclude_cancelled:
+            response_items = [item for item in response_items if item.display_status != 2]
+
+        # 根据 display_status 过滤（display_status 是计算字段，不在 DB 中）
+        if display_status is not None:
+            response_items = [item for item in response_items if item.display_status == display_status]
+
+        total = len(response_items)
+
         return BookingListResponse(
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(b, student_map.get(b.student_id), schedule_map.get(b.schedule_id)) for b in items],
+            items=response_items,
         )
 
     async def _get_student_info_map(self, db: AsyncSession, student_ids: list[int]) -> dict[int, tuple[str, str]]:
@@ -341,6 +392,32 @@ class BookingService:
         """将 ORM 模型转换为响应对象"""
         nickname, phone = student_info if student_info else (None, None)
         schedule_info = schedule_info or {}
+
+        # 计算显示状态：1待上课/2已取消/3上课中/4已完成
+        now = datetime.now(UTC)
+        start_at = schedule_info.get("start_at")
+        end_at = schedule_info.get("end_at")
+
+        if booking.status == BookingStatus.CANCELLED.value:
+            display_status = 2  # 已取消
+        elif booking.status == BookingStatus.CHECKED_IN.value:
+            display_status = 3  # 上课中
+        elif booking.status in (BookingStatus.COMPLETED.value, BookingStatus.NO_SHOW.value):
+            display_status = 4  # 已完成
+        elif booking.status == BookingStatus.BOOKED.value:
+            # 已预约状态，根据时间判断
+            if start_at and end_at:
+                if start_at > now:
+                    display_status = 1  # 待上课
+                elif start_at <= now <= end_at:
+                    display_status = 3  # 上课中
+                else:
+                    display_status = 4  # 已完成（时间已过）
+            else:
+                display_status = 1  # 没有时间信息，默认待上课
+        else:
+            display_status = booking.status
+
         return BookingResponse(
             id=booking.id,
             public_id=str(booking.public_id),
@@ -348,6 +425,7 @@ class BookingService:
             schedule_id=booking.schedule_id,
             student_id=booking.student_id,
             status=booking.status,
+            display_status=display_status,
             source=booking.source,
             membership_card_id=booking.membership_card_id,
             booked_at=booking.booked_at,

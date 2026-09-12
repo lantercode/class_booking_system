@@ -18,14 +18,6 @@
     </view>
     <view 
       class="tab-item" 
-      :class="{ active: currentRoute === 'bookings' }"
-      @tap="goTo('/pages/student/bookings/index')"
-    >
-      <text class="tab-icon">📝</text>
-      <text class="tab-text">预约</text>
-    </view>
-    <view 
-      class="tab-item" 
       :class="{ active: currentRoute === 'profile' }"
       @tap="goTo('/pages/student/profile/index')"
     >
@@ -48,8 +40,8 @@ const currentRoute = computed(() => {
   const routeMap: Record<string, string> = {
     '/pages/student/courses/index': 'courses',
     '/pages/student/courses/detail': 'courses',
+    '/pages/student/bookings/index': 'schedule',
     '/pages/student/schedule/index': 'schedule',
-    '/pages/student/bookings/index': 'bookings',
     '/pages/student/profile/index': 'profile',
     '/pages/student/profile/edit': 'profile',
     '/pages/student/profile/settings': 'profile'

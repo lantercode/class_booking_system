@@ -30,6 +30,7 @@ class BookingResponse(BaseModel):
     schedule_id: int = Field(..., description="排期ID")
     student_id: int = Field(..., description="学员ID")
     status: int = Field(..., description="状态：1已预约/2已取消/3已签到/4已完成/5未到场")
+    display_status: int = Field(..., description="显示状态：1待上课/2已取消/3上课中/4已完成")
     source: str = Field(..., description="预约来源：self=学员自行预约/admin=管理员代约/teacher=教师代约")
     membership_card_id: int | None = Field(None, description="会员卡ID")
     booked_at: datetime = Field(..., description="预约时间")

@@ -952,7 +952,7 @@ const cancelBooking = async (scheduleId: number) => {
 
 /* 信息行 */
 .info-text {
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   color: $text-secondary;
   white-space: nowrap;
 }
@@ -1006,7 +1006,7 @@ const cancelBooking = async (scheduleId: number) => {
 .book-btn {
   padding: 6rpx $space-xl;
   border-radius: $radius-full;
-  font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
   font-weight: $font-weight-semibold;
   background: $primary-gradient;
   color: #fff;

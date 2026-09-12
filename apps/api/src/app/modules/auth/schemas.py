@@ -222,8 +222,8 @@ class UserResponse(BaseModel):
     )
 
     nickname: str = Field(
-        ...,
-        min_length=2,
+        default="",
+        min_length=0,
         max_length=20,
         description="用户昵称",
         examples=["小明"]
@@ -245,6 +245,12 @@ class UserResponse(BaseModel):
         ...,
         description="用户状态（1=正常 2=禁用）",
         examples=[1]
+    )
+
+    roles: list[str] = Field(
+        default_factory=list,
+        description="用户角色代码列表",
+        examples=[["admin", "teacher"]]
     )
 
     created_at: datetime = Field(

@@ -5,11 +5,14 @@ Booking Repository - 预约数据访问层
 """
 
 
+from datetime import UTC, datetime
+
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
 from app.modules.booking.models import Booking, BookingStatus
+from app.modules.schedule.models import CourseSchedule
 
 
 class BookingRepository(TenantAwareRepository[Booking]):
@@ -25,12 +28,18 @@ class BookingRepository(TenantAwareRepository[Booking]):
         student_id: int | None = None,
         status: int | None = None,
         statuses: list[int] | None = None,
+        upcoming: bool = False,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[Booking], int]:
         """搜索预约（支持多条件筛选）"""
         base_query = select(Booking)
-        count_query = select(func.count()).select_from(Booking)
+        count_query = select(func.count(Booking.id))
+
+        # 待上课筛选需要 JOIN 排期表获取时间
+        if upcoming:
+            base_query = base_query.join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
+            count_query = count_query.select_from(Booking).join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
 
         if schedule_id:
             base_query = base_query.where(Booking.schedule_id == schedule_id)
@@ -47,7 +56,14 @@ class BookingRepository(TenantAwareRepository[Booking]):
             base_query = base_query.where(Booking.status == status)
             count_query = count_query.where(Booking.status == status)
 
+        # 待上课筛选：只返回还未开始的预约
+        if upcoming:
+            now = datetime.now(UTC)
+            base_query = base_query.where(CourseSchedule.start_at > now)
+            count_query = count_query.where(CourseSchedule.start_at > now)
+
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(Booking.tenant_id == tenant_id)
@@ -141,3 +157,20 @@ class BookingRepository(TenantAwareRepository[Booking]):
 
         result = await db.execute(query)
         return result.scalar() or 0
+
+    async def delete_by_schedule_id(
+        self,
+        db: AsyncSession,
+        schedule_id: int,
+    ) -> int:
+        """删除指定排期的所有预约记录"""
+        from app.core.tenant_context import get_tenant_id
+
+        query = Booking.__table__.delete().where(Booking.schedule_id == schedule_id)
+
+        tenant_id = get_tenant_id()
+        if tenant_id:
+            query = query.where(Booking.tenant_id == tenant_id)
+
+        result = await db.execute(query)
+        return result.rowcount

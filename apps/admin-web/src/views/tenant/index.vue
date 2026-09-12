@@ -1,8 +1,10 @@
 <template>
-  <div class="page-container">
+  <div class="page-container tenant-page">
     <div class="page-header">
       <h2>机构设置</h2>
     </div>
+
+    <div class="tenant-content">
 
     <el-card shadow="never" style="max-width:640px">
       <el-form label-width="100px" label-position="left">
@@ -35,6 +37,7 @@
         </el-form-item>
       </el-form>
     </el-card>
+    </div>
   </div>
 </template>
 
@@ -43,3 +46,28 @@ import { ref } from 'vue'
 
 const bizHours = ref([new Date(2026, 0, 1, 9, 0), new Date(2026, 0, 1, 21, 0)])
 </script>
+
+<style scoped lang="scss">
+.tenant-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+</style>

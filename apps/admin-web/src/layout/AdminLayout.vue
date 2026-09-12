@@ -60,7 +60,7 @@
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="authStore.logout()">
+                <el-dropdown-item @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -93,7 +93,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Management, Fold, Expand, ArrowDown, SwitchButton, Odometer, User, Key, Avatar, UserFilled, Reading, Calendar, OfficeBuilding, Setting } from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { Management, Fold, Expand, ArrowDown, SwitchButton, Odometer, User, Key, Avatar, UserFilled, Reading, Calendar, OfficeBuilding, Setting, CreditCard, Collection } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
@@ -116,6 +117,8 @@ const menuItems: MenuItem[] = [
   { path: '/courses', title: '课程管理', icon: Reading },
   { path: '/classrooms', title: '教室管理', icon: OfficeBuilding },
   { path: '/schedules', title: '排期管理', icon: Calendar },
+  { path: '/card-types', title: '卡类型管理', icon: Collection },
+  { path: '/membership', title: '会员卡管理', icon: CreditCard },
   { path: '/tenant', title: '机构设置', icon: Setting },
 ]
 
@@ -124,6 +127,19 @@ const currentTitle = computed(() => {
   const item = menuItems.find(m => m.path === route.path)
   return item?.title || ''
 })
+
+async function handleLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '退出确认', {
+      confirmButtonText: '确定退出',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await authStore.logout()
+  } catch {
+    // 取消退出
+  }
+}
 </script>
 
 <style scoped lang="scss">

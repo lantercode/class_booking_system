@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>学员管理</h2>
-      <el-button type="primary" @click="openCreateDialog"><el-icon><Plus /></el-icon>新增学员</el-button>
+      <el-button type="primary" @click="openCreateDialog">新增</el-button>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:16px">
@@ -56,11 +56,18 @@
       </el-table-column>
     </el-table>
 
-    <div style="display:flex;justify-content:center;margin-top:20px">
-      <el-pagination background layout="total, prev, pager, next" :total="total" :page-size="pageSize" v-model:current-page="page" @current-change="fetchUsers" />
+    <div class="pagination-wrapper">
+      <el-pagination
+        background
+        layout="total, prev, pager, next"
+        :total="total"
+        :page-size="pageSize"
+        v-model:current-page="page"
+        @current-change="fetchUsers"
+      />
     </div>
 
-    <el-dialog v-model="createVisible" title="新增学员" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="createVisible" title="新增" width="480px" :close-on-click-modal="false">
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="80px">
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="createForm.phone" placeholder="请输入手机号" maxlength="11" />
@@ -93,7 +100,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editVisible" title="编辑学员" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="editVisible" title="编辑" width="480px" :close-on-click-modal="false">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="80px">
         <el-form-item label="手机号">
           <el-input :model-value="editForm.phone" disabled />

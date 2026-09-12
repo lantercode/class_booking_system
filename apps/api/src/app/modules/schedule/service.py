@@ -197,9 +197,11 @@ class ScheduleService:
         self,
         db: AsyncSession,
         schedule_id: int,
-    ) -> ScheduleResponse:
-        """取消排期"""
-        logger.warning(f"[ScheduleService] 取消排期: schedule_id={schedule_id}")
+        cancel_reason: str,
+        operator_id: int,
+    ) -> dict[str, Any]:
+        """取消排期(含学员预约处理)"""
+        logger.warning(f"[ScheduleService] 取消排期: schedule_id={schedule_id}, reason={cancel_reason}")
 
         schedule = await self.repo.get_by_id(db, schedule_id)
         if not schedule:
@@ -211,18 +213,137 @@ class ScheduleService:
         if schedule.status == ScheduleStatus.FINISHED.value:
             raise BusinessException("排期已完成，无法取消", code=400)
 
-        now = datetime.now(UTC)
-        if schedule.start_at < now:
-            raise BusinessException("排期已开始，仅允许查看，无法取消", code=400)
+        from app.modules.booking.models import BookingStatus
+        from app.modules.booking.repository import BookingRepository
+        from app.modules.membership.service import MembershipCardService
 
-        schedule = await self.repo.update(
-            db, schedule_id, {"status": ScheduleStatus.CANCELLED.value}
+        booking_repo = BookingRepository()
+        membership_card_service = MembershipCardService()
+
+        bookings = await booking_repo.search(
+            db,
+            schedule_id=schedule_id,
+            status=BookingStatus.BOOKED.value,
+            page=1,
+            page_size=1000,
         )
+        booking_list = bookings[0]
+
+        success_count = 0
+        failed_bookings = []
+
+        for booking in booking_list:
+            try:
+                booking.status = BookingStatus.CANCELLED.value
+                booking.cancelled_at = datetime.now(UTC)
+                booking.cancelled_reason = f"老师取消课程: {cancel_reason}"
+
+                await self.repo.decrement_booked_count(db, schedule_id)
+
+                if booking.membership_card_id:
+                    tenant_id = booking.tenant_id
+                    idempotency_key = f"schedule_cancel_{booking.id}_{schedule_id}"
+                    try:
+                        await membership_card_service.restore_credit(
+                            db,
+                            card_id=booking.membership_card_id,
+                            tenant_id=tenant_id,
+                            booking_id=booking.id,
+                            idempotency_key=idempotency_key,
+                        )
+                    except Exception as e:
+                        logger.error(f"[ScheduleService] 会员卡恢复次数失败: {e}")
+                        raise
+
+                success_count += 1
+            except Exception as e:
+                failed_bookings.append({
+                    "booking_id": booking.id,
+                    "student_id": booking.student_id,
+                    "error": str(e)
+                })
+
+        update_data = {
+            "status": ScheduleStatus.CANCELLED.value,
+            "cancel_reason": cancel_reason,
+            "cancelled_by": operator_id,
+            "cancelled_at": datetime.now(UTC),
+        }
+        schedule = await self.repo.update(db, schedule_id, update_data)
         await db.commit()
         await db.refresh(schedule)
 
-        logger.warning(f"[ScheduleService] ✅ 排期已取消: id={schedule_id}")
-        return self._to_response(schedule)
+        logger.warning(
+            f"[ScheduleService] ✅ 排期已取消: id={schedule_id}, "
+            f"total_bookings={len(booking_list)}, success={success_count}, failed={len(failed_bookings)}"
+        )
+
+        return {
+            "schedule_id": schedule_id,
+            "total_bookings": len(booking_list),
+            "success_count": success_count,
+            "failed_count": len(failed_bookings),
+            "failed_bookings": failed_bookings,
+        }
+
+    async def batch_delete_schedules(
+        self,
+        db: AsyncSession,
+        schedule_ids: list[int],
+        tenant_id: int,
+    ) -> dict[str, Any]:
+        """批量删除排期"""
+        logger.warning(f"[ScheduleService] 批量删除排期: ids={schedule_ids}")
+
+        if not schedule_ids:
+            raise ValidationException("请选择要删除的排期")
+
+        success_ids = []
+        failed_ids = []
+        errors = []
+
+        for schedule_id in schedule_ids:
+            try:
+                schedule = await self.repo.get_by_id(db, schedule_id)
+                if not schedule:
+                    failed_ids.append(schedule_id)
+                    errors.append(f"排期 {schedule_id} 不存在")
+                    continue
+
+                if schedule.tenant_id != tenant_id:
+                    failed_ids.append(schedule_id)
+                    errors.append(f"排期 {schedule_id} 无权操作")
+                    continue
+
+                # 仅对待上课状态的排期检查学员预约
+                if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
+                    failed_ids.append(schedule_id)
+                    errors.append(f"排期 {schedule_id} 已有 {schedule.booked_count} 名学员预约，请先取消排期后再删除")
+                    continue
+
+                # 删除关联的预约记录（避免外键约束冲突）
+                from app.modules.booking.repository import BookingRepository
+                booking_repo = BookingRepository()
+                await booking_repo.delete_by_schedule_id(db, schedule_id)
+
+                await self.repo.delete(db, schedule_id, hard_delete=True)
+                success_ids.append(schedule_id)
+            except Exception as e:
+                failed_ids.append(schedule_id)
+                errors.append(f"排期 {schedule_id} 删除失败: {str(e)}")
+
+        await db.flush()
+
+        result = {
+            "success_count": len(success_ids),
+            "failed_count": len(failed_ids),
+            "success_ids": success_ids,
+            "failed_ids": failed_ids,
+            "errors": errors,
+        }
+
+        logger.warning(f"[ScheduleService] ✅ 批量删除完成: 成功 {len(success_ids)}, 失败 {len(failed_ids)}")
+        return result
 
     async def get_schedule_by_id(
         self,
@@ -241,7 +362,8 @@ class ScheduleService:
 
         return self._to_response(
             schedule,
-            course_map.get(schedule.course_id),
+            course_map.get(schedule.course_id, {}).get("name"),
+            course_map.get(schedule.course_id, {}).get("course_type_code"),
             teacher_map.get(schedule.teacher_id),
             classroom_map.get(schedule.classroom_id),
         )
@@ -253,9 +375,11 @@ class ScheduleService:
         course_id: int | None = None,
         course_name: str | None = None,
         category: str | None = None,
+        course_type_code: str | None = None,
         teacher_id: int | None = None,
         classroom_id: int | None = None,
         status: int | None = None,
+        display_status: int | None = None,
         start_from: datetime | None = None,
         start_to: datetime | None = None,
         page: int = 1,
@@ -267,6 +391,7 @@ class ScheduleService:
             course_id=course_id,
             course_name=course_name,
             category=category,
+            course_type_code=course_type_code,
             teacher_id=teacher_id,
             classroom_id=classroom_id,
             status=status,
@@ -285,15 +410,32 @@ class ScheduleService:
         teacher_map = await self._get_teacher_info_map(db, teacher_ids)
         classroom_map = await self._get_classroom_info_map(db, classroom_ids)
 
+        # 构建响应对象列表
+        response_items = [
+            self._to_response(
+                s,
+                course_map.get(s.course_id, {}).get("name"),
+                course_map.get(s.course_id, {}).get("course_type_code"),
+                teacher_map.get(s.teacher_id),
+                classroom_map.get(s.classroom_id),
+            )
+            for s in items
+        ]
+
+        # 根据 display_status 过滤（display_status 是计算字段，不在 DB 中）
+        if display_status is not None:
+            response_items = [item for item in response_items if item.display_status == display_status]
+            total = len(response_items)
+
         return ScheduleListResponse(
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(s, course_map.get(s.course_id), teacher_map.get(s.teacher_id), classroom_map.get(s.classroom_id)) for s in items],
+            items=response_items,
         )
 
-    async def _get_course_info_map(self, db: AsyncSession, course_ids: list[int]) -> dict[int, str]:
-        """批量获取课程信息映射"""
+    async def _get_course_info_map(self, db: AsyncSession, course_ids: list[int]) -> dict[int, dict]:
+        """批量获取课程信息映射（包含名称和类型代码）"""
         if not course_ids:
             return {}
 
@@ -303,7 +445,7 @@ class ScheduleService:
         courses = result.scalars().all()
 
         return {
-            course.id: course.name
+            course.id: {"name": course.name, "course_type_code": course.course_type_code}
             for course in courses
         }
 
@@ -337,8 +479,31 @@ class ScheduleService:
             for classroom in classrooms
         }
 
-    def _to_response(self, schedule: CourseSchedule, course_name: str | None = None, teacher_name: str | None = None, classroom_name: str | None = None) -> ScheduleResponse:
+    def _to_response(
+        self,
+        schedule: CourseSchedule,
+        course_name: str | None = None,
+        course_type_code: str | None = None,
+        teacher_name: str | None = None,
+        classroom_name: str | None = None,
+    ) -> ScheduleResponse:
         """将 ORM 模型转换为响应对象"""
+        # 计算显示状态：1待上课/2上课中/3已取消/4已完成
+        now = datetime.now(UTC)
+        if schedule.status == ScheduleStatus.CANCELLED.value:
+            display_status = 3  # 已取消
+        elif schedule.status == ScheduleStatus.FINISHED.value:
+            display_status = 4  # 已完成
+        elif schedule.status == ScheduleStatus.NORMAL.value:
+            if schedule.end_at < now:
+                display_status = 4  # 已完成（时间已过但未标记）
+            elif schedule.start_at <= now <= schedule.end_at:
+                display_status = 2  # 上课中
+            else:
+                display_status = 1  # 待上课
+        else:
+            display_status = schedule.status
+
         return ScheduleResponse(
             id=schedule.id,
             public_id=str(schedule.public_id),
@@ -354,10 +519,12 @@ class ScheduleService:
             booking_closes_at=schedule.booking_closes_at,
             cancel_deadline=schedule.cancel_deadline,
             status=schedule.status,
+            display_status=display_status,
             notes=schedule.notes,
             created_at=schedule.created_at,
             updated_at=schedule.updated_at,
             course_name=course_name,
+            course_type_code=course_type_code,
             teacher_name=teacher_name,
             classroom_name=classroom_name,
         )

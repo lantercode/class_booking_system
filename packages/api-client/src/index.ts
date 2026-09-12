@@ -133,8 +133,17 @@ class ApiClient {
 export const apiClient = new ApiClient()
 export default apiClient
 
-export { courseApi } from './courses'
-export type { Course, CourseListParams, CourseCreateParams, CourseUpdateParams, CourseListResponse } from './courses'
+export { courseApi, courseTypeApi } from './courses'
+export type {
+  Course,
+  CourseType,
+  CourseListParams,
+  CourseCreateParams,
+  CourseUpdateParams,
+  CourseListResponse,
+  CourseTypeCreateParams,
+  CourseTypeUpdateParams,
+} from './courses'
 
 export { classroomApi } from './classrooms'
 export type { Classroom, ClassroomListParams, ClassroomCreateParams, ClassroomUpdateParams, ClassroomListResponse } from './classrooms'
@@ -153,3 +162,18 @@ export type { Role, Permission, RoleListParams, RoleListResponse, PermissionList
 
 export { teacherApi } from './teachers'
 export type { TeacherInfo, TeacherUpdateParams } from './teachers'
+
+export { cardTypeApi, membershipCardApi } from './membership'
+export type {
+  MembershipCardProduct,
+  MembershipCardProductCreateParams,
+  MembershipCardProductUpdateParams,
+  MembershipCardProductListResponse,
+  MembershipCard,
+  MembershipCardListParams,
+  MembershipCardCreateParams,
+  MembershipCardFreezeParams,
+  MembershipCardListResponse,
+  MembershipCardTransaction,
+  MembershipCardTransactionListResponse,
+} from './membership'

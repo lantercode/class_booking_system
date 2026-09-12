@@ -16,6 +16,9 @@ export interface Schedule {
   cancel_deadline: string | null
   status: number
   notes: string | null
+  cancel_reason: string | null
+  cancelled_by: number | null
+  cancelled_at: string | null
   created_at: string
   updated_at: string
   teacher_name?: string | null
@@ -90,11 +93,15 @@ export const scheduleApi = {
     return apiClient.patch<Schedule>(`/schedules/${id}`, data)
   },
 
-  cancel(id: number) {
-    return apiClient.post<Schedule>(`/schedules/${id}/cancel`)
+  cancel(id: number, data: { cancel_reason: string }) {
+    return apiClient.post(`/schedules/${id}/cancel`, data)
   },
 
   delete(id: number) {
     return apiClient.delete(`/schedules/${id}`)
+  },
+
+  batchDelete(scheduleIds: number[]) {
+    return apiClient.post('/schedules/batch-delete', { schedule_ids: scheduleIds })
   },
 }

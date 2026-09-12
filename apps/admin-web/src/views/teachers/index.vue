@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>教师管理</h2>
-      <el-button type="primary" @click="openCreateDialog"><el-icon><Plus /></el-icon>新增教师</el-button>
+      <el-button type="primary" @click="openCreateDialog">新增</el-button>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:16px">
@@ -58,6 +58,16 @@
       </el-table-column>
     </el-table>
 
+    <div class="pagination-wrapper">
+      <el-pagination
+        background
+        layout="total, prev, pager, next"
+        :total="filteredTeachers.length"
+        :page-size="20"
+        v-model:current-page="page"
+      />
+    </div>
+
     <el-dialog v-model="createVisible" title="新增教师" width="480px" :close-on-click-modal="false">
       <el-form ref="createFormRef" :model="createForm" :rules="createRules" label-width="80px">
         <el-form-item label="手机号" prop="phone">
@@ -76,7 +86,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editVisible" title="编辑教师" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="editVisible" title="编辑" width="480px" :close-on-click-modal="false">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="80px">
         <el-form-item label="手机号">
           <el-input :model-value="editForm.phone" disabled />
@@ -108,6 +118,7 @@ import { userApi, type User } from '@dance-saas/api-client'
 
 const search = ref('')
 const statusFilter = ref('')
+const page = ref(1)
 const loading = ref(false)
 const createLoading = ref(false)
 const editLoading = ref(false)

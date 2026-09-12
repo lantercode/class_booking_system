@@ -29,6 +29,9 @@ config.set_main_option("sqlalchemy.url", setting.DATABASE_URL)
 # target_metadata = None
 from app.shared.base_model import Base
 
+# Import all models through unified entry point
+from app import models  # noqa: F401
+
 target_metadata = Base.metadata
 
 

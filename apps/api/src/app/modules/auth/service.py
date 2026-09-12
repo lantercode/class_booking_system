@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -13,6 +14,7 @@ from app.core.security import (
     is_token_blacklisted,
     verify_password,
 )
+from app.modules.auth.models import Role, UserRole
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import (
     AuthResponse,
@@ -96,12 +98,22 @@ class AuthService:
         user = await AuthRepository.get_user_by_id(session, user_id)
         if not user:
             raise AuthException("用户不存在")
+
+        # 查询用户角色
+        result = await session.execute(
+            select(Role.code)
+            .join(UserRole, Role.id == UserRole.role_id)
+            .where(UserRole.user_id == user_id)
+        )
+        roles = [row[0] for row in result.fetchall()]
+
         return UserResponse(
             id=user.id,
             phone=user.phone,
             nickname=user.nickname or "",
             avatar=user.avatar_url,
             status=user.status,
+            roles=roles,
             created_at=user.created_at,
         )
 

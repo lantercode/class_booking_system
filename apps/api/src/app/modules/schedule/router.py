@@ -9,7 +9,8 @@ from app.core.database import get_session
 from app.core.rbac import require_permissions
 from app.core.response import success
 from app.deps.auth import get_current_user
-from app.modules.schedule.schemas import ScheduleCreate, ScheduleUpdate
+from app.modules.schedule.models import ScheduleStatus
+from app.modules.schedule.schemas import ScheduleCancel, ScheduleCreate, ScheduleUpdate
 from app.modules.schedule.service import ScheduleService
 
 router = APIRouter(prefix="/schedules", tags=["排期管理"])
@@ -94,9 +95,11 @@ async def list_schedules(
     course_id: int | None = Query(None, description="课程ID"),
     course_name: str | None = Query(None, description="课程名称（模糊搜索）"),
     category: str | None = Query(None, description="课程分类筛选"),
+    course_type_code: str | None = Query(None, description="课程类型筛选"),
     teacher_id: int | None = Query(None, description="教师ID"),
     classroom_id: int | None = Query(None, description="教室ID"),
-    status: int | None = Query(None, ge=1, le=3, description="状态筛选"),
+    status: int | None = Query(None, ge=1, le=3, description="状态筛选（DB状态：1正常/2已取消/3已完成）"),
+    display_status: int | None = Query(None, ge=1, le=4, description="显示状态筛选：1待上课/2上课中/3已取消/4已完成"),
     start_from: str | None = Query(None, description="开始时间范围-起"),
     start_to: str | None = Query(None, description="开始时间范围-止"),
     db: AsyncSession = Depends(get_session),
@@ -108,9 +111,11 @@ async def list_schedules(
         course_id=course_id,
         course_name=course_name,
         category=category,
+        course_type_code=course_type_code,
         teacher_id=teacher_id,
         classroom_id=classroom_id,
         status=status,
+        display_status=display_status,
         start_from=parse_datetime(start_from),
         start_to=parse_datetime(start_to),
         page=page,
@@ -156,17 +161,28 @@ async def update_schedule(
     "/{schedule_id}/cancel",
     response_model=dict,
     summary="取消排期",
-    description="取消指定排期（需 schedule:cancel 权限）",
+    description="取消指定排期（需 schedule:cancel 权限），自动处理学员预约和课时退还",
 )
 @require_permissions("schedule:cancel")
 async def cancel_schedule(
     schedule_id: int = Path(..., description="排期ID"),
+    data: ScheduleCancel = Body(...),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
     """取消排期"""
-    result = await schedule_service.cancel_schedule(db, schedule_id)
-    return success(data=result, msg="排期已取消")
+    result = await schedule_service.cancel_schedule(
+        db,
+        schedule_id,
+        cancel_reason=data.cancel_reason,
+        operator_id=current_user.get("user_id"),
+    )
+
+    msg = "排期已取消"
+    if result["total_bookings"] > 0:
+        msg = f"排期已取消，已处理 {result['success_count']}/{result['total_bookings']} 个学员预约"
+
+    return success(data=result, msg=msg)
 
 
 @router.delete(
@@ -182,5 +198,44 @@ async def delete_schedule(
     current_user: dict = Depends(get_current_user),
 ):
     """删除排期"""
+    schedule = await schedule_service.repo.get_by_id(db, schedule_id)
+    if not schedule:
+        from app.core.exceptions import NotFoundException
+        raise NotFoundException("排期不存在")
+
+    # 仅对待上课状态的排期检查学员预约
+    if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
+        from app.core.exceptions import BusinessException
+        raise BusinessException("该排期仍有学员预约，请先取消排期后再删除", code=400)
+
+    # 删除关联的预约记录（避免外键约束冲突）
+    from app.modules.booking.repository import BookingRepository
+    booking_repo = BookingRepository()
+    await booking_repo.delete_by_schedule_id(db, schedule_id)
+
     await schedule_service.repo.delete(db, schedule_id, hard_delete=True)
     return success(msg="排期删除成功")
+
+
+@router.post(
+    "/batch-delete",
+    response_model=dict,
+    summary="批量删除排期",
+    description="批量删除排期（需 schedule:delete 权限），仅支持删除已取消或禁用的排期",
+)
+@require_permissions("schedule:delete")
+async def batch_delete_schedules(
+    data: dict = Body(..., description="排期ID列表", example={"schedule_ids": [1, 2, 3]}),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """批量删除排期"""
+    schedule_ids = data.get("schedule_ids", [])
+    if not schedule_ids:
+        from app.core.exceptions import ValidationException
+        raise ValidationException("请选择要删除的排期")
+
+    tenant_id = current_user.get("tenant_id")
+    result = await schedule_service.batch_delete_schedules(db, schedule_ids, tenant_id)
+    await db.commit()
+    return success(data=result, msg=f"批量删除完成：成功 {result['success_count']} 个，失败 {result['failed_count']} 个")

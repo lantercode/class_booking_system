@@ -478,7 +478,7 @@ async function handleSubmit() {
       padding-bottom: $space-2xl;
 
       .brand-slogan-text {
-        font-size: $font-size-body-sm;
+  font-size: $font-size-body_sm;
         font-weight: $font-weight-medium;
         color: $primary-solid;                    // 使用香槟金色
         letter-spacing: $letter-spacing-wider;     // 加宽字间距，优雅感

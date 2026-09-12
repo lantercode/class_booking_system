@@ -8,6 +8,7 @@ interface AdminInfo {
   phone: string
   nickname: string
   avatar?: string
+  roles?: string[]
 }
 
 interface LoginParams {
@@ -20,7 +21,9 @@ export const useAuthStore = defineStore('admin-auth', () => {
   const token = ref<string>(localStorage.getItem('token') || '')
   const refreshToken = ref<string>(localStorage.getItem('refreshToken') || '')
   const tenantSlug = ref<string>(localStorage.getItem('tenantSlug') || '')
-  const adminInfo = ref<AdminInfo | null>(null)
+  const adminInfo = ref<AdminInfo | null>(
+    localStorage.getItem('adminInfo') ? JSON.parse(localStorage.getItem('adminInfo')!) : null
+  )
 
   const isLoggedIn = computed(() => !!token.value)
 
@@ -36,6 +39,12 @@ export const useAuthStore = defineStore('admin-auth', () => {
     localStorage.setItem('tenantSlug', slug)
   }
 
+  function setAdminInfo(info: AdminInfo) {
+    adminInfo.value = info
+    localStorage.setItem('adminInfo', JSON.stringify(info))
+    console.log('💾 用户信息已保存:', info)
+  }
+
   function clearToken() {
     token.value = ''
     refreshToken.value = ''
@@ -44,6 +53,7 @@ export const useAuthStore = defineStore('admin-auth', () => {
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('tenantSlug')
+    localStorage.removeItem('adminInfo')
   }
 
   async function login(params: LoginParams) {
@@ -64,13 +74,17 @@ export const useAuthStore = defineStore('admin-auth', () => {
     if (!token.value) return
     try {
       const res = await apiClient.get('/auth/me')
-      adminInfo.value = {
+      const info: AdminInfo = {
         id: res.data.id || 1,
         phone: res.data.phone || '',
         nickname: res.data.nickname || '管理员',
         avatar: res.data.avatar,
+        roles: res.data.roles || [],
       }
+      setAdminInfo(info)
+      console.log('🔐 用户信息加载成功, roles:', info.roles)
     } catch (err: any) {
+      console.error('❌ 获取用户信息失败:', err)
       if (err?.response?.status === 401) {
         clearToken()
       }
@@ -87,6 +101,10 @@ export const useAuthStore = defineStore('admin-auth', () => {
     router.push('/login')
   }
 
+  function hasRole(role: string): boolean {
+    return adminInfo.value?.roles?.includes(role) ?? false
+  }
+
   return {
     token,
     refreshToken,
@@ -98,6 +116,8 @@ export const useAuthStore = defineStore('admin-auth', () => {
     fetchAdminInfo,
     setToken,
     setTenantSlug,
+    setAdminInfo,
     clearToken,
+    hasRole,
   }
 })

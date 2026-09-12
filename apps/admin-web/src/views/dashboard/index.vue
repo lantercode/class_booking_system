@@ -1,9 +1,11 @@
 <template>
-  <div class="page-container">
+  <div class="page-container dashboard-page">
     <div class="page-header">
       <h2>控制台</h2>
       <span style="color:#909399;font-size:14px">最后更新：刚刚</span>
     </div>
+
+    <div class="dashboard-content">
 
     <div class="stat-cards">
       <div class="stat-card">
@@ -72,6 +74,7 @@
         </el-table>
       </el-card>
     </div>
+    </div>
   </div>
 </template>
 
@@ -104,3 +107,31 @@ onMounted(() => {
   fetchDashboard()
 })
 </script>
+
+<style scoped lang="scss">
+.dashboard-page {
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+}
+</style>

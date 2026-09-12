@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>用户管理</h2>
-      <el-button type="primary" @click="dialogVisible = true"><el-icon><Plus /></el-icon>新增用户</el-button>
+      <el-button type="primary" @click="dialogVisible = true">新增</el-button>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:16px">
@@ -42,7 +42,7 @@
       </el-table-column>
     </el-table>
 
-    <div style="display:flex;justify-content:center;margin-top:20px">
+    <div class="pagination-wrapper">
       <el-pagination
         background
         layout="total, prev, pager, next"
@@ -53,7 +53,7 @@
       />
     </div>
 
-    <el-dialog v-model="dialogVisible" title="新增用户" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" title="新增" width="480px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="form.phone" placeholder="请输入手机号" maxlength="11" />
@@ -76,7 +76,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="editVisible" title="编辑用户" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="editVisible" title="编辑" width="480px" :close-on-click-modal="false">
       <el-form ref="editFormRef" :model="editForm" :rules="editRules" label-width="80px">
         <el-form-item label="手机号">
           <el-input :model-value="editForm.phone" disabled />

@@ -43,6 +43,8 @@ RBAC 权限装饰器模块 - FastAPI 兼容版本
 import functools
 import logging
 
+from fastapi import HTTPException
+
 from app.core.exceptions import DanceSaasException, PermissionException
 
 from .checker import check_permissions, check_roles
@@ -256,9 +258,13 @@ def require_roles(
             except DanceSaasException:
                 raise
 
+            except HTTPException:
+                raise
+
             except Exception as e:
-                logger.error(f"[RBAC] 角色检查异常: {type(e).__name__}: {e}")
-                raise PermissionException("权限验证失败，请联系管理员")
+                logger.error(f"[RBAC] 角色检查异常: {type(e).__name__}: {e}", exc_info=True)
+                # 提供更详细的错误信息，方便调试
+                raise PermissionException(f"权限验证失败: {type(e).__name__}: {e}")
 
         return wrapper
 

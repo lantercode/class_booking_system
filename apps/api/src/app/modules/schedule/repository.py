@@ -26,6 +26,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         course_id: int | None = None,
         course_name: str | None = None,
         category: str | None = None,
+        course_type_code: str | None = None,
         teacher_id: int | None = None,
         classroom_id: int | None = None,
         status: int | None = None,
@@ -38,7 +39,8 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         base_query = select(CourseSchedule)
         count_query = select(func.count()).select_from(CourseSchedule)
 
-        if course_name or category:
+        needs_join = course_name or category or course_type_code
+        if needs_join:
             base_query = base_query.join(Course, CourseSchedule.course_id == Course.id)
             count_query = count_query.join(Course, CourseSchedule.course_id == Course.id)
 
@@ -49,6 +51,10 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         if category:
             base_query = base_query.where(Course.category == category)
             count_query = count_query.where(Course.category == category)
+
+        if course_type_code:
+            base_query = base_query.where(Course.course_type_code == course_type_code)
+            count_query = count_query.where(Course.course_type_code == course_type_code)
 
         if course_id:
             base_query = base_query.where(CourseSchedule.course_id == course_id)

@@ -23,10 +23,12 @@ from app.modules.classroom.router import router as classroom_router  # ⭐ 新�
 from app.modules.common.router import router as common_router
 from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
-from app.modules.schedule.router import router as schedule_router  # ⭐ 新增：排期路由
+from app.modules.membership.router import router as membership_router  # 会员卡路由
+from app.modules.membership.scheduler import auto_activate_membership_cards, auto_expire_membership_cards, notify_expiring_membership_cards, auto_unfreeze_membership_cards
+from app.modules.schedule.router import router as schedule_router  # 排期路由
 from app.modules.schedule.scheduler import auto_finish_expired_schedules
-from app.modules.teacher.router import router as teacher_router  # ⭐ 新增：教师路由
-from app.modules.user.router import router as user_router  # ⭐ 新增：用户管理路由
+from app.modules.teacher.router import router as teacher_router  # 教师路由
+from app.modules.user.router import router as user_router  # 用户管理路由
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -66,6 +68,46 @@ async def lifespan(app: FastAPI):
         )
     else:
         print("⚠️  AUTO_FINISH_ENABLED=false, 跳过定时任务注册")
+
+    # 4. 启动会员卡自动激活定时任务
+    scheduler.add_job(
+        auto_activate_membership_cards,
+        "interval",
+        minutes=30,
+        id="auto_activate_membership_cards",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已启动: auto_activate_membership_cards (每 30min 运行)")
+
+    # 5. 启动会员卡自动过期定时任务
+    scheduler.add_job(
+        auto_expire_membership_cards,
+        "interval",
+        hours=1,
+        id="auto_expire_membership_cards",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已启动: auto_expire_membership_cards (每 1h 运行)")
+
+    # 6. 启动会员卡到期提醒定时任务
+    scheduler.add_job(
+        notify_expiring_membership_cards,
+        "interval",
+        hours=1,
+        id="notify_expiring_membership_cards",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已启动: notify_expiring_membership_cards (每 1h 运行)")
+
+    # 7. 启动会员卡自动解冻定时任务
+    scheduler.add_job(
+        auto_unfreeze_membership_cards,
+        "interval",
+        minutes=30,
+        id="auto_unfreeze_membership_cards",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已启动: auto_unfreeze_membership_cards (每 30min 运行)")
 
     yield
 
@@ -120,5 +162,6 @@ app.include_router(course_router, prefix=API_V1_PREFIX)  # ⭐ 课程路由（T0
 app.include_router(classroom_router, prefix=API_V1_PREFIX)  # ⭐ 教室路由
 app.include_router(schedule_router, prefix=API_V1_PREFIX)  # ⭐ 排期路由
 app.include_router(booking_router, prefix=API_V1_PREFIX)  # ⭐ 预约路由
-app.include_router(teacher_router, prefix=API_V1_PREFIX)  # ⭐ 教师路由
-app.include_router(ai_router)  # 🤖 AI 智能助手路由（已在 router.py 中定义前缀 /api/v1/ai）
+app.include_router(teacher_router, prefix=API_V1_PREFIX)  # 教师路由
+app.include_router(membership_router, prefix=API_V1_PREFIX)  # 会员卡路由
+app.include_router(ai_router)  # AI 智能助手路由（已在 router.py 中定义前缀 /api/v1/ai）

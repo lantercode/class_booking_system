@@ -10,7 +10,6 @@ from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 
 class ScheduleStatus(Enum):
-    DISABLED = 0
     NORMAL = 1
     CANCELLED = 2
     FINISHED = 3
@@ -43,6 +42,9 @@ class CourseSchedule(Base, TenantMixin, TimestampMixin):
         SmallInteger, nullable=False, default=ScheduleStatus.NORMAL.value,
     )
     notes: Mapped[str | None] = mapped_column(Text)
+    cancel_reason: Mapped[str | None] = mapped_column(Text)
+    cancelled_by: Mapped[int | None] = mapped_column(BigInteger)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         CheckConstraint("end_at > start_at", name="chk_schedule_time"),

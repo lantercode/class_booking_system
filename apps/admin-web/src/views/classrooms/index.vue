@@ -3,53 +3,56 @@
     <div class="page-header">
       <h2>教室管理</h2>
       <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon>新增教室
+        新增
       </el-button>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px">
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-shrink:0">
       <el-input v-model="search" placeholder="搜索教室名称" style="width:240px" clearable @input="onSearch" />
     </div>
 
-    <el-row :gutter="20" v-loading="loading" style="row-gap:16px">
-      <el-col v-for="room in classrooms" :key="room.id" :span="8">
-        <el-card shadow="hover" class="classroom-card">
-          <div class="room-header">
-            <span class="room-name">{{ room.name }}</span>
-            <el-tag :type="room.status === 1 ? 'success' : 'warning'" size="small">
-              {{ room.status === 1 ? '正常' : '维护中' }}
-            </el-tag>
-          </div>
-          <div class="room-info">
-            <div class="info-item" v-if="room.equipment?.length">
-              <el-icon><Setting /></el-icon>
-              <el-tooltip :content="room.equipment.join('、')" placement="top" :disabled="room.equipment.join('、').length <= 15">
-                <span class="equipment-text">{{ room.equipment.join('、') }}</span>
-              </el-tooltip>
+    <div class="classroom-content" v-loading="loading">
+      <el-row :gutter="20" style="row-gap:16px">
+        <el-col v-for="room in classrooms" :key="room.id" :span="8">
+          <el-card shadow="hover" class="classroom-card">
+            <div class="room-header">
+              <span class="room-name">{{ room.name }}</span>
+              <el-tag :type="room.status === 1 ? 'success' : 'warning'" size="small">
+                {{ room.status === 1 ? '正常' : '维护中' }}
+              </el-tag>
             </div>
-            <div class="info-item" v-else>
-              <el-icon><Setting /></el-icon>
-              <span style="color:#c0c4cc">暂无设备</span>
+            <div class="room-info">
+              <div class="info-item" v-if="room.equipment?.length">
+                <el-icon><Setting /></el-icon>
+                <el-tooltip :content="room.equipment.join('、')" placement="top" :disabled="room.equipment.join('、').length <= 15">
+                  <span class="equipment-text">{{ room.equipment.join('、') }}</span>
+                </el-tooltip>
+              </div>
+              <div class="info-item" v-else>
+                <el-icon><Setting /></el-icon>
+                <span style="color:#c0c4cc">暂无设备</span>
+              </div>
             </div>
-          </div>
-          <div class="room-actions">
-            <el-button type="primary" size="small" @click="openEditDialog(room)">编辑</el-button>
-            <el-button
-              :type="room.status === 1 ? 'warning' : 'success'"
-              size="small"
-              @click="toggleStatus(room)"
-            >{{ room.status === 1 ? '维护' : '启用' }}</el-button>
-            <el-button type="danger" size="small" @click="handleDelete(room)">删除</el-button>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+            <div class="room-actions">
+              <el-button type="primary" size="small" link @click="openEditDialog(room)">编辑</el-button>
+              <el-button
+                :type="room.status === 1 ? 'warning' : 'success'"
+                size="small"
+                link
+                @click="toggleStatus(room)"
+              >{{ room.status === 1 ? '维护' : '启用' }}</el-button>
+              <el-button type="danger" size="small" link @click="handleDelete(room)">删除</el-button>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
 
-    <el-empty v-if="!loading && classrooms.length === 0" description="暂无教室" />
+      <el-empty v-if="!loading && classrooms.length === 0" description="暂无教室" />
+    </div>
 
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑教室' : '新增教室'"
+      :title="isEdit ? '编辑' : '新增'"
       width="500px"
       :close-on-click-modal="false"
     >
@@ -201,6 +204,30 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.classroom-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+
 .classroom-card {
   margin-bottom: 16px;
   border-radius: 12px;
@@ -249,11 +276,16 @@ onMounted(() => {
 
   .room-actions {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     padding-top: 8px;
     border-top: 1px solid #ebeef5;
     flex-shrink: 0;
     margin-top: auto;
+
+    .el-button {
+      padding: 4px 0;
+      font-size: 13px;
+    }
   }
 }
 </style>

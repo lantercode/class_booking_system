@@ -2,12 +2,18 @@
   <div class="page-container">
     <div class="page-header">
       <h2>角色权限</h2>
-      <el-button type="primary" @click="openCreateDialog"><el-icon><Plus /></el-icon>新增角色</el-button>
     </div>
-    <el-row :gutter="20">
-      <el-col :span="10">
-        <el-card shadow="never">
-          <template #header><span style="font-weight:600">角色列表</span></template>
+
+    <div class="roles-layout">
+      <!-- 左侧：角色列表 -->
+      <div class="role-list-panel">
+        <div class="panel-header">
+          <h3>角色列表</h3>
+          <el-button type="primary" size="small" text @click="openCreateDialog">
+            新增
+          </el-button>
+        </div>
+        <div class="role-list">
           <div v-for="role in roles" :key="role.id" class="role-item" :class="{ active: selectedRole?.id === role.id }" @click="selectRole(role)">
             <div class="role-info">
               <span class="role-name">{{ role.name }}</span>
@@ -19,7 +25,7 @@
                 v-if="!role.is_system"
                 size="small"
                 type="danger"
-                link
+                text
                 :loading="deleteLoading === role.id"
                 @click.stop="handleDeleteRole(role)"
               >
@@ -27,14 +33,17 @@
               </el-button>
             </div>
           </div>
-        </el-card>
-      </el-col>
+        </div>
+      </div>
 
-      <el-col :span="14">
-        <el-card shadow="never" v-loading="loading">
-          <template #header>
-            <span style="font-weight:600">{{ selectedRole ? selectedRole.name + ' - 权限配置' : '请选择角色' }}</span>
-          </template>
+      <!-- 右侧：权限配置 -->
+      <div class="permission-panel" v-loading="loading">
+        <div class="panel-header">
+          <span style="font-weight:600">{{ selectedRole ? selectedRole.name + ' - 权限配置' : '请选择角色' }}</span>
+          <el-tag v-if="selectedRole?.is_system && !isSuperAdmin" type="warning" size="small">系统角色不可修改</el-tag>
+          <el-tag v-else-if="selectedRole?.is_system && isSuperAdmin" type="success" size="small">超级管理员可修改</el-tag>
+        </div>
+        <div class="permission-content">
           <el-tree
             v-if="selectedRole"
             ref="treeRef"
@@ -45,14 +54,15 @@
             default-expand-all
             :default-checked-keys="checkedKeys"
             :check-strictly="false"
+            :disabled="isPermissionTreeDisabled"
             @check="handleCheck"
           />
           <el-empty v-else description="点击左侧角色查看权限" />
-        </el-card>
-      </el-col>
-    </el-row>
+        </div>
+      </div>
+    </div>
 
-    <el-dialog v-model="showRoleDialog" title="新增角色" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="showRoleDialog" title="新增" width="480px" :close-on-click-modal="false">
       <el-form ref="roleFormRef" :model="roleForm" :rules="roleRules" label-width="80px">
         <el-form-item label="角色代码" prop="code">
           <el-input v-model="roleForm.code" placeholder="英文标识，如 editor" maxlength="50" />
@@ -91,6 +101,21 @@ const selectedRole = ref<Role | null>(null)
 const roles = ref<Role[]>([])
 const allPermissions = ref<{ id: number; code: string; name: string; module: string }[]>([])
 const rolePermissionIds = ref<number[]>([])
+
+// 判断当前用户是否为超级管理员
+const isSuperAdmin = computed(() => {
+  try {
+    const info = JSON.parse(localStorage.getItem('adminInfo') || '{}')
+    return info.roles?.includes('super_admin')
+  } catch {
+    return false
+  }
+})
+
+// 判断当前选中的角色是否为系统角色且当前用户不是超级管理员
+const isPermissionTreeDisabled = computed(() => {
+  return selectedRole.value?.is_system && !isSuperAdmin.value
+})
 
 const roleForm = ref({
   code: '',
@@ -166,7 +191,7 @@ async function fetchRoles() {
     const res = await roleApi.list({ page_size: 100 })
     roles.value = res.data.items
     if (!selectedRole.value && roles.value.length > 0) {
-      selectedRole.value = roles.value[0]
+      selectRole(roles.value[0])
     }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || '加载角色列表失败')
@@ -231,12 +256,18 @@ const checkedKeys = computed(() => {
 async function handleCheck(_node: any, checked: { checkedKeys: (number | string)[] }) {
   if (!selectedRole.value) return
   const permissionIds = checked.checkedKeys.filter((id): id is number => typeof id === 'number')
+  const previousIds = [...rolePermissionIds.value]
+  
   saving.value = true
   try {
     await roleApi.assignPermissions(selectedRole.value.id, permissionIds)
     rolePermissionIds.value = permissionIds
     ElMessage.success('权限已更新')
   } catch (e: any) {
+    // 失败时回滚勾选状态
+    rolePermissionIds.value = previousIds
+    await nextTick()
+    treeRef.value?.setCheckedKeys(previousIds)
     ElMessage.error(e?.response?.data?.msg || '保存权限失败')
   } finally {
     saving.value = false
@@ -250,6 +281,117 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.roles-layout {
+  display: flex;
+  gap: 20px;
+  margin-top: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ===== 左侧角色列表面板 ===== */
+.role-list-panel {
+  width: 280px;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.role-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+
+/* ===== 右侧权限配置面板 ===== */
+.permission-panel {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.permission-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+
+  :deep(.el-tree) {
+    min-height: 100%;
+  }
+
+  /* 自定义滚动条样式 */
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+    margin: 0;
+  }
+}
+
 .role-item {
   display: flex;
   justify-content: space-between;

@@ -1,10 +1,11 @@
 """
-Role Router - 角色权限管理路由
+Role Router - 角色管理路由
 
-提供角色和权限管理的 REST API 接口，包含：
+提供角色管理的 REST API 接口，包含：
 - 角色 CRUD
-- 权限查询
 - 角色-权限绑定
+
+注意：权限列表查询已移至 /permissions 路由
 """
 
 from fastapi import APIRouter, Body, Depends, Path, Query
@@ -21,7 +22,7 @@ from app.modules.role.schemas import (
 )
 from app.modules.role.service import RoleService
 
-router = APIRouter(prefix="/roles", tags=["角色权限管理"])
+router = APIRouter(prefix="/roles", tags=["角色管理"])
 role_service = RoleService()
 
 
@@ -68,6 +69,27 @@ async def list_roles(
         page=page,
         page_size=page_size,
     )
+    return success(data=result)
+
+
+# ============================================================
+# 权限管理
+# ============================================================
+
+@router.get(
+    "/permission-list",
+    response_model=dict,
+    summary="获取权限列表",
+    description="获取所有权限列表（支持按模块筛选，需 role:read 权限）",
+)
+@require_permissions("role:read")
+async def list_permissions(
+    module: str = Query(None, description="模块筛选"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取权限列表"""
+    result = await role_service.list_permissions(db, module=module)
     return success(data=result)
 
 
@@ -122,27 +144,6 @@ async def delete_role(
     """删除角色"""
     await role_service.delete_role(db, role_id, redis_client=redis_client)
     return success(msg="角色删除成功")
-
-
-# ============================================================
-# 权限管理
-# ============================================================
-
-@router.get(
-    "/permissions",
-    response_model=dict,
-    summary="获取权限列表",
-    description="获取所有权限列表（支持按模块筛选，需 role:read 权限）",
-)
-@require_permissions("role:read")
-async def list_permissions(
-    module: str = Query(None, description="模块筛选"),
-    db: AsyncSession = Depends(get_session),
-    current_user: dict = Depends(get_current_user),
-):
-    """获取权限列表"""
-    result = await role_service.list_permissions(db, module=module)
-    return success(data=result)
 
 
 @router.get(

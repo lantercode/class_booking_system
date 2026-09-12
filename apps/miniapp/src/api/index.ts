@@ -205,8 +205,12 @@ async function request<T>(
             return
           }
 
-          if (result.code !== 0 && result.code !== 200 && showError) {
-            uni.showToast({ title: result.msg || '请求失败', icon: 'none' })
+          if (result.code !== 0 && result.code !== 200) {
+            if (showError) {
+              uni.showToast({ title: result.msg || '请求失败', icon: 'none' })
+            }
+            reject(new Error(result.msg || '请求失败'))
+            return
           }
           resolve(result)
         },
@@ -334,6 +338,13 @@ export const courseApi = {
   }
 }
 
+export const courseTypeApi = {
+  list(params?: any) {
+    const query = buildQuery(params)
+    return request(`/courses/types${query}`)
+  },
+}
+
 export const scheduleApi = {
   list(params?: any) {
     const query = buildQuery(params)
@@ -363,7 +374,7 @@ export const bookingApi = {
     return request(`/bookings${query}`)
   },
 
-  create(data: { schedule_id: number }) {
+  create(data: { schedule_id: number; membership_card_id?: number }) {
     return request('/bookings/', 'POST', data)
   },
 
@@ -447,5 +458,24 @@ export const aiChatApi = {
 
   clearHistory(session_id: string = 'default') {
     return request(`/ai/history`, 'DELETE', { session_id })
+  }
+}
+
+export const membershipApi = {
+  getMyCards() {
+    return request('/membership/my-cards')
+  },
+
+  getCardDetail(cardId: number) {
+    return request(`/membership/cards/${cardId}`)
+  },
+
+  activateCard(cardId: number) {
+    return request(`/membership/cards/${cardId}/activate`, 'POST')
+  },
+
+  getTransactions(params?: { card_id?: number; page?: number; page_size?: number }) {
+    const query = buildQuery(params)
+    return request(`/membership/transactions${query}`)
   }
 }

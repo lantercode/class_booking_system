@@ -74,6 +74,18 @@ const router = createRouter({
           component: () => import('@/views/tenant/index.vue'),
           meta: { title: '机构设置', icon: 'Setting' },
         },
+        {
+          path: 'membership',
+          name: 'Membership',
+          component: () => import('@/views/membership/index.vue'),
+          meta: { title: '会员卡管理', icon: 'CreditCard' },
+        },
+        {
+          path: 'card-types',
+          name: 'CardTypes',
+          component: () => import('@/views/card-types/index.vue'),
+          meta: { title: '卡类型管理', icon: 'Collection' },
+        },
       ],
     },
   ],

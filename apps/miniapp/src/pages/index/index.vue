@@ -1507,7 +1507,7 @@ async function completeNewUserGuide() {
   .footer-brand {
     display: block;
     font-family: $font-family-display;  // 衬线字体（优雅感）
-    font-size: $font-size-body-sm;      // 稍大一点（更易读）
+    font-size: $font-size-body_sm;      // 稍大一点（更易读）
     font-weight: $font-weight-medium;   // 中等字重
     color: $primary-solid;              // 使用香槟金色
     letter-spacing: $letter-spacing-wider;  // 加宽字间距

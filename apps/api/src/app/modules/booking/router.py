@@ -50,6 +50,9 @@ async def list_bookings(
     page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     schedule_id: int | None = Query(None, description="排期ID"),
     status: str | None = Query(None, description="状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"),
+    display_status: int | None = Query(None, ge=1, le=4, description="显示状态筛选：1待上课/2已取消/3上课中/4已完成"),
+    upcoming: bool = Query(False, description="是否只查询待上课（未开始）的预约"),
+    exclude_cancelled: bool = Query(False, description="是否排除已取消的记录（小程序端使用）"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -76,11 +79,17 @@ async def list_bookings(
         if not statuses:
             statuses = None
 
+    # 当 status=1（待上课）时，自动启用 upcoming 筛选
+    is_upcoming = upcoming or (statuses == [1])
+
     result = await booking_service.list_bookings(
         db,
         schedule_id=schedule_id,
         student_id=student_id,
         statuses=statuses,
+        display_status=display_status,
+        upcoming=is_upcoming,
+        exclude_cancelled=exclude_cancelled,
         page=page,
         page_size=page_size,
     )
