@@ -9,18 +9,22 @@
       <div class="role-list-panel">
         <div class="panel-header">
           <h3>角色列表</h3>
-          <el-button type="primary" size="small" text @click="openCreateDialog">
-            新增
-          </el-button>
+          <el-button type="primary" size="small" text @click="openCreateDialog"> 新增 </el-button>
         </div>
         <div class="role-list">
-          <div v-for="role in roles" :key="role.id" class="role-item" :class="{ active: selectedRole?.id === role.id }" @click="selectRole(role)">
+          <div
+            v-for="role in roles"
+            :key="role.id"
+            class="role-item"
+            :class="{ active: selectedRole?.id === role.id }"
+            @click="selectRole(role)"
+          >
             <div class="role-info">
               <span class="role-name">{{ role.name }}</span>
               <span class="role-code">{{ role.code }}</span>
             </div>
             <div class="role-actions">
-              <el-tag v-if="role.is_system" size="small" type="info">系统</el-tag>
+              <el-tag v-if="role.is_system" size="small" type="info"> 系统 </el-tag>
               <el-button
                 v-if="!role.is_system"
                 size="small"
@@ -37,11 +41,17 @@
       </div>
 
       <!-- 右侧：权限配置 -->
-      <div class="permission-panel" v-loading="loading">
+      <div v-loading="loading" class="permission-panel">
         <div class="panel-header">
-          <span style="font-weight:600">{{ selectedRole ? selectedRole.name + ' - 权限配置' : '请选择角色' }}</span>
-          <el-tag v-if="selectedRole?.is_system && !isSuperAdmin" type="warning" size="small">系统角色不可修改</el-tag>
-          <el-tag v-else-if="selectedRole?.is_system && isSuperAdmin" type="success" size="small">超级管理员可修改</el-tag>
+          <span style="font-weight: 600">{{
+            selectedRole ? selectedRole.name + ' - 权限配置' : '请选择角色'
+          }}</span>
+          <el-tag v-if="selectedRole?.is_system && !isSuperAdmin" type="warning" size="small">
+            系统角色不可修改
+          </el-tag>
+          <el-tag v-else-if="selectedRole?.is_system && isSuperAdmin" type="success" size="small">
+            超级管理员可修改
+          </el-tag>
         </div>
         <div class="permission-content">
           <el-tree
@@ -75,8 +85,10 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showRoleDialog = false">取消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="handleCreateRole">确定</el-button>
+        <el-button @click="showRoleDialog = false"> 取消 </el-button>
+        <el-button type="primary" :loading="createLoading" @click="handleCreateRole">
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -126,11 +138,13 @@ const roleForm = ref({
 const roleRules: FormRules = {
   code: [
     { required: true, message: '请输入角色代码', trigger: 'blur' },
-    { pattern: /^[a-zA-Z][a-zA-Z0-9_]*$/, message: '字母开头，仅允许字母数字下划线', trigger: 'blur' },
+    {
+      pattern: /^[a-zA-Z][a-zA-Z0-9_]*$/,
+      message: '字母开头，仅允许字母数字下划线',
+      trigger: 'blur',
+    },
   ],
-  name: [
-    { required: true, message: '请输入角色名称', trigger: 'blur' },
-  ],
+  name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
 }
 
 function openCreateDialog() {
@@ -162,11 +176,11 @@ async function handleCreateRole() {
 
 async function handleDeleteRole(role: Role) {
   try {
-    await ElMessageBox.confirm(
-      `确定删除角色「${role.name}」吗？删除后不可恢复。`,
-      '删除确认',
-      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
-    )
+    await ElMessageBox.confirm(`确定删除角色「${role.name}」吗？删除后不可恢复。`, '删除确认', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
   } catch {
     return
   }
@@ -222,7 +236,10 @@ async function selectRole(role: Role) {
 }
 
 const treeData = computed(() => {
-  const moduleMap = new Map<string, { id: string; label: string; children: { id: number; label: string }[] }>()
+  const moduleMap = new Map<
+    string,
+    { id: string; label: string; children: { id: number; label: string }[] }
+  >()
   const moduleNames: Record<string, string> = {
     user: '用户管理',
     course: '课程管理',
@@ -257,7 +274,7 @@ async function handleCheck(_node: any, checked: { checkedKeys: (number | string)
   if (!selectedRole.value) return
   const permissionIds = checked.checkedKeys.filter((id): id is number => typeof id === 'number')
   const previousIds = [...rolePermissionIds.value]
-  
+
   saving.value = true
   try {
     await roleApi.assignPermissions(selectedRole.value.id, permissionIds)
@@ -402,8 +419,13 @@ onMounted(() => {
   transition: background 0.2s;
   margin-bottom: 4px;
 
-  &:hover { background: #f5f7fa; }
-  &.active { background: #ecf5ff; border-left: 3px solid #667eea; }
+  &:hover {
+    background: #f5f7fa;
+  }
+  &.active {
+    background: #ecf5ff;
+    border-left: 3px solid #667eea;
+  }
 
   .role-actions {
     display: flex;
@@ -413,8 +435,16 @@ onMounted(() => {
   }
 
   .role-info {
-    .role-name { font-size: 14px; font-weight: 500; color: #303133; display: block; }
-    .role-code { font-size: 12px; color: #909399; }
+    .role-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #303133;
+      display: block;
+    }
+    .role-code {
+      font-size: 12px;
+      color: #909399;
+    }
   }
 }
 </style>

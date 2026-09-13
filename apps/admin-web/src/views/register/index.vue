@@ -3,7 +3,9 @@
     <div class="register-card">
       <div class="register-header">
         <div class="logo-icon">
-          <el-icon :size="40"><Management /></el-icon>
+          <el-icon :size="40">
+            <Management />
+          </el-icon>
         </div>
         <h2>管理员注册</h2>
         <p>舞蹈约课系统 · 管理端</p>
@@ -73,12 +75,7 @@
         </el-form-item>
 
         <el-form-item>
-          <el-button
-            type="primary"
-            class="submit-btn"
-            :loading="loading"
-            @click="handleRegister"
-          >
+          <el-button type="primary" class="submit-btn" :loading="loading" @click="handleRegister">
             {{ loading ? '注册中...' : '注 册' }}
           </el-button>
         </el-form-item>
@@ -86,7 +83,7 @@
 
       <div class="register-footer">
         <span>已有账号？</span>
-        <router-link to="/login">立即登录</router-link>
+        <router-link to="/login"> 立即登录 </router-link>
       </div>
     </div>
   </div>
@@ -143,9 +140,7 @@ const rules: FormRules = {
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { min: 4, message: '验证码至少4位', trigger: 'blur' },
   ],
-  tenant_slug: [
-    { required: true, message: '请输入机构标识', trigger: 'blur' },
-  ],
+  tenant_slug: [{ required: true, message: '请输入机构标识', trigger: 'blur' }],
 }
 
 async function handleRegister() {

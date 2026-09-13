@@ -3,7 +3,9 @@
     <div class="login-card">
       <div class="login-header">
         <div class="logo-icon">
-          <el-icon :size="40"><Management /></el-icon>
+          <el-icon :size="40">
+            <Management />
+          </el-icon>
         </div>
         <h2>管理后台</h2>
         <p>舞蹈约课系统 · 管理端</p>
@@ -13,21 +15,35 @@
           <el-input v-model="form.phone" placeholder="请输入手机号" :prefix-icon="Phone" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password @keyup.enter="handleLogin" />
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="请输入密码"
+            :prefix-icon="Lock"
+            show-password
+            @keyup.enter="handleLogin"
+          />
         </el-form-item>
         <el-form-item prop="tenant_slug">
-          <el-select v-model="form.tenant_slug" placeholder="请选择机构" style="width: 100%" :prefix-icon="OfficeBuilding">
+          <el-select
+            v-model="form.tenant_slug"
+            placeholder="请选择机构"
+            style="width: 100%"
+            :prefix-icon="OfficeBuilding"
+          >
             <el-option label="奕欣舞蹈" value="dance-school" />
           </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">登录</el-button>
+          <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">
+            登录
+          </el-button>
         </el-form-item>
       </el-form>
 
       <div class="login-footer">
         <span>没有账号？</span>
-        <router-link to="/register">立即注册</router-link>
+        <router-link to="/register"> 立即注册 </router-link>
       </div>
     </div>
   </div>
@@ -66,11 +82,16 @@ async function handleLogin() {
   if (!valid) return
   loading.value = true
   try {
-    await authStore.login({ phone: form.phone, password: form.password, tenant_slug: form.tenant_slug || undefined })
+    await authStore.login({
+      phone: form.phone,
+      password: form.password,
+      tenant_slug: form.tenant_slug || undefined,
+    })
     ElMessage.success('登录成功')
-    router.push(route.query.redirect as string || '/dashboard')
+    router.push((route.query.redirect as string) || '/dashboard')
   } catch (err: any) {
-    const msg = err?.response?.data?.msg || err?.response?.data?.detail || '登录失败，请检查账号密码'
+    const msg =
+      err?.response?.data?.msg || err?.response?.data?.detail || '登录失败，请检查账号密码'
     ElMessage.error(msg)
   } finally {
     loading.value = false
@@ -112,8 +133,17 @@ async function handleLogin() {
       color: #fff;
     }
 
-    h2 { font-size: 24px; font-weight: 700; color: #1a1a2e; margin: 0 0 8px; }
-    p { font-size: 14px; color: #909399; margin: 0; }
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin: 0 0 8px;
+    }
+    p {
+      font-size: 14px;
+      color: #909399;
+      margin: 0;
+    }
   }
 
   .submit-btn {
@@ -124,7 +154,9 @@ async function handleLogin() {
     font-weight: 600;
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     border: none;
-    &:hover { opacity: 0.9; }
+    &:hover {
+      opacity: 0.9;
+    }
   }
 
   .login-footer {

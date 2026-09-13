@@ -2,14 +2,25 @@
   <div class="page-container">
     <div class="page-header">
       <h2>会员卡管理</h2>
-      <el-button type="primary" @click="openCreateDialog">
-        发放会员卡
-      </el-button>
+      <el-button type="primary" @click="openCreateDialog"> 发放会员卡 </el-button>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px">
-      <el-input v-model="search" placeholder="搜索学员或手机号" style="width:200px" clearable @keyup.enter="handleSearch" @clear="handleSearch" />
-      <el-select v-model="statusFilter" placeholder="状态筛选" style="width:120px" clearable @change="handleSearch">
+    <div style="display: flex; gap: 12px; margin-bottom: 16px">
+      <el-input
+        v-model="search"
+        placeholder="搜索学员或手机号"
+        style="width: 200px"
+        clearable
+        @keyup.enter="handleSearch"
+        @clear="handleSearch"
+      />
+      <el-select
+        v-model="statusFilter"
+        placeholder="状态筛选"
+        style="width: 120px"
+        clearable
+        @change="handleSearch"
+      >
         <el-option label="未激活" :value="0" />
         <el-option label="正常" :value="1" />
         <el-option label="已冻结" :value="2" />
@@ -17,7 +28,7 @@
       </el-select>
     </div>
 
-    <el-table :data="cards" stripe style="width:100%" v-loading="loading">
+    <el-table v-loading="loading" :data="cards" stripe style="width: 100%">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="product_name" label="产品名称" min-width="120" />
       <el-table-column prop="card_type" label="卡类型" width="100">
@@ -59,12 +70,12 @@
           {{ row.expire_at ? formatDate(row.expire_at) : '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="冻结信息" width="200" v-if="hasFrozenCard">
+      <el-table-column v-if="hasFrozenCard" label="冻结信息" width="200">
         <template #default="{ row }">
           <template v-if="row.status === 3">
-            <div style="line-height:1.6">
+            <div style="line-height: 1.6">
               <div>已冻结 {{ getFrozenDuration(row) }}</div>
-              <div style="color:#E6A23C;font-size:12px">
+              <div style="color: #e6a23c; font-size: 12px">
                 剩余 {{ getFrozenRemainingDays(row) }} 天
               </div>
             </div>
@@ -74,22 +85,56 @@
       </el-table-column>
       <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="openDetailDialog(row)">详情</el-button>
-          <el-button v-if="row.status === 0" type="success" size="small" link @click="handleActivate(row)">激活</el-button>
-          <el-button v-if="row.status === 1" type="warning" size="small" link @click="openFreezeDialog(row)">冻结</el-button>
-          <el-button v-if="row.status === 3" type="success" size="small" link @click="handleUnfreeze(row)">提前解冻</el-button>
-          <el-button v-if="row.status !== 6" type="danger" size="small" link @click="openCancelDialog(row)">作废</el-button>
+          <el-button type="primary" size="small" link @click="openDetailDialog(row)">
+            详情
+          </el-button>
+          <el-button
+            v-if="row.status === 0"
+            type="success"
+            size="small"
+            link
+            @click="handleActivate(row)"
+          >
+            激活
+          </el-button>
+          <el-button
+            v-if="row.status === 1"
+            type="warning"
+            size="small"
+            link
+            @click="openFreezeDialog(row)"
+          >
+            冻结
+          </el-button>
+          <el-button
+            v-if="row.status === 3"
+            type="success"
+            size="small"
+            link
+            @click="handleUnfreeze(row)"
+          >
+            提前解冻
+          </el-button>
+          <el-button
+            v-if="row.status !== 6"
+            type="danger"
+            size="small"
+            link
+            @click="openCancelDialog(row)"
+          >
+            作废
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <div class="pagination-wrapper">
       <el-pagination
+        v-model:current-page="currentPage"
         background
         layout="total, prev, pager, next"
         :total="total"
         :page-size="pageSize"
-        v-model:current-page="currentPage"
         @current-change="fetchCards"
       />
     </div>
@@ -103,45 +148,76 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="学员" prop="student_id">
-          <el-select v-model="form.student_id" placeholder="请选择学员" filterable remote :remote-method="handleSearchStudent" style="width:100%" @change="handleStudentChange">
-            <el-option v-for="user in users" :key="user.id" :label="`${user.nickname || '-'} (${user.phone})`" :value="user.id" />
+          <el-select
+            v-model="form.student_id"
+            placeholder="请选择学员"
+            filterable
+            remote
+            :remote-method="handleSearchStudent"
+            style="width: 100%"
+            @change="handleStudentChange"
+          >
+            <el-option
+              v-for="user in users"
+              :key="user.id"
+              :label="`${user.nickname || '-'} (${user.phone})`"
+              :value="user.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="产品" prop="product_id">
-          <el-select v-model="form.product_id" placeholder="请选择产品" style="width:100%" @change="handleProductChange">
-            <el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
+          <el-select
+            v-model="form.product_id"
+            placeholder="请选择产品"
+            style="width: 100%"
+            @change="handleProductChange"
+          >
+            <el-option
+              v-for="product in products"
+              :key="product.id"
+              :label="product.name"
+              :value="product.id"
+            />
           </el-select>
         </el-form-item>
         <el-form-item v-if="selectedProduct?.card_type === 'count'" label="总次数">
-          <el-input-number v-model="form.total_credits" :min="1" disabled style="width:100%" />
-          <span style="margin-left:8px;color:#909399;font-size:12px">次数由产品决定，不可修改</span>
+          <el-input-number v-model="form.total_credits" :min="1" disabled style="width: 100%" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">
+            次数由产品决定，不可修改
+          </span>
         </el-form-item>
         <el-form-item v-if="selectedProduct?.card_type === 'count'" label="有效天数">
-          <el-input-number v-model="form.validity_days" :min="1" disabled style="width:100%" />
-          <span style="margin-left:8px;color:#909399;font-size:12px">天数由产品决定，不可修改</span>
+          <el-input-number v-model="form.validity_days" :min="1" disabled style="width: 100%" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">
+            天数由产品决定，不可修改
+          </span>
         </el-form-item>
         <el-form-item v-if="selectedProduct?.card_type === 'period'" label="有效天数">
-          <el-input-number v-model="form.validity_days" :min="1" disabled style="width:100%" />
-          <span style="margin-left:8px;color:#909399;font-size:12px">天数由产品决定，不可修改</span>
+          <el-input-number v-model="form.validity_days" :min="1" disabled style="width: 100%" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">
+            天数由产品决定，不可修改
+          </span>
         </el-form-item>
         <el-form-item v-if="selectedProduct?.card_type === 'unlimited'" label="卡类型">
-          <el-tag type="success">无限卡</el-tag>
-          <span style="margin-left:8px;color:#909399;font-size:12px">无限卡无次数和天数限制</span>
+          <el-tag type="success"> 无限卡 </el-tag>
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">
+            无限卡无次数和天数限制
+          </span>
         </el-form-item>
         <el-form-item label="生效时间" prop="valid_from">
           <el-date-picker
             v-model="form.valid_from"
             type="date"
             placeholder="选择生效日期（留空表示立即激活）"
-            style="width:100%"
+            style="width: 100%"
             clearable
             :disabled-date="disabledDate"
             value-format="YYYY-MM-DD"
           />
-          <div v-if="minValidDate" style="margin-top:4px;color:#E6A23C;font-size:12px">
+          <div v-if="minValidDate" style="margin-top: 4px; color: #e6a23c; font-size: 12px">
             因学员已有有效卡，最早可选日期：<strong>{{ minValidDate }}</strong>
           </div>
-          <div v-else style="margin-top:4px;color:#909399;font-size:12px">
+          <div v-else style="margin-top: 4px; color: #909399; font-size: 12px">
             选择日期后，生效时间将为当天的 00:00:00，到期时间为有效期最后一天的 23:59:59
           </div>
         </el-form-item>
@@ -150,76 +226,140 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
 
     <el-dialog v-model="detailDialogVisible" title="会员卡详情" width="600px">
-      <el-descriptions :column="2" border v-if="detailCard">
-        <el-descriptions-item label="产品名称">{{ detailCard.product_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="卡类型">{{ getCardTypeText(detailCard.card_type) }}</el-descriptions-item>
-        <el-descriptions-item label="学员">{{ detailCard.student_nickname || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="手机号">{{ detailCard.student_phone || '-' }}</el-descriptions-item>
+      <el-descriptions v-if="detailCard" :column="2" border>
+        <el-descriptions-item label="产品名称">
+          {{ detailCard.product_name || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="卡类型">
+          {{ getCardTypeText(detailCard.card_type) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="学员">
+          {{ detailCard.student_nickname || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="手机号">
+          detailCard.student_phone || '-' }}
+        </el-descriptions-item>
         <template v-if="detailCard.card_type === 'count'">
-          <el-descriptions-item label="总次数">{{ detailCard.total_credits ?? '-' }}</el-descriptions-item>
-          <el-descriptions-item label="已用次数">{{ detailCard.used_credits ?? 0 }}</el-descriptions-item>
-          <el-descriptions-item label="剩余次数">{{ detailCard.remaining_credits ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="总次数">
+            {{ detailCard.total_credits ?? '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="已用次数">
+            {{ detailCard.used_credits ?? 0 }}
+          </el-descriptions-item>
+          <el-descriptions-item label="剩余次数">
+            {{ detailCard.remaining_credits ?? '-' }}
+          </el-descriptions-item>
         </template>
         <el-descriptions-item label="状态">
           <el-tag :type="getStatusType(detailCard.status)" size="small">
             {{ getStatusText(detailCard.status) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="生效时间">{{ detailCard.valid_from ? formatDate(detailCard.valid_from) : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="过期时间">{{ detailCard.expire_at ? formatDate(detailCard.expire_at) : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="生效时间">
+          {{ detailCard.valid_from ? formatDate(detailCard.valid_from) : '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="过期时间">
+          {{ detailCard.expire_at ? formatDate(detailCard.expire_at) : '-' }}
+        </el-descriptions-item>
         <template v-if="detailCard.status === 3">
-          <el-descriptions-item label="冻结时间">{{ detailCard.frozen_at ? formatDate(detailCard.frozen_at) : '-' }}</el-descriptions-item>
-          <el-descriptions-item label="冻结到期">{{ detailCard.frozen_until ? formatDate(detailCard.frozen_until) : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="冻结时间">
+            {{ detailCard.frozen_at ? formatDate(detailCard.frozen_at) : '-' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="冻结到期">
+            {{ detailCard.frozen_until ? formatDate(detailCard.frozen_until) : '-' }}
+          </el-descriptions-item>
           <el-descriptions-item label="已冻结时长" :span="2">
             {{ getFrozenDuration(detailCard) }}
           </el-descriptions-item>
           <el-descriptions-item label="剩余冻结天数" :span="2">
-            <span style="color:#E6A23C;font-weight:600">{{ getFrozenRemainingDays(detailCard) }} 天</span>
+            <span style="color: #e6a23c; font-weight: 600">
+              {{ getFrozenRemainingDays(detailCard) }} 天
+            </span>
           </el-descriptions-item>
-          <el-descriptions-item label="冻结原因" :span="2">{{ detailCard.frozen_reason || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="冻结原因" :span="2">
+            {{ detailCard.frozen_reason || '-' }}
+          </el-descriptions-item>
         </template>
-        <el-descriptions-item v-else label="冻结原因" :span="2">{{ detailCard.frozen_reason || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间" :span="2">{{ detailCard.created_at ? formatDate(detailCard.created_at) : '-' }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间" :span="2">{{ detailCard.updated_at ? formatDate(detailCard.updated_at) : '-' }}</el-descriptions-item>
+        <el-descriptions-item v-else label="冻结原因" :span="2">
+          {{ detailCard.frozen_reason || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间" :span="2">
+          {{ detailCard.created_at ? formatDate(detailCard.created_at) : '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="更新时间" :span="2">
+          {{ detailCard.updated_at ? formatDate(detailCard.updated_at) : '-' }}
+        </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
 
-    <el-dialog v-model="freezeDialogVisible" title="冻结会员卡" width="460px" :close-on-click-modal="false">
+    <el-dialog
+      v-model="freezeDialogVisible"
+      title="冻结会员卡"
+      width="460px"
+      :close-on-click-modal="false"
+    >
       <el-form ref="freezeFormRef" :model="freezeForm" :rules="freezeRules" label-width="100px">
         <el-form-item label="冻结天数" prop="freeze_days">
-          <el-input-number v-model="freezeForm.freeze_days" :min="1" :max="365" style="width:100%" />
-          <span style="margin-left:8px;color:#909399;font-size:12px">1-365天</span>
+          <el-input-number
+            v-model="freezeForm.freeze_days"
+            :min="1"
+            :max="365"
+            style="width: 100%"
+          />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">1-365天</span>
         </el-form-item>
         <el-form-item label="冻结原因" prop="reason">
-          <el-input v-model="freezeForm.reason" type="textarea" :rows="3" placeholder="请输入冻结原因" />
+          <el-input
+            v-model="freezeForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入冻结原因"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="freezeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleFreeze" :loading="submitting">确定</el-button>
+        <el-button @click="freezeDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleFreeze"> 确定 </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="cancelDialogVisible" title="作废会员卡" width="460px" :close-on-click-modal="false">
+    <el-dialog
+      v-model="cancelDialogVisible"
+      title="作废会员卡"
+      width="460px"
+      :close-on-click-modal="false"
+    >
       <el-form ref="cancelFormRef" :model="cancelForm" label-width="100px">
         <el-form-item label="作废原因" prop="reason">
-          <el-input v-model="cancelForm.reason" type="textarea" :rows="3" placeholder="请输入作废原因" />
+          <el-input
+            v-model="cancelForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入作废原因"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="cancelDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="handleCancel" :loading="submitting">确定作废</el-button>
+        <el-button @click="cancelDialogVisible = false"> 取消 </el-button>
+        <el-button type="danger" :loading="submitting" @click="handleCancel"> 确定作废 </el-button>
       </template>
     </el-dialog>
 
     <!-- 续卡提示对话框 -->
-    <el-dialog v-model="renewalDialogVisible" title="" width="480px" :show-close="true" :close-on-click-modal="false" custom-class="renewal-dialog">
+    <el-dialog
+      v-model="renewalDialogVisible"
+      title=""
+      width="480px"
+      :show-close="true"
+      :close-on-click-modal="false"
+      custom-class="renewal-dialog"
+    >
       <div class="renewal-content">
         <div class="renewal-header">
           <span class="renewal-icon">⚠️</span>
@@ -227,9 +367,11 @@
         </div>
         <div class="renewal-subtitle">如需继续发卡（续卡），请确认以下规则：</div>
         <div class="renewal-rules">
-          <div class="rules-title"> 续卡规则</div>
+          <div class="rules-title">续卡规则</div>
           <div class="rules-item">• 新卡生效时间必须晚于旧卡到期时间的次日</div>
-          <div v-if="renewalEarliestDate" class="rules-hint">✅ 系统已自动设置最早生效日期：<strong>{{ renewalEarliestDate }}</strong></div>
+          <div v-if="renewalEarliestDate" class="rules-hint">
+            ✅ 系统已自动设置最早生效日期：<strong>{{ renewalEarliestDate }}</strong>
+          </div>
         </div>
         <div class="renewal-footer">请确认生效时间后，重新点击"确定"按钮</div>
       </div>
@@ -241,7 +383,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { membershipCardApi, cardTypeApi, type MembershipCard, type MembershipCardCreateParams, type MembershipCardProduct } from '@dance-saas/api-client'
+import {
+  membershipCardApi,
+  cardTypeApi,
+  type MembershipCard,
+  type MembershipCardCreateParams,
+  type MembershipCardProduct,
+} from '@dance-saas/api-client'
 import { userApi } from '@dance-saas/api-client'
 
 const loading = ref(false)
@@ -360,14 +508,14 @@ function handleSearchStudent(keyword: string) {
 function disabledDate(time: Date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  
+
   // 如果有最早生效日期限制，则禁用该日期之前的所有日期
   if (minValidDate.value) {
     const minDate = new Date(minValidDate.value)
     minDate.setHours(0, 0, 0, 0)
     return time.getTime() < minDate.getTime()
   }
-  
+
   // 否则只允许选择今天及之后的日期
   return time.getTime() < today.getTime()
 }
@@ -401,13 +549,25 @@ function handleProductChange(productId: number) {
   if (!product) return
 
   selectedProduct.value = product
-  console.log('📦 选择产品:', product.name, '次数:', product.total_credits, '天数:', product.validity_days)
+  console.log(
+    '📦 选择产品:',
+    product.name,
+    '次数:',
+    product.total_credits,
+    '天数:',
+    product.validity_days
+  )
 
   // 自动带入产品信息
   form.value.total_credits = product.total_credits ?? undefined
   form.value.validity_days = product.validity_days ?? undefined
 
-  console.log('✅ 表单已更新 - 总次数:', form.value.total_credits, '有效天数:', form.value.validity_days)
+  console.log(
+    '✅ 表单已更新 - 总次数:',
+    form.value.total_credits,
+    '有效天数:',
+    form.value.validity_days
+  )
 }
 
 function openDetailDialog(row: MembershipCard) {
@@ -443,35 +603,35 @@ async function handleSubmit() {
     console.error('❌ 发放会员卡失败:', e)
     console.error('  请求数据:', e?.config?.data)
     console.error('  响应数据:', e?.response?.data)
-    
+
     const status = e?.response?.status
     // 兼容后端返回的 detail 和 msg 字段
     const errorMsg = e?.response?.data?.detail || e?.response?.data?.msg || '操作失败'
-    
+
     // 根据不同状态码给出详细提示
     if (status === 409) {
       // 重复发卡冲突 - 提示用户修改生效时间后重新提交
       const match = errorMsg.match(/(\d{4}-\d{2}-\d{2})/)
       const earliestDate = match ? match[1] : null
-      
+
       // 提取已有卡数量（如果有）
       const countMatch = errorMsg.match(/(\d+)\s*张/)
       const cardCount = countMatch ? countMatch[1] : ''
-      
+
       // 设置续卡对话框数据
       renewalCardCount.value = cardCount
       renewalEarliestDate.value = earliestDate
       renewalDialogVisible.value = true
-      
+
       // 设置 allow_duplicate=true，允许用户重新提交（用户无需感知此参数）
       form.value.allow_duplicate = true
-      
+
       // 如果后端返回了最早生效日期，自动设置到表单中并禁用之前的日期
       if (earliestDate) {
         minValidDate.value = earliestDate
         form.value.valid_from = earliestDate
       }
-      
+
       // 不关闭对话框，让用户修改后重新提交
       submitting.value = false
       return
@@ -498,7 +658,9 @@ async function handleSubmit() {
 
 async function handleActivate(row: MembershipCard) {
   try {
-    await ElMessageBox.confirm(`确定要激活会员卡「${row.product_name || '-'}」吗？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要激活会员卡「${row.product_name || '-'}」吗？`, '提示', {
+      type: 'warning',
+    })
     await membershipCardApi.adminActivate(row.id)
     ElMessage.success('激活成功')
     fetchCards()
@@ -506,7 +668,7 @@ async function handleActivate(row: MembershipCard) {
     if (e !== 'cancel') {
       const status = e?.response?.status
       const errorMsg = e?.response?.data?.detail || e?.response?.data?.msg || '激活失败'
-      
+
       if (status === 409) {
         // 重复卡冲突 - 给出明确的操作指引
         ElMessage({
@@ -675,7 +837,7 @@ onMounted(() => {
 .renewal-title {
   font-size: 14px;
   font-weight: 600;
-  color: #E6A23C;
+  color: #e6a23c;
 }
 
 .renewal-subtitle {
@@ -693,7 +855,7 @@ onMounted(() => {
 
 .rules-title {
   font-size: 13px;
-  color: #E6A23C;
+  color: #e6a23c;
   font-weight: 500;
   margin-bottom: 8px;
 }
@@ -705,7 +867,7 @@ onMounted(() => {
 
 .rules-hint {
   font-size: 12px;
-  color: #67C23A;
+  color: #67c23a;
   margin-top: 6px;
 }
 

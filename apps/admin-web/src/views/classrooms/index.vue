@@ -2,17 +2,21 @@
   <div class="page-container">
     <div class="page-header">
       <h2>教室管理</h2>
-      <el-button type="primary" @click="openCreateDialog">
-        新增
-      </el-button>
+      <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px;flex-shrink:0">
-      <el-input v-model="search" placeholder="搜索教室名称" style="width:240px" clearable @input="onSearch" />
+    <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-shrink: 0">
+      <el-input
+        v-model="search"
+        placeholder="搜索教室名称"
+        style="width: 240px"
+        clearable
+        @input="onSearch"
+      />
     </div>
 
-    <div class="classroom-content" v-loading="loading">
-      <el-row :gutter="20" style="row-gap:16px">
+    <div v-loading="loading" class="classroom-content">
+      <el-row :gutter="20" style="row-gap: 16px">
         <el-col v-for="room in classrooms" :key="room.id" :span="8">
           <el-card shadow="hover" class="classroom-card">
             <div class="room-header">
@@ -22,26 +26,36 @@
               </el-tag>
             </div>
             <div class="room-info">
-              <div class="info-item" v-if="room.equipment?.length">
+              <div v-if="room.equipment?.length" class="info-item">
                 <el-icon><Setting /></el-icon>
-                <el-tooltip :content="room.equipment.join('、')" placement="top" :disabled="room.equipment.join('、').length <= 15">
+                <el-tooltip
+                  :content="room.equipment.join('、')"
+                  placement="top"
+                  :disabled="room.equipment.join('、').length <= 15"
+                >
                   <span class="equipment-text">{{ room.equipment.join('、') }}</span>
                 </el-tooltip>
               </div>
-              <div class="info-item" v-else>
+              <div v-else class="info-item">
                 <el-icon><Setting /></el-icon>
-                <span style="color:#c0c4cc">暂无设备</span>
+                <span style="color: #c0c4cc">暂无设备</span>
               </div>
             </div>
             <div class="room-actions">
-              <el-button type="primary" size="small" link @click="openEditDialog(room)">编辑</el-button>
+              <el-button type="primary" size="small" link @click="openEditDialog(room)">
+                编辑
+              </el-button>
               <el-button
                 :type="room.status === 1 ? 'warning' : 'success'"
                 size="small"
                 link
                 @click="toggleStatus(room)"
-              >{{ room.status === 1 ? '维护' : '启用' }}</el-button>
-              <el-button type="danger" size="small" link @click="handleDelete(room)">删除</el-button>
+              >
+                {{ room.status === 1 ? '维护' : '启用' }}
+              </el-button>
+              <el-button type="danger" size="small" link @click="handleDelete(room)">
+                删除
+              </el-button>
             </div>
           </el-card>
         </el-col>
@@ -67,7 +81,7 @@
             filterable
             allow-create
             placeholder="请选择或输入设备"
-            style="width:100%"
+            style="width: 100%"
             clearable
           >
             <el-option label="镜子" value="镜子" />
@@ -80,18 +94,23 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Plus, User, Setting } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { classroomApi, type Classroom, type ClassroomCreateParams, type ClassroomUpdateParams } from '@dance-saas/api-client'
+import {
+  type Classroom,
+  classroomApi,
+  type ClassroomCreateParams,
+  type ClassroomUpdateParams,
+} from '@dance-saas/api-client'
+import {Setting} from '@element-plus/icons-vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {onMounted, ref} from 'vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -174,7 +193,9 @@ async function toggleStatus(row: Classroom) {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 0 ? '维护' : '启用'
   try {
-    await ElMessageBox.confirm(`确定要${action}教室「${row.name}」吗？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要${action}教室「${row.name}」吗？`, '提示', {
+      type: 'warning',
+    })
     await classroomApi.update(row.id, { status: newStatus })
     ElMessage.success(`${action}成功`)
     fetchClassrooms()
@@ -187,7 +208,9 @@ async function toggleStatus(row: Classroom) {
 
 async function handleDelete(row: Classroom) {
   try {
-    await ElMessageBox.confirm(`确定要删除教室「${row.name}」吗？此操作不可恢复。`, '警告', { type: 'error' })
+    await ElMessageBox.confirm(`确定要删除教室「${row.name}」吗？此操作不可恢复。`, '警告', {
+      type: 'error',
+    })
     await classroomApi.remove(row.id)
     ElMessage.success('删除成功')
     fetchClassrooms()

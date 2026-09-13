@@ -2,42 +2,71 @@
   <div class="page-container">
     <div class="page-header">
       <h2>用户管理</h2>
-      <el-button type="primary" @click="dialogVisible = true">新增</el-button>
+      <el-button type="primary" @click="dialogVisible = true"> 新增 </el-button>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px">
-      <el-input v-model="search" placeholder="搜索手机号/昵称" style="width:240px" clearable @keyup.enter="handleSearch" @clear="handleSearch" />
-      <el-select v-model="roleFilter" placeholder="角色筛选" style="width:140px" clearable @change="handleSearch">
+    <div style="display: flex; gap: 12px; margin-bottom: 16px">
+      <el-input
+        v-model="search"
+        placeholder="搜索手机号/昵称"
+        style="width: 240px"
+        clearable
+        @keyup.enter="handleSearch"
+        @clear="handleSearch"
+      />
+      <el-select
+        v-model="roleFilter"
+        placeholder="角色筛选"
+        style="width: 140px"
+        clearable
+        @change="handleSearch"
+      >
         <el-option label="全部" value="" />
         <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
       </el-select>
-      <el-select v-model="statusFilter" placeholder="状态筛选" style="width:140px" clearable @change="handleSearch">
+      <el-select
+        v-model="statusFilter"
+        placeholder="状态筛选"
+        style="width: 140px"
+        clearable
+        @change="handleSearch"
+      >
         <el-option label="全部" value="" />
         <el-option label="正常" value="active" />
         <el-option label="禁用" value="disabled" />
       </el-select>
     </div>
 
-    <el-table :data="users" stripe v-loading="loading" style="width:100%">
+    <el-table v-loading="loading" :data="users" stripe style="width: 100%">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="nickname" label="昵称">
-        <template #default="{ row }">{{ row.nickname || '-' }}</template>
+        <template #default="{ row }">
+          {{ row.nickname || '-' }}
+        </template>
       </el-table-column>
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
+          <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
+            {{ row.status === 1 ? '正常' : '禁用' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="注册时间" width="180">
-        <template #default="{ row }">{{ row.created_at?.slice(0, 10) }}</template>
+        <template #default="{ row }">
+          {{ row.created_at?.slice(0, 10) }}
+        </template>
       </el-table-column>
       <el-table-column label="操作" width="300" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="handleEdit(row)">编辑</el-button>
-          <el-button type="warning" size="small" link @click="handleResetPwd(row)">重置密码</el-button>
-          <el-button type="danger" size="small" link @click="handleDelete(row)">删除</el-button>
-          <el-button type="info" size="small" link @click="handleUnbindWechat(row)">解绑微信</el-button>
+          <el-button type="primary" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
+          <el-button type="warning" size="small" link @click="handleResetPwd(row)">
+            重置密码
+          </el-button>
+          <el-button type="danger" size="small" link @click="handleDelete(row)"> 删除 </el-button>
+          <el-button type="info" size="small" link @click="handleUnbindWechat(row)">
+            解绑微信
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -62,17 +91,22 @@
           <el-input v-model="form.nickname" placeholder="请输入昵称" maxlength="20" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码（至少6位）" show-password />
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="请输入密码（至少6位）"
+            show-password
+          />
         </el-form-item>
         <el-form-item label="角色" prop="roleCodes">
-          <el-select v-model="form.roleCodes" multiple placeholder="请选择角色" style="width:100%">
+          <el-select v-model="form.roleCodes" multiple placeholder="请选择角色" style="width: 100%">
             <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
 
@@ -85,20 +119,27 @@
           <el-input v-model="editForm.nickname" placeholder="请输入昵称" maxlength="20" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="editForm.status" style="width:100%">
+          <el-select v-model="editForm.status" style="width: 100%">
             <el-option label="正常" :value="1" />
             <el-option label="禁用" :value="0" />
           </el-select>
         </el-form-item>
         <el-form-item label="角色">
-          <el-select v-model="editForm.roleCodes" multiple placeholder="请选择角色" style="width:100%">
+          <el-select
+            v-model="editForm.roleCodes"
+            multiple
+            placeholder="请选择角色"
+            style="width: 100%"
+          >
             <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">确定</el-button>
+        <el-button @click="editVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
@@ -108,12 +149,17 @@
           <el-input :model-value="pwdTarget?.nickname || pwdTarget?.phone || ''" disabled />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="pwdForm.newPassword" type="password" placeholder="请输入新密码（至少6位）" show-password />
+          <el-input
+            v-model="pwdForm.newPassword"
+            type="password"
+            placeholder="请输入新密码（至少6位）"
+            show-password
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="pwdVisible = false">取消</el-button>
-        <el-button type="primary" :loading="pwdLoading" @click="handlePwdSubmit">确定</el-button>
+        <el-button @click="pwdVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="pwdLoading" @click="handlePwdSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
   </div>
@@ -173,9 +219,7 @@ const editForm = reactive({
 })
 
 const editRules: FormRules = {
-  nickname: [
-    { required: true, message: '请输入昵称', trigger: 'blur' },
-  ],
+  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
 }
 
 const pwdForm = reactive({
@@ -225,7 +269,9 @@ async function fetchRoles() {
   try {
     const res = await roleApi.list({ page_size: 100 })
     roles.value = res.data.items
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 async function handleSubmit() {
@@ -253,11 +299,9 @@ async function handleSubmit() {
 
 async function handleDelete(user: User) {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除用户 "${user.nickname || user.phone}" 吗？`,
-      '删除确认',
-      { type: 'warning' }
-    )
+    await ElMessageBox.confirm(`确定要删除用户 "${user.nickname || user.phone}" 吗？`, '删除确认', {
+      type: 'warning',
+    })
     await userApi.delete(user.id)
     ElMessage.success('删除成功')
     fetchUsers()
@@ -305,9 +349,7 @@ async function handleEditSubmit() {
       status: editForm.status,
     }
     if (editForm.roleCodes.length > 0) {
-      payload.role_ids = roles.value
-        .filter(r => editForm.roleCodes.includes(r.code))
-        .map(r => r.id)
+      payload.role_ids = roles.value.filter(r => editForm.roleCodes.includes(r.code)).map(r => r.id)
     }
     await userApi.update(editId.value, payload)
     ElMessage.success('编辑成功')

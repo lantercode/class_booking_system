@@ -2,23 +2,25 @@
   <div class="course-detail-container">
     <header class="detail-header">
       <el-button text @click="$router.back()">
-        <el-icon><ArrowLeft /></el-icon>
+        <el-icon>
+          <ArrowLeft/>
+        </el-icon>
         返回
       </el-button>
     </header>
 
     <main class="detail-main" v-if="course">
       <div class="cover-section">
-        <img :src="course.cover" :alt="course.name" class="cover-image" />
+        <img :src="course.cover" :alt="course.name" class="cover-image"/>
         <div class="cover-overlay">
           <h1>{{ course.name }}</h1>
           <div class="cover-tags">
             <el-tag
-              v-for="tag in course.tags"
-              :key="tag"
-              size="small"
-              effect="plain"
-              class="tag-item"
+                v-for="tag in course.tags"
+                :key="tag"
+                size="small"
+                effect="plain"
+                class="tag-item"
             >
               {{ tag }}
             </el-tag>
@@ -29,17 +31,23 @@
       <div class="info-section">
         <div class="info-grid">
           <div class="info-item">
-            <el-icon><Clock /></el-icon>
+            <el-icon>
+              <Clock/>
+            </el-icon>
             <span>{{ course.duration }} 分钟</span>
           </div>
           <div class="info-item">
-            <el-icon><DataLine /></el-icon>
+            <el-icon>
+              <DataLine/>
+            </el-icon>
             <el-tag :type="getDifficultyType(course.difficulty)" size="small">
               {{ getDifficultyLabel(course.difficulty) }}
             </el-tag>
           </div>
           <div class="info-item">
-            <el-icon><Money /></el-icon>
+            <el-icon>
+              <Money/>
+            </el-icon>
             <span class="price">¥{{ course.price }}</span>
           </div>
         </div>
@@ -60,10 +68,10 @@
 
       <div class="action-bar">
         <el-button
-          type="primary"
-          size="large"
-          :disabled="course.status !== 1"
-          @click="goToSchedule"
+            type="primary"
+            size="large"
+            :disabled="course.status !== 1"
+            @click="goToSchedule"
         >
           {{ course.status === 1 ? '查看排期并预约' : '该课程暂不可约' }}
         </el-button>
@@ -71,22 +79,16 @@
     </main>
 
     <div v-else-if="!loading" class="not-found">
-      <el-empty description="课程不存在" />
+      <el-empty description="课程不存在"/>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import {
-  ArrowLeft,
-  Clock,
-  DataLine,
-  Money,
-  Tickets,
-} from '@element-plus/icons-vue'
-import { courseApi, type Course } from '@dance-saas/api-client'
+import {onMounted, ref} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import {ArrowLeft, Clock, DataLine, Money,} from '@element-plus/icons-vue'
+import {type Course, courseApi} from '@dance-saas/api-client'
 
 const route = useRoute()
 const router = useRouter()
@@ -114,7 +116,7 @@ const LEVEL_MAP: Record<string, string> = {
 }
 
 function getDifficultyLabel(d: string): string {
-  const m: Record<string, string> = { beginner: '入门', intermediate: '中级', advanced: '高级' }
+  const m: Record<string, string> = {beginner: '入门', intermediate: '中级', advanced: '高级'}
   return m[d] || d
 }
 

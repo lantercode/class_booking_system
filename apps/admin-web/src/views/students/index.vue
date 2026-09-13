@@ -2,32 +2,47 @@
   <div class="page-container">
     <div class="page-header">
       <h2>学员管理</h2>
-      <el-button type="primary" @click="openCreateDialog">新增</el-button>
+      <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px">
-      <el-input v-model="search" placeholder="搜索姓名/手机号" style="width:240px" clearable @keyup.enter="handleSearch" @clear="handleSearch" />
-      <el-select v-model="statusFilter" placeholder="状态筛选" style="width:140px" clearable @change="handleSearch">
+    <div style="display: flex; gap: 12px; margin-bottom: 16px">
+      <el-input
+        v-model="search"
+        placeholder="搜索姓名/手机号"
+        style="width: 240px"
+        clearable
+        @keyup.enter="handleSearch"
+        @clear="handleSearch"
+      />
+      <el-select
+        v-model="statusFilter"
+        placeholder="状态筛选"
+        style="width: 140px"
+        clearable
+        @change="handleSearch"
+      >
         <el-option label="全部" value="" />
         <el-option label="正常" value="active" />
         <el-option label="禁用" value="disabled" />
       </el-select>
     </div>
 
-    <el-table :data="tableData" stripe v-loading="loading" style="width:100%">
+    <el-table v-loading="loading" :data="tableData" stripe style="width: 100%">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="name" label="姓名" />
       <el-table-column prop="phone" label="手机号" width="140" />
       <el-table-column prop="joinedAt" label="加入时间" width="120" />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">{{ row.status === 'active' ? '正常' : '禁用' }}</el-tag>
+          <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
+            {{ row.status === 'active' ? '正常' : '禁用' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="260" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="handleDetail(row)">详情</el-button>
-          <el-button type="warning" size="small" link @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" size="small" link @click="handleDetail(row)"> 详情 </el-button>
+          <el-button type="warning" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
           <el-button
             v-if="row.status === 'active'"
             type="danger"
@@ -35,7 +50,9 @@
             link
             :loading="toggleLoading === row.id"
             @click="handleToggleStatus(row)"
-          >禁用</el-button>
+          >
+            禁用
+          </el-button>
           <el-button
             v-else
             type="success"
@@ -43,7 +60,9 @@
             link
             :loading="toggleLoading === row.id"
             @click="handleToggleStatus(row)"
-          >启用</el-button>
+          >
+            启用
+          </el-button>
           <el-button
             v-if="row.status !== 'active'"
             type="danger"
@@ -51,18 +70,20 @@
             link
             :loading="deleteLoading === row.id"
             @click="handleDelete(row)"
-          >删除</el-button>
+          >
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <div class="pagination-wrapper">
       <el-pagination
+        v-model:current-page="page"
         background
         layout="total, prev, pager, next"
         :total="total"
         :page-size="pageSize"
-        v-model:current-page="page"
         @current-change="fetchUsers"
       />
     </div>
@@ -76,27 +97,44 @@
           <el-input v-model="createForm.nickname" placeholder="请输入昵称" maxlength="20" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="createForm.password" type="password" placeholder="请输入密码（至少6位）" show-password />
+          <el-input
+            v-model="createForm.password"
+            type="password"
+            placeholder="请输入密码（至少6位）"
+            show-password
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="createVisible = false">取消</el-button>
-        <el-button type="primary" :loading="createLoading" @click="handleCreateSubmit">确定</el-button>
+        <el-button @click="createVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="createLoading" @click="handleCreateSubmit">
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
     <el-dialog v-model="detailVisible" title="学员详情" width="480px" :close-on-click-modal="false">
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="ID">{{ detailData.id }}</el-descriptions-item>
-        <el-descriptions-item label="姓名">{{ detailData.name }}</el-descriptions-item>
-        <el-descriptions-item label="手机号">{{ detailData.phone }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="detailData.status === 'active' ? 'success' : 'danger'" size="small">{{ detailData.status === 'active' ? '正常' : '禁用' }}</el-tag>
+        <el-descriptions-item label="ID">
+          {{ detailData.id }}
         </el-descriptions-item>
-        <el-descriptions-item label="加入时间">{{ detailData.joinedAt }}</el-descriptions-item>
+        <el-descriptions-item label="姓名">
+          {{ detailData.name }}
+        </el-descriptions-item>
+        <el-descriptions-item label="手机号">
+          {{ detailData.phone }}
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="detailData.status === 'active' ? 'success' : 'danger'" size="small">
+            {{ detailData.status === 'active' ? '正常' : '禁用' }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="加入时间">
+          {{ detailData.joinedAt }}
+        </el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button @click="detailVisible = false"> 关闭 </el-button>
       </template>
     </el-dialog>
 
@@ -109,15 +147,17 @@
           <el-input v-model="editForm.nickname" placeholder="请输入昵称" maxlength="20" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-select v-model="editForm.status" style="width:100%">
+          <el-select v-model="editForm.status" style="width: 100%">
             <el-option label="正常" :value="1" />
             <el-option label="禁用" :value="0" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">确定</el-button>
+        <el-button @click="editVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -181,9 +221,7 @@ const editForm = ref({
 })
 
 const editRules: FormRules = {
-  nickname: [
-    { required: true, message: '请输入昵称', trigger: 'blur' },
-  ],
+  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
 }
 
 const tableData = computed(() => {
@@ -249,7 +287,13 @@ async function handleCreateSubmit() {
   }
 }
 
-function handleDetail(row: { id: number; name: string; phone: string; status: string; joinedAt: string }) {
+function handleDetail(row: {
+  id: number
+  name: string
+  phone: string
+  status: string
+  joinedAt: string
+}) {
   detailData.value = {
     id: row.id,
     name: row.name,
@@ -307,7 +351,11 @@ async function handleToggleStatus(row: { id: number; status: string }) {
 
 async function handleDelete(row: { id: number; name: string }) {
   try {
-    await ElMessageBox.confirm(`确定要删除学员「${row.name}」吗？删除后数据将无法恢复！`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(
+      `确定要删除学员「${row.name}」吗？删除后数据将无法恢复！`,
+      '删除确认',
+      { type: 'warning' }
+    )
     deleteLoading.value = row.id
     await userApi.delete(row.id)
     ElMessage.success('学员已删除')

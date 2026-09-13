@@ -2,9 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>课程管理</h2>
-      <el-button type="primary" @click="openCourseCreateDialog">
-        新增
-      </el-button>
+      <el-button type="primary" @click="openCourseCreateDialog"> 新增 </el-button>
     </div>
 
     <div class="course-layout">
@@ -17,7 +15,7 @@
           </el-button>
         </div>
 
-        <div class="category-list" v-loading="typeLoading">
+        <div v-loading="typeLoading" class="category-list">
           <div
             class="category-item"
             :class="{ active: selectedTypeCode === null }"
@@ -52,9 +50,12 @@
             </div>
           </div>
 
-          <el-empty v-if="!typeLoading && courseTypes.length === 0" description="暂无课程类型" :image-size="60" />
+          <el-empty
+            v-if="!typeLoading && courseTypes.length === 0"
+            description="暂无课程类型"
+            :image-size="60"
+          />
         </div>
-
       </div>
 
       <!-- 右侧：课程列表 -->
@@ -64,7 +65,7 @@
             v-model="search"
             placeholder="请输入课程名称"
             prefix-icon="Search"
-            style="width:260px"
+            style="width: 260px"
             clearable
             @keyup.enter="handleSearch"
             @clear="handleSearch"
@@ -72,7 +73,7 @@
           <el-select
             v-model="levelFilter"
             placeholder="难度等级：全部"
-            style="width:160px"
+            style="width: 160px"
             clearable
             @change="handleSearch"
           >
@@ -84,18 +85,18 @@
           <el-select
             v-model="statusFilter"
             placeholder="课程状态：全部"
-            style="width:160px"
+            style="width: 160px"
             clearable
             @change="handleSearch"
           >
             <el-option label="上架" :value="1" />
             <el-option label="下架" :value="0" />
           </el-select>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button @click="handleReset"> 重置 </el-button>
         </div>
 
-        <div class="table-wrapper" v-loading="loading">
-          <el-table :data="courses" stripe style="width:100%" :header-cell-style="headerCellStyle">
+        <div v-loading="loading" class="table-wrapper">
+          <el-table :data="courses" stripe style="width: 100%" :header-cell-style="headerCellStyle">
             <el-table-column type="index" label="序号" width="60" align="center" />
             <el-table-column label="课程名称">
               <template #default="{ row }">
@@ -113,14 +114,25 @@
               <template #default="{ row }">
                 <div class="level-cell">
                   <div class="stars">
-                    <span v-for="i in 5" :key="i" class="star" :class="{ active: i <= getLevelStars(row.level) }">★</span>
+                    <span
+                      v-for="i in 5"
+                      :key="i"
+                      class="star"
+                      :class="{ active: i <= getLevelStars(row.level) }"
+                      >★</span
+                    >
                   </div>
                 </div>
               </template>
             </el-table-column>
             <el-table-column label="课程状态" width="100">
               <template #default="{ row }">
-                <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small" effect="light" round>
+                <el-tag
+                  :type="row.status === 1 ? 'success' : 'info'"
+                  size="small"
+                  effect="light"
+                  round
+                >
                   {{ row.status === 1 ? '上架' : '下架' }}
                 </el-tag>
               </template>
@@ -128,14 +140,20 @@
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <div class="action-cell">
-                  <el-button type="primary" size="small" link @click="openCourseEditDialog(row)">编辑</el-button>
+                  <el-button type="primary" size="small" link @click="openCourseEditDialog(row)">
+                    编辑
+                  </el-button>
                   <el-button
                     :type="row.status === 1 ? 'warning' : 'success'"
                     size="small"
                     link
                     @click="toggleCourseStatus(row)"
-                  >{{ row.status === 1 ? '下架' : '上架' }}</el-button>
-                  <el-button type="danger" size="small" link @click="handleDeleteCourse(row)">删除</el-button>
+                  >
+                    {{ row.status === 1 ? '下架' : '上架' }}
+                  </el-button>
+                  <el-button type="danger" size="small" link @click="handleDeleteCourse(row)">
+                    删除
+                  </el-button>
                 </div>
               </template>
             </el-table-column>
@@ -144,11 +162,11 @@
 
         <div class="pagination-wrapper">
           <el-pagination
+            v-model:current-page="currentPage"
             background
             layout="total, prev, pager, next"
             :total="total"
             :page-size="pageSize"
-            v-model:current-page="currentPage"
             @current-change="fetchCourses"
           />
         </div>
@@ -168,24 +186,35 @@
           <el-input v-model="typeForm.name" placeholder="如：常规课、特色课、私教课" />
         </el-form-item>
         <el-form-item label="类型代码" prop="code">
-          <el-input v-model="typeForm.code" placeholder="如：regular、special、private" :disabled="isTypeEdit" />
+          <el-input
+            v-model="typeForm.code"
+            placeholder="如：regular、special、private"
+            :disabled="isTypeEdit"
+          />
         </el-form-item>
         <el-form-item label="描述" prop="description">
-          <el-input v-model="typeForm.description" type="textarea" :rows="3" placeholder="请输入描述" />
+          <el-input
+            v-model="typeForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入描述"
+          />
         </el-form-item>
         <el-form-item label="排序" prop="sort_order">
-          <el-input-number v-model="typeForm.sort_order" :min="0" style="width:100%" />
+          <el-input-number v-model="typeForm.sort_order" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="typeForm.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">禁用</el-radio>
+            <el-radio :value="1"> 启用 </el-radio>
+            <el-radio :value="0"> 禁用 </el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="typeDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleTypeSubmit" :loading="typeSubmitting">确定</el-button>
+        <el-button @click="typeDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="typeSubmitting" @click="handleTypeSubmit">
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
@@ -202,7 +231,11 @@
           <el-input v-model="courseForm.name" placeholder="请输入课程名称" />
         </el-form-item>
         <el-form-item label="课程类型" prop="course_type_code">
-          <el-select v-model="courseForm.course_type_code" placeholder="请选择课程类型" style="width:100%">
+          <el-select
+            v-model="courseForm.course_type_code"
+            placeholder="请选择课程类型"
+            style="width: 100%"
+          >
             <el-option
               v-for="type in courseTypes"
               :key="type.code"
@@ -213,7 +246,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="课程分类" prop="category">
-          <el-select v-model="courseForm.category" placeholder="请选择或输入分类" clearable allow-create style="width:100%">
+          <el-select
+            v-model="courseForm.category"
+            placeholder="请选择或输入分类"
+            clearable
+            allow-create
+            style="width: 100%"
+          >
             <el-option label="爵士舞" value="爵士舞" />
             <el-option label="街舞" value="街舞" />
             <el-option label="中国舞" value="中国舞" />
@@ -224,7 +263,13 @@
           </el-select>
         </el-form-item>
         <el-form-item label="难度等级" prop="level">
-          <el-select v-model="courseForm.level" placeholder="请选择或输入难度" clearable allow-create style="width:100%">
+          <el-select
+            v-model="courseForm.level"
+            placeholder="请选择或输入难度"
+            clearable
+            allow-create
+            style="width: 100%"
+          >
             <el-option label="入门" value="入门" />
             <el-option label="初级" value="初级" />
             <el-option label="中级" value="中级" />
@@ -232,21 +277,33 @@
           </el-select>
         </el-form-item>
         <el-form-item label="时长(分钟)" prop="duration_minutes">
-          <el-input-number v-model="courseForm.duration_minutes" :min="1" :max="480" style="width:100%" />
+          <el-input-number
+            v-model="courseForm.duration_minutes"
+            :min="1"
+            :max="480"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="价格(元)" prop="price">
-          <el-input-number v-model="courseForm.price" :min="0" :precision="2" style="width:100%" />
+          <el-input-number v-model="courseForm.price" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="所需积分" prop="required_credits">
-          <el-input-number v-model="courseForm.required_credits" :min="0" style="width:100%" />
+          <el-input-number v-model="courseForm.required_credits" :min="0" style="width: 100%" />
         </el-form-item>
         <el-form-item label="课程描述" prop="description">
-          <el-input v-model="courseForm.description" type="textarea" :rows="3" placeholder="请输入课程描述" />
+          <el-input
+            v-model="courseForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入课程描述"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="courseDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCourseSubmit" :loading="courseSubmitting">确定</el-button>
+        <el-button @click="courseDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="courseSubmitting" @click="handleCourseSubmit">
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -296,7 +353,7 @@ async function fetchCourseTypes() {
   try {
     const res = await courseTypeApi.list({ status: undefined })
     const data = res.data as any
-    courseTypes.value = Array.isArray(data) ? data : (data.items || [])
+    courseTypes.value = Array.isArray(data) ? data : data.items || []
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || '加载课程类型失败')
   } finally {
@@ -394,7 +451,11 @@ async function handleTypeSubmit() {
 
 async function handleDeleteType(row: CourseType) {
   try {
-    await ElMessageBox.confirm(`确定要删除课程类型「${row.name}」吗？如有课程使用此类型则无法删除。`, '警告', { type: 'error' })
+    await ElMessageBox.confirm(
+      `确定要删除课程类型「${row.name}」吗？如有课程使用此类型则无法删除。`,
+      '警告',
+      { type: 'error' }
+    )
     await courseTypeApi.remove(row.id)
     ElMessage.success('删除成功')
     if (selectedTypeCode.value === row.code) {
@@ -485,27 +546,27 @@ function handlePageSizeChange() {
 
 function getLevelStars(level: string | undefined): number {
   const map: Record<string, number> = {
-    '入门': 1,
-    '初级': 2,
-    '中级': 3,
-    '高级': 4,
+    入门: 1,
+    初级: 2,
+    中级: 3,
+    高级: 4,
   }
   return map[level || ''] || 0
 }
 
 function getCategoryTagType(category: string | undefined): string {
   const map: Record<string, string> = {
-    '少儿舞蹈': 'danger',
-    '成人舞蹈': 'primary',
-    '考级课程': 'warning',
-    '兴趣课程': 'success',
-    '爵士舞': 'danger',
-    '街舞': 'primary',
-    '中国舞': 'warning',
-    '芭蕾': 'success',
-    '拉丁': 'danger',
-    '现代舞': 'primary',
-    '瑜伽': 'success',
+    少儿舞蹈: 'danger',
+    成人舞蹈: 'primary',
+    考级课程: 'warning',
+    兴趣课程: 'success',
+    爵士舞: 'danger',
+    街舞: 'primary',
+    中国舞: 'warning',
+    芭蕾: 'success',
+    拉丁: 'danger',
+    现代舞: 'primary',
+    瑜伽: 'success',
   }
   return map[category || ''] || 'info'
 }
@@ -605,7 +666,9 @@ async function toggleCourseStatus(row: Course) {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 0 ? '下架' : '上架'
   try {
-    await ElMessageBox.confirm(`确定要${action}课程「${row.name}」吗？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要${action}课程「${row.name}」吗？`, '提示', {
+      type: 'warning',
+    })
     await courseApi.update(row.id, { status: newStatus })
     ElMessage.success(`${action}成功`)
     fetchCourses()
@@ -618,7 +681,9 @@ async function toggleCourseStatus(row: Course) {
 
 async function handleDeleteCourse(row: Course) {
   try {
-    await ElMessageBox.confirm(`确定要删除课程「${row.name}」吗？此操作不可恢复。`, '警告', { type: 'error' })
+    await ElMessageBox.confirm(`确定要删除课程「${row.name}」吗？此操作不可恢复。`, '警告', {
+      type: 'error',
+    })
     await courseApi.remove(row.id)
     ElMessage.success('删除成功')
     fetchCourses()

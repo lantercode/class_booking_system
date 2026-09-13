@@ -49,8 +49,7 @@ class AdminUserService:
             BusinessException: 手机号已存在
         """
         logger.info(
-            f"[Admin] 用户 {current_user['user_id']} 正在创建用户: "
-            f"phone={data.get('phone')}"
+            f"[Admin] 用户 {current_user['user_id']} 正在创建用户: phone={data.get('phone')}"
         )
 
         # TODO: 实际实现
@@ -96,9 +95,7 @@ class AdminUserService:
 
         重要：如果修改了用户的角色，需要清除其权限缓存！
         """
-        logger.info(
-            f"[Admin] 用户 {current_user['user_id']} 正在更新用户 {user_id}"
-        )
+        logger.info(f"[Admin] 用户 {current_user['user_id']} 正在更新用户 {user_id}")
 
         # TODO: 实际实现
         # 1. 检查用户是否存在
@@ -157,9 +154,7 @@ class AdminUserService:
         if user_id == operator_id:
             raise BusinessException("不能删除自己的账号")
 
-        logger.warning(
-            f"[Admin] ⚠️ 危险操作：用户 {operator_id} 正在删除用户 {user_id}"
-        )
+        logger.warning(f"[Admin] ⚠️ 危险操作：用户 {operator_id} 正在删除用户 {user_id}")
 
         # TODO: 实际实现
         # 1. 软删除或硬删除
@@ -168,9 +163,7 @@ class AdminUserService:
         # 2. 清除缓存
         if redis_client:
             await clear_user_permission_cache(
-                redis_client,
-                tenant_id=current_user.get("tenant_id"),
-                user_id=user_id
+                redis_client, tenant_id=current_user.get("tenant_id"), user_id=user_id
             )
 
         logger.warning(f"[Admin] ✅ 用户 {user_id} 已被删除，操作人: {operator_id}")
@@ -215,7 +208,7 @@ class AdminUserService:
                     "roles": ["admin"] if i == 1 else ["student"],
                 }
                 for i in range((page - 1) * page_size + 1, page * page_size + 1)
-            ]
+            ],
         }
 
     @staticmethod

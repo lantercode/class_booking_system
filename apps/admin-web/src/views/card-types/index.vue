@@ -2,13 +2,11 @@
   <div class="page-container">
     <div class="page-header">
       <h2>卡类型管理</h2>
-      <el-button type="primary" @click="openCreateDialog">
-        新增
-      </el-button>
+      <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
     </div>
 
     <!-- 正常列表 -->
-    <el-table :data="cardTypes" stripe style="width:100%" v-loading="loading">
+    <el-table v-loading="loading" :data="cardTypes" stripe style="width: 100%">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="name" label="类型名称" min-width="120" />
       <el-table-column prop="card_type" label="卡类型" width="100">
@@ -25,23 +23,25 @@
       </el-table-column>
       <el-table-column prop="validity_days" label="有效天数" width="100">
         <template #default="{ row }">
-          {{ (row.card_type === 'count' || row.card_type === 'period') ? row.validity_days : '-' }}
+          {{ row.card_type === 'count' || row.card_type === 'period' ? row.validity_days : '-' }}
         </template>
       </el-table-column>
       <el-table-column prop="price" label="价格(元)" width="100" />
       <el-table-column prop="applicable_course_type_codes" label="适用课程类型" min-width="180">
         <template #default="{ row }">
-          <template v-if="row.applicable_course_type_codes && row.applicable_course_type_codes.length > 0">
+          <template
+            v-if="row.applicable_course_type_codes && row.applicable_course_type_codes.length > 0"
+          >
             <el-tag
               v-for="code in row.applicable_course_type_codes"
               :key="code"
               size="small"
-              style="margin-right:4px"
+              style="margin-right: 4px"
             >
               {{ getCourseTypeName(code) }}
             </el-tag>
           </template>
-          <span v-else style="color:#909399">不限</span>
+          <span v-else style="color: #909399">不限</span>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="80">
@@ -53,25 +53,37 @@
       </el-table-column>
       <el-table-column label="操作" width="200" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="isAdmin" type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
+          <el-button v-if="isAdmin" type="primary" size="small" link @click="openEditDialog(row)">
+            编辑
+          </el-button>
           <el-button
             :type="row.status === 1 ? 'warning' : 'success'"
             size="small"
             link
             @click="toggleStatus(row)"
-          >{{ row.status === 1 ? '下架' : '上架' }}</el-button>
-          <el-button v-if="row.status === 0" type="danger" size="small" link @click="handleDelete(row)">删除</el-button>
+          >
+            {{ row.status === 1 ? '下架' : '上架' }}
+          </el-button>
+          <el-button
+            v-if="row.status === 0"
+            type="danger"
+            size="small"
+            link
+            @click="handleDelete(row)"
+          >
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <div class="pagination-wrapper">
       <el-pagination
+        v-model:current-page="currentPage"
         background
         layout="total, prev, pager, next"
         :total="total"
         :page-size="pageSize"
-        v-model:current-page="currentPage"
         @current-change="fetchCardTypes"
       />
     </div>
@@ -88,23 +100,32 @@
           <el-input v-model="form.name" placeholder="请输入类型名称" />
         </el-form-item>
         <el-form-item label="卡类型" prop="card_type">
-          <el-select v-model="form.card_type" placeholder="请选择卡类型" style="width:100%">
+          <el-select v-model="form.card_type" placeholder="请选择卡类型" style="width: 100%">
             <el-option label="次卡" value="count" />
             <el-option label="期卡" value="period" />
             <el-option label="无限卡" value="unlimited" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="form.card_type === 'count'" label="包含次数" prop="total_credits">
-          <el-input-number v-model="form.total_credits" :min="1" style="width:100%" />
+          <el-input-number v-model="form.total_credits" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item v-if="form.card_type === 'count' || form.card_type === 'period'" label="有效天数" prop="validity_days">
-          <el-input-number v-model="form.validity_days" :min="1" style="width:100%" />
+        <el-form-item
+          v-if="form.card_type === 'count' || form.card_type === 'period'"
+          label="有效天数"
+          prop="validity_days"
+        >
+          <el-input-number v-model="form.validity_days" :min="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="价格(元)" prop="price">
-          <el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" />
+          <el-input-number v-model="form.price" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
         <el-form-item label="适用课程类型" prop="applicable_course_type_codes">
-          <el-select v-model="form.applicable_course_type_codes" placeholder="请选择适用的课程类型（至少选择一项）" multiple style="width:100%">
+          <el-select
+            v-model="form.applicable_course_type_codes"
+            placeholder="请选择适用的课程类型（至少选择一项）"
+            multiple
+            style="width: 100%"
+          >
             <el-option
               v-for="type in courseTypes"
               :key="type.code"
@@ -113,7 +134,7 @@
               :disabled="type.status !== 1"
             />
           </el-select>
-          <div style="margin-top:4px;color:#909399;font-size:12px">
+          <div style="margin-top: 4px; color: #909399; font-size: 12px">
             必填项：选择后学员只能约选中的课程类型，请根据产品定位选择
           </div>
         </el-form-item>
@@ -122,8 +143,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button @click="dialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
   </div>
@@ -133,7 +154,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { cardTypeApi, courseTypeApi, type MembershipCardProduct, type MembershipCardProductCreateParams, type MembershipCardProductUpdateParams, type CourseType } from '@dance-saas/api-client'
+import {
+  cardTypeApi,
+  courseTypeApi,
+  type MembershipCardProduct,
+  type MembershipCardProductCreateParams,
+  type MembershipCardProductUpdateParams,
+  type CourseType,
+} from '@dance-saas/api-client'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -168,10 +196,10 @@ const rules = computed(() => {
     card_type: [{ required: true, message: '请选择卡类型', trigger: 'change' }],
     price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
     applicable_course_type_codes: [
-      { 
-        type: 'array' as const, 
-        required: true, 
-        message: '请至少选择一项适用的课程类型', 
+      {
+        type: 'array' as const,
+        required: true,
+        message: '请至少选择一项适用的课程类型',
         trigger: 'change',
       },
     ],
@@ -293,7 +321,9 @@ async function toggleStatus(row: MembershipCardProduct) {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 0 ? '下架' : '上架'
   try {
-    await ElMessageBox.confirm(`确定要${action}卡类型「${row.name}」吗？`, '提示', { type: 'warning' })
+    await ElMessageBox.confirm(`确定要${action}卡类型「${row.name}」吗？`, '提示', {
+      type: 'warning',
+    })
     await cardTypeApi.update(row.id, { status: newStatus })
     ElMessage.success(`${action}成功`)
     fetchCardTypes()
@@ -321,7 +351,7 @@ async function fetchCourseTypes() {
   try {
     const res = await courseTypeApi.list()
     const data = res.data as any
-    courseTypes.value = Array.isArray(data) ? data : (data.items || [])
+    courseTypes.value = Array.isArray(data) ? data : data.items || []
   } catch (e: any) {
     console.error('加载课程类型失败', e)
   }

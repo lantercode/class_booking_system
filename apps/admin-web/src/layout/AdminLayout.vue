@@ -3,7 +3,9 @@
     <el-aside :width="isCollapse ? '64px' : '220px'" class="admin-sidebar">
       <div class="sidebar-header">
         <div class="logo-icon" :class="{ collapsed: isCollapse }">
-          <el-icon :size="24"><Management /></el-icon>
+          <el-icon :size="24">
+            <Management />
+          </el-icon>
         </div>
         <transition name="fade">
           <span v-show="!isCollapse" class="logo-text">约课管理</span>
@@ -47,8 +49,10 @@
             <Expand v-else />
           </el-icon>
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item v-if="currentTitle">{{ currentTitle }}</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: '/dashboard' }"> 首页 </el-breadcrumb-item>
+            <el-breadcrumb-item v-if="currentTitle">
+              {{ currentTitle }}
+            </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         <div class="header-right">
@@ -76,11 +80,25 @@
         </el-main>
         <footer class="admin-footer">
           <div class="footer-content">
-            <a href="https://beian.mps.gov.cn/#/query/webSearch?code=51012202002638" rel="noreferrer" target="_blank" class="footer-link">
-              <img src="https://beian.mps.gov.cn/img/logo01.dd7ff50e.png" alt="公安备案" class="footer-icon" />
+            <a
+              href="https://beian.mps.gov.cn/#/query/webSearch?code=51012202002638"
+              rel="noreferrer"
+              target="_blank"
+              class="footer-link"
+            >
+              <img
+                src="https://beian.mps.gov.cn/img/logo01.dd7ff50e.png"
+                alt="公安备案"
+                class="footer-icon"
+              />
               <span>川公网安备51012202002638号</span>
             </a>
-            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="footer-link">
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="footer-link"
+            >
               <span>蜀ICP备2026050989号-1</span>
             </a>
           </div>
@@ -94,7 +112,24 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Management, Fold, Expand, ArrowDown, SwitchButton, Odometer, User, Key, Avatar, UserFilled, Reading, Calendar, OfficeBuilding, Setting, CreditCard, Collection } from '@element-plus/icons-vue'
+import {
+  Management,
+  Fold,
+  Expand,
+  ArrowDown,
+  SwitchButton,
+  Odometer,
+  User,
+  Key,
+  Avatar,
+  UserFilled,
+  Reading,
+  Calendar,
+  OfficeBuilding,
+  Setting,
+  CreditCard,
+  Collection,
+} from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
@@ -216,7 +251,9 @@ async function handleLogout() {
   .collapse-btn {
     cursor: pointer;
     color: #909399;
-    &:hover { color: #667eea; }
+    &:hover {
+      color: #667eea;
+    }
   }
 
   .header-right {
