@@ -84,8 +84,8 @@ class TenantASGIMiddleware:
                 content={
                     "code": 40001,
                     "msg": "缺少租户信息，请提供 x-tenant-id 或 x-tenant-slug",
-                    "data": None
-                }
+                    "data": None,
+                },
             )
             await response(scope, receive, send)
             return
@@ -134,6 +134,7 @@ class TenantASGIMiddleware:
 
                 # 校验租户状态
                 from app.modules.tenant.models import TenantStatus
+
                 if status != TenantStatus.ACTIVE.value:
                     logger.error(f"[Tenant Middleware] Tenant {tenant_slug} is disabled")
                     return None
@@ -160,9 +161,11 @@ class TenantASGIMiddleware:
         from app.modules.tenant.models import Tenant
 
         async with self.session_factory() as session:
-            result = await session.execute(select(Tenant.id, Tenant.status).where(Tenant.slug == slug))
+            result = await session.execute(
+                select(Tenant.id, Tenant.status).where(Tenant.slug == slug)
+            )
             tenant = result.first()
 
             if tenant:
-                return  (tenant.id, tenant.status)
+                return (tenant.id, tenant.status)
             return None

@@ -41,11 +41,7 @@ def get_cache_key(tenant_id: int, user_id: int) -> str:
     return f"{CACHE_PREFIX}:{tenant_id}:{user_id}"
 
 
-async def get_cached_permissions(
-    redis_client,
-    tenant_id: int,
-    user_id: int
-) -> list[str] | None:
+async def get_cached_permissions(redis_client, tenant_id: int, user_id: int) -> list[str] | None:
     """
     从 Redis 获取用户的缓存权限列表
 
@@ -86,10 +82,7 @@ async def get_cached_permissions(
 
 
 async def set_cached_permissions(
-    redis_client,
-    tenant_id: int,
-    user_id: int,
-    permissions: list[str]
+    redis_client, tenant_id: int, user_id: int, permissions: list[str]
 ) -> bool:
     """
     将用户权限列表写入 Redis 缓存
@@ -141,11 +134,7 @@ async def set_cached_permissions(
         return False
 
 
-async def clear_user_permission_cache(
-    redis_client,
-    tenant_id: int,
-    user_id: int
-) -> bool:
+async def clear_user_permission_cache(redis_client, tenant_id: int, user_id: int) -> bool:
     """
     清除指定用户的权限缓存（权限变更时调用）
 
@@ -187,11 +176,7 @@ async def clear_user_permission_cache(
         return False
 
 
-async def clear_role_permissions_cache(
-    redis_client,
-    tenant_id: int,
-    role_ids: list[int]
-) -> int:
+async def clear_role_permissions_cache(redis_client, tenant_id: int, role_ids: list[int]) -> int:
     """
     批量清除拥有指定角色的所有用户的权限缓存
 

@@ -20,7 +20,8 @@ from app.modules.booking.models import BookingStatus
 from app.modules.booking.schemas import BookingCreate
 from app.modules.booking.service import BookingService
 from app.modules.course.service import CourseService
-from app.modules.membership.models import MembershipCard, CardStatus as MembershipCardStatus
+from app.modules.membership.models import CardStatus as MembershipCardStatus
+from app.modules.membership.models import MembershipCard
 from app.modules.schedule.service import ScheduleService
 
 # 创建 MCP Server 实例
@@ -70,8 +71,7 @@ async def query_courses(
             lines = [f"共 {result.total} 门课程："]
             for c in result.items:
                 lines.append(
-                    f"- {c.name}（{c.category}·{c.level}）"
-                    f"{c.duration_minutes}分钟 ¥{c.price}"
+                    f"- {c.name}（{c.category}·{c.level}）{c.duration_minutes}分钟 ¥{c.price}"
                 )
             return "\n".join(lines)
     except Exception as e:
@@ -114,7 +114,9 @@ async def query_schedules(
             )
 
             if not result.items:
-                return f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} 暂无排期"
+                return (
+                    f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} 暂无排期"
+                )
 
             lines = [
                 f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} "
@@ -184,9 +186,7 @@ async def get_my_bookings(
                     if b.end_at:
                         time_str += f"-{b.end_at.strftime('%H:%M')}"
                 teacher = f" 教师：{b.teacher_name}" if b.teacher_name else ""
-                lines.append(
-                    f"- [{status_label}] {time_str} {course}{teacher}（预约ID: {b.id}）"
-                )
+                lines.append(f"- [{status_label}] {time_str} {course}{teacher}（预约ID: {b.id}）")
             return "\n".join(lines)
     except Exception as e:
         return f"查询预约失败：{str(e)}"
@@ -220,10 +220,7 @@ async def get_my_balance(user_id: int = None) -> str:
             remaining = max(total - used, 0)
 
             return (
-                f"您的课时余额：\n"
-                f"总购买：{total} 课时\n"
-                f"已消耗：{used} 课时\n"
-                f"剩余：{remaining} 课时"
+                f"您的课时余额：\n总购买：{total} 课时\n已消耗：{used} 课时\n剩余：{remaining} 课时"
             )
     except Exception as e:
         return f"查询余额失败：{str(e)}"
@@ -232,6 +229,7 @@ async def get_my_balance(user_id: int = None) -> str:
 # ============================================================
 # 操作类 Tool
 # ============================================================
+
 
 @mcp.tool()
 async def create_booking(
@@ -260,12 +258,7 @@ async def create_booking(
             time_str = ""
             if result.start_at:
                 time_str = result.start_at.strftime("%m/%d %H:%M")
-            return (
-                f"预约成功！\n"
-                f"课程：{result.course_name}\n"
-                f"时间：{time_str}\n"
-                f"预约ID：{result.id}"
-            )
+            return f"预约成功！\n课程：{result.course_name}\n时间：{time_str}\n预约ID：{result.id}"
     except Exception as e:
         return f"预约失败：{str(e)}"
 
@@ -296,11 +289,7 @@ async def cancel_booking(
                 student_id=user_id,
                 reason=reason,
             )
-            return (
-                f"取消成功！\n"
-                f"课程：{result.course_name}\n"
-                f"预约ID：{result.id}"
-            )
+            return f"取消成功！\n课程：{result.course_name}\n预约ID：{result.id}"
     except Exception as e:
         return f"取消失败：{str(e)}"
 

@@ -67,6 +67,8 @@ export interface MembershipCard {
   max_weekly_usage: number | null
   status: number
   frozen_reason: string | null
+  frozen_at: string | null
+  frozen_until: string | null
   created_at: string
   updated_at: string
   student_nickname?: string
@@ -85,7 +87,7 @@ export interface MembershipCardListParams {
 }
 
 export interface MembershipCardCreateParams {
-  student_id: number
+  student_id?: number
   product_id?: number
   total_credits?: number
   validity_days?: number

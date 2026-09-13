@@ -17,9 +17,9 @@ router = APIRouter(prefix="/schedules", tags=["排期管理"])
 schedule_service = ScheduleService()
 
 DATETIME_FORMATS = [
-    "%Y-%m-%dT%H:%M:%S",      # 2026-07-28T00:00:00 (ISO 8601)
-    "%Y-%m-%d %H:%M:%S",      # 2026-07-28 00:00:00 (空格分隔)
-    "%Y-%m-%d",                # 2026-07-28 (仅日期)
+    "%Y-%m-%dT%H:%M:%S",  # 2026-07-28T00:00:00 (ISO 8601)
+    "%Y-%m-%d %H:%M:%S",  # 2026-07-28 00:00:00 (空格分隔)
+    "%Y-%m-%d",  # 2026-07-28 (仅日期)
 ]
 
 
@@ -33,6 +33,7 @@ def parse_datetime(value: str | None) -> datetime | None:
         except ValueError:
             continue
     from app.core.exceptions import ValidationException
+
     raise ValidationException(
         f"日期格式错误，支持格式: {', '.join(DATETIME_FORMATS)}，"
         f"例如: 2026-07-01 00:00:00 或 2026-07-01T00:00:00"
@@ -42,6 +43,7 @@ def parse_datetime(value: str | None) -> datetime | None:
 # ============================================================
 # 排期 CRUD
 # ============================================================
+
 
 @router.post(
     "/",
@@ -58,7 +60,9 @@ async def create_schedule(
 ):
     """创建排期"""
     result = await schedule_service.create_schedule(
-        db, data, operator_id=current_user.get("user_id"),
+        db,
+        data,
+        operator_id=current_user.get("user_id"),
     )
     return success(data=result, msg="排期创建成功")
 
@@ -78,7 +82,9 @@ async def batch_create_schedules(
 ):
     """批量创建排期"""
     result = await schedule_service.batch_create_schedules(
-        db, items, operator_id=current_user.get("user_id"),
+        db,
+        items,
+        operator_id=current_user.get("user_id"),
     )
     return success(data=result, msg=f"成功创建 {len(result)} 个排期")
 
@@ -98,8 +104,12 @@ async def list_schedules(
     course_type_code: str | None = Query(None, description="课程类型筛选"),
     teacher_id: int | None = Query(None, description="教师ID"),
     classroom_id: int | None = Query(None, description="教室ID"),
-    status: int | None = Query(None, ge=1, le=3, description="状态筛选（DB状态：1正常/2已取消/3已完成）"),
-    display_status: int | None = Query(None, ge=1, le=4, description="显示状态筛选：1待上课/2上课中/3已取消/4已完成"),
+    status: int | None = Query(
+        None, ge=1, le=3, description="状态筛选（DB状态：1正常/2已取消/3已完成）"
+    ),
+    display_status: int | None = Query(
+        None, ge=1, le=4, description="显示状态筛选：1待上课/2上课中/3已取消/4已完成"
+    ),
     start_from: str | None = Query(None, description="开始时间范围-起"),
     start_to: str | None = Query(None, description="开始时间范围-止"),
     db: AsyncSession = Depends(get_session),
@@ -201,15 +211,18 @@ async def delete_schedule(
     schedule = await schedule_service.repo.get_by_id(db, schedule_id)
     if not schedule:
         from app.core.exceptions import NotFoundException
+
         raise NotFoundException("排期不存在")
 
     # 仅对待上课状态的排期检查学员预约
     if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
         from app.core.exceptions import BusinessException
+
         raise BusinessException("该排期仍有学员预约，请先取消排期后再删除", code=400)
 
     # 删除关联的预约记录（避免外键约束冲突）
     from app.modules.booking.repository import BookingRepository
+
     booking_repo = BookingRepository()
     await booking_repo.delete_by_schedule_id(db, schedule_id)
 
@@ -233,9 +246,13 @@ async def batch_delete_schedules(
     schedule_ids = data.get("schedule_ids", [])
     if not schedule_ids:
         from app.core.exceptions import ValidationException
+
         raise ValidationException("请选择要删除的排期")
 
     tenant_id = current_user.get("tenant_id")
     result = await schedule_service.batch_delete_schedules(db, schedule_ids, tenant_id)
     await db.commit()
-    return success(data=result, msg=f"批量删除完成：成功 {result['success_count']} 个，失败 {result['failed_count']} 个")
+    return success(
+        data=result,
+        msg=f"批量删除完成：成功 {result['success_count']} 个，失败 {result['failed_count']} 个",
+    )

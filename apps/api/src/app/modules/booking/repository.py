@@ -4,7 +4,6 @@ Booking Repository - 预约数据访问层
 提供预约相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-
 from datetime import UTC, datetime
 
 from sqlalchemy import and_, func, select
@@ -39,7 +38,9 @@ class BookingRepository(TenantAwareRepository[Booking]):
         # 待上课筛选需要 JOIN 排期表获取时间
         if upcoming:
             base_query = base_query.join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
-            count_query = count_query.select_from(Booking).join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
+            count_query = count_query.select_from(Booking).join(
+                CourseSchedule, Booking.schedule_id == CourseSchedule.id
+            )
 
         if schedule_id:
             base_query = base_query.where(Booking.schedule_id == schedule_id)
@@ -118,11 +119,13 @@ class BookingRepository(TenantAwareRepository[Booking]):
             and_(
                 Booking.schedule_id == schedule_id,
                 Booking.student_id == student_id,
-                Booking.status.in_([
-                    BookingStatus.BOOKED.value,
-                    BookingStatus.CHECKED_IN.value,
-                    BookingStatus.COMPLETED.value,
-                ]),
+                Booking.status.in_(
+                    [
+                        BookingStatus.BOOKED.value,
+                        BookingStatus.CHECKED_IN.value,
+                        BookingStatus.COMPLETED.value,
+                    ]
+                ),
             )
         )
 
@@ -139,18 +142,25 @@ class BookingRepository(TenantAwareRepository[Booking]):
         schedule_id: int,
     ) -> int:
         """统计排期的有效预约人数"""
-        query = select(func.count()).select_from(Booking).where(
-            and_(
-                Booking.schedule_id == schedule_id,
-                Booking.status.in_([
-                    BookingStatus.BOOKED.value,
-                    BookingStatus.CHECKED_IN.value,
-                    BookingStatus.COMPLETED.value,
-                ]),
+        query = (
+            select(func.count())
+            .select_from(Booking)
+            .where(
+                and_(
+                    Booking.schedule_id == schedule_id,
+                    Booking.status.in_(
+                        [
+                            BookingStatus.BOOKED.value,
+                            BookingStatus.CHECKED_IN.value,
+                            BookingStatus.COMPLETED.value,
+                        ]
+                    ),
+                )
             )
         )
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(Booking.tenant_id == tenant_id)

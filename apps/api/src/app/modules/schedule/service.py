@@ -77,9 +77,7 @@ class ScheduleService:
             end_at=data.end_at,
         )
         if conflicts:
-            conflict_info = ", ".join(
-                f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts
-            )
+            conflict_info = ", ".join(f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts)
             raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
 
         schedule_data: dict[str, Any] = {
@@ -179,9 +177,7 @@ class ScheduleService:
             exclude_id=schedule_id,
         )
         if conflicts:
-            conflict_info = ", ".join(
-                f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts
-            )
+            conflict_info = ", ".join(f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts)
             raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
 
         if update_data:
@@ -201,7 +197,9 @@ class ScheduleService:
         operator_id: int,
     ) -> dict[str, Any]:
         """取消排期(含学员预约处理)"""
-        logger.warning(f"[ScheduleService] 取消排期: schedule_id={schedule_id}, reason={cancel_reason}")
+        logger.warning(
+            f"[ScheduleService] 取消排期: schedule_id={schedule_id}, reason={cancel_reason}"
+        )
 
         schedule = await self.repo.get_by_id(db, schedule_id)
         if not schedule:
@@ -257,11 +255,9 @@ class ScheduleService:
 
                 success_count += 1
             except Exception as e:
-                failed_bookings.append({
-                    "booking_id": booking.id,
-                    "student_id": booking.student_id,
-                    "error": str(e)
-                })
+                failed_bookings.append(
+                    {"booking_id": booking.id, "student_id": booking.student_id, "error": str(e)}
+                )
 
         update_data = {
             "status": ScheduleStatus.CANCELLED.value,
@@ -318,11 +314,14 @@ class ScheduleService:
                 # 仅对待上课状态的排期检查学员预约
                 if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
                     failed_ids.append(schedule_id)
-                    errors.append(f"排期 {schedule_id} 已有 {schedule.booked_count} 名学员预约，请先取消排期后再删除")
+                    errors.append(
+                        f"排期 {schedule_id} 已有 {schedule.booked_count} 名学员预约，请先取消排期后再删除"
+                    )
                     continue
 
                 # 删除关联的预约记录（避免外键约束冲突）
                 from app.modules.booking.repository import BookingRepository
+
                 booking_repo = BookingRepository()
                 await booking_repo.delete_by_schedule_id(db, schedule_id)
 
@@ -342,7 +341,9 @@ class ScheduleService:
             "errors": errors,
         }
 
-        logger.warning(f"[ScheduleService] ✅ 批量删除完成: 成功 {len(success_ids)}, 失败 {len(failed_ids)}")
+        logger.warning(
+            f"[ScheduleService] ✅ 批量删除完成: 成功 {len(success_ids)}, 失败 {len(failed_ids)}"
+        )
         return result
 
     async def get_schedule_by_id(
@@ -358,7 +359,9 @@ class ScheduleService:
         # 获取课程、教师和教室名称
         course_map = await self._get_course_info_map(db, [schedule.course_id])
         teacher_map = await self._get_teacher_info_map(db, [schedule.teacher_id])
-        classroom_map = await self._get_classroom_info_map(db, [schedule.classroom_id] if schedule.classroom_id else [])
+        classroom_map = await self._get_classroom_info_map(
+            db, [schedule.classroom_id] if schedule.classroom_id else []
+        )
 
         return self._to_response(
             schedule,
@@ -424,7 +427,9 @@ class ScheduleService:
 
         # 根据 display_status 过滤（display_status 是计算字段，不在 DB 中）
         if display_status is not None:
-            response_items = [item for item in response_items if item.display_status == display_status]
+            response_items = [
+                item for item in response_items if item.display_status == display_status
+            ]
             total = len(response_items)
 
         return ScheduleListResponse(
@@ -434,7 +439,9 @@ class ScheduleService:
             items=response_items,
         )
 
-    async def _get_course_info_map(self, db: AsyncSession, course_ids: list[int]) -> dict[int, dict]:
+    async def _get_course_info_map(
+        self, db: AsyncSession, course_ids: list[int]
+    ) -> dict[int, dict]:
         """批量获取课程信息映射（包含名称和类型代码）"""
         if not course_ids:
             return {}
@@ -449,7 +456,9 @@ class ScheduleService:
             for course in courses
         }
 
-    async def _get_teacher_info_map(self, db: AsyncSession, teacher_ids: list[int]) -> dict[int, str]:
+    async def _get_teacher_info_map(
+        self, db: AsyncSession, teacher_ids: list[int]
+    ) -> dict[int, str]:
         """批量获取教师信息映射"""
         if not teacher_ids:
             return {}
@@ -459,12 +468,11 @@ class ScheduleService:
         result = await db.execute(query)
         users = result.scalars().all()
 
-        return {
-            user.id: user.nickname or user.phone
-            for user in users
-        }
+        return {user.id: user.nickname or user.phone for user in users}
 
-    async def _get_classroom_info_map(self, db: AsyncSession, classroom_ids: list[int]) -> dict[int, str]:
+    async def _get_classroom_info_map(
+        self, db: AsyncSession, classroom_ids: list[int]
+    ) -> dict[int, str]:
         """批量获取教室信息映射"""
         if not classroom_ids:
             return {}
@@ -474,10 +482,7 @@ class ScheduleService:
         result = await db.execute(query)
         classrooms = result.scalars().all()
 
-        return {
-            classroom.id: classroom.name
-            for classroom in classrooms
-        }
+        return {classroom.id: classroom.name for classroom in classrooms}
 
     def _to_response(
         self,
@@ -555,15 +560,19 @@ class ScheduleService:
                 raise ValidationException(f"第 {idx + 1} 个排期: 预约截止时间不能晚于排期开始时间")
             if data.booking_opens_at is not None and data.booking_closes_at is not None:
                 if data.booking_closes_at < data.booking_opens_at:
-                    raise ValidationException(f"第 {idx + 1} 个排期: 预约截止时间不能早于预约开放时间")
+                    raise ValidationException(
+                        f"第 {idx + 1} 个排期: 预约截止时间不能早于预约开放时间"
+                    )
             if data.cancel_deadline is not None and data.cancel_deadline > data.start_at:
                 raise ValidationException(f"第 {idx + 1} 个排期: 取消截止时间不能晚于排期开始时间")
-            time_ranges.append({
-                'start_at': data.start_at,
-                'end_at': data.end_at,
-                'teacher_id': data.teacher_id,
-                'classroom_id': data.classroom_id,
-            })
+            time_ranges.append(
+                {
+                    "start_at": data.start_at,
+                    "end_at": data.end_at,
+                    "teacher_id": data.teacher_id,
+                    "classroom_id": data.classroom_id,
+                }
+            )
             teacher_ids.add(data.teacher_id)
             if data.classroom_id:
                 classroom_ids.add(data.classroom_id)
@@ -572,10 +581,10 @@ class ScheduleService:
         for item in time_ranges:
             conflicts = await self.repo.find_conflicts(
                 db,
-                classroom_id=item['classroom_id'],
-                teacher_id=item['teacher_id'],
-                start_at=item['start_at'],
-                end_at=item['end_at'],
+                classroom_id=item["classroom_id"],
+                teacher_id=item["teacher_id"],
+                start_at=item["start_at"],
+                end_at=item["end_at"],
             )
             if conflicts:
                 conflict_info = f"{item['start_at']}~{item['end_at']}"

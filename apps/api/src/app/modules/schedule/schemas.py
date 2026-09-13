@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class ScheduleCreate(BaseModel):
     """创建排期请求体"""
+
     course_id: int = Field(..., description="课程ID")
     teacher_id: int = Field(..., description="教师ID（用户ID）")
     classroom_id: int | None = Field(None, description="教室ID")
@@ -25,6 +26,7 @@ class ScheduleCreate(BaseModel):
 
 class ScheduleUpdate(BaseModel):
     """更新排期请求体（部分更新）"""
+
     course_id: int | None = Field(None, description="课程ID")
     teacher_id: int | None = Field(None, description="教师ID")
     classroom_id: int | None = Field(None, description="教室ID")
@@ -40,11 +42,13 @@ class ScheduleUpdate(BaseModel):
 
 class ScheduleCancel(BaseModel):
     """取消排期请求体"""
+
     cancel_reason: str = Field(..., min_length=1, max_length=500, description="取消原因")
 
 
 class ScheduleResponse(BaseModel):
     """排期响应体"""
+
     id: int
     public_id: str
     tenant_id: int
@@ -77,6 +81,7 @@ class ScheduleResponse(BaseModel):
 
 class ScheduleListResponse(BaseModel):
     """排期列表分页响应"""
+
     total: int = Field(..., description="总数")
     page: int = Field(..., ge=1, description="当前页码")
     page_size: int = Field(..., ge=1, le=500, description="每页数量")

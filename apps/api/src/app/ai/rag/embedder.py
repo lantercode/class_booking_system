@@ -4,7 +4,6 @@ FAQ 向量化
 """
 
 
-
 class Embedder:
     """
     文本向量化器

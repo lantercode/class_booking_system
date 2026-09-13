@@ -198,6 +198,7 @@ class RoleService:
 
         # 获取所有关联此角色的用户（用于清除缓存）
         from app.modules.auth.models import UserRole
+
         user_role_query = select(UserRole.user_id).where(UserRole.role_id == role_id)
         user_role_result = await db.execute(user_role_query)
         user_ids = [row[0] for row in user_role_result.all()]
@@ -208,6 +209,7 @@ class RoleService:
         if success:
             # 清除所有关联用户的权限缓存
             from app.core.tenant_context import get_tenant_id
+
             tenant_id = get_tenant_id()
             if redis_client and user_ids:
                 for user_id in user_ids:
@@ -287,17 +289,19 @@ class RoleService:
             permissions = await self.permission_repo.get_role_permissions(db, role.id)
             permission_codes = [p.code for p in permissions]
 
-            role_responses.append(RoleResponse(
-                id=role.id,
-                tenant_id=role.tenant_id,
-                code=role.code,
-                name=role.name,
-                description=role.description,
-                is_system=role.is_system,
-                created_at=role.created_at,
-                updated_at=role.updated_at,
-                permissions=permission_codes,
-            ))
+            role_responses.append(
+                RoleResponse(
+                    id=role.id,
+                    tenant_id=role.tenant_id,
+                    code=role.code,
+                    name=role.name,
+                    description=role.description,
+                    is_system=role.is_system,
+                    created_at=role.created_at,
+                    updated_at=role.updated_at,
+                    permissions=permission_codes,
+                )
+            )
 
         return RoleListResponse(
             total=total,
@@ -338,12 +342,12 @@ class RoleService:
 
         # 检查是否为系统角色（超级管理员可以修改系统角色权限）
         if role.is_system:
-            from app.core.tenant_context import get_user_id
             from app.core.rbac.checker import check_role
-            
+            from app.core.tenant_context import get_user_id
+
             user_id = get_user_id()
             is_super_admin = await check_role(db, "super_admin", user_id=user_id)
-            
+
             if not is_super_admin:
                 raise ValidationException("不能修改系统内置角色的权限，仅超级管理员可操作")
 
@@ -359,11 +363,13 @@ class RoleService:
 
         # 获取所有关联此角色的用户并清除缓存
         from app.modules.auth.models import UserRole
+
         user_role_query = select(UserRole.user_id).where(UserRole.role_id == role_id)
         user_role_result = await db.execute(user_role_query)
         user_ids = [row[0] for row in user_role_result.all()]
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if redis_client and user_ids:
             for user_id in user_ids:

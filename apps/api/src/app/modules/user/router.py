@@ -29,6 +29,7 @@ user_service = UserService()
 # 用户 CRUD
 # ============================================================
 
+
 @router.post(
     "/",
     response_model=dict,
@@ -147,6 +148,7 @@ async def delete_user(
 # 密码管理
 # ============================================================
 
+
 @router.post(
     "/{user_id}/password/change",
     response_model=dict,
@@ -162,6 +164,7 @@ async def change_password(
     """修改密码（用户自己操作，只能修改自己的密码）"""
     if user_id != current_user.get("user_id"):
         from app.core.exceptions import AuthException
+
         raise AuthException("只能修改自己的密码")
     await user_service.change_password(db, user_id, data)
     return success(msg="密码修改成功，请重新登录")
@@ -193,6 +196,7 @@ async def reset_password(
 # ============================================================
 # 角色管理
 # ============================================================
+
 
 @router.get(
     "/{user_id}/roles",
@@ -239,6 +243,7 @@ async def assign_user_roles(
 # 微信解绑（管理员操作）
 # ============================================================
 
+
 @router.post(
     "/{user_id}/wechat/unbind",
     response_model=dict,
@@ -252,5 +257,6 @@ async def admin_unbind_wechat(
     current_user: dict = Depends(get_current_user),
 ):
     from app.modules.auth.service import AuthService
+
     result = await AuthService.wechat_unbind(db, user_id=user_id)
     return success(data=result, msg="微信解绑成功")

@@ -6,16 +6,17 @@ Membership Card Repository - 会员卡数据访问层
 
 from datetime import datetime
 
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
 from app.modules.membership.models import (
+    CardStatus,
     MembershipCard,
     MembershipCardFreeze,
     MembershipCardProduct,
     MembershipCardTransaction,
-    CardStatus,
+    ProductStatus,
 )
 
 
@@ -52,6 +53,7 @@ class MembershipCardProductRepository(TenantAwareRepository[MembershipCardProduc
             count_query = count_query.where(MembershipCardProduct.card_type == card_type)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(MembershipCardProduct.tenant_id == tenant_id)
@@ -81,11 +83,14 @@ class MembershipCardProductRepository(TenantAwareRepository[MembershipCardProduc
         base_query = select(MembershipCardProduct).where(
             MembershipCardProduct.deleted_at.isnot(None)
         )
-        count_query = select(func.count()).select_from(MembershipCardProduct).where(
-            MembershipCardProduct.deleted_at.isnot(None)
+        count_query = (
+            select(func.count())
+            .select_from(MembershipCardProduct)
+            .where(MembershipCardProduct.deleted_at.isnot(None))
         )
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(MembershipCardProduct.tenant_id == tenant_id)
@@ -136,28 +141,34 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         tenant_id: int,
     ) -> list[dict]:
         """获取学员的有效会员卡（返回包含关联信息的字典）"""
-        from app.modules.user.models import User
         from app.modules.membership.models import MembershipCardProduct
+        from app.modules.user.models import User
 
-        query = select(
-            MembershipCard,
-            User.nickname.label("student_nickname"),
-            User.phone.label("student_phone"),
-            MembershipCardProduct.name.label("product_name"),
-        ).outerjoin(User, MembershipCard.student_id == User.id).outerjoin(
-            MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id
-        ).where(
-            MembershipCard.student_id == student_id,
-            MembershipCard.tenant_id == tenant_id,
-            MembershipCard.status.in_([
-                CardStatus.ACTIVE.value,      # 正常
-                CardStatus.PENDING.value,     # 待激活
-            ]),
-        ).order_by(MembershipCard.expire_at.asc())
+        query = (
+            select(
+                MembershipCard,
+                User.nickname.label("student_nickname"),
+                User.phone.label("student_phone"),
+                MembershipCardProduct.name.label("product_name"),
+            )
+            .outerjoin(User, MembershipCard.student_id == User.id)
+            .outerjoin(MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id)
+            .where(
+                MembershipCard.student_id == student_id,
+                MembershipCard.tenant_id == tenant_id,
+                MembershipCard.status.in_(
+                    [
+                        CardStatus.ACTIVE.value,  # 正常
+                        CardStatus.PENDING.value,  # 待激活
+                    ]
+                ),
+            )
+            .order_by(MembershipCard.expire_at.asc())
+        )
 
         result = await db.execute(query)
         rows = result.all()
-        
+
         # 转换为字典格式
         cards = []
         for row in rows:
@@ -170,7 +181,9 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
                 "card_type": card.card_type,
                 "total_credits": card.total_credits,
                 "used_credits": card.used_credits,
-                "remaining_credits": (card.total_credits or 0) - card.used_credits if card.total_credits is not None else None,
+                "remaining_credits": (card.total_credits or 0) - card.used_credits
+                if card.total_credits is not None
+                else None,
                 "valid_from": card.valid_from,
                 "expire_at": card.expire_at,
                 "applicable_course_ids": card.applicable_course_ids,
@@ -189,7 +202,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
                 "product_name": row.product_name,
             }
             cards.append(card_dict)
-        
+
         return cards
 
     async def get_active_cards_by_product(
@@ -201,31 +214,31 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         exclude_pending: bool = False,
     ) -> list[MembershipCard]:
         """检查学员是否已有同产品的有效卡
-        
+
         Args:
             exclude_pending: 是否排除 PENDING 状态的卡
                 - False（默认）：用于发卡时检查，包含 PENDING
                 - True：用于激活时检查，排除 PENDING（因为 PENDING 卡还没生效）
-        
+
         有效状态包括：ACTIVE、FROZEN、PENDING（待激活但已发放）
         无效状态包括：EXPIRED、DEPLETED、CANCELLED、REFUNDED
         """
         from sqlalchemy import select
-        
+
         valid_statuses = [
-            CardStatus.ACTIVE.value,      # 正常
-            CardStatus.FROZEN.value,      # 冻结中
+            CardStatus.ACTIVE.value,  # 正常
+            CardStatus.FROZEN.value,  # 冻结中
         ]
         if not exclude_pending:
             valid_statuses.append(CardStatus.PENDING.value)  # 待激活
-        
+
         query = select(MembershipCard).where(
             MembershipCard.student_id == student_id,
             MembershipCard.product_id == product_id,
             MembershipCard.tenant_id == tenant_id,
             MembershipCard.status.in_(valid_statuses),
         )
-        
+
         result = await db.execute(query)
         return list(result.scalars().all())
 
@@ -242,17 +255,19 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         page_size: int = 20,
     ) -> tuple[list[dict], int]:
         """获取会员卡列表（包含学员和产品关联信息）"""
-        from app.modules.user.models import User
         from app.modules.membership.models import MembershipCardProduct
+        from app.modules.user.models import User
 
         # 构建带 JOIN 的查询
-        base_query = select(
-            MembershipCard,
-            User.nickname.label("student_nickname"),
-            User.phone.label("student_phone"),
-            MembershipCardProduct.name.label("product_name"),
-        ).outerjoin(User, MembershipCard.student_id == User.id).outerjoin(
-            MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id
+        base_query = (
+            select(
+                MembershipCard,
+                User.nickname.label("student_nickname"),
+                User.phone.label("student_phone"),
+                MembershipCardProduct.name.label("product_name"),
+            )
+            .outerjoin(User, MembershipCard.student_id == User.id)
+            .outerjoin(MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id)
         )
 
         count_query = select(func.count()).select_from(MembershipCard)
@@ -293,6 +308,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
             )
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(MembershipCard.tenant_id == tenant_id)
@@ -300,6 +316,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
 
         # 默认过滤已作废的卡
         from app.modules.membership.models import CardStatus
+
         base_query = base_query.where(MembershipCard.status != CardStatus.CANCELLED.value)
         count_query = count_query.where(MembershipCard.status != CardStatus.CANCELLED.value)
 
@@ -318,8 +335,8 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         items = []
         for row in rows:
             card = row[0]
-            total_credits = getattr(card, 'total_credits', None)
-            used_credits = getattr(card, 'used_credits', 0)
+            total_credits = getattr(card, "total_credits", None)
+            used_credits = getattr(card, "used_credits", 0)
             remaining_credits = None
             if total_credits is not None:
                 remaining_credits = total_credits - used_credits
@@ -399,10 +416,15 @@ class MembershipCardTransactionRepository(TenantAwareRepository[MembershipCardTr
             count_query = count_query.where(MembershipCardTransaction.card_id == card_id)
 
         if operation_type is not None:
-            base_query = base_query.where(MembershipCardTransaction.operation_type == operation_type)
-            count_query = count_query.where(MembershipCardTransaction.operation_type == operation_type)
+            base_query = base_query.where(
+                MembershipCardTransaction.operation_type == operation_type
+            )
+            count_query = count_query.where(
+                MembershipCardTransaction.operation_type == operation_type
+            )
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(MembershipCardTransaction.tenant_id == tenant_id)
@@ -444,6 +466,7 @@ class MembershipCardFreezeRepository(TenantAwareRepository[MembershipCardFreeze]
             count_query = count_query.where(MembershipCardFreeze.card_id == card_id)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(MembershipCardFreeze.tenant_id == tenant_id)

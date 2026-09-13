@@ -36,6 +36,7 @@ class RoleRepository(TenantAwareRepository[Role]):
             角色对象或 None
         """
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
 
         query = select(Role).where(Role.code == code)
@@ -43,10 +44,7 @@ class RoleRepository(TenantAwareRepository[Role]):
         # 优先查找租户自定义角色，再查找系统角色
         if tenant_id:
             query = query.where(
-                or_(
-                    Role.tenant_id == tenant_id,
-                    Role.tenant_id.is_(None)
-                )
+                or_(Role.tenant_id == tenant_id, Role.tenant_id.is_(None))
             ).order_by(Role.tenant_id.is_not(None).desc())
 
         result = await db.execute(query)
@@ -87,21 +85,16 @@ class RoleRepository(TenantAwareRepository[Role]):
 
         # 添加租户过滤
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             # 显示当前租户角色 + 系统角色（tenant_id IS NULL）
-            tenant_condition = or_(
-                Role.tenant_id == tenant_id,
-                Role.tenant_id.is_(None)
-            )
+            tenant_condition = or_(Role.tenant_id == tenant_id, Role.tenant_id.is_(None))
             base_query = base_query.where(tenant_condition)
             count_query = count_query.where(tenant_condition)
 
         # 排序：系统角色在前，按创建时间排序
-        base_query = base_query.order_by(
-            Role.tenant_id.is_(None).desc(),
-            Role.created_at.desc()
-        )
+        base_query = base_query.order_by(Role.tenant_id.is_(None).desc(), Role.created_at.desc())
 
         # 分页
         offset_val = (page - 1) * page_size
@@ -135,11 +128,13 @@ class RoleRepository(TenantAwareRepository[Role]):
             是否存在
         """
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
 
-        query = select(func.count()).select_from(Role).where(
-            Role.code == code,
-            Role.tenant_id == tenant_id
+        query = (
+            select(func.count())
+            .select_from(Role)
+            .where(Role.code == code, Role.tenant_id == tenant_id)
         )
 
         if exclude_id:
@@ -162,9 +157,7 @@ class RoleRepository(TenantAwareRepository[Role]):
             db: 数据库会话
             role_id: 角色ID
         """
-        await db.execute(
-            delete(RolePermission).where(RolePermission.role_id == role_id)
-        )
+        await db.execute(delete(RolePermission).where(RolePermission.role_id == role_id))
 
     async def assign_permissions(
         self,
@@ -185,10 +178,7 @@ class RoleRepository(TenantAwareRepository[Role]):
 
         # 添加新权限
         for permission_id in permission_ids:
-            role_permission = RolePermission(
-                role_id=role_id,
-                permission_id=permission_id
-            )
+            role_permission = RolePermission(role_id=role_id, permission_id=permission_id)
             db.add(role_permission)
 
 

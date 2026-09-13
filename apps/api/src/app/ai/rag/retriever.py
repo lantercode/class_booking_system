@@ -4,7 +4,6 @@
 """
 
 
-
 class Retriever:
     """
     FAQ 检索器
@@ -38,6 +37,6 @@ class Retriever:
             {
                 "question": "如何请假？",
                 "answer": "开课前2小时可在小程序自助请假，课时自动退回。",
-                "score": 0.95
+                "score": 0.95,
             }
         ]

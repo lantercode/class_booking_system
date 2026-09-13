@@ -9,9 +9,10 @@ from dataclasses import dataclass
 @dataclass
 class ToolContext:
     """Tool 调用上下文，每个 Tool 都会收到这个对象"""
-    user_id: int          # 用户 ID
-    tenant_id: int        # 租户 ID（多租户隔离）
-    role: str             # 角色：student / teacher / admin
+
+    user_id: int  # 用户 ID
+    tenant_id: int  # 租户 ID（多租户隔离）
+    role: str  # 角色：student / teacher / admin
 
     def is_student(self) -> bool:
         return self.role == "student"

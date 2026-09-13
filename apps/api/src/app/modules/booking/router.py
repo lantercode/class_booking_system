@@ -1,6 +1,5 @@
 """预约模块路由"""
 
-
 from fastapi import APIRouter, Body, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +18,7 @@ booking_service = BookingService()
 # 预约操作
 # ============================================================
 
+
 @router.post(
     "/",
     response_model=dict,
@@ -34,7 +34,9 @@ async def create_booking(
     """创建预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.create_booking(
-        db, data, student_id=student_id,
+        db,
+        data,
+        student_id=student_id,
     )
     return success(data=result, msg="预约成功")
 
@@ -49,8 +51,12 @@ async def list_bookings(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     schedule_id: int | None = Query(None, description="排期ID"),
-    status: str | None = Query(None, description="状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"),
-    display_status: int | None = Query(None, ge=1, le=4, description="显示状态筛选：1待上课/2已取消/3上课中/4已完成"),
+    status: str | None = Query(
+        None, description="状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"
+    ),
+    display_status: int | None = Query(
+        None, ge=1, le=4, description="显示状态筛选：1待上课/2已取消/3上课中/4已完成"
+    ),
     upcoming: bool = Query(False, description="是否只查询待上课（未开始）的预约"),
     exclude_cancelled: bool = Query(False, description="是否排除已取消的记录（小程序端使用）"),
     db: AsyncSession = Depends(get_session),
@@ -63,11 +69,22 @@ async def list_bookings(
     statuses = None
     if status:
         status_map = {
-            "booked": 1, "pending": 1, "待确认": 1,
-            "cancelled": 2, "已取消": 2, "canceled": 2,
-            "checked_in": 3, "已签到": 3, "checkedin": 3,
-            "completed": 4, "已完成": 4, "complete": 4,
-            "no_show": 5, "缺课": 5, "noshow": 5, "no-show": 5,
+            "booked": 1,
+            "pending": 1,
+            "待确认": 1,
+            "cancelled": 2,
+            "已取消": 2,
+            "canceled": 2,
+            "checked_in": 3,
+            "已签到": 3,
+            "checkedin": 3,
+            "completed": 4,
+            "已完成": 4,
+            "complete": 4,
+            "no_show": 5,
+            "缺课": 5,
+            "noshow": 5,
+            "no-show": 5,
         }
         parts = [s.strip().lower() for s in status.split(",") if s.strip()]
         statuses = []
@@ -126,7 +143,10 @@ async def cancel_booking(
     """取消预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.cancel_booking(
-        db, booking_id, student_id=student_id, reason=reason or None,
+        db,
+        booking_id,
+        student_id=student_id,
+        reason=reason or None,
     )
     return success(data=result, msg="预约已取消")
 
@@ -146,7 +166,10 @@ async def cancel_booking_by_schedule(
     """学员端取消预约"""
     student_id = current_user.get("user_id")
     result = await booking_service.cancel_booking_by_schedule(
-        db, schedule_id, student_id=student_id, reason=reason,
+        db,
+        schedule_id,
+        student_id=student_id,
+        reason=reason,
     )
     return success(data=result, msg="预约已取消")
 
@@ -154,6 +177,7 @@ async def cancel_booking_by_schedule(
 # ============================================================
 # 签到与完成（管理端）
 # ============================================================
+
 
 @router.post(
     "/{booking_id}/check-in",

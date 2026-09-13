@@ -6,31 +6,30 @@ Alembic 需要导入此文件以检测所有模型。
 """
 
 # 核心模型
-from app.modules.tenant.models import Tenant
-from app.modules.user.models import User
-
 # 角色权限模型（在 auth 模块中）
-from app.modules.auth.models import Role, Permission, UserRole, RolePermission, WechatAccount
+from app.modules.auth.models import Permission, Role, RolePermission, UserRole, WechatAccount
+from app.modules.booking.models import Booking
 
 # 业务模型
-from app.modules.course.models import Course, Classroom
-from app.modules.schedule.models import CourseSchedule
-from app.modules.booking.models import Booking
-from app.modules.order.models import Order
-from app.modules.payment.models import Payment
-from app.modules.teacher.models import TeacherProfile
-from app.modules.student.models import StudentProfile
+from app.modules.course.models import Classroom, Course
 
 # 会员卡模块（新增）
 from app.modules.membership.models import (
-    MembershipCardProduct,
     MembershipCard,
-    MembershipCardTransaction,
     MembershipCardFreeze,
+    MembershipCardProduct,
+    MembershipCardTransaction,
 )
 
 # 审计日志
 from app.modules.notification.models import AuditLog
+from app.modules.order.models import Order
+from app.modules.payment.models import Payment
+from app.modules.schedule.models import CourseSchedule
+from app.modules.student.models import StudentProfile
+from app.modules.teacher.models import TeacherProfile
+from app.modules.tenant.models import Tenant
+from app.modules.user.models import User
 
 __all__ = [
     # 核心

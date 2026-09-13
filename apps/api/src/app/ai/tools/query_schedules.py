@@ -7,10 +7,7 @@ from app.ai.context import ToolContext
 
 
 async def query_schedules(
-    ctx: ToolContext,
-    date: str = None,
-    keyword: str = "",
-    teacher_name: str = None
+    ctx: ToolContext, date: str = None, keyword: str = "", teacher_name: str = None
 ) -> dict:
     """
     查询指定日期范围内的排期列表
@@ -27,7 +24,19 @@ async def query_schedules(
     # TODO: 接入真实的 ScheduleService
     return {
         "schedules": [
-            {"id": 101, "course_name": "瑜伽基础班", "time": "14:00-15:30", "teacher": "张老师", "room": "A教室"},
-            {"id": 102, "course_name": "街舞初级", "time": "16:00-17:30", "teacher": "王老师", "room": "B教室"}
+            {
+                "id": 101,
+                "course_name": "瑜伽基础班",
+                "time": "14:00-15:30",
+                "teacher": "张老师",
+                "room": "A教室",
+            },
+            {
+                "id": 102,
+                "course_name": "街舞初级",
+                "time": "16:00-17:30",
+                "teacher": "王老师",
+                "room": "B教室",
+            },
         ]
     }

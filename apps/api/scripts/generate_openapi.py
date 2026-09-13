@@ -13,9 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from app.main import app
 
-OUTPUT_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "..", "..", "packages", "api-types"
-)
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "packages", "api-types")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "openapi.json")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)

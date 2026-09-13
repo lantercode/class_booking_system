@@ -50,10 +50,10 @@ def _add_tenant_filter_to_orm_query(orm_context):
     entities_to_filter = []
 
     # 检查 statement 的描述符
-    if hasattr(statement, 'column_descriptions'):
+    if hasattr(statement, "column_descriptions"):
         for desc in statement.column_descriptions:
-            entity = desc.get('entity')
-            if entity and hasattr(entity, 'tenant_id'):
+            entity = desc.get("entity")
+            if entity and hasattr(entity, "tenant_id"):
                 entities_to_filter.append(entity)
 
     # 如果没有找到任何实体，跳过
@@ -68,14 +68,16 @@ def _add_tenant_filter_to_orm_query(orm_context):
                 entity,
                 lambda cls, tid=current_tenant_id: cls.tenant_id == tid,
                 include_aliases=True,
-                propagate_to_loaders=True
+                propagate_to_loaders=True,
             )
         )
 
     # 直接修改 orm_context，不返回值！
     orm_context.statement = modified_statement
 
-    logger.debug(f"[Tenant Query] Injected tenant_id={current_tenant_id} for {len(set(entities_to_filter))} entity(ies)")
+    logger.debug(
+        f"[Tenant Query] Injected tenant_id={current_tenant_id} for {len(set(entities_to_filter))} entity(ies)"
+    )
 
 
 def setup_tenant_query_injection(session_factory=None):

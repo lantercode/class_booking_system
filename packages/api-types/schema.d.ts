@@ -12,8 +12,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Health
-         * @description 健康检查接口 - T01 验收依据.
+         * 健康检查
+         * @description 检查服务运行状态和 Redis 连接
          */
         get: operations["health_api_v1_common_health_get"];
         put?: never;
@@ -32,8 +32,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Test Exception
-         * @description 测试异常接口 - T02 验收依据.
+         * 测试异常
+         * @description 测试各类异常处理
          */
         get: operations["test_exception_api_v1_common_test_exception_get"];
         put?: never;
@@ -51,7 +51,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Test Auth */
+        /**
+         * 测试认证
+         * @description 测试认证依赖注入
+         */
         get: operations["test_auth_api_v1_common_test_auth_get"];
         put?: never;
         post?: never;
@@ -68,7 +71,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Test Generate Token */
+        /**
+         * 生成测试 Token
+         * @description 创建一个测试用的 Token，用于测试认证依赖
+         */
         get: operations["test_generate_token_api_v1_common_test_token_get"];
         put?: never;
         post?: never;
@@ -175,6 +181,70 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * 更新当前用户信息
+         * @description 更新当前登录用户的个人信息（仅允许修改昵称和头像）
+         */
+        patch: operations["update_me_api_v1_auth_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/auth/wechat-auto-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 微信自动登录
+         * @description 通过微信 code 自动登录，已绑定用户直接返回 Token，未绑定返回 bind_token
+         */
+        post: operations["wechat_auto_login_api_v1_auth_wechat_auto_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/wechat-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 微信绑定登录
+         * @description 通过 bind_token 和加密手机号/手动输入手机号绑定微信账号，完成登录
+         */
+        post: operations["wechat_login_api_v1_auth_wechat_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/wechat-unbind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 微信解绑
+         * @description 解除当前用户与微信账号的绑定关系，openid 将被清空
+         */
+        post: operations["wechat_unbind_api_v1_auth_wechat_unbind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -189,12 +259,12 @@ export interface paths {
          * 获取用户列表
          * @description 分页获取用户列表（支持关键词搜索）。
          *
-         *         **权限要求**: user:read（查看用户权限）
+         *     **权限要求**: user:read（查看用户权限）
          *
-         *         **查询参数**:
-         *         - page: 页码，默认 1
-         *         - page_size: 每页数量，默认 20，最大 100
-         *         - keyword: 搜索关键词（匹配用户名/手机号）
+         *     **查询参数**:
+         *     - page: 页码，默认 1
+         *     - page_size: 每页数量，默认 20，最大 100
+         *     - keyword: 搜索关键词（匹配用户名/手机号）
          */
         get: operations["list_users_api_v1_admin_users_get"];
         put?: never;
@@ -202,26 +272,15 @@ export interface paths {
          * 创建用户
          * @description 创建新用户账号。
          *
-         *         **权限要求**: user:create（创建用户权限）
+         *     **权限要求**: user:create（创建用户权限）
          *
-         *         **适用角色**:
-         *         - admin（管理员）- 通常有此权限
-         *         - hr（人事）- 可能也有此权限
+         *     **适用角色**:
+         *     - admin（管理员）- 通常有此权限
+         *     - hr（人事）- 可能也有此权限
          *
-         *         **不适用角色**:
-         *         - teacher（教师）- 不应该能创建用户
-         *         - student（学生）- 绝对不能创建用户
-         *
-         *         **请求示例**:
-         *         ```json
-         *         {
-         *             "username": "zhangsan",
-         *             "email": "zhangsan@example.com",
-         *             "phone": "13800138000",
-         *             "password": "123456",
-         *             "role_ids": [1, 2]
-         *         }
-         *         ```
+         *     **不适用角色**:
+         *     - teacher（教师）- 不应该能创建用户
+         *     - student（学生）- 绝对不能创建用户
          */
         post: operations["create_user_api_v1_admin_users_post"];
         delete?: never;
@@ -241,20 +300,18 @@ export interface paths {
          * 获取用户详情
          * @description 获取指定用户的详细信息。
          *
-         *         **权限要求**: user:read
+         *     **权限要求**: user:read
          */
         get: operations["get_user_api_v1_admin_users__user_id__get"];
         /**
          * 更新用户信息
          * @description 更新用户信息（部分更新）。
          *
-         *         **权限要求**: user:update AND user:read（必须同时拥有两个权限）
+         *     **权限要求**: user:update AND user:read（必须同时拥有两个权限）
          *
-         *         为什么需要两个权限？
-         *         - user:update: 允许修改用户数据
-         *         - user:read: 编辑前必须能看到当前值（防止盲目修改）
-         *
-         *         这是一个 **AND 逻辑** 的典型应用场景！
+         *     为什么需要两个权限？
+         *     - user:update: 允许修改用户数据
+         *     - user:read: 编辑前必须能看到当前值（防止盲目修改）
          */
         put: operations["update_user_api_v1_admin_users__user_id__put"];
         post?: never;
@@ -262,15 +319,15 @@ export interface paths {
          * 删除用户
          * @description 删除用户（高危操作！）。
          *
-         *         **权限要求**: user:delete（专门的删除权限）
+         *     **权限要求**: user:delete（专门的删除权限）
          *
-         *         安全措施：
-         *         1. 需要单独的删除权限（比 update 权限更高级）
-         *         2. 不能删除自己的账号
-         *         3. 删除后自动清除该用户的权限缓存
-         *         4. 记录详细的审计日志
+         *     安全措施：
+         *     1. 需要单独的删除权限（比 update 权限更高级）
+         *     2. 不能删除自己的账号
+         *     3. 删除后自动清除该用户的权限缓存
+         *     4. 记录详细的审计日志
          *
-         *         ⚠️ 此权限应该只分配给极少数超级管理员
+         *     ⚠️ 此权限应该只分配给极少数超级管理员
          */
         delete: operations["delete_user_api_v1_admin_users__user_id__delete"];
         options?: never;
@@ -289,16 +346,9 @@ export interface paths {
          * 管理员后台首页
          * @description 管理员后台首页（Dashboard）。
          *
-         *         **角色要求**: admin 或 super_admin（OR 逻辑）
+         *     **角色要求**: admin 或 super_admin（OR 逻辑）
          *
-         *         为什么用角色而不是权限？
-         *         - Dashboard 是身份概念，不是操作概念
-         *         - 只要你是管理员就能看，不关心具体权限
-         *         - 更简洁、更直观
-         *
-         *         对比：
-         *         - 用权限：@require_permissions("dashboard:view", "admin:all", ...) 太繁琐
-         *         - 用角色：@require_roles("admin", "super_admin") 一行搞定 ✅
+         *     返回聚合统计数据，替代前端多次请求。
          */
         get: operations["admin_dashboard_api_v1_admin_dashboard_get"];
         put?: never;
@@ -320,16 +370,12 @@ export interface paths {
          * 系统设置
          * @description 系统设置页面。
          *
-         *         **权限要求**: admin:all 或 super:manage（OR 逻辑）
+         *     **权限要求**: admin:all 或 super:manage（OR 逻辑）
          *
-         *         OR 逻辑说明：
-         *         - 有 admin:all 权限的普通管理员可以访问
-         *         - 有 super:manage 权限的超管也可以访问
-         *         - 两者满足其一即可
-         *
-         *         适用场景：
-         *         - 不同级别的管理员都有权访问某些功能
-         *         - 但他们的权限来源不同
+         *     OR 逻辑说明：
+         *     - 有 admin:all 权限的普通管理员可以访问
+         *     - 有 super:manage 权限的超管也可以访问
+         *     - 两者满足其一即可
          */
         get: operations["system_settings_api_v1_admin_settings_get"];
         put?: never;
@@ -353,17 +399,13 @@ export interface paths {
          * 分配用户角色
          * @description 为用户分配或修改角色（双重验证）。
          *
-         *         **第一层验证**: 必须是 admin 或 manager 角色
-         *         **第二层验证**: 必须有 role:assign 权限
+         *     **第一层验证**: 必须是 admin 或 manager 角色
+         *     **第二层验证**: 必须有 role:assign 权限
          *
-         *         为什么需要双重验证？
-         *         - 有些管理员虽然有 admin 角色，但可能没有分配角色的具体权限
-         *         - 例如：部门管理员可以看 Dashboard，但不能改角色
-         *         - 两层检查更安全、更灵活
-         *
-         *         执行顺序：
-         *         1. 先检查角色（快速失败，避免无谓的数据库查询）
-         *         2. 再检查权限（精确控制操作能力）
+         *     为什么需要双重验证？
+         *     - 有些管理员虽然有 admin 角色，但可能没有分配角色的具体权限
+         *     - 例如：部门管理员可以看 Dashboard，但不能改角色
+         *     - 两层检查更安全、更灵活
          */
         post: operations["assign_user_roles_api_v1_admin_users__user_id__assign_roles_post"];
         delete?: never;
@@ -383,27 +425,14 @@ export interface paths {
          * 获取我的权限列表
          * @description 获取当前登录用户的完整权限列表。
          *
-         *         **用途**:
-         *         - 前端根据权限列表动态渲染菜单和按钮
-         *         - 如：有 'user:create' 权限才显示"新建"按钮
-         *         - 有 'report:view' 权限才显示"报表"菜单项
+         *     **用途**:
+         *     - 前端根据权限列表动态渲染菜单和按钮
+         *     - 如：有 'user:create' 权限才显示"新建"按钮
+         *     - 有 'report:view' 权限才显示"报表"菜单项
          *
-         *         **特点**:
-         *         - 无需额外的权限要求（已登录即可）
-         *         - 返回详细的权限信息和缓存状态
-         *         - 用于前端权限控制的基础数据源
-         *
-         *         **前端使用示例** (Vue.js):
-         *         ```javascript
-         *         // 获取权限列表
-         *         const res = await api.get('/admin/my-permissions')
-         *         const permissions = res.data.permissions.map(p => p.code)
-         *
-         *         // 控制按钮显示
-         *         <el-button v-if="permissions.includes('user:create')">
-         *           新建用户
-         *         </el-button>
-         *         ```
+         *     **特点**:
+         *     - 无需额外的权限要求（已登录即可）
+         *     - 返回详细的权限信息和缓存状态
          */
         get: operations["get_my_permissions_api_v1_admin_my_permissions_get"];
         put?: never;
@@ -425,12 +454,12 @@ export interface paths {
          * 公开统计数据
          * @description 公开的统计信息（无需登录）。
          *
-         *         **权限要求**: 无（完全公开）
+         *     **权限要求**: 无（完全公开）
          *
-         *         适用场景：
-         *         - 首页展示的总数据量
-         *         - 学校简介中的数字
-         *         - 其他不敏感的聚合数据
+         *     适用场景：
+         *     - 首页展示的总数据量
+         *     - 学校简介中的数字
+         *     - 其他不敏感的聚合数据
          */
         get: operations["public_stats_api_v1_admin_public_stats_get"];
         put?: never;
@@ -454,19 +483,39 @@ export interface paths {
          * 批量删除用户（高危）
          * @description 批量删除多个用户（极度危险的操作！）。
          *
-         *         **角色要求**: super_admin AND security_admin（必须同时拥有两个角色）
+         *     **角色要求**: super_admin AND security_admin（必须同时拥有两个角色）
          *
-         *         为什么用 AND 逻辑？
-         *         - 单人误操作风险太高
-         *         - 需要两种不同角色的确认
-         *         - 类似银行转账需要两个U盾的场景
+         *     为什么用 AND 逻辑？
+         *     - 单人误操作风险太高
+         *     - 需要两种不同角色的确认
+         *     - 类似银行转账需要两个U盾的场景
          *
-         *         ⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️
-         *         - 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行
-         *         - 会触发审计日志告警
-         *         - 建议增加二次确认机制
+         *     ⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️
+         *     - 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行
+         *     - 会触发审计日志告警
+         *     - 建议增加二次确认机制
          */
         post: operations["batch_delete_users_api_v1_admin_users_batch_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建用户
+         * @description 创建新用户账号（需 user:create 权限）
+         */
+        post: operations["create_user_api_v1_users__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -486,11 +535,7 @@ export interface paths {
          */
         get: operations["list_users_api_v1_users_get"];
         put?: never;
-        /**
-         * 创建用户
-         * @description 创建新用户账号（需 user:create 权限）
-         */
-        post: operations["create_user_api_v1_users_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -589,6 +634,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/wechat/unbind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 解绑微信
+         * @description 管理员解除指定用户的微信绑定（需 user:update 权限）
+         */
+        post: operations["admin_unbind_wechat_api_v1_users__user_id__wechat_unbind_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建角色
+         * @description 创建新角色（需 role:create 权限）
+         */
+        post: operations["create_role_api_v1_roles__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -602,11 +687,27 @@ export interface paths {
          */
         get: operations["list_roles_api_v1_roles_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/permission-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
-         * 创建角色
-         * @description 创建新角色（需 role:create 权限）
+         * 获取权限列表
+         * @description 获取所有权限列表（支持按模块筛选，需 role:read 权限）
          */
-        post: operations["create_role_api_v1_roles_post"];
+        get: operations["list_permissions_api_v1_roles_permission_list_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -641,26 +742,6 @@ export interface paths {
         patch: operations["update_role_api_v1_roles__role_id__patch"];
         trace?: never;
     };
-    "/api/v1/roles/permissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 获取权限列表
-         * @description 获取所有权限列表（支持按模块筛选，需 role:read 权限）
-         */
-        get: operations["list_permissions_api_v1_roles_permissions_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/roles/{role_id}/permissions": {
         parameters: {
             query?: never;
@@ -678,6 +759,838 @@ export interface paths {
          * @description 为角色分配权限（覆盖式，需 role:assign 权限）
          */
         put: operations["assign_role_permissions_api_v1_roles__role_id__permissions_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取课程类型列表
+         * @description 获取课程类型列表（支持状态筛选）
+         */
+        get: operations["list_course_types_api_v1_courses_types_get"];
+        put?: never;
+        /**
+         * 创建课程类型
+         * @description 创建新课程类型（需 course:create 权限）
+         */
+        post: operations["create_course_type_api_v1_courses_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/types/{type_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取课程类型详情
+         * @description 获取课程类型详情
+         */
+        get: operations["get_course_type_api_v1_courses_types__type_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * 删除课程类型
+         * @description 删除课程类型（需 course:delete 权限，有课程使用时不可删除）
+         */
+        delete: operations["delete_course_type_api_v1_courses_types__type_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新课程类型
+         * @description 更新课程类型信息（需 course:update 权限）
+         */
+        patch: operations["update_course_type_api_v1_courses_types__type_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/courses/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建课程
+         * @description 创建新课程（需 course:create 权限）
+         */
+        post: operations["create_course_api_v1_courses__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取课程列表
+         * @description 分页获取课程列表（支持关键词、分类、等级、状态、课程类型筛选）
+         */
+        get: operations["list_courses_api_v1_courses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/{course_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取课程详情
+         * @description 获取课程详情
+         */
+        get: operations["get_course_api_v1_courses__course_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * 删除课程
+         * @description 软删除课程（需 course:delete 权限）
+         */
+        delete: operations["delete_course_api_v1_courses__course_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新课程
+         * @description 更新课程信息（需 course:update 权限）
+         */
+        patch: operations["update_course_api_v1_courses__course_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/classrooms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建教室
+         * @description 创建新教室（需 classroom:create 权限）
+         */
+        post: operations["create_classroom_api_v1_classrooms__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classrooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取教室列表
+         * @description 分页获取教室列表（支持关键词、状态筛选）
+         */
+        get: operations["list_classrooms_api_v1_classrooms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/classrooms/{classroom_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取教室详情
+         * @description 获取教室详情
+         */
+        get: operations["get_classroom_api_v1_classrooms__classroom_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * 删除教室
+         * @description 删除教室（需 classroom:delete 权限）
+         */
+        delete: operations["delete_classroom_api_v1_classrooms__classroom_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新教室
+         * @description 更新教室信息（需 classroom:update 权限）
+         */
+        patch: operations["update_classroom_api_v1_classrooms__classroom_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/schedules/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建排期
+         * @description 创建新排期（需 schedule:create 权限），自动校验时间冲突
+         */
+        post: operations["create_schedule_api_v1_schedules__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量创建排期
+         * @description 批量创建排期（需 schedule:create 权限），自动校验时间冲突
+         */
+        post: operations["batch_create_schedules_api_v1_schedules_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取排期列表
+         * @description 分页获取排期列表（支持多条件筛选）
+         */
+        get: operations["list_schedules_api_v1_schedules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{schedule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取排期详情
+         * @description 获取排期详情
+         */
+        get: operations["get_schedule_api_v1_schedules__schedule_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * 删除排期
+         * @description 硬删除排期（需 schedule:delete 权限）
+         */
+        delete: operations["delete_schedule_api_v1_schedules__schedule_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新排期
+         * @description 更新排期信息（需 schedule:update 权限），自动校验时间冲突
+         */
+        patch: operations["update_schedule_api_v1_schedules__schedule_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/schedules/{schedule_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 取消排期
+         * @description 取消指定排期（需 schedule:cancel 权限），自动处理学员预约和课时退还
+         */
+        post: operations["cancel_schedule_api_v1_schedules__schedule_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量删除排期
+         * @description 批量删除排期（需 schedule:delete 权限），仅支持删除已取消或禁用的排期
+         */
+        post: operations["batch_delete_schedules_api_v1_schedules_batch_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建预约
+         * @description 学员预约课程排期（自动校验容量、重复预约、时间窗口）
+         */
+        post: operations["create_booking_api_v1_bookings__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取预约列表
+         * @description 分页获取预约列表（支持多条件筛选，status 支持逗号分隔多个状态）
+         */
+        get: operations["list_bookings_api_v1_bookings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取预约详情
+         * @description 获取预约详情
+         */
+        get: operations["get_booking_api_v1_bookings__booking_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{booking_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 取消预约
+         * @description 取消指定预约（自动释放名额）
+         */
+        post: operations["cancel_booking_api_v1_bookings__booking_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 取消预约（学员端）
+         * @description 学员通过排期ID取消自己的预约
+         */
+        post: operations["cancel_booking_by_schedule_api_v1_bookings_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{booking_id}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 签到
+         * @description 学员签到确认（需 booking:manage 权限）
+         */
+        post: operations["check_in_booking_api_v1_bookings__booking_id__check_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{booking_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 完成课程
+         * @description 标记课程完成（需 booking:manage 权限）
+         */
+        post: operations["complete_booking_api_v1_bookings__booking_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teachers/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取当前教师信息
+         * @description 获取当前登录教师的详细信息
+         */
+        get: operations["get_current_teacher_api_v1_teachers_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 更新教师信息
+         * @description 更新当前教师的个人信息
+         */
+        patch: operations["update_current_teacher_api_v1_teachers_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/membership/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取产品列表
+         * @description 获取产品列表
+         */
+        get: operations["list_products_api_v1_membership_products_get"];
+        put?: never;
+        /**
+         * 创建会员卡产品
+         * @description 创建会员卡产品
+         */
+        post: operations["create_product_api_v1_membership_products_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/products/{product_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取产品详情
+         * @description 获取产品详情
+         */
+        get: operations["get_product_api_v1_membership_products__product_id__get"];
+        /**
+         * 更新产品
+         * @description 更新产品
+         */
+        put: operations["update_product_api_v1_membership_products__product_id__put"];
+        post?: never;
+        /**
+         * 删除产品
+         * @description 删除产品（软删除：设置 deleted_at）
+         */
+        delete: operations["delete_product_api_v1_membership_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/products/recycle-bin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 回收站列表
+         * @description 获取回收站中的产品列表
+         */
+        get: operations["list_deleted_products_api_v1_membership_products_recycle_bin_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/products/{product_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 恢复产品
+         * @description 从回收站恢复产品
+         */
+        post: operations["restore_product_api_v1_membership_products__product_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取会员卡列表
+         * @description 获取会员卡列表
+         */
+        get: operations["list_cards_api_v1_membership_cards_get"];
+        put?: never;
+        /**
+         * 发放会员卡
+         * @description 发放会员卡
+         *
+         *     - 默认不允许重复发卡（allow_duplicate=False）
+         *     - 如果学员已有同产品的有效卡，返回 409 Conflict
+         *     - 续卡场景请设置 allow_duplicate=true
+         */
+        post: operations["issue_card_api_v1_membership_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/my-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取我的会员卡（学员端）
+         * @description 获取当前学员的有效会员卡（学员端专用）
+         */
+        get: operations["get_my_cards_api_v1_membership_my_cards_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取会员卡详情
+         * @description 获取会员卡详情
+         */
+        get: operations["get_card_api_v1_membership_cards__card_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/freeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 冻结会员卡
+         * @description 冻结会员卡
+         */
+        post: operations["freeze_card_api_v1_membership_cards__card_id__freeze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 解冻会员卡
+         * @description 解冻会员卡
+         */
+        post: operations["unfreeze_card_api_v1_membership_cards__card_id__unfreeze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 延长会员卡有效期
+         * @description 延长会员卡有效期（付费延期）
+         */
+        post: operations["extend_card_api_v1_membership_cards__card_id__extend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 激活会员卡（学员端）
+         * @description 学员主动激活待激活的会员卡
+         */
+        post: operations["activate_card_api_v1_membership_cards__card_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/admin-activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 管理员激活会员卡
+         * @description 管理员手动激活待激活的会员卡
+         */
+        post: operations["admin_activate_card_api_v1_membership_cards__card_id__admin_activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 作废会员卡
+         * @description 作废会员卡（管理员操作）
+         */
+        post: operations["cancel_card_api_v1_membership_cards__card_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取消费流水列表
+         * @description 获取消费流水列表
+         */
+        get: operations["list_transactions_api_v1_membership_transactions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Chat */
+        post: operations["chat_api_v1_ai_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get History */
+        get: operations["get_history_api_v1_ai_history_get"];
+        put?: never;
+        post?: never;
+        /** Clear History */
+        delete: operations["clear_history_api_v1_ai_history_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/intents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Supported Intents */
+        get: operations["get_supported_intents_api_v1_ai_intents_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -734,6 +1647,27 @@ export interface components {
             /** @description 当前用户信息 */
             user: components["schemas"]["UserResponse"];
         };
+        /** Body_assign_user_roles_api_v1_users__user_id__roles_put */
+        Body_assign_user_roles_api_v1_users__user_id__roles_put: {
+            /**
+             * Role Ids
+             * @description 角色ID列表
+             */
+            role_ids: number[];
+        };
+        /** Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post */
+        Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post: {
+            /**
+             * Schedule Id
+             * @description 排期ID
+             */
+            schedule_id: number;
+            /**
+             * Reason
+             * @description 取消原因
+             */
+            reason?: string | null;
+        };
         /** Body_reset_password_api_v1_users__user_id__password_reset_post */
         Body_reset_password_api_v1_users__user_id__password_reset_post: {
             /**
@@ -741,6 +1675,28 @@ export interface components {
              * @description 新密码
              */
             new_password: string;
+        };
+        /**
+         * BookingCreate
+         * @description 创建预约请求体
+         */
+        BookingCreate: {
+            /**
+             * Schedule Id
+             * @description 排期ID
+             */
+            schedule_id: number;
+            /**
+             * Source
+             * @description 预约来源: self/admin/teacher
+             * @default self
+             */
+            source: string | null;
+            /**
+             * Membership Card Id
+             * @description 会员卡ID
+             */
+            membership_card_id?: number | null;
         };
         /**
          * ChangePasswordRequest
@@ -758,10 +1714,277 @@ export interface components {
              */
             new_password: string;
         };
+        /** ChatRequest */
+        ChatRequest: {
+            /** Message */
+            message: string;
+            /**
+             * Session Id
+             * @default default
+             */
+            session_id: string | null;
+        };
+        /** ChatResponse */
+        ChatResponse: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /**
+             * Msg
+             * @default success
+             */
+            msg: string;
+            /** Data */
+            data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * ClassroomCreate
+         * @description 创建教室请求体
+         */
+        ClassroomCreate: {
+            /**
+             * Name
+             * @description 教室名称
+             */
+            name: string;
+            /**
+             * Equipment
+             * @description 设备列表
+             * @default []
+             */
+            equipment: string[] | null;
+        };
+        /**
+         * ClassroomUpdate
+         * @description 更新教室请求体（部分更新）
+         */
+        ClassroomUpdate: {
+            /**
+             * Name
+             * @description 教室名称
+             */
+            name?: string | null;
+            /**
+             * Equipment
+             * @description 设备列表
+             */
+            equipment?: string[] | null;
+            /**
+             * Status
+             * @description 状态：0禁用/1启用
+             */
+            status?: number | null;
+        };
+        /**
+         * CourseCreate
+         * @description 创建课程请求体
+         */
+        CourseCreate: {
+            /**
+             * Name
+             * @description 课程名称
+             */
+            name: string;
+            /**
+             * Category
+             * @description 分类
+             */
+            category: string;
+            /**
+             * Course Type Code
+             * @description 课程类型代码
+             */
+            course_type_code: string;
+            /**
+             * Level
+             * @description 难度等级
+             */
+            level: string;
+            /**
+             * Cover Url
+             * @description 封面图URL
+             */
+            cover_url?: string | null;
+            /**
+             * Description
+             * @description 课程描述
+             */
+            description?: string | null;
+            /**
+             * Duration Minutes
+             * @description 时长（分钟）
+             * @default 90
+             */
+            duration_minutes: number;
+            /**
+             * Price
+             * @description 价格
+             * @default 0
+             */
+            price: number;
+            /**
+             * Required Credits
+             * @description 所需积分
+             * @default 1
+             */
+            required_credits: number;
+        };
+        /**
+         * CourseTypeCreate
+         * @description 创建课程类型请求体
+         */
+        CourseTypeCreate: {
+            /**
+             * Name
+             * @description 类型名称
+             */
+            name: string;
+            /**
+             * Code
+             * @description 类型代码
+             */
+            code: string;
+            /**
+             * Description
+             * @description 描述
+             */
+            description?: string | null;
+            /**
+             * Required Card Types
+             * @description 需要的会员卡类型列表
+             */
+            required_card_types?: string[] | null;
+            /**
+             * Sort Order
+             * @description 排序
+             * @default 0
+             */
+            sort_order: number;
+            /**
+             * Status
+             * @description 状态：0禁用/1启用
+             * @default 1
+             */
+            status: number;
+        };
+        /**
+         * CourseTypeUpdate
+         * @description 更新课程类型请求体（部分更新）
+         */
+        CourseTypeUpdate: {
+            /**
+             * Name
+             * @description 类型名称
+             */
+            name?: string | null;
+            /**
+             * Code
+             * @description 类型代码
+             */
+            code?: string | null;
+            /**
+             * Description
+             * @description 描述
+             */
+            description?: string | null;
+            /**
+             * Required Card Types
+             * @description 需要的会员卡类型列表
+             */
+            required_card_types?: string[] | null;
+            /**
+             * Sort Order
+             * @description 排序
+             */
+            sort_order?: number | null;
+            /**
+             * Status
+             * @description 状态：0禁用/1启用
+             */
+            status?: number | null;
+        };
+        /**
+         * CourseUpdate
+         * @description 更新课程请求体（部分更新）
+         */
+        CourseUpdate: {
+            /**
+             * Name
+             * @description 课程名称
+             */
+            name?: string | null;
+            /**
+             * Category
+             * @description 分类
+             */
+            category?: string | null;
+            /**
+             * Course Type Code
+             * @description 课程类型代码
+             */
+            course_type_code?: string | null;
+            /**
+             * Level
+             * @description 难度等级
+             */
+            level?: string | null;
+            /**
+             * Cover Url
+             * @description 封面图URL
+             */
+            cover_url?: string | null;
+            /**
+             * Description
+             * @description 课程描述
+             */
+            description?: string | null;
+            /**
+             * Duration Minutes
+             * @description 时长（分钟）
+             */
+            duration_minutes?: number | null;
+            /**
+             * Price
+             * @description 价格
+             */
+            price?: number | null;
+            /**
+             * Required Credits
+             * @description 所需积分
+             */
+            required_credits?: number | null;
+            /**
+             * Status
+             * @description 状态：0下架/1上架
+             */
+            status?: number | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HistoryResponse */
+        HistoryResponse: {
+            /**
+             * Code
+             * @default 0
+             */
+            code: number;
+            /**
+             * Msg
+             * @default success
+             */
+            msg: string;
+            /**
+             * Data
+             * @default []
+             */
+            data: unknown[];
         };
         /**
          * LoginRequest
@@ -786,6 +2009,225 @@ export interface components {
              * @example P@ssw0rd123
              */
             password: string;
+        };
+        /**
+         * MembershipCardCancelRequest
+         * @description 作废会员卡请求体
+         */
+        MembershipCardCancelRequest: {
+            /**
+             * Reason
+             * @description 作废原因
+             */
+            reason: string;
+        };
+        /**
+         * MembershipCardCreate
+         * @description 发放会员卡请求体
+         */
+        MembershipCardCreate: {
+            /**
+             * Student Id
+             * @description 学员ID
+             */
+            student_id: number;
+            /**
+             * Product Id
+             * @description 关联产品ID
+             */
+            product_id?: number | null;
+            /**
+             * Total Credits
+             * @description 总次数（次卡专用）
+             */
+            total_credits?: number | null;
+            /**
+             * Validity Days
+             * @description 有效天数（次卡必填，期卡必填）
+             */
+            validity_days?: number | null;
+            /**
+             * Valid From
+             * @description 生效时间（NULL表示立即激活，支持 YYYY-MM-DD 或 ISO 格式）
+             */
+            valid_from?: string | null;
+            /**
+             * Applicable Course Ids
+             * @description 适用课程ID列表
+             */
+            applicable_course_ids?: number[] | null;
+            /**
+             * Applicable Course Type Codes
+             * @description 适用的课程类型代码列表
+             */
+            applicable_course_type_codes?: string[] | null;
+            /**
+             * Max Weekly Usage
+             * @description 每周最多使用次数
+             */
+            max_weekly_usage?: number | null;
+            /**
+             * Allow Duplicate
+             * @description 是否允许重复发卡（默认False，True表示允许续卡）
+             * @default false
+             */
+            allow_duplicate: boolean;
+            /**
+             * Remark
+             * @description 备注
+             */
+            remark?: string | null;
+        };
+        /**
+         * MembershipCardExtendRequest
+         * @description 延长会员卡有效期请求体
+         */
+        MembershipCardExtendRequest: {
+            /**
+             * Extend Days
+             * @description 延长天数
+             */
+            extend_days: number;
+            /**
+             * Remark
+             * @description 延期原因
+             */
+            remark?: string | null;
+        };
+        /**
+         * MembershipCardFreezeRequest
+         * @description 冻结会员卡请求体
+         */
+        MembershipCardFreezeRequest: {
+            /**
+             * Reason
+             * @description 冻结原因
+             */
+            reason: string;
+            /**
+             * Freeze Days
+             * @description 冻结天数（1-365天）
+             */
+            freeze_days: number;
+            /**
+             * Auto Unfreeze
+             * @description 是否到期自动解冻（默认True）
+             * @default true
+             */
+            auto_unfreeze: boolean;
+        };
+        /**
+         * MembershipCardProductCreate
+         * @description 创建会员卡产品请求体
+         */
+        MembershipCardProductCreate: {
+            /**
+             * Name
+             * @description 产品名称
+             */
+            name: string;
+            /**
+             * Card Type
+             * @description 卡类型：count/period/unlimited
+             */
+            card_type: string;
+            /**
+             * Price
+             * @description 售价
+             */
+            price: number;
+            /**
+             * Total Credits
+             * @description 总次数（次卡专用）
+             */
+            total_credits?: number | null;
+            /**
+             * Validity Days
+             * @description 有效天数
+             */
+            validity_days?: number | null;
+            /**
+             * Applicable Course Type Codes
+             * @description 适用的课程类型代码列表（必填，至少一项）
+             */
+            applicable_course_type_codes: string[];
+            /**
+             * Applicable Course Ids
+             * @description 适用课程ID列表，NULL表示不限
+             */
+            applicable_course_ids?: number[] | null;
+            /**
+             * Max Weekly Usage
+             * @description 每周最多使用次数，NULL表示不限
+             */
+            max_weekly_usage?: number | null;
+            /**
+             * Description
+             * @description 产品描述
+             */
+            description?: string | null;
+            /**
+             * Sort Order
+             * @description 排序
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /**
+         * MembershipCardProductUpdate
+         * @description 更新会员卡产品请求体
+         */
+        MembershipCardProductUpdate: {
+            /**
+             * Name
+             * @description 产品名称
+             */
+            name?: string | null;
+            /**
+             * Price
+             * @description 售价
+             */
+            price?: number | null;
+            /**
+             * Total Credits
+             * @description 总次数（次卡专用）
+             */
+            total_credits?: number | null;
+            /**
+             * Validity Days
+             * @description 有效天数
+             */
+            validity_days?: number | null;
+            /**
+             * Applicable Course Ids
+             * @description 适用课程ID列表，NULL表示不限
+             */
+            applicable_course_ids?: number[] | null;
+            /**
+             * Applicable Course Type Codes
+             * @description 适用的课程类型代码列表，NULL表示不限
+             */
+            applicable_course_type_codes?: string[] | null;
+            /**
+             * Max Weekly Usage
+             * @description 每周最多使用次数，NULL表示不限
+             */
+            max_weekly_usage?: number | null;
+            /**
+             * Description
+             * @description 产品描述
+             */
+            description?: string | null;
+            /**
+             * Status
+             * @description 状态：0下架/1上架
+             */
+            status?: number | null;
+            /**
+             * Sort Order
+             * @description 排序
+             */
+            sort_order?: number | null;
         };
         /**
          * RefreshTokenRequest
@@ -879,6 +2321,136 @@ export interface components {
             description?: string | null;
         };
         /**
+         * ScheduleCancel
+         * @description 取消排期请求体
+         */
+        ScheduleCancel: {
+            /**
+             * Cancel Reason
+             * @description 取消原因
+             */
+            cancel_reason: string;
+        };
+        /**
+         * ScheduleCreate
+         * @description 创建排期请求体
+         */
+        ScheduleCreate: {
+            /**
+             * Course Id
+             * @description 课程ID
+             */
+            course_id: number;
+            /**
+             * Teacher Id
+             * @description 教师ID（用户ID）
+             */
+            teacher_id: number;
+            /**
+             * Classroom Id
+             * @description 教室ID
+             */
+            classroom_id?: number | null;
+            /**
+             * Start At
+             * Format: date-time
+             * @description 开始时间
+             */
+            start_at: string;
+            /**
+             * End At
+             * Format: date-time
+             * @description 结束时间
+             */
+            end_at: string;
+            /**
+             * Capacity
+             * @description 容量上限
+             */
+            capacity: number;
+            /**
+             * Booking Opens At
+             * @description 预约开放时间
+             */
+            booking_opens_at?: string | null;
+            /**
+             * Booking Closes At
+             * @description 预约截止时间
+             */
+            booking_closes_at?: string | null;
+            /**
+             * Cancel Deadline
+             * @description 取消截止时间
+             */
+            cancel_deadline?: string | null;
+            /**
+             * Notes
+             * @description 备注
+             */
+            notes?: string | null;
+        };
+        /**
+         * ScheduleUpdate
+         * @description 更新排期请求体（部分更新）
+         */
+        ScheduleUpdate: {
+            /**
+             * Course Id
+             * @description 课程ID
+             */
+            course_id?: number | null;
+            /**
+             * Teacher Id
+             * @description 教师ID
+             */
+            teacher_id?: number | null;
+            /**
+             * Classroom Id
+             * @description 教室ID
+             */
+            classroom_id?: number | null;
+            /**
+             * Start At
+             * @description 开始时间
+             */
+            start_at?: string | null;
+            /**
+             * End At
+             * @description 结束时间
+             */
+            end_at?: string | null;
+            /**
+             * Capacity
+             * @description 容量上限
+             */
+            capacity?: number | null;
+            /**
+             * Booking Opens At
+             * @description 预约开放时间
+             */
+            booking_opens_at?: string | null;
+            /**
+             * Booking Closes At
+             * @description 预约截止时间
+             */
+            booking_closes_at?: string | null;
+            /**
+             * Cancel Deadline
+             * @description 取消截止时间
+             */
+            cancel_deadline?: string | null;
+            /**
+             * Status
+             * @description 状态：1正常/2已取消/3已完成
+             */
+            status?: number | null;
+            /**
+             * Notes
+             * @description 备注
+             */
+            notes?: string | null;
+        };
+        /**
          * TokenResponse
          * @description 令牌响应（双 Token）
          */
@@ -930,6 +2502,7 @@ export interface components {
             /**
              * Nickname
              * @description 用户昵称
+             * @default
              * @example 小明
              */
             nickname: string;
@@ -952,6 +2525,15 @@ export interface components {
              */
             status: number;
             /**
+             * Roles
+             * @description 用户角色代码列表
+             * @example [
+             *       "admin",
+             *       "teacher"
+             *     ]
+             */
+            roles?: string[];
+            /**
              * Created At
              * Format: date-time
              * @description 注册时间
@@ -971,6 +2553,116 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WechatBindRequest
+         * @description 微信绑定请求
+         */
+        WechatBindRequest: {
+            /**
+             * Bind Token
+             * @description 上一步自动登录返回的临时凭证
+             */
+            bind_token: string;
+            /**
+             * Phone
+             * @description 手机号码（手动输入时使用）
+             * @example 13800138000
+             */
+            phone?: string | null;
+            /**
+             * Encrypted Data
+             * @description 微信手机号授权返回的加密数据
+             */
+            encrypted_data?: string | null;
+            /**
+             * Iv
+             * @description 微信手机号授权返回的初始向量
+             */
+            iv?: string | null;
+            /**
+             * Tenant Slug
+             * @description 租户标识符
+             * @example dance-school
+             */
+            tenant_slug: string;
+        };
+        /**
+         * WechatLoginRequest
+         * @description 微信登录请求
+         */
+        WechatLoginRequest: {
+            /**
+             * Code
+             * @description 微信登录凭证
+             */
+            code: string;
+            /**
+             * Tenant Slug
+             * @description 租户标识符
+             * @example dance-school
+             */
+            tenant_slug: string;
+            /**
+             * App Id
+             * @description 小程序 AppId，不传则使用默认配置
+             */
+            app_id?: string | null;
+        };
+        /**
+         * WechatLoginResponse
+         * @description 微信登录响应
+         */
+        WechatLoginResponse: {
+            /**
+             * Need Bind
+             * @description 是否需要绑定手机号
+             * @example true
+             */
+            need_bind: boolean;
+            /**
+             * Bind Token
+             * @description 绑定凭证
+             */
+            bind_token?: string | null;
+            /**
+             * Access Token
+             * @description 访问令牌
+             */
+            access_token?: string | null;
+            /**
+             * Refresh Token
+             * @description 刷新令牌
+             */
+            refresh_token?: string | null;
+            /**
+             * Token Type
+             * @description 令牌类型
+             * @default bearer
+             * @example bearer
+             */
+            token_type: string | null;
+            /**
+             * Expires In
+             * @description 访问令牌过期时间（秒）
+             * @default 7200
+             * @example 7200
+             */
+            expires_in: number;
+            /** @description 当前用户信息 */
+            user?: components["schemas"]["UserResponse"] | null;
+            /**
+             * Decrypted Phone
+             * @description 解密后的微信绑定手机号（手机号未注册时返回）
+             * @example 13800138000
+             */
+            decrypted_phone?: string | null;
+            /**
+             * Error Msg
+             * @description 错误提示信息
+             * @example 该手机号未在系统中注册，请联系机构前台
+             */
+            error_msg?: string | null;
         };
         /**
          * UserCreate
@@ -1077,6 +2769,12 @@ export interface components {
              * @default []
              */
             role_ids: number[] | null;
+            /**
+             * Role Codes
+             * @description 初始角色代码列表（如 ['teacher']）
+             * @default []
+             */
+            role_codes: string[] | null;
         };
         /**
          * UserUpdate
@@ -1123,6 +2821,11 @@ export interface components {
              * @description 状态：0禁用/1启用
              */
             status?: number | null;
+            /**
+             * Role Ids
+             * @description 角色ID列表（传入则覆盖更新）
+             */
+            role_ids?: number[] | null;
         };
     };
     responses: never;
@@ -1272,12 +2975,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 请求参数验证失败 */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -1317,12 +3022,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description 请求参数验证失败 */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -1347,13 +3054,6 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
-            };
-            /** @description 未登录或Token无效 */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1433,7 +3133,185 @@ export interface operations {
                     "application/json": components["schemas"]["UserResponse"];
                 };
             };
-            /** @description 未登录或Token无效 */
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_me_api_v1_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description 没有可更新的字段 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wechat_auto_login_api_v1_auth_wechat_auto_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 登录成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatLoginResponse"];
+                };
+            };
+            /** @description 微信登录失败 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 账号已被禁用 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wechat_login_api_v1_auth_wechat_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WechatBindRequest"];
+            };
+        };
+        responses: {
+            /** @description 绑定成功 / 手机号未注册 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WechatLoginResponse"];
+                };
+            };
+            /** @description 绑定凭证无效或已过期 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 账号已被禁用 */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wechat_unbind_api_v1_auth_wechat_unbind_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 解绑成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description 该账号未绑定微信 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 未登录或 token 无效 */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -1836,28 +3714,23 @@ export interface operations {
             };
         };
     };
-    list_users_api_v1_users_get: {
+    create_user_api_v1_users__post: {
         parameters: {
-            query?: {
-                /** @description 页码 */
-                page?: number;
-                /** @description 每页数量 */
-                page_size?: number;
-                /** @description 搜索关键词（手机号/昵称/姓名） */
-                keyword?: string;
-                /** @description 状态筛选：0禁用/1启用 */
-                status?: number;
-            };
+            query?: never;
             header?: {
                 authorization?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__modules__user__schemas__UserCreate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1878,23 +3751,30 @@ export interface operations {
             };
         };
     };
-    create_user_api_v1_users_post: {
+    list_users_api_v1_users_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量 */
+                page_size?: number;
+                /** @description 搜索关键词（手机号/昵称/姓名） */
+                keyword?: string;
+                /** @description 状态筛选：0禁用/1启用 */
+                status?: number;
+                /** @description 角色筛选（角色代码） */
+                role_code?: string;
+            };
             header?: {
                 authorization?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["app__modules__user__schemas__UserCreate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2157,12 +4037,85 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": number[];
+                "application/json": components["schemas"]["Body_assign_user_roles_api_v1_users__user_id__roles_put"];
             };
         };
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_unbind_wechat_api_v1_users__user_id__wechat_unbind_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 用户ID */
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_role_api_v1_roles__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2223,23 +4176,22 @@ export interface operations {
             };
         };
     };
-    create_role_api_v1_roles_post: {
+    list_permissions_api_v1_roles_permission_list_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 模块筛选 */
+                module?: string;
+            };
             header?: {
                 authorization?: string | null;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleCreate"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2372,42 +4324,6 @@ export interface operations {
             };
         };
     };
-    list_permissions_api_v1_roles_permissions_get: {
-        parameters: {
-            query?: {
-                /** @description 模块筛选 */
-                module?: string;
-            };
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_role_permissions_api_v1_roles__role_id__permissions_get: {
         parameters: {
             query?: never;
@@ -2480,6 +4396,2035 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_course_types_api_v1_courses_types_get: {
+        parameters: {
+            query?: {
+                /** @description 状态筛选 */
+                status?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_type_api_v1_courses_types_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_course_type_api_v1_courses_types__type_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程类型ID */
+                type_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_course_type_api_v1_courses_types__type_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程类型ID */
+                type_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_type_api_v1_courses_types__type_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程类型ID */
+                type_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_api_v1_courses__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_courses_api_v1_courses_get: {
+        parameters: {
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量 */
+                page_size?: number;
+                /** @description 搜索关键词 */
+                keyword?: string;
+                /** @description 分类筛选 */
+                category?: string;
+                /** @description 等级筛选 */
+                level?: string;
+                /** @description 状态筛选 */
+                status?: number;
+                /** @description 课程类型筛选 */
+                course_type_code?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_course_api_v1_courses__course_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程ID */
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_course_api_v1_courses__course_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程ID */
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_api_v1_courses__course_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 课程ID */
+                course_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_classroom_api_v1_classrooms__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassroomCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_classrooms_api_v1_classrooms_get: {
+        parameters: {
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量 */
+                page_size?: number;
+                /** @description 搜索关键词 */
+                keyword?: string;
+                /** @description 状态筛选 */
+                status?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_classroom_api_v1_classrooms__classroom_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 教室ID */
+                classroom_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_classroom_api_v1_classrooms__classroom_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 教室ID */
+                classroom_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_classroom_api_v1_classrooms__classroom_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 教室ID */
+                classroom_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassroomUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_schedule_api_v1_schedules__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_create_schedules_api_v1_schedules_batch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreate"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schedules_api_v1_schedules_get: {
+        parameters: {
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量 */
+                page_size?: number;
+                /** @description 课程ID */
+                course_id?: number | null;
+                /** @description 课程名称（模糊搜索） */
+                course_name?: string | null;
+                /** @description 课程分类筛选 */
+                category?: string | null;
+                /** @description 课程类型筛选 */
+                course_type_code?: string | null;
+                /** @description 教师ID */
+                teacher_id?: number | null;
+                /** @description 教室ID */
+                classroom_id?: number | null;
+                /** @description 状态筛选（DB状态：1正常/2已取消/3已完成） */
+                status?: number | null;
+                /** @description 显示状态筛选：1待上课/2上课中/3已取消/4已完成 */
+                display_status?: number | null;
+                /** @description 开始时间范围-起 */
+                start_from?: string | null;
+                /** @description 开始时间范围-止 */
+                start_to?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_api_v1_schedules__schedule_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 排期ID */
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_schedule_api_v1_schedules__schedule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 排期ID */
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_api_v1_schedules__schedule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 排期ID */
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_schedule_api_v1_schedules__schedule_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 排期ID */
+                schedule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_delete_schedules_api_v1_schedules_batch_delete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "schedule_ids": [
+                 *         1,
+                 *         2,
+                 *         3
+                 *       ]
+                 *     }
+                 */
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_booking_api_v1_bookings__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bookings_api_v1_bookings_get: {
+        parameters: {
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量 */
+                page_size?: number;
+                /** @description 排期ID */
+                schedule_id?: number | null;
+                /** @description 状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show */
+                status?: string | null;
+                /** @description 显示状态筛选：1待上课/2已取消/3上课中/4已完成 */
+                display_status?: number | null;
+                /** @description 是否只查询待上课（未开始）的预约 */
+                upcoming?: boolean;
+                /** @description 是否排除已取消的记录（小程序端使用） */
+                exclude_cancelled?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_booking_api_v1_bookings__booking_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 预约ID */
+                booking_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_booking_api_v1_bookings__booking_id__cancel_post: {
+        parameters: {
+            query?: {
+                /** @description 取消原因 */
+                reason?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 预约ID */
+                booking_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_booking_by_schedule_api_v1_bookings_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_in_booking_api_v1_bookings__booking_id__check_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 预约ID */
+                booking_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_booking_api_v1_bookings__booking_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 预约ID */
+                booking_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_current_teacher_api_v1_teachers_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_current_teacher_api_v1_teachers_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_products_api_v1_membership_products_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                /** @description 状态：0下架/1上架（不传表示全部） */
+                status?: number | null;
+                card_type?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_product_api_v1_membership_products_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardProductCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_product_api_v1_membership_products__product_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_product_api_v1_membership_products__product_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardProductUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_product_api_v1_membership_products__product_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deleted_products_api_v1_membership_products_recycle_bin_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_product_api_v1_membership_products__product_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                product_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cards_api_v1_membership_cards_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                student_id?: number | null;
+                product_id?: number | null;
+                card_type?: string | null;
+                status?: number | null;
+                keyword?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_card_api_v1_membership_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_cards_api_v1_membership_my_cards_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_card_api_v1_membership_cards__card_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    freeze_card_api_v1_membership_cards__card_id__freeze_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardFreezeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unfreeze_card_api_v1_membership_cards__card_id__unfreeze_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extend_card_api_v1_membership_cards__card_id__extend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardExtendRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    activate_card_api_v1_membership_cards__card_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_activate_card_api_v1_membership_cards__card_id__admin_activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_card_api_v1_membership_cards__card_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_transactions_api_v1_membership_transactions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                card_id?: number | null;
+                operation_type?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_api_v1_ai_chat_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_history_api_v1_ai_history_get: {
+        parameters: {
+            query?: {
+                session_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_history_api_v1_ai_history_delete: {
+        parameters: {
+            query?: {
+                session_id?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_supported_intents_api_v1_ai_intents_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

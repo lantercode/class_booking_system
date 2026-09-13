@@ -10,14 +10,14 @@ Membership Card Module - 会员卡模块
 """
 
 from app.modules.membership.models import (
+    CardStatus,
+    CardType,
     MembershipCard,
+    MembershipCardFreeze,
     MembershipCardProduct,
     MembershipCardTransaction,
-    MembershipCardFreeze,
-    CardType,
-    CardStatus,
-    TransactionType,
     ProductStatus,
+    TransactionType,
 )
 
 __all__ = [

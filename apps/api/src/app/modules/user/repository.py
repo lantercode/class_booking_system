@@ -118,6 +118,7 @@ class UserRepository(TenantAwareRepository[User]):
 
         # 添加多租户过滤（手动添加，因为 search 不是继承的方法）
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(User.tenant_id == tenant_id)
@@ -157,9 +158,10 @@ class UserRepository(TenantAwareRepository[User]):
         Returns:
             是否存在
         """
-        query = select(func.count()).select_from(User).where(
-            User.phone == phone,
-            User.deleted_at.is_(None)
+        query = (
+            select(func.count())
+            .select_from(User)
+            .where(User.phone == phone, User.deleted_at.is_(None))
         )
 
         if exclude_id:
@@ -167,6 +169,7 @@ class UserRepository(TenantAwareRepository[User]):
 
         # 添加租户过滤
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(User.tenant_id == tenant_id)
@@ -194,16 +197,17 @@ class UserRepository(TenantAwareRepository[User]):
         Returns:
             是否存在
         """
-        query = select(func.count()).select_from(User).where(
-            User.email == email,
-            User.email.is_not(None),
-            User.deleted_at.is_(None)
+        query = (
+            select(func.count())
+            .select_from(User)
+            .where(User.email == email, User.email.is_not(None), User.deleted_at.is_(None))
         )
 
         if exclude_id:
             query = query.where(User.id != exclude_id)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(User.tenant_id == tenant_id)

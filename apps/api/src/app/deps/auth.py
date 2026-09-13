@@ -1,4 +1,3 @@
-
 from fastapi import Header
 
 from app.core.config import get_settings
@@ -7,6 +6,7 @@ from app.core.security import decode_token
 from app.core.tenant_context import set_role_id, set_tenant_id, set_user_id
 
 _redis_client = None
+
 
 async def get_current_user(authorization: str | None = Header(None)):
     """获取当前登录用户信息"""
@@ -30,17 +30,18 @@ async def get_current_user(authorization: str | None = Header(None)):
     # 7. 返回 payload
     return payload
 
+
 async def get_optional_user(authorization: str | None = Header(None)):
     """
-        获取当前登录用户信息可选认证 - 尝试获取当前用户，但不会强制要求登录
+    获取当前登录用户信息可选认证 - 尝试获取当前用户，但不会强制要求登录
 
-        用途：
-        - 有些接口登录和不登录都能访问
-        - 登录后可以返回个性化数据
+    用途：
+    - 有些接口登录和不登录都能访问
+    - 登录后可以返回个性化数据
 
-        Returns:
-            登录时: 返回用户信息字典
-            未登录时: 返回 None (不抛异常)
+    Returns:
+        登录时: 返回用户信息字典
+        未登录时: 返回 None (不抛异常)
     """
 
     if not authorization:
@@ -70,10 +71,7 @@ async def get_redis_client():
 
             settings = get_settings()
             print(f"🔗 正在连接 Redis: {settings.REDIS_URL}")
-            _redis_client = AsyncRedis.from_url(
-                settings.REDIS_URL,
-                decode_responses=True
-            )
+            _redis_client = AsyncRedis.from_url(settings.REDIS_URL, decode_responses=True)
             # 测试连接
             await _redis_client.ping()
             result = await _redis_client.ping()

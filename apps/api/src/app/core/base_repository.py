@@ -48,7 +48,7 @@ class BaseRepository[ModelType]:
 
     def _has_soft_delete(self) -> bool:
         """检查模型是否支持软删除（是否有 deleted_at 字段）"""
-        return hasattr(self.model_class, 'deleted_at')
+        return hasattr(self.model_class, "deleted_at")
 
     async def get_by_id(
         self,
@@ -77,10 +77,7 @@ class BaseRepository[ModelType]:
         query = select(self.model_class)
 
         if filters:
-            conditions = [
-                getattr(self.model_class, key) == value
-                for key, value in filters.items()
-            ]
+            conditions = [getattr(self.model_class, key) == value for key, value in filters.items()]
             query = query.where(and_(*conditions))
 
         if not include_deleted and self._has_soft_delete():
@@ -102,10 +99,7 @@ class BaseRepository[ModelType]:
         query = select(self.model_class)
 
         if filters:
-            conditions = [
-                getattr(self.model_class, key) == value
-                for key, value in filters.items()
-            ]
+            conditions = [getattr(self.model_class, key) == value for key, value in filters.items()]
             query = query.where(and_(*conditions))
 
         if not include_deleted and self._has_soft_delete():
@@ -135,10 +129,7 @@ class BaseRepository[ModelType]:
         count_query = select(func.count()).select_from(self.model_class)
 
         if filters:
-            conditions = [
-                getattr(self.model_class, key) == value
-                for key, value in filters.items()
-            ]
+            conditions = [getattr(self.model_class, key) == value for key, value in filters.items()]
             base_query = base_query.where(and_(*conditions))
             count_query = count_query.where(and_(*conditions))
 
@@ -218,7 +209,7 @@ class BaseRepository[ModelType]:
 
         try:
             for i in range(0, len(items), batch_size):
-                batch = items[i:i + batch_size]
+                batch = items[i : i + batch_size]
 
                 db_objects = []
                 for item in batch:
@@ -305,9 +296,7 @@ class BaseRepository[ModelType]:
 
             for record_id, data in updates:
                 stmt = (
-                    update(self.model_class)
-                    .where(self.model_class.id == record_id)
-                    .values(**data)
+                    update(self.model_class).where(self.model_class.id == record_id).values(**data)
                 )
                 result = await db.execute(stmt)
                 updated_count += result.rowcount
@@ -315,9 +304,7 @@ class BaseRepository[ModelType]:
             if auto_commit:
                 await db.commit()
 
-            logger.info(
-                f"[{self.model_class.__name__}] ✅ 批量更新成功: 共 {updated_count} 条"
-            )
+            logger.info(f"[{self.model_class.__name__}] ✅ 批量更新成功: 共 {updated_count} 条")
 
             return updated_count
 
@@ -356,9 +343,7 @@ class BaseRepository[ModelType]:
                 await db.commit()
 
             action = "硬删除" if hard_delete else "软删除"
-            logger.info(
-                f"[{self.model_class.__name__}] ✅ {action}成功: id={id}"
-            )
+            logger.info(f"[{self.model_class.__name__}] ✅ {action}成功: id={id}")
 
             return success
 
@@ -426,6 +411,7 @@ class TenantAwareRepository(BaseRepository[ModelType]):
     async def _get_tenant_id(self) -> int:
         """获取当前请求的租户 ID（从 ContextVar）"""
         from app.core.tenant_context import get_tenant_id
+
         tid = get_tenant_id()
         if not tid:
             raise ValueError("未找到当前租户 ID，请确保多租户中间件正常工作")
@@ -434,38 +420,38 @@ class TenantAwareRepository(BaseRepository[ModelType]):
     async def get_by_id(self, db: AsyncSession, id: int, **kwargs) -> ModelType | None:
         tenant_id = await self._get_tenant_id()
         result = await super().get_by_id(db, id, **kwargs)
-        if result and hasattr(result, 'tenant_id') and result.tenant_id != tenant_id:
+        if result and hasattr(result, "tenant_id") and result.tenant_id != tenant_id:
             return None
         return result
 
     async def get_all(self, db: AsyncSession, **kwargs) -> list[ModelType]:
         tenant_id = await self._get_tenant_id()
-        filters = kwargs.get('filters', {}) or {}
-        filters['tenant_id'] = tenant_id
-        kwargs['filters'] = filters
+        filters = kwargs.get("filters", {}) or {}
+        filters["tenant_id"] = tenant_id
+        kwargs["filters"] = filters
         return await super().get_all(db, **kwargs)
 
     async def create(self, db: AsyncSession, data, **kwargs) -> ModelType:
         tenant_id = await self._get_tenant_id()
         if isinstance(data, dict):
-            data['tenant_id'] = tenant_id
+            data["tenant_id"] = tenant_id
             return await super().create(db, data, **kwargs)
         elif isinstance(data, BaseModel):
             obj_dict = data.model_dump()
-            obj_dict['tenant_id'] = tenant_id
+            obj_dict["tenant_id"] = tenant_id
             return await super().create(db, obj_dict, **kwargs)
         return await super().create(db, data, **kwargs)
 
     async def get_paginated(self, db: AsyncSession, **kwargs) -> tuple[list[ModelType], int]:
         tenant_id = await self._get_tenant_id()
-        filters = kwargs.get('filters', {}) or {}
-        filters['tenant_id'] = tenant_id
-        kwargs['filters'] = filters
+        filters = kwargs.get("filters", {}) or {}
+        filters["tenant_id"] = tenant_id
+        kwargs["filters"] = filters
         return await super().get_paginated(db, **kwargs)
 
     async def count(self, db: AsyncSession, **kwargs) -> int:
         tenant_id = await self._get_tenant_id()
-        filters = kwargs.get('filters', {}) or {}
-        filters['tenant_id'] = tenant_id
-        kwargs['filters'] = filters
+        filters = kwargs.get("filters", {}) or {}
+        filters["tenant_id"] = tenant_id
+        kwargs["filters"] = filters
         return await super().count(db, **kwargs)

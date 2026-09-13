@@ -98,15 +98,30 @@ async def seed_test_database():
 
             # 2. 创建系统角色
             roles_data = [
-                {"code": "super_admin", "name": "超级管理员", "is_system": True, "description": "拥有所有权限"},
-                {"code": "admin", "name": "管理员", "is_system": True, "description": "管理机构日常运营"},
+                {
+                    "code": "super_admin",
+                    "name": "超级管理员",
+                    "is_system": True,
+                    "description": "拥有所有权限",
+                },
+                {
+                    "code": "admin",
+                    "name": "管理员",
+                    "is_system": True,
+                    "description": "管理机构日常运营",
+                },
                 {"code": "teacher", "name": "老师", "is_system": False, "description": "授课老师"},
                 {"code": "student", "name": "学员", "is_system": False, "description": "普通学员"},
             ]
             roles = []
             for rd in roles_data:
-                role = Role(tenant_id=tenant.id, code=rd["code"], name=rd["name"],
-                            is_system=rd["is_system"], description=rd["description"])
+                role = Role(
+                    tenant_id=tenant.id,
+                    code=rd["code"],
+                    name=rd["name"],
+                    is_system=rd["is_system"],
+                    description=rd["description"],
+                )
                 session.add(role)
                 roles.append(role)
             await session.flush()
@@ -156,12 +171,24 @@ async def seed_test_database():
 
             admin_role = next(r for r in roles if r.code == "admin")
             admin_codes = {
-                "course:create", "course:update",
-                "schedule:create", "schedule:update", "schedule:cancel", "schedule:delete",
-                "booking:view", "booking:manage",
-                "user:create", "user:read", "user:update", "user:manage",
-                "classroom:create", "classroom:read", "classroom:update",
-                "role:read", "role:read_permissions", "role:assign",
+                "course:create",
+                "course:update",
+                "schedule:create",
+                "schedule:update",
+                "schedule:cancel",
+                "schedule:delete",
+                "booking:view",
+                "booking:manage",
+                "user:create",
+                "user:read",
+                "user:update",
+                "user:manage",
+                "classroom:create",
+                "classroom:read",
+                "classroom:update",
+                "role:read",
+                "role:read_permissions",
+                "role:assign",
                 "stats:view",
             }
             for perm in permissions:
@@ -170,9 +197,13 @@ async def seed_test_database():
 
             teacher_role = next(r for r in roles if r.code == "teacher")
             teacher_codes = {
-                "course:create", "course:update",
-                "schedule:create", "schedule:update", "schedule:cancel",
-                "booking:view", "booking:manage",
+                "course:create",
+                "course:update",
+                "schedule:create",
+                "schedule:update",
+                "schedule:cancel",
+                "booking:view",
+                "booking:manage",
                 "classroom:read",
             }
             for perm in permissions:
@@ -204,6 +235,7 @@ async def seed_test_database():
                 await session.flush()
                 target_role = next(r for r in roles if r.code == role_code)
                 from app.modules.auth.models import UserRole
+
                 session.add(UserRole(user_id=user.id, role_id=target_role.id))
 
             await session.commit()
@@ -231,7 +263,6 @@ def live_server(event_loop):
     """
     global _server_thread, _server_url
 
-
     import uvicorn
 
     # 随机端口避免冲突
@@ -258,8 +289,9 @@ def live_server(event_loop):
     while time.time() - start_time < max_wait:
         try:
             import socket
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('127.0.0.1', port))
+            result = sock.connect_ex(("127.0.0.1", port))
             sock.close()
             if result == 0:
                 print(f"\n🚀 测试服务器启动: {_server_url}")

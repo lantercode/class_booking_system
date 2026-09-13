@@ -10,8 +10,10 @@ class StudentProfile(Base, TenantMixin, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, unique=True,
+        BigInteger,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
     emergency_contact_name: Mapped[str | None] = mapped_column(String(50))
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(20))
@@ -19,6 +21,4 @@ class StudentProfile(Base, TenantMixin, TimestampMixin):
     tags: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     notes: Mapped[str | None] = mapped_column(Text)
 
-    __table_args__ = (
-        Index("idx_student_profiles_tenant", "tenant_id"),
-    )
+    __table_args__ = (Index("idx_student_profiles_tenant", "tenant_id"),)

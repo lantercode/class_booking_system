@@ -31,6 +31,7 @@ settings = get_settings()
 
 class AuthService:
     """认证服务 - 业务逻辑层"""
+
     @staticmethod
     async def update_current_user_profile(
         session: AsyncSession,
@@ -118,10 +119,7 @@ class AuthService:
         )
 
     @staticmethod
-    async def register(
-            session: AsyncSession,
-            data: RegisterRequest
-    ) -> AuthResponse:
+    async def register(session: AsyncSession, data: RegisterRequest) -> AuthResponse:
         """
         用户注册
 
@@ -151,24 +149,20 @@ class AuthService:
             "phone": data.phone,
             "password_hash": hash_password(data.password),
             "nickname": data.nickname,
-            "status": UserStatus.ACTIVE.value
+            "status": UserStatus.ACTIVE.value,
         }
 
         user = await AuthRepository.create_user(session, user_data)
 
         # 分配默认角色 student
-        student_role = await AuthRepository.get_role_by_code(
-            session,
-            "student",
-            tenant.id
-        )
+        student_role = await AuthRepository.get_role_by_code(session, "student", tenant.id)
         if student_role:
             await AuthRepository.assign_role(session, user.id, student_role.id)
         else:
             raise ValidationException("默认角色不存在")
 
-        await session.commit() # 提交事务，确保数据持久化到数据库
-        await session.refresh(user) # 刷新以获取数据库生成的值（如 id, created_at）
+        await session.commit()  # 提交事务，确保数据持久化到数据库
+        await session.refresh(user)  # 刷新以获取数据库生成的值（如 id, created_at）
 
         # 生成双Token（Access Token + Refresh Token）
         token_data = {
@@ -190,14 +184,11 @@ class AuthService:
                 nickname=user.nickname or "",
                 status=user.status,
                 created_at=user.created_at,
-            )
+            ),
         )
 
     @staticmethod
-    async def login(
-        session: AsyncSession,
-        data: LoginRequest
-    ) -> AuthResponse:
+    async def login(session: AsyncSession, data: LoginRequest) -> AuthResponse:
         """
         用户登录
 
@@ -251,8 +242,8 @@ class AuthService:
                 nickname=user.nickname or "",
                 status=user.status,
                 last_login_at=user.last_login_at,
-                created_at=user.created_at
-            )
+                created_at=user.created_at,
+            ),
         )
 
     @staticmethod
@@ -296,7 +287,6 @@ class AuthService:
 
         # TODO 3: 返回成功消息
 
-
     @staticmethod
     async def refresh_token(
         session: AsyncSession,
@@ -337,11 +327,12 @@ class AuthService:
             raise AuthException("Token 无效或已过期")
         print(f"✅ Token 解码成功, user_id={decoded_payload.get('user_id')}")
 
-
         # TODO 2: 检查 token 是否在黑名单中
         # 提示：调用 is_token_blacklisted()
         # 如果在黑名单中 → raise AuthException("Token 已失效")
-        print(f"🔄 Step 2: 检查黑名单 (redis_client={type(redis_client).__name__ if redis_client else None})...")
+        print(
+            f"🔄 Step 2: 检查黑名单 (redis_client={type(redis_client).__name__ if redis_client else None})..."
+        )
         if redis_client:
             is_exist = await is_token_blacklisted(current_refresh_token, redis_client)
             if is_exist:
@@ -385,9 +376,7 @@ class AuthService:
         # 提示：调用 create_access_token() 和 create_refresh_token()
         # access_token payload: {"user_id": user.id, "tenant_id": user.tenant_id}
         # refresh_token payload: {"user_id": user.id}
-        access_token = create_access_token(
-            {"user_id": user.id, "tenant_id": user.tenant_id}
-        )
+        access_token = create_access_token({"user_id": user.id, "tenant_id": user.tenant_id})
         refresh_token = create_refresh_token({"user_id": user.id})
 
         # TODO 8: 构建并返回响应
@@ -400,17 +389,14 @@ class AuthService:
 
     @staticmethod
     async def wechat_auto_login(
-            session: AsyncSession,
-            code: str,
-            app_id: str,
-            tenant_slug: str
+        session: AsyncSession, code: str, app_id: str, tenant_slug: str
     ) -> AuthResponse:
         if not app_id:
             app_id = settings.WECHAT_APP_ID
         # 获取openid
         wechat_data = WechatService.code_to_openid(code, app_id)
         print(f"wechat_data: {wechat_data}")
-        openid = wechat_data['openid']
+        openid = wechat_data["openid"]
         # 获取租户
         tenant = await AuthRepository.get_tenant_by_slug(session, tenant_slug)
         if not tenant:
@@ -435,10 +421,10 @@ class AuthService:
                 user=UserResponse(
                     id=user.id,
                     phone=user.phone,
-                    nickname=user.nickname or '',
+                    nickname=user.nickname or "",
                     status=user.status,
-                    created_at=user.created_at
-                )
+                    created_at=user.created_at,
+                ),
             )
         else:
             session_key = wechat_data["session_key"]
@@ -490,11 +476,14 @@ class AuthService:
         if user.status != UserStatus.ACTIVE.value:
             raise AuthException("账号已被禁用，请联系管理员")
 
-        await AuthRepository.create_wechat_account(session, {
-            "user_id": user.id,
-            "open_id": openid,
-            "app_id": app_id,
-        })
+        await AuthRepository.create_wechat_account(
+            session,
+            {
+                "user_id": user.id,
+                "open_id": openid,
+                "app_id": app_id,
+            },
+        )
 
         await AuthRepository.update_user(session, user, {"last_login_at": datetime.now()})
         await session.commit()

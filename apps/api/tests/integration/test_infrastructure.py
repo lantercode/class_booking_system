@@ -19,11 +19,12 @@ from app.middleware.rate_limiter import RateLimiter
 
 class MockModel:
     """模拟的 SQLAlchemy Model"""
+
     def __init__(self, **kwargs):
-        self.id = kwargs.get('id')
-        self.name = kwargs.get('name')
-        self.tenant_id = kwargs.get('tenant_id')
-        self.deleted_at = kwargs.get('deleted_at')
+        self.id = kwargs.get("id")
+        self.name = kwargs.get("name")
+        self.tenant_id = kwargs.get("tenant_id")
+        self.deleted_at = kwargs.get("deleted_at")
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -117,10 +118,11 @@ class TestTenantAwareRepository:
         repo = UserRepo()
 
         from app.core.tenant_context import set_tenant_id
+
         set_tenant_id(99)
 
         try:
-            with patch.object(repo, '_get_tenant_id', return_value=99):
+            with patch.object(repo, "_get_tenant_id", return_value=99):
                 db = AsyncMock()
                 data = {"name": "租户用户"}
                 result = await repo.create(db, data)
@@ -137,8 +139,7 @@ class TestLocalStorageService:
     @pytest.fixture
     def local_storage(self, tmp_path):
         return LocalStorageService(
-            storage_path=str(tmp_path / "uploads"),
-            base_url="http://localhost:8000/uploads"
+            storage_path=str(tmp_path / "uploads"), base_url="http://localhost:8000/uploads"
         )
 
     @pytest.mark.asyncio
@@ -147,10 +148,7 @@ class TestLocalStorageService:
         file_obj = BytesIO(file_content)
 
         result = await local_storage.upload(
-            file_obj,
-            path_prefix="avatars/",
-            filename="profile.jpg",
-            content_type="image/jpeg"
+            file_obj, path_prefix="avatars/", filename="profile.jpg", content_type="image/jpeg"
         )
 
         assert result.success is True
@@ -165,7 +163,7 @@ class TestLocalStorageService:
             file_obj,
             filename="virus.exe",
             content_type="application/x-executable",
-            allowed_types=["image/jpeg"]
+            allowed_types=["image/jpeg"],
         )
 
         assert result.success is False
@@ -177,11 +175,7 @@ class TestLocalStorageService:
         large_content = b"x" * (11 * 1024 * 1024)
         file_obj = BytesIO(large_content)
 
-        result = await local_storage.upload(
-            file_obj,
-            filename="large.bin",
-            max_size_mb=10
-        )
+        result = await local_storage.upload(file_obj, filename="large.bin", max_size_mb=10)
 
         assert result.success is False
         assert "文件过大" in result.error_message
@@ -256,7 +250,7 @@ class TestInfrastructureIntegration:
                 file_obj,
                 path_prefix="documents/",
                 filename="report.pdf",
-                content_type="application/pdf"
+                content_type="application/pdf",
             )
 
             assert upload_result.success is True

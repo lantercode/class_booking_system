@@ -47,7 +47,7 @@ def register_data():
         "phone": phone,  # 使用不冲突的手机号
         "password": "Test@123456",
         "verify_code": "123456",
-        "nickname": "测试用户"
+        "nickname": "测试用户",
     }
 
 
@@ -57,7 +57,7 @@ def login_data(register_data: dict):
     return {
         "tenant_slug": "dance-school",  # 根据种子数据调整
         "phone": register_data["phone"],
-        "password": "Test@123456"
+        "password": "Test@123456",
     }
 
 
@@ -134,7 +134,7 @@ class TestRegister:
             "phone": "12345",  # 无效的手机号格式
             "password": "Test@123456",
             "verify_code": "123456",
-            "nickname": "测试用户"
+            "nickname": "测试用户",
         }
 
         response = await client.post("/api/v1/auth/register", json=invalid_data)
@@ -154,7 +154,7 @@ class TestRegister:
             "phone": "13900139001",
             "password": "123456",  # 弱密码（不符合复杂度要求）
             "verify_code": "123456",
-            "nickname": "测试用户"
+            "nickname": "测试用户",
         }
 
         response = await client.post("/api/v1/auth/register", json=weak_password_data)
@@ -183,7 +183,7 @@ class TestLogin:
         login_data = {
             "tenant_slug": "dance-school",
             "phone": register_data["phone"],
-            "password": register_data["password"]
+            "password": register_data["password"],
         }
 
         response = await client.post("/api/v1/auth/login", json=login_data)
@@ -215,7 +215,7 @@ class TestLogin:
         login_data = {
             "tenant_slug": "dance-school",
             "phone": register_data["phone"],
-            "password": "WrongPassword123!"  # 错误的密码
+            "password": "WrongPassword123!",  # 错误的密码
         }
 
         response = await client.post("/api/v1/auth/login", json=login_data)
@@ -237,7 +237,7 @@ class TestLogin:
         login_data = {
             "tenant_slug": "dance-school",
             "phone": "19999999999",  # 不存在的手机号
-            "password": "Test@123456"
+            "password": "Test@123456",
         }
 
         response = await client.post("/api/v1/auth/login", json=login_data)
@@ -263,8 +263,7 @@ class TestGetMe:
 
         # 带 Token 访问 /me
         response = await client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {access_token}"}
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"}
         )
 
         # 断言成功
@@ -296,8 +295,7 @@ class TestGetMe:
         测试无效 Token 访问 /me → 应返回 401
         """
         response = await client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": "Bearer invalid_token_here"}
+            "/api/v1/auth/me", headers={"Authorization": "Bearer invalid_token_here"}
         )
 
         assert response.status_code == 401
@@ -323,8 +321,7 @@ class TestRefreshToken:
 
         # 刷新 Token
         refresh_response = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": old_refresh_token}
+            "/api/v1/auth/refresh-token", json={"refresh_token": old_refresh_token}
         )
 
         # 断言成功
@@ -358,15 +355,13 @@ class TestRefreshToken:
 
         # 第一次刷新（应该成功）
         first_refresh = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": old_refresh_token}
+            "/api/v1/auth/refresh-token", json={"refresh_token": old_refresh_token}
         )
         assert first_refresh.status_code == 200
 
         # 第二次使用相同的 refresh_token（应该失败！）
         second_refresh = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": old_refresh_token}
+            "/api/v1/auth/refresh-token", json={"refresh_token": old_refresh_token}
         )
 
         # 断言失败（Token 已在黑名单中）
@@ -383,8 +378,7 @@ class TestRefreshToken:
         测试无效的 refresh_token → 应返回 401
         """
         response = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": "invalid_refresh_token"}
+            "/api/v1/auth/refresh-token", json={"refresh_token": "invalid_refresh_token"}
         )
 
         assert response.status_code == 401
@@ -410,7 +404,7 @@ class TestLogout:
         logout_response = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": f"Bearer {access_token}"},
-            json={"refresh_token": refresh_token}
+            json={"refresh_token": refresh_token},
         )
 
         # 断言登出成功
@@ -421,8 +415,7 @@ class TestLogout:
 
         # 验证 refresh_token 已失效（尝试使用它刷新）
         refresh_after_logout = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": refresh_token}
+            "/api/v1/auth/refresh-token", json={"refresh_token": refresh_token}
         )
 
         assert refresh_after_logout.status_code == 401
@@ -442,7 +435,7 @@ class TestLogout:
         logout_response = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": f"Bearer {access_token}"},
-            json={}  # 空请求体
+            json={},  # 空请求体
         )
 
         # 应该仍然成功（refresh_token 是可选的）
@@ -479,7 +472,7 @@ class TestCompleteAuthFlow:
             "phone": unique_phone,
             "password": "Secure@Pass789",
             "verify_code": "654321",
-            "nickname": "完整链路测试用户"
+            "nickname": "完整链路测试用户",
         }
 
         # ===== Step 1: 注册 =====
@@ -497,8 +490,7 @@ class TestCompleteAuthFlow:
         # ===== Step 2: 获取用户信息 =====
         print("📝 Step 2: 获取当前用户信息...")
         me_resp_1 = await client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {access_token_1}"}
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token_1}"}
         )
         assert me_resp_1.status_code == 200, f"获取用户信息失败: {me_resp_1.text}"
 
@@ -510,8 +502,7 @@ class TestCompleteAuthFlow:
         # ===== Step 3: 刷新 Token =====
         print("📝 Step 3: 刷新 Token...")
         refresh_resp = await client.post(
-            "/api/v1/auth/refresh-token",
-            json={"refresh_token": refresh_token_1}
+            "/api/v1/auth/refresh-token", json={"refresh_token": refresh_token_1}
         )
         assert refresh_resp.status_code == 200, f"刷新 Token 失败: {refresh_resp.text}"
 
@@ -528,8 +519,7 @@ class TestCompleteAuthFlow:
         # ===== Step 4: 使用新 Token 访问 =====
         print("📝 Step 4: 使用新 Token 访问...")
         me_resp_2 = await client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {access_token_2}"}
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token_2}"}
         )
         assert me_resp_2.status_code == 200, "新 Token 应该有效"
 
@@ -540,7 +530,7 @@ class TestCompleteAuthFlow:
         logout_resp = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": f"Bearer {access_token_2}"},
-            json={"refresh_token": refresh_token_2}
+            json={"refresh_token": refresh_token_2},
         )
         assert logout_resp.status_code == 200, f"登出失败: {logout_resp.text}"
 
@@ -550,17 +540,14 @@ class TestCompleteAuthFlow:
         print("📝 Step 6: 验证 Token 失效...")
 
         # 尝试使用旧的 access_token
-        await client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {access_token_1}"}
-        )
+        await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token_1}"})
         # 注意：access_token 可能还未过期，所以可能还是 200
         # 但 refresh_token 应该已经失效
 
         # 尝试使用已吊销的 refresh_token 刷新
         old_rt_resp = await client.post(
             "/api/v1/auth/refresh-token",
-            json={"refresh_token": refresh_token_2}  # 已登出的 RT
+            json={"refresh_token": refresh_token_2},  # 已登出的 RT
         )
         assert old_rt_resp.status_code == 401, "已登出的 refresh_token 应该失效"
 
@@ -573,6 +560,7 @@ class TestCompleteAuthFlow:
 
 # ==================== 边界情况测试 ====================
 
+
 class TestEdgeCases:
     """边界情况和异常处理测试"""
 
@@ -584,7 +572,7 @@ class TestEdgeCases:
         incomplete_data = {
             # 缺少 password, verify_code, nickname
             "tenant_slug": "dance-school",
-            "phone": "13900139002"
+            "phone": "13900139002",
         }
 
         response = await client.post("/api/v1/auth/register", json=incomplete_data)
@@ -599,7 +587,7 @@ class TestEdgeCases:
         """
         register_data_with_extra = {
             **register_data,
-            "extra_field": "should_be_ignored"  # 额外字段
+            "extra_field": "should_be_ignored",  # 额外字段
         }
 
         response = await client.post("/api/v1/auth/register", json=register_data_with_extra)
@@ -618,7 +606,7 @@ class TestEdgeCases:
             "phone": "13900139003",
             "password": "Test@123456",
             "verify_code": "123456",
-            "nickname": "SQL注入测试"
+            "nickname": "SQL注入测试",
         }
 
         response = await client.post("/api/v1/auth/register", json=injection_payload)
@@ -632,16 +620,17 @@ if __name__ == "__main__":
     # 手动运行测试（开发调试用）
     import asyncio
 
-
     async def run_tests():
         import pytest
-        exit_code = await pytest.main([
-            __file__,
-            "-v",
-            "--tb=short",
-            "-x"  # 第一个失败就停止
-        ])
-        return exit_code
 
+        exit_code = await pytest.main(
+            [
+                __file__,
+                "-v",
+                "--tb=short",
+                "-x",  # 第一个失败就停止
+            ]
+        )
+        return exit_code
 
     asyncio.run(run_tests())

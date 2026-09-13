@@ -101,6 +101,7 @@ class UserService:
         role_ids_to_assign = list(data.role_ids) if data.role_ids else []
         if data.role_codes:
             from app.core.tenant_context import get_tenant_id
+
             tenant_id = get_tenant_id()
             for code in data.role_codes:
                 role = await AuthRepository.get_role_by_code(db, code, tenant_id)
@@ -378,23 +379,25 @@ class UserService:
             if role_code and role_code not in role_codes:
                 continue
 
-            user_responses.append(UserResponse(
-                id=user.id,
-                public_id=str(user.public_id),
-                tenant_id=user.tenant_id,
-                phone=user.phone,
-                email=user.email,
-                nickname=user.nickname,
-                real_name=user.real_name,
-                avatar_url=user.avatar_url,
-                gender=user.gender,
-                birthday=user.birthday,
-                status=user.status,
-                last_login_at=user.last_login_at,
-                created_at=user.created_at,
-                updated_at=user.updated_at,
-                roles=role_codes,
-            ))
+            user_responses.append(
+                UserResponse(
+                    id=user.id,
+                    public_id=str(user.public_id),
+                    tenant_id=user.tenant_id,
+                    phone=user.phone,
+                    email=user.email,
+                    nickname=user.nickname,
+                    real_name=user.real_name,
+                    avatar_url=user.avatar_url,
+                    gender=user.gender,
+                    birthday=user.birthday,
+                    status=user.status,
+                    last_login_at=user.last_login_at,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                    roles=role_codes,
+                )
+            )
 
         return UserListResponse(
             total=len(user_responses) if role_code else total,
@@ -511,9 +514,7 @@ class UserService:
             raise NotFoundException("用户不存在")
 
         # 删除现有角色
-        await db.execute(
-            UserRole.__table__.delete().where(UserRole.user_id == user_id)
-        )
+        await db.execute(UserRole.__table__.delete().where(UserRole.user_id == user_id))
 
         # 添加新角色
         for role_id in role_ids:
@@ -523,6 +524,7 @@ class UserService:
 
         # 清除权限缓存（关键步骤！）
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if redis_client:
             await clear_user_permission_cache(redis_client, tenant_id, user_id)

@@ -15,7 +15,7 @@ Day 5 测试：企业级功能验证（面向面试）
 import asyncio
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 import redis.asyncio as aioredis
 
@@ -51,15 +51,11 @@ async def test_distributed_lock():
     print("\n📌 模拟并发场景：快速发送两个请求")
     print("-" * 60)
 
-    task1 = asyncio.create_task(
-        runtime.chat("帮我约瑜伽课", session_id)
-    )
+    task1 = asyncio.create_task(runtime.chat("帮我约瑜伽课", session_id))
 
     await asyncio.sleep(0.01)
 
-    task2 = asyncio.create_task(
-        runtime.chat("1", session_id)
-    )
+    task2 = asyncio.create_task(runtime.chat("1", session_id))
 
     result1, result2 = await asyncio.gather(task1, task2)
 
@@ -187,6 +183,7 @@ async def test_error_code_mapping():
 
     all_passed = True
     for error_msg, expected_keyword in test_cases:
+
         class MockError(Exception):
             def __init__(self):
                 super().__init__(error_msg)
@@ -212,8 +209,7 @@ async def test_logging_output():
     import logging
 
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     redis_client = await get_redis_client()
@@ -226,7 +222,7 @@ async def test_logging_output():
     response = await runtime.chat("查一下我的余额", session_id)
     print(f"\n🤖 Agent 回复：{response[:50]}...")
 
-    if hasattr(runtime, 'logger') and runtime.logger:
+    if hasattr(runtime, "logger") and runtime.logger:
         print("\n✅ Logger 已初始化，日志会输出到控制台")
         print("   日志格式：时间 - 模块名 - 级别 - 消息")
         if redis_client:

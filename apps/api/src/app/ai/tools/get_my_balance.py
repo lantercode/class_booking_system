@@ -17,8 +17,4 @@ async def get_my_balance(ctx: ToolContext) -> dict:
         余额信息
     """
     # TODO: 接入真实的 BalanceService
-    return {
-        "total": 30,
-        "consumed": 12,
-        "remaining": 18
-    }
+    return {"total": 30, "consumed": 12, "remaining": 18}

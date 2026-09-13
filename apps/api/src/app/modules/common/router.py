@@ -20,6 +20,7 @@ router = APIRouter(prefix="/common", tags=["Common"])
 # 健康检查与测试
 # ============================================================
 
+
 @router.get(
     "/health",
     summary="健康检查",
@@ -70,11 +71,13 @@ async def test_auth(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     """测试认证接口"""
-    return success(data={
-        "user_id": current_user.get("user_id"),
-        "tenant_id": current_user.get("tenant_id"),
-        "message": "认证成功！",
-    })
+    return success(
+        data={
+            "user_id": current_user.get("user_id"),
+            "tenant_id": current_user.get("tenant_id"),
+            "message": "认证成功！",
+        }
+    )
 
 
 @router.get(
@@ -91,8 +94,10 @@ async def test_generate_token() -> dict:
         "role_codes": ["teacher", "student"],
     }
     token = create_access_token(payload)
-    return success(data={
-        "token": token,
-        "payload": payload,
-        "message": "请复制此 Token 用于测试 /test-auth 接口",
-    })
+    return success(
+        data={
+            "token": token,
+            "payload": payload,
+            "message": "请复制此 Token 用于测试 /test-auth 接口",
+        }
+    )

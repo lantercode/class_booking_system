@@ -52,33 +52,40 @@ async def auto_activate_membership_cards():
             return
 
         card_ids = [c.id for c in cards]
-        logger.info(
-            f"[定时任务] 发现 {len(card_ids)} 个待激活会员卡, ids={card_ids}"
-        )
+        logger.info(f"[定时任务] 发现 {len(card_ids)} 个待激活会员卡, ids={card_ids}")
 
         for card in cards:
             # 检查学员是否已有同产品且课程类型重叠的有效卡（防止同一时段多张卡重叠）
             if card.product_id:
                 from app.modules.membership.repository import MembershipCardRepository
+
                 card_repo = MembershipCardRepository()
                 existing_cards = await card_repo.get_active_cards_by_product(
                     db, card.student_id, card.product_id, card.tenant_id, exclude_pending=True
                 )
-                
+
                 # 过滤出课程类型有重叠且时间重叠的卡
                 has_conflict = False
                 new_card_course_types = set(card.applicable_course_type_codes or [])
-                
+
                 for existing_card in existing_cards:
                     existing_course_types = set(existing_card.applicable_course_type_codes or [])
                     # 如果课程类型有交集
                     if new_card_course_types & existing_course_types:
                         # 检查时间是否重叠
-                        if card.valid_from and existing_card.expire_at and card.expire_at and existing_card.valid_from:
-                            if card.valid_from <= existing_card.expire_at and existing_card.valid_from <= card.expire_at:
+                        if (
+                            card.valid_from
+                            and existing_card.expire_at
+                            and card.expire_at
+                            and existing_card.valid_from
+                        ):
+                            if (
+                                card.valid_from <= existing_card.expire_at
+                                and existing_card.valid_from <= card.expire_at
+                            ):
                                 has_conflict = True
                                 break
-                
+
                 if has_conflict:
                     logger.warning(
                         f"[定时任务] 跳过激活会员卡 {card.id}：学员 {card.student_id} 已有同课程类型的有效卡"
@@ -90,6 +97,7 @@ async def auto_activate_membership_cards():
             # 如果有有效天数，计算到期时间
             if card.product_id:
                 from app.modules.membership.repository import MembershipCardProductRepository
+
                 product_repo = MembershipCardProductRepository()
                 product = await product_repo.get_by_id(db, card.product_id)
                 if product and product.validity_days:
@@ -107,9 +115,7 @@ async def auto_activate_membership_cards():
 
         await db.commit()
 
-        logger.info(
-            f"[定时任务] 自动激活 {len(card_ids)} 个会员卡"
-        )
+        logger.info(f"[定时任务] 自动激活 {len(card_ids)} 个会员卡")
 
 
 async def auto_expire_membership_cards():
@@ -123,7 +129,7 @@ async def auto_expire_membership_cards():
     4. 记录过期流水
     """
     from app.modules.membership.models import CardType
-    
+
     async with SessionLocal() as db:
         now = datetime.now(UTC)
 
@@ -142,18 +148,14 @@ async def auto_expire_membership_cards():
             return
 
         card_ids = [c.id for c in cards]
-        logger.info(
-            f"[定时任务] 发现 {len(card_ids)} 个已过期会员卡, ids={card_ids}"
-        )
+        logger.info(f"[定时任务] 发现 {len(card_ids)} 个已过期会员卡, ids={card_ids}")
 
         for card in cards:
             remaining = (card.total_credits or 0) - card.used_credits
-            
+
             # 对于次卡，如果有剩余次数，先清零
             if card.card_type == CardType.COUNT.value and remaining > 0:
-                logger.info(
-                    f"[定时任务] 次卡 {card.id} 到期，剩余 {remaining} 次自动清零"
-                )
+                logger.info(f"[定时任务] 次卡 {card.id} 到期，剩余 {remaining} 次自动清零")
                 # 记录清零流水
                 clear_txn = MembershipCardTransaction(
                     tenant_id=card.tenant_id,
@@ -184,23 +186,21 @@ async def auto_expire_membership_cards():
 
         await db.commit()
 
-        logger.info(
-            f"[定时任务] 自动标记 {len(card_ids)} 个会员卡为已过期"
-        )
+        logger.info(f"[定时任务] 自动标记 {len(card_ids)} 个会员卡为已过期")
 
 
 async def notify_expiring_membership_cards():
     """
     会员卡到期提醒
-    
+
     执行逻辑:
     1. 找到 expire_at 在 3 天内且 status=ACTIVE 的会员卡
     2. 记录提醒日志（实际项目中可接入短信/推送/微信模板消息）
-    
+
     注意：此任务应每天运行一次
     """
     from datetime import timedelta
-    
+
     async with SessionLocal() as db:
         now = datetime.now(UTC)
         three_days_later = now + timedelta(days=3)
@@ -219,14 +219,12 @@ async def notify_expiring_membership_cards():
             return
 
         card_ids = [c.id for c in cards]
-        logger.info(
-            f"[定时任务] 发现 {len(card_ids)} 个即将到期的会员卡, ids={card_ids}"
-        )
+        logger.info(f"[定时任务] 发现 {len(card_ids)} 个即将到期的会员卡, ids={card_ids}")
 
         for card in cards:
             remaining = (card.total_credits or 0) - card.used_credits
             days_left = (card.expire_at - now).days
-            
+
             # TODO: 实际项目中应接入通知服务
             # 例如：发送短信、微信模板消息、App推送等
             logger.info(
@@ -238,7 +236,7 @@ async def notify_expiring_membership_cards():
 async def auto_unfreeze_membership_cards():
     """
     自动解冻到期冻结的会员卡
-    
+
     执行逻辑:
     1. 找到 frozen_until <= now 且 status=FROZEN 的会员卡
     2. 将状态改为 ACTIVE
@@ -246,7 +244,7 @@ async def auto_unfreeze_membership_cards():
     4. 更新冻结记录的unfrozen_at
     """
     from app.modules.membership.models import MembershipCardFreeze
-    
+
     async with SessionLocal() as db:
         now = datetime.now(UTC)
 
@@ -263,23 +261,23 @@ async def auto_unfreeze_membership_cards():
             return
 
         card_ids = [c.id for c in cards]
-        logger.info(
-            f"[定时任务] 发现 {len(card_ids)} 个冻结到期的会员卡, ids={card_ids}"
-        )
+        logger.info(f"[定时任务] 发现 {len(card_ids)} 个冻结到期的会员卡, ids={card_ids}")
 
         for card in cards:
             card.status = CardStatus.ACTIVE.value
             card.frozen_reason = None
             card.frozen_at = None
-            frozen_until = card.frozen_until
             card.frozen_until = None
 
             # 更新最新的冻结记录
             result = await db.execute(
-                select(MembershipCardFreeze).where(
+                select(MembershipCardFreeze)
+                .where(
                     MembershipCardFreeze.card_id == card.id,
                     MembershipCardFreeze.unfrozen_at.is_(None),
-                ).order_by(MembershipCardFreeze.created_at.desc()).limit(1)
+                )
+                .order_by(MembershipCardFreeze.created_at.desc())
+                .limit(1)
             )
             freeze_record = result.scalars().first()
             if freeze_record:
@@ -287,6 +285,4 @@ async def auto_unfreeze_membership_cards():
 
         await db.commit()
 
-        logger.info(
-            f"[定时任务] 自动解冻 {len(card_ids)} 个会员卡"
-        )
+        logger.info(f"[定时任务] 自动解冻 {len(card_ids)} 个会员卡")

@@ -151,7 +151,7 @@ class RateLimiter:
 
         # 清理过期记录（ZREMRANGEBYSCORE 移除 score < 当前时间 - 窗口大小）
         min_score = current_time - window
-        pipe.zremrangebyscore(key, '-inf', min_score)
+        pipe.zremrangebyscore(key, "-inf", min_score)
 
         # 统计当前窗口内的请求数
         pipe.zcard(key)
@@ -169,7 +169,9 @@ class RateLimiter:
         if current_count >= limit:
             # 已超限
             oldest_request = await self.redis.zrange(key, 0, 0, withscores=True)
-            retry_after = (oldest_request[0][1] - current_time + window) if oldest_request else window
+            retry_after = (
+                (oldest_request[0][1] - current_time + window) if oldest_request else window
+            )
 
             logger.debug(
                 f"[RateLimiter] ⛔ 限流触发: key={key}, "
@@ -188,7 +190,7 @@ class RateLimiter:
 
             logger.debug(
                 f"[RateLimiter] ✅ 请求通过: key={key}, "
-                f"count={current_count+1}, limit={limit}, remaining={remaining}"
+                f"count={current_count + 1}, limit={limit}, remaining={remaining}"
             )
 
             return True, {
@@ -363,7 +365,7 @@ def rate_limit(
         @wraps(func)
         async def wrapper(*args, **kwargs):
             # 从 kwargs 中提取 request 对象（FastAPI 注入）
-            request = kwargs.get('request')
+            request = kwargs.get("request")
 
             if not request:
                 # 尝试从位置参数中查找
@@ -377,14 +379,14 @@ def rate_limit(
                 return await func(*args, **kwargs)
 
             # 提取 Redis 客户端
-            redis_client = kwargs.get('redis_client')
+            redis_client = kwargs.get("redis_client")
 
             # 创建临时限流器实例
             limiter = RateLimiter(redis_client=redis_client)
 
             # 生成 Key
-            if per_user and hasattr(request.state, 'user'):
-                user_id = getattr(request.state.user, 'id', None)
+            if per_user and hasattr(request.state, "user"):
+                user_id = getattr(request.state.user, "id", None)
                 custom_key = f"rate_limit:user:{user_id}:{request.url.path}"
             elif key_func:
                 custom_key = key_func(request)
@@ -396,6 +398,7 @@ def rate_limit(
 
             if not allowed:
                 from fastapi import HTTPException
+
                 raise HTTPException(
                     status_code=429,
                     detail={

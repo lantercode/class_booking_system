@@ -7,10 +7,7 @@
 from app.ai.context import ToolContext
 
 
-async def create_booking(
-    ctx: ToolContext,
-    schedule_id: int
-) -> dict:
+async def create_booking(ctx: ToolContext, schedule_id: int) -> dict:
     """
     为当前用户预约指定排期的课程
 
@@ -29,8 +26,4 @@ async def create_booking(
     # 4. 用户未重复预约
     # 5. 用户未被禁用
 
-    return {
-        "success": True,
-        "booking_id": 1002,
-        "message": "预约成功！"
-    }
+    return {"success": True, "booking_id": 1002, "message": "预约成功！"}

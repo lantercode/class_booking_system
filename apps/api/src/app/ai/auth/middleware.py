@@ -31,11 +31,7 @@ class AuthMiddleware:
         # payload = decode_token(token)
 
         # 临时返回假数据
-        return ToolContext(
-            user_id=1,
-            tenant_id=1,
-            role="student"
-        )
+        return ToolContext(user_id=1, tenant_id=1, role="student")
 
     def check_permission(self, ctx: ToolContext, required_role: str) -> bool:
         """

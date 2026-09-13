@@ -28,23 +28,35 @@ class Booking(Base, TenantMixin, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     public_id: Mapped[str] = mapped_column(
-        PG_UUID(as_uuid=True), unique=True, nullable=False, default=uuid4,
+        PG_UUID(as_uuid=True),
+        unique=True,
+        nullable=False,
+        default=uuid4,
     )
     schedule_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("course_schedules.id", ondelete="RESTRICT"), nullable=False,
+        BigInteger,
+        ForeignKey("course_schedules.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     student_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False,
+        BigInteger,
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
     )
     status: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     source: Mapped[str] = mapped_column(
-        String(20), nullable=False, default=BookingSource.SELF.value,
+        String(20),
+        nullable=False,
+        default=BookingSource.SELF.value,
     )
     membership_card_id: Mapped[int | None] = mapped_column(
-        BigInteger, nullable=True,
+        BigInteger,
+        nullable=True,
     )
     booked_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_reason: Mapped[str | None] = mapped_column(String(255))
@@ -53,7 +65,8 @@ class Booking(Base, TenantMixin, TimestampMixin):
     __table_args__ = (
         Index(
             "uq_bookings_schedule_student_active",
-            "schedule_id", "student_id",
+            "schedule_id",
+            "student_id",
             unique=True,
             postgresql_where=text("status IN (1, 3, 4)"),
         ),

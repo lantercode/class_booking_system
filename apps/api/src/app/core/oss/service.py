@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class UploadResult:
     """文件上传结果"""
+
     success: bool
     url: str | None = None
     key: str | None = None
@@ -41,7 +42,16 @@ class UploadResult:
 class OSSService:
     """OSS 服务基类（抽象接口）"""
 
-    async def upload(self, file: BinaryIO, path_prefix: str = "", *, filename=None, content_type=None, allowed_types=None, max_size_mb=10):
+    async def upload(
+        self,
+        file: BinaryIO,
+        path_prefix: str = "",
+        *,
+        filename=None,
+        content_type=None,
+        allowed_types=None,
+        max_size_mb=10,
+    ):
         raise NotImplementedError("子类必须实现 upload() 方法")
 
     async def delete(self, key: str) -> bool:
@@ -81,9 +91,18 @@ class LocalStorageService(OSSService):
 
         max_size_bytes = max_size_mb * 1024 * 1024
         if size > max_size_bytes:
-            raise ValueError(f"文件过大: {size/(1024*1024):.2f}MB > {max_size_mb}MB")
+            raise ValueError(f"文件过大: {size / (1024 * 1024):.2f}MB > {max_size_mb}MB")
 
-    async def upload(self, file, path_prefix="", *, filename=None, content_type=None, allowed_types=None, max_size_mb=10):
+    async def upload(
+        self,
+        file,
+        path_prefix="",
+        *,
+        filename=None,
+        content_type=None,
+        allowed_types=None,
+        max_size_mb=10,
+    ):
         try:
             self._validate_file(file, content_type, allowed_types, max_size_mb)
 
@@ -106,7 +125,14 @@ class LocalStorageService(OSSService):
 
             logger.info(f"[Local Storage] ✅ 上传成功: {key} ({len(content)} bytes)")
 
-            return UploadResult(success=True, url=url, key=key, filename=unique_filename, size=len(content), content_type=content_type)
+            return UploadResult(
+                success=True,
+                url=url,
+                key=key,
+                filename=unique_filename,
+                size=len(content),
+                content_type=content_type,
+            )
 
         except ValueError as e:
             logger.warning(f"[Local Storage] ❌ 文件验证失败: {e}")
@@ -140,6 +166,7 @@ class AliyunOSSService(OSSService):
     def __init__(self, access_key_id, access_key_secret, endpoint, bucket_name, bucket_url):
         try:
             import oss2
+
             self.auth = oss2.Auth(access_key_id, access_key_secret)
             self.bucket = oss2.Bucket(self.auth, endpoint, bucket_name)
             self.bucket_name = bucket_name
@@ -148,9 +175,17 @@ class AliyunOSSService(OSSService):
         except ImportError:
             raise ImportError("请安装阿里云 OSS SDK: pip install oss2")
 
-    async def upload(self, file, path_prefix="", *, filename=None, content_type=None, allowed_types=None, max_size_mb=10):
+    async def upload(
+        self,
+        file,
+        path_prefix="",
+        *,
+        filename=None,
+        content_type=None,
+        allowed_types=None,
+        max_size_mb=10,
+    ):
         try:
-
             file.seek(0, 2)
             size = file.tell()
             file.seek(0)
@@ -172,16 +207,31 @@ class AliyunOSSService(OSSService):
 
             today = datetime.now().strftime("%Y/%m/%d")
             full_path_prefix = path_prefix.rstrip("/") if path_prefix else ""
-            object_key = f"{full_path_prefix}/{today}/{unique_filename}" if full_path_prefix else f"{today}/{unique_filename}"
+            object_key = (
+                f"{full_path_prefix}/{today}/{unique_filename}"
+                if full_path_prefix
+                else f"{today}/{unique_filename}"
+            )
 
-            result = self.bucket.put_object(object_key, file, headers={"Content-Type": content_type or ""})
+            result = self.bucket.put_object(
+                object_key, file, headers={"Content-Type": content_type or ""}
+            )
 
             if result.status == 200:
                 url = f"{self.bucket_url}/{object_key}"
                 logger.info(f"[Aliyun OSS] ✅ 上传成功: {object_key} ({size} bytes)")
-                return UploadResult(success=True, url=url, key=object_key, filename=unique_filename, size=size, content_type=content_type)
+                return UploadResult(
+                    success=True,
+                    url=url,
+                    key=object_key,
+                    filename=unique_filename,
+                    size=size,
+                    content_type=content_type,
+                )
             else:
-                return UploadResult(success=False, error_message=f"OSS 上传失败: HTTP {result.status}")
+                return UploadResult(
+                    success=False, error_message=f"OSS 上传失败: HTTP {result.status}"
+                )
 
         except Exception as e:
             logger.error(f"[Aliyun OSS] ❌ 上传异常: {e}", exc_info=True)
@@ -203,7 +253,7 @@ class AliyunOSSService(OSSService):
 
     async def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:
         try:
-            signed_url = self.bucket.sign_url('GET', key, expires_in)
+            signed_url = self.bucket.sign_url("GET", key, expires_in)
             return signed_url
         except Exception as e:
             logger.error(f"[Aliyun OSS] ❌ 生成预签名 URL 失败: {e}")
@@ -215,19 +265,19 @@ def get_oss_service():
     from app.core.config import get_settings
 
     settings = get_settings()
-    provider = getattr(settings, 'OSS_PROVIDER', 'local').lower()
+    provider = getattr(settings, "OSS_PROVIDER", "local").lower()
 
-    if provider == 'local':
-        storage_path = getattr(settings, 'LOCAL_STORAGE_PATH', './uploads')
-        base_url = getattr(settings, 'LOCAL_STORAGE_URL_PREFIX', 'http://localhost:8000/uploads')
+    if provider == "local":
+        storage_path = getattr(settings, "LOCAL_STORAGE_PATH", "./uploads")
+        base_url = getattr(settings, "LOCAL_STORAGE_URL_PREFIX", "http://localhost:8000/uploads")
         return LocalStorageService(storage_path=storage_path, base_url=base_url)
 
-    elif provider == 'aliyun':
-        access_key_id = getattr(settings, 'ALIYUN_OSS_ACCESS_KEY_ID', '')
-        access_key_secret = getattr(settings, 'ALIYUN_OSS_ACCESS_KEY_SECRET', '')
-        endpoint = getattr(settings, 'ALIYUN_OSS_ENDPOINT', '')
-        bucket_name = getattr(settings, 'ALIYUN_OSS_BUCKET_NAME', '')
-        bucket_url = getattr(settings, 'ALIYUN_OSS_BUCKET_URL', '')
+    elif provider == "aliyun":
+        access_key_id = getattr(settings, "ALIYUN_OSS_ACCESS_KEY_ID", "")
+        access_key_secret = getattr(settings, "ALIYUN_OSS_ACCESS_KEY_SECRET", "")
+        endpoint = getattr(settings, "ALIYUN_OSS_ENDPOINT", "")
+        bucket_name = getattr(settings, "ALIYUN_OSS_BUCKET_NAME", "")
+        bucket_url = getattr(settings, "ALIYUN_OSS_BUCKET_URL", "")
 
         if not all([access_key_id, access_key_secret, endpoint, bucket_name]):
             raise ValueError("阿里云 OSS 配置不完整！请检查环境变量：ALIYUN_OSS_ACCESS_KEY_ID 等")

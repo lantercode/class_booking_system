@@ -6,10 +6,7 @@
 from app.ai.context import ToolContext
 
 
-async def get_my_bookings(
-    ctx: ToolContext,
-    status: str = None
-) -> dict:
+async def get_my_bookings(ctx: ToolContext, status: str = None) -> dict:
     """
     查询当前用户的预约记录
 
@@ -24,6 +21,12 @@ async def get_my_bookings(
     # 安全：只能查自己的预约
     return {
         "bookings": [
-            {"id": 1001, "course_name": "瑜伽基础班", "date": "2026-08-06", "time": "14:00", "status": "confirmed"}
+            {
+                "id": 1001,
+                "course_name": "瑜伽基础班",
+                "date": "2026-08-06",
+                "time": "14:00",
+                "status": "confirmed",
+            }
         ]
     }

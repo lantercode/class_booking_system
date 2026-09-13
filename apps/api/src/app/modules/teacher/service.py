@@ -71,7 +71,9 @@ class TeacherService:
             user.nickname = data["nickname"]
 
         # 更新教师档案表
-        profile_result = await db.execute(select(TeacherProfile).where(TeacherProfile.user_id == user_id))
+        profile_result = await db.execute(
+            select(TeacherProfile).where(TeacherProfile.user_id == user_id)
+        )
         profile = profile_result.scalar_one_or_none()
 
         if not profile:

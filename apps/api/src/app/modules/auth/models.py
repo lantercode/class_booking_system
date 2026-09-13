@@ -21,7 +21,8 @@ class Role(Base, TenantMixin, TimestampMixin):
     __table_args__ = (
         Index(
             "uq_roles_tenant_code",
-            text("COALESCE(tenant_id, 0)"), "code",
+            text("COALESCE(tenant_id, 0)"),
+            "code",
             unique=True,
         ),
     )
@@ -41,12 +42,16 @@ class UserRole(Base):
     __tablename__ = "user_roles"
 
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False, primary_key=True,
+        BigInteger,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True,
     )
     role_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("roles.id", ondelete="CASCADE"),
-        nullable=False, primary_key=True,
+        BigInteger,
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True,
     )
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -55,20 +60,24 @@ class RolePermission(Base):
     __tablename__ = "role_permissions"
 
     role_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("roles.id", ondelete="CASCADE"),
-        nullable=False, primary_key=True,
+        BigInteger,
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True,
     )
     permission_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("permissions.id", ondelete="CASCADE"),
-        nullable=False, primary_key=True,
+        BigInteger,
+        ForeignKey("permissions.id", ondelete="CASCADE"),
+        nullable=False,
+        primary_key=True,
     )
+
 
 class WechatAccount(Base, TimestampMixin):
     __tablename__ = "wechat_accounts"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=True
+        BigInteger, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
     )
     open_id: Mapped[str] = mapped_column(String(64), nullable=False)
     unionid: Mapped[str] = mapped_column(String(64), nullable=True)
@@ -80,7 +89,8 @@ class WechatAccount(Base, TimestampMixin):
     __table_args__ = (
         Index(
             "uq_wechat_accounts_open_id_app_id",
-            "open_id", "app_id",
+            "open_id",
+            "app_id",
             unique=True,
         ),
     )

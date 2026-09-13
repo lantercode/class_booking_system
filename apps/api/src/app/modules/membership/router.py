@@ -35,6 +35,7 @@ router = APIRouter(prefix="/membership", tags=["会员卡管理"])
 # 产品管理
 # ============================================================
 
+
 @router.post("/products", response_model=dict, status_code=201, summary="创建会员卡产品")
 @require_roles("admin", "super_admin")
 async def create_product(
@@ -62,7 +63,12 @@ async def list_products(
     """获取产品列表"""
     tenant_id = current_user.get("tenant_id")
     result = await membership_card_service.list_products(
-        db, tenant_id, status=status, card_type=card_type, page=page, page_size=page_size,
+        db,
+        tenant_id,
+        status=status,
+        card_type=card_type,
+        page=page,
+        page_size=page_size,
     )
     # Convert ORM models to Pydantic schemas
     items = [MembershipCardProductResponse.model_validate(p) for p in result["items"]]
@@ -123,7 +129,10 @@ async def list_deleted_products(
     """获取回收站中的产品列表"""
     tenant_id = current_user.get("tenant_id")
     result = await membership_card_service.list_deleted_products(
-        db, tenant_id, page=page, page_size=page_size,
+        db,
+        tenant_id,
+        page=page,
+        page_size=page_size,
     )
     items = [MembershipCardProductResponse.model_validate(p) for p in result["items"]]
     result["items"] = items
@@ -149,6 +158,7 @@ async def restore_product(
 # 会员卡管理
 # ============================================================
 
+
 @router.post("/cards", response_model=dict, status_code=201, summary="发放会员卡")
 @require_roles("admin", "super_admin")
 async def issue_card(
@@ -157,15 +167,18 @@ async def issue_card(
     current_user: dict = Depends(get_current_user),
 ):
     """发放会员卡
-    
+
     - 默认不允许重复发卡（allow_duplicate=False）
     - 如果学员已有同产品的有效卡，返回 409 Conflict
     - 续卡场景请设置 allow_duplicate=true
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.info(f"📥 收到发卡请求: student_id={data.student_id}, product_id={data.product_id}, allow_duplicate={data.allow_duplicate}")
-    
+    logger.info(
+        f"📥 收到发卡请求: student_id={data.student_id}, product_id={data.product_id}, allow_duplicate={data.allow_duplicate}"
+    )
+
     tenant_id = current_user.get("tenant_id")
     operator_id = current_user.get("user_id")
     result = await membership_card_service.issue_card(
@@ -191,8 +204,15 @@ async def list_cards(
     """获取会员卡列表"""
     tenant_id = current_user.get("tenant_id")
     result = await membership_card_service.list_cards(
-        db, tenant_id, student_id=student_id, product_id=product_id,
-        card_type=card_type, status=status, keyword=keyword, page=page, page_size=page_size,
+        db,
+        tenant_id,
+        student_id=student_id,
+        product_id=product_id,
+        card_type=card_type,
+        status=status,
+        keyword=keyword,
+        page=page,
+        page_size=page_size,
     )
     # items 已经是 dict 格式，直接用 Pydantic 转换
     items = [MembershipCardResponse.model_validate(c) for c in result["items"]]
@@ -333,6 +353,7 @@ async def cancel_card(
 # 消费流水
 # ============================================================
 
+
 @router.get("/transactions", response_model=dict, summary="获取消费流水列表")
 async def list_transactions(
     page: int = Query(1, ge=1),
@@ -345,7 +366,12 @@ async def list_transactions(
     """获取消费流水列表"""
     tenant_id = current_user.get("tenant_id")
     result = await membership_card_service.list_transactions(
-        db, tenant_id, card_id=card_id, operation_type=operation_type, page=page, page_size=page_size,
+        db,
+        tenant_id,
+        card_id=card_id,
+        operation_type=operation_type,
+        page=page,
+        page_size=page_size,
     )
     items = [MembershipCardTransactionResponse.model_validate(t) for t in result["items"]]
     result["items"] = items

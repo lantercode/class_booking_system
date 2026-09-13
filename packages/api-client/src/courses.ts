@@ -57,6 +57,7 @@ export interface CourseListParams {
   category?: string
   level?: string
   status?: number
+  course_type_code?: string
 }
 
 export interface CourseCreateParams {

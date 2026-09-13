@@ -4,7 +4,6 @@ Course Repository - 课程数据访问层
 提供课程相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +31,7 @@ class CourseTypeRepository(TenantAwareRepository[CourseType]):
             count_query = count_query.where(CourseType.status == status)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(CourseType.tenant_id == tenant_id)
@@ -55,14 +55,19 @@ class CourseTypeRepository(TenantAwareRepository[CourseType]):
         exclude_id: int | None = None,
     ) -> bool:
         """检查类型代码是否已存在"""
-        query = select(func.count()).select_from(CourseType).where(
-            CourseType.code == code,
+        query = (
+            select(func.count())
+            .select_from(CourseType)
+            .where(
+                CourseType.code == code,
+            )
         )
 
         if exclude_id:
             query = query.where(CourseType.id != exclude_id)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(CourseType.tenant_id == tenant_id)
@@ -79,14 +84,19 @@ class CourseTypeRepository(TenantAwareRepository[CourseType]):
         exclude_id: int | None = None,
     ) -> bool:
         """检查类型名称是否已存在"""
-        query = select(func.count()).select_from(CourseType).where(
-            CourseType.name == name,
+        query = (
+            select(func.count())
+            .select_from(CourseType)
+            .where(
+                CourseType.name == name,
+            )
         )
 
         if exclude_id:
             query = query.where(CourseType.id != exclude_id)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(CourseType.tenant_id == tenant_id)
@@ -104,6 +114,7 @@ class CourseTypeRepository(TenantAwareRepository[CourseType]):
         query = select(CourseType).where(CourseType.code == code)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(CourseType.tenant_id == tenant_id)
@@ -117,12 +128,17 @@ class CourseTypeRepository(TenantAwareRepository[CourseType]):
         course_type_code: str,
     ) -> int:
         """统计使用该类型的课程数量"""
-        query = select(func.count()).select_from(Course).where(
-            Course.course_type_code == course_type_code,
-            Course.deleted_at.is_(None),
+        query = (
+            select(func.count())
+            .select_from(Course)
+            .where(
+                Course.course_type_code == course_type_code,
+                Course.deleted_at.is_(None),
+            )
         )
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(Course.tenant_id == tenant_id)
@@ -178,6 +194,7 @@ class CourseRepository(TenantAwareRepository[Course]):
             count_query = count_query.where(Course.course_type_code == course_type_code)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(Course.tenant_id == tenant_id)
@@ -204,15 +221,20 @@ class CourseRepository(TenantAwareRepository[Course]):
         exclude_id: int | None = None,
     ) -> bool:
         """检查课程名称是否已存在"""
-        query = select(func.count()).select_from(Course).where(
-            Course.name == name,
-            Course.deleted_at.is_(None),
+        query = (
+            select(func.count())
+            .select_from(Course)
+            .where(
+                Course.name == name,
+                Course.deleted_at.is_(None),
+            )
         )
 
         if exclude_id:
             query = query.where(Course.id != exclude_id)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             query = query.where(Course.tenant_id == tenant_id)

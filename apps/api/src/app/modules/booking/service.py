@@ -54,8 +54,7 @@ class BookingService:
     ) -> BookingResponse:
         """创建预约"""
         logger.info(
-            f"[BookingService] 创建预约: schedule_id={data.schedule_id}, "
-            f"student_id={student_id}"
+            f"[BookingService] 创建预约: schedule_id={data.schedule_id}, student_id={student_id}"
         )
 
         schedule = await self.schedule_repo.get_by_id(db, data.schedule_id)
@@ -82,15 +81,11 @@ class BookingService:
         if schedule.booking_closes_at and now > schedule.booking_closes_at:
             raise BusinessException("预约已截止", code=400)
 
-        existing = await self.repo.find_active_booking(
-            db, data.schedule_id, student_id
-        )
+        existing = await self.repo.find_active_booking(db, data.schedule_id, student_id)
         if existing:
             raise BusinessException("您已预约该排期，请勿重复预约", code=400)
 
-        success = await self.schedule_repo.increment_booked_count(
-            db, data.schedule_id
-        )
+        success = await self.schedule_repo.increment_booked_count(db, data.schedule_id)
         if not success:
             raise BusinessException("预约失败，排期可能已满或已取消", code=400)
 
@@ -157,7 +152,9 @@ class BookingService:
         reason: str | None = None,
     ) -> BookingResponse:
         """通过排期ID取消预约（学员端）"""
-        logger.warning(f"[BookingService] 通过排期ID取消预约: schedule_id={schedule_id}, student_id={student_id}")
+        logger.warning(
+            f"[BookingService] 通过排期ID取消预约: schedule_id={schedule_id}, student_id={student_id}"
+        )
 
         booking = await self.repo.find_by_schedule_and_student(db, schedule_id, student_id)
         if not booking:
@@ -319,7 +316,9 @@ class BookingService:
 
         # 根据 display_status 过滤（display_status 是计算字段，不在 DB 中）
         if display_status is not None:
-            response_items = [item for item in response_items if item.display_status == display_status]
+            response_items = [
+                item for item in response_items if item.display_status == display_status
+            ]
 
         total = len(response_items)
 
@@ -330,7 +329,9 @@ class BookingService:
             items=response_items,
         )
 
-    async def _get_student_info_map(self, db: AsyncSession, student_ids: list[int]) -> dict[int, tuple[str, str]]:
+    async def _get_student_info_map(
+        self, db: AsyncSession, student_ids: list[int]
+    ) -> dict[int, tuple[str, str]]:
         """批量获取学员信息映射"""
         if not student_ids:
             return {}
@@ -340,12 +341,11 @@ class BookingService:
         result = await db.execute(query)
         users = result.scalars().all()
 
-        return {
-            user.id: (user.nickname, user.phone)
-            for user in users
-        }
+        return {user.id: (user.nickname, user.phone) for user in users}
 
-    async def _get_schedule_info_map(self, db: AsyncSession, schedule_ids: list[int]) -> dict[int, dict[str, Any]]:
+    async def _get_schedule_info_map(
+        self, db: AsyncSession, schedule_ids: list[int]
+    ) -> dict[int, dict[str, Any]]:
         """批量获取排期关联信息（课程名、教室名、教师名、时间）"""
         if not schedule_ids:
             return {}
@@ -388,7 +388,12 @@ class BookingService:
             for row in rows
         }
 
-    def _to_response(self, booking: Booking, student_info: tuple[str, str] | None = None, schedule_info: dict[str, Any] | None = None) -> BookingResponse:
+    def _to_response(
+        self,
+        booking: Booking,
+        student_info: tuple[str, str] | None = None,
+        schedule_info: dict[str, Any] | None = None,
+    ) -> BookingResponse:
         """将 ORM 模型转换为响应对象"""
         nickname, phone = student_info if student_info else (None, None)
         schedule_info = schedule_info or {}

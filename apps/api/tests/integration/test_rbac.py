@@ -52,14 +52,16 @@ def mock_redis():
 
     # 预设常用方法的返回值（避免 AttributeError）
     redis.smembers.return_value = None  # 默认返回 None（缓存未命中）
-    redis.delete.return_value = 0        # 默认删除 0 个 key
+    redis.delete.return_value = 0  # 默认删除 0 个 key
 
     # 创建模拟 Pipeline 对象（同步 MagicMock，因为 cache.py 中是同步使用）
     mock_pipeline = MagicMock()
     mock_pipeline.delete = MagicMock(return_value=True)
     mock_pipeline.sadd = MagicMock(return_value=len(["user:create", "user:read", "class:view"]))
     mock_pipeline.expire = MagicMock(return_value=True)
-    mock_pipeline.execute = AsyncMock(return_value=[True, 3, True])  # [delete_result, sadd_count, expire_result]
+    mock_pipeline.execute = AsyncMock(
+        return_value=[True, 3, True]
+    )  # [delete_result, sadd_count, expire_result]
 
     # 关键修复：pipeline() 直接返回 pipeline 对象（不返回协程）
     redis.pipeline.return_value = mock_pipeline
@@ -145,6 +147,7 @@ class TestPermissionChecker:
         """测试从数据库查询权限并检查"""
         # 模拟数据库返回的用户角色
         call_count = 0
+
         async def mock_execute(stmt):
             nonlocal call_count
             call_count += 1
@@ -177,6 +180,7 @@ class TestPermissionChecker:
     async def test_check_permissions_with_and_logic(self, db_session, sample_user_context):
         """测试多权限 AND 逻辑（必须拥有所有权限）"""
         call_count = 0
+
         async def mock_execute(stmt):
             nonlocal call_count
             call_count += 1
@@ -195,9 +199,7 @@ class TestPermissionChecker:
 
         # 测试 AND 逻辑：两个都有 → 通过
         has_all = await check_permissions(
-            db_session,
-            ["user:create", "user:read"],
-            require_all=True
+            db_session, ["user:create", "user:read"], require_all=True
         )
         assert has_all is True, "应该同时拥有 user:create 和 user:read"
 
@@ -205,7 +207,7 @@ class TestPermissionChecker:
         has_not_all = await check_permissions(
             db_session,
             ["user:create", "user:delete"],  # 没有 delete
-            require_all=True
+            require_all=True,
         )
         assert has_not_all is False, "不应该同时拥有 user:create 和 user:delete"
 
@@ -215,6 +217,7 @@ class TestPermissionChecker:
     async def test_check_permissions_with_or_logic(self, db_session, sample_user_context):
         """测试多权限 OR 逻辑（拥有其一即可）"""
         call_count = 0
+
         async def mock_execute(stmt):
             nonlocal call_count
             call_count += 1
@@ -234,7 +237,7 @@ class TestPermissionChecker:
         has_any = await check_permissions(
             db_session,
             ["admin:all", "user:read"],  # 有 user:read
-            require_all=False
+            require_all=False,
         )
         assert has_any is True, "应该拥有 admin:all 或 user:read 其中之一"
 
@@ -242,7 +245,7 @@ class TestPermissionChecker:
         has_none = await check_permissions(
             db_session,
             ["super:manage", "finance:approve"],  # 都没有
-            require_all=False
+            require_all=False,
         )
         assert has_none is False, "不应该拥有 super:manage 或 finance:approve"
 
@@ -255,6 +258,7 @@ class TestRoleChecker:
     @pytest.mark.asyncio
     async def test_check_single_role(self, db_session, sample_user_context):
         """测试单个角色检查"""
+
         async def mock_execute(stmt):
             result = MagicMock()
             result.scalar_one_or_none.return_value = "admin"  # 找到角色
@@ -280,6 +284,7 @@ class TestRoleChecker:
     @pytest.mark.asyncio
     async def test_check_multiple_roles_or_logic(self, db_session, sample_user_context):
         """测试多角色 OR 逻辑"""
+
         async def mock_execute(stmt):
             result = MagicMock()
             result.fetchall.return_value = [
@@ -305,7 +310,9 @@ class TestRBACDecorator:
     """测试 RBAC 装饰器（集成测试）"""
 
     @pytest.mark.asyncio
-    async def test_require_permissions_decorator_pass(self, db_session, mock_redis, sample_user_context):
+    async def test_require_permissions_decorator_pass(
+        self, db_session, mock_redis, sample_user_context
+    ):
         """测试权限装饰器：有权限时通过"""
         from app.core.rbac.decorator import require_permissions
 
@@ -318,6 +325,7 @@ class TestRBACDecorator:
 
         # 模拟数据库查询返回权限
         call_count = 0
+
         async def mock_execute(stmt):
             nonlocal call_count
             call_count += 1
@@ -343,14 +351,18 @@ class TestRBACDecorator:
 
         # 执行包装后的函数
         try:
-            result = await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
+            result = await wrapped(
+                current_user=current_user, db=db_session, redis_client=mock_redis
+            )
             assert result == {"status": "ok"}, "权限通过时应返回原函数结果"
             print("✅ 权限装饰器：有权限时通过")
         except PermissionException:
             pytest.fail("不应该抛出 PermissionException")
 
     @pytest.mark.asyncio
-    async def test_require_permissions_decorator_deny(self, db_session, mock_redis, sample_user_context):
+    async def test_require_permissions_decorator_deny(
+        self, db_session, mock_redis, sample_user_context
+    ):
         """测试权限装饰器：无权限时拒绝"""
         from app.core.rbac.decorator import require_permissions
 
@@ -362,6 +374,7 @@ class TestRBACDecorator:
 
         # 模拟数据库查询返回的权限（不含 user:delete）
         call_count = 0
+
         async def mock_execute(stmt):
             nonlocal call_count
             call_count += 1
@@ -417,7 +430,9 @@ class TestRBACDecorator:
         wrapped = role_checker(dummy_handler)
 
         try:
-            result = await wrapped(current_user=current_user, db=db_session, redis_client=mock_redis)
+            result = await wrapped(
+                current_user=current_user, db=db_session, redis_client=mock_redis
+            )
             assert result == {"status": "ok"}
             print("✅ 角色装饰器：有角色时通过")
         except PermissionException:

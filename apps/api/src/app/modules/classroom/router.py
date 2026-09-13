@@ -18,6 +18,7 @@ classroom_service = ClassroomService()
 # 教室 CRUD
 # ============================================================
 
+
 @router.post(
     "/",
     response_model=dict,
@@ -33,7 +34,9 @@ async def create_classroom(
 ):
     """创建教室"""
     result = await classroom_service.create_classroom(
-        db, data, operator_id=current_user.get("user_id"),
+        db,
+        data,
+        operator_id=current_user.get("user_id"),
     )
     return success(data=result, msg="教室创建成功")
 

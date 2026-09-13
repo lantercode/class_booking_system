@@ -7,7 +7,12 @@ from app.core.database import get_session
 from app.core.rbac import require_permissions
 from app.core.response import success
 from app.deps.auth import get_current_user
-from app.modules.course.schemas import CourseCreate, CourseTypeCreate, CourseTypeUpdate, CourseUpdate
+from app.modules.course.schemas import (
+    CourseCreate,
+    CourseTypeCreate,
+    CourseTypeUpdate,
+    CourseUpdate,
+)
 from app.modules.course.service import CourseService, course_type_service
 
 router = APIRouter(prefix="/courses", tags=["课程管理"])
@@ -17,6 +22,7 @@ course_service = CourseService()
 # ============================================================
 # 课程类型 CRUD
 # ============================================================
+
 
 @router.post(
     "/types",
@@ -115,6 +121,7 @@ async def delete_course_type(
 # 课程 CRUD
 # ============================================================
 
+
 @router.post(
     "/",
     response_model=dict,
@@ -130,7 +137,9 @@ async def create_course(
 ):
     """创建课程"""
     result = await course_service.create_course(
-        db, data, operator_id=current_user.get("user_id"),
+        db,
+        data,
+        operator_id=current_user.get("user_id"),
     )
     return success(data=result, msg="课程创建成功")
 

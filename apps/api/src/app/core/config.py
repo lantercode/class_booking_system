@@ -1,4 +1,5 @@
 """应用配置 - 基于 Pydantic Settings 加载 .env."""
+
 from functools import lru_cache
 from pathlib import Path
 

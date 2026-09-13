@@ -1,4 +1,5 @@
 """FastAPI 应用入口."""
+
 import logging
 from contextlib import asynccontextmanager
 
@@ -22,9 +23,14 @@ from app.modules.booking.router import router as booking_router  # ⭐ 新增：
 from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
 from app.modules.common.router import router as common_router
 from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
-from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.membership.router import router as membership_router  # 会员卡路由
-from app.modules.membership.scheduler import auto_activate_membership_cards, auto_expire_membership_cards, notify_expiring_membership_cards, auto_unfreeze_membership_cards
+from app.modules.membership.scheduler import (
+    auto_activate_membership_cards,
+    auto_expire_membership_cards,
+    auto_unfreeze_membership_cards,
+    notify_expiring_membership_cards,
+)
+from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.schedule.router import router as schedule_router  # 排期路由
 from app.modules.schedule.scheduler import auto_finish_expired_schedules
 from app.modules.teacher.router import router as teacher_router  # 教师路由
@@ -46,8 +52,7 @@ async def lifespan(app: FastAPI):
     redis_client = await get_redis_client()
     if not redis_client:
         raise RuntimeError(
-            "❌ Redis 不可用！生产环境必须启用 Redis。\n"
-            "请检查: docker-compose up -d redis"
+            "❌ Redis 不可用！生产环境必须启用 Redis。\n请检查: docker-compose up -d redis"
         )
     print("✅ Redis 连接正常！")
 
@@ -139,10 +144,7 @@ app.add_middleware(
 )
 
 # ↓↓↓ 在这里添加租户中间件 ↓↓↓
-app.add_middleware(
-    TenantASGIMiddleware,
-    session_factory=SessionLocal
-)
+app.add_middleware(TenantASGIMiddleware, session_factory=SessionLocal)
 
 # ⭐ 新增：API 限流中间件配置（防止滥用）
 # 注意：中间件将在 lifespan 中动态添加（因为 Redis 需要异步初始化）

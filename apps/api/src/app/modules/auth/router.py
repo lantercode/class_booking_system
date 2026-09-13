@@ -26,6 +26,7 @@ router = APIRouter(prefix="/auth", tags=["认证管理"])
 # 账号密码认证
 # ============================================================
 
+
 @router.post(
     "/register",
     status_code=201,
@@ -126,6 +127,7 @@ async def refresh_token_endpoint(
 # 当前用户
 # ============================================================
 
+
 @router.get(
     "/me",
     summary="获取当前用户",
@@ -159,7 +161,9 @@ async def update_me(
 ) -> dict:
     """更新当前用户信息（学员端）"""
     user = await AuthService.update_current_user_profile(
-        db, current_user["user_id"], data,
+        db,
+        current_user["user_id"],
+        data,
     )
     return success(data=user, msg="个人信息更新成功")
 
@@ -167,6 +171,7 @@ async def update_me(
 # ============================================================
 # 微信登录
 # ============================================================
+
 
 @router.post(
     "/wechat-auto-login",
@@ -184,7 +189,10 @@ async def wechat_auto_login(
 ) -> dict:
     """微信自动登录 - code 换取 openid 并检查绑定状态"""
     result = await AuthService.wechat_auto_login(
-        db, data.code, data.app_id, data.tenant_slug,
+        db,
+        data.code,
+        data.app_id,
+        data.tenant_slug,
     )
     return success(data=result, msg="登录成功")
 

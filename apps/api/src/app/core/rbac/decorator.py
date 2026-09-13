@@ -52,10 +52,7 @@ from .checker import check_permissions, check_roles
 logger = logging.getLogger(__name__)
 
 
-def require_permissions(
-    *permission_codes: str,
-    require_all: bool = True
-):
+def require_permissions(*permission_codes: str, require_all: bool = True):
     """
     权限检查装饰器（基于权限码）- FastAPI 兼容版本
 
@@ -103,9 +100,9 @@ def require_permissions(
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             try:
-                db = kwargs.get('db')
-                current_user = kwargs.get('current_user')
-                redis_client = kwargs.get('redis_client')
+                db = kwargs.get("db")
+                current_user = kwargs.get("current_user")
+                redis_client = kwargs.get("redis_client")
 
                 user_id = current_user.get("user_id") if current_user else None
                 tenant_id = current_user.get("tenant_id") if current_user else None
@@ -134,9 +131,7 @@ def require_permissions(
                     logger.warning(
                         f"[RBAC] ❌ 权限拒绝: user={user_id} 缺少权限 [{perms_str}] (需要{mode_str})"
                     )
-                    raise PermissionException(
-                        f"权限不足，需要 {mode_str} 权限: {perms_str}"
-                    )
+                    raise PermissionException(f"权限不足，需要 {mode_str} 权限: {perms_str}")
 
                 logger.debug(f"[RBAC] ✅ 权限通过: user={user_id}")
 
@@ -157,10 +152,7 @@ def require_permissions(
     return decorator
 
 
-def require_roles(
-    *role_codes: str,
-    require_all: bool = False
-):
+def require_roles(*role_codes: str, require_all: bool = False):
     """
     角色检查装饰器（基于角色代码）- FastAPI 兼容版本
 
@@ -214,9 +206,9 @@ def require_roles(
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             try:
-                db = kwargs.get('db')
-                current_user = kwargs.get('current_user')
-                redis_client = kwargs.get('redis_client')
+                db = kwargs.get("db")
+                current_user = kwargs.get("current_user")
+                redis_client = kwargs.get("redis_client")
 
                 user_id = current_user.get("user_id") if current_user else None
                 tenant_id = current_user.get("tenant_id") if current_user else None
@@ -245,9 +237,7 @@ def require_roles(
                     logger.warning(
                         f"[RBAC] ❌ 角色拒绝: user={user_id} 缺少角色 [{roles_str}] (需要{mode_str})"
                     )
-                    raise PermissionException(
-                        f"权限不足，需要{mode_str}角色: {roles_str}"
-                    )
+                    raise PermissionException(f"权限不足，需要{mode_str}角色: {roles_str}")
 
                 logger.debug(f"[RBAC] ✅ 角色通过: user={user_id}")
                 return await func(*args, **kwargs)

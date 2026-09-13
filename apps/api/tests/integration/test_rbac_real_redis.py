@@ -15,7 +15,6 @@ RBAC 权限系统 - 真实 Redis 集成测试
     uv run pytest tests/integration/test_rbac_real_redis.py -v -s
 """
 
-
 import pytest
 from redis.asyncio import Redis
 
@@ -71,7 +70,9 @@ class TestRealRedisCacheOperations:
         # 步骤2: 读取缓存
         cached_perms = await get_cached_permissions(real_redis, tenant_id, user_id)
         assert cached_perms is not None, "读取缓存返回 None"
-        assert len(cached_perms) == len(permissions), f"数量不匹配: {len(cached_perms)} vs {len(permissions)}"
+        assert len(cached_perms) == len(permissions), (
+            f"数量不匹配: {len(cached_perms)} vs {len(permissions)}"
+        )
 
         # 步骤3: 验证每个权限都存在
         for perm in permissions:
@@ -202,16 +203,16 @@ async def test_redis_performance_benchmark(real_redis):
     read_time = time.time() - start_time
     read_avg = (read_time / iterations) * 1000  # ms
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"📊 Redis 性能基准测试结果 ({iterations} 次操作)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print("写入操作:")
     print(f"  - 总耗时: {write_time:.3f}s")
     print(f"  - 平均耗时: {write_avg:.2f}ms/次")
     print("\n读取操作:")
     print(f"  - 总耗时: {read_time:.3f}s")
     print(f"  - 平均耗时: {read_avg:.2f}ms/次")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # 性能断言（宽松阈值，局域网 Redis 应该很快）
     assert write_avg < 10, f"写入太慢: {write_avg:.2f}ms > 10ms"

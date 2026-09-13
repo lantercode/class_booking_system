@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class RoleBase(BaseModel):
     """角色基础信息"""
+
     code: str = Field(..., min_length=2, max_length=50, description="角色代码（唯一标识）")
     name: str = Field(..., min_length=1, max_length=50, description="角色名称")
     description: str | None = Field(None, max_length=255, description="角色描述")
@@ -18,17 +19,20 @@ class RoleBase(BaseModel):
 
 class RoleCreate(RoleBase):
     """创建角色请求体"""
+
     permission_ids: list[int] | None = Field(default=[], description="初始权限ID列表")
 
 
 class RoleUpdate(BaseModel):
     """更新角色请求体（部分更新）"""
+
     name: str | None = Field(None, min_length=1, max_length=50, description="角色名称")
     description: str | None = Field(None, max_length=255, description="角色描述")
 
 
 class RoleResponse(RoleBase):
     """角色响应体"""
+
     id: int
     tenant_id: int | None = None
     is_system: bool = False
@@ -41,6 +45,7 @@ class RoleResponse(RoleBase):
 
 class RoleListResponse(BaseModel):
     """角色列表分页响应"""
+
     total: int = Field(..., description="总数")
     page: int = Field(..., ge=1, description="当前页码")
     page_size: int = Field(..., ge=1, le=100, description="每页数量")
@@ -49,6 +54,7 @@ class RoleListResponse(BaseModel):
 
 class PermissionResponse(BaseModel):
     """权限响应体"""
+
     id: int
     code: str = Field(..., description="权限代码，如 user:create")
     name: str = Field(..., description="权限名称")
@@ -60,10 +66,12 @@ class PermissionResponse(BaseModel):
 
 class PermissionListResponse(BaseModel):
     """权限列表响应"""
+
     total: int = Field(..., description="总数")
     items: list[PermissionResponse]
 
 
 class AssignPermissionsRequest(BaseModel):
     """分配权限请求体"""
+
     permission_ids: list[int] = Field(..., description="要分配的权限ID列表")

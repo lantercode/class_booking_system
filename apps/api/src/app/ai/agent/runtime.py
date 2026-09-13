@@ -81,8 +81,7 @@ class AgentRuntime:
             params = result["params"]
 
             self.logger.info(
-                f"意图识别: session={session_id}, intent={intent_name}, "
-                f"params={params}"
+                f"意图识别: session={session_id}, intent={intent_name}, params={params}"
             )
 
             if intent_name == "unknown":
@@ -100,7 +99,9 @@ class AgentRuntime:
             if lock_acquired:
                 await self._release_lock(lock_key)
 
-    async def _execute_intent(self, intent_name: str, params: dict, session_id: str = "default") -> str:
+    async def _execute_intent(
+        self, intent_name: str, params: dict, session_id: str = "default"
+    ) -> str:
         """
         根据意图调用对应的 Tool 并格式化返回
         Tool 映射表：
@@ -151,12 +152,15 @@ class AgentRuntime:
                     if not schedules:
                         return f"📅 没有找到符合条件的排期\n{raw}"
 
-                    await self.session.set_state(session_id, {
-                        "action": "selecting_schedule",
-                        "schedules": schedules,
-                        "keyword": params.get("keyword", ""),
-                        "date": params.get("date"),
-                    })
+                    await self.session.set_state(
+                        session_id,
+                        {
+                            "action": "selecting_schedule",
+                            "schedules": schedules,
+                            "keyword": params.get("keyword", ""),
+                            "date": params.get("date"),
+                        },
+                    )
 
                     return self._format_schedule_options(schedules)
 
@@ -182,8 +186,7 @@ class AgentRuntime:
                 await self.session.set_state(session_id, state_data)
 
                 self.logger.info(
-                    f"存入取消确认状态: session={session_id}, "
-                    f"booking_id={params['booking_id']}"
+                    f"存入取消确认状态: session={session_id}, booking_id={params['booking_id']}"
                 )
 
                 verify_state = await self.session.get_state(session_id)
@@ -192,8 +195,8 @@ class AgentRuntime:
                 return (
                     f"⚠️ 您确定要取消预约 #{params['booking_id']} 吗？\n\n"
                     f"请回复：\n"
-                    f"• \"是\" 或 \"确认\" → 执行取消\n"
-                    f"• \"否\" 或 \"取消\" → 保留预约"
+                    f'• "是" 或 "确认" → 执行取消\n'
+                    f'• "否" 或 "取消" → 保留预约'
                 )
 
             else:
@@ -215,8 +218,7 @@ class AgentRuntime:
                  → 进入本方法 → 解析选择 → 调用 create_booking → 清除状态 → 返回结果
         """
         self.logger.info(
-            f"处理中间状态: session={session_id}, action={state.get('action')}, "
-            f"input={user_input}"
+            f"处理中间状态: session={session_id}, action={state.get('action')}, input={user_input}"
         )
 
         if state["action"] == "selecting_schedule":
@@ -227,7 +229,7 @@ class AgentRuntime:
             if selection is None:
                 return (
                     f"❌ 无法识别您的选择「{user_input}」\n\n"
-                    f"请回复数字，如 \"1\"、\"2\" 或 \"第1个\"\n\n"
+                    f'请回复数字，如 "1"、"2" 或 "第1个"\n\n'
                     f"{self._format_schedule_options(schedules)}"
                 )
 
@@ -288,11 +290,7 @@ class AgentRuntime:
                         f"user_id={self.user_id}"
                     )
 
-                    return (
-                        f"✅ 已成功取消预约！\n\n"
-                        f"🎫 预约 ID：{booking_id}\n"
-                        f"📋 处理结果：{raw}"
-                    )
+                    return f"✅ 已成功取消预约！\n\n🎫 预约 ID：{booking_id}\n📋 处理结果：{raw}"
 
                 except Exception as e:
                     self.logger.error(
@@ -310,13 +308,12 @@ class AgentRuntime:
             else:
                 return (
                     f"❌ 无法识别您的回复「{user_input}」\n\n"
-                    f"请回复 \"是\" 确认取消，或 \"否\" 保留预约。"
+                    f'请回复 "是" 确认取消，或 "否" 保留预约。'
                 )
 
         else:
             await self.session.clear_state(session_id)
             return "❌ 状态异常，请重新开始"
-
 
     # ============================================================
     # 业务错误处理（企业级错误码体系）
@@ -343,32 +340,19 @@ class AgentRuntime:
                 "• 回复「重新查询」查看其他时段\n"
                 "• 或告诉我其他时间偏好"
             ),
-            "ALREADY_BOOKED": (
-                "❌ 您已预约过此课程\n\n"
-                "回复「我的预约」可查看已预约的课程"
-            ),
+            "ALREADY_BOOKED": ("❌ 您已预约过此课程\n\n回复「我的预约」可查看已预约的课程"),
             "BALANCE_INSUFFICIENT": (
-                "❌ 课时余额不足\n\n"
-                "请联系前台充值后再预约\n"
-                "或回复「余额」查看当前课时"
+                "❌ 课时余额不足\n\n请联系前台充值后再预约\n或回复「余额」查看当前课时"
             ),
-            "BOOKING_NOT_FOUND": (
-                "❌ 未找到该预约记录\n\n"
-                "可能已被取消，请回复「我的预约」确认"
-            ),
+            "BOOKING_NOT_FOUND": ("❌ 未找到该预约记录\n\n可能已被取消，请回复「我的预约」确认"),
             "CANCEL_DEADLINE_PASSED": (
-                "❌ 已超过取消截止时间（需提前2小时）\n\n"
-                "如需帮助，请联系前台处理"
+                "❌ 已超过取消截止时间（需提前2小时）\n\n如需帮助，请联系前台处理"
             ),
             "SCHEDULE_EXPIRED": (
-                "❌ 该课程已开始，无法预约\n\n"
-                "您可以：\n"
-                "• 回复「查排期」查看其他时段"
+                "❌ 该课程已开始，无法预约\n\n您可以：\n• 回复「查排期」查看其他时段"
             ),
             "SCHEDULE_TOO_FAR": (
-                "❌ 只能预约未来两周内的课程\n\n"
-                "您可以：\n"
-                "• 回复「查排期」查看可预约的时段"
+                "❌ 只能预约未来两周内的课程\n\n您可以：\n• 回复「查排期」查看可预约的时段"
             ),
         }
 
@@ -478,25 +462,27 @@ class AgentRuntime:
 
         schedules = []
 
-        for line in raw.split('\n'):
+        for line in raw.split("\n"):
             line = line.strip()
 
-            if not line.startswith('- ID:'):
+            if not line.startswith("- ID:"):
                 continue
 
             match = re.search(
-                r'ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)',
-                line
+                r"ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)",
+                line,
             )
 
             if match:
-                schedules.append({
-                    "id": int(match.group(1)),
-                    "date": match.group(2),
-                    "time": match.group(3),
-                    "teacher": match.group(4).strip(),
-                    "remaining": int(match.group(5)),
-                })
+                schedules.append(
+                    {
+                        "id": int(match.group(1)),
+                        "date": match.group(2),
+                        "time": match.group(3),
+                        "teacher": match.group(4).strip(),
+                        "remaining": int(match.group(5)),
+                    }
+                )
 
         return schedules
 
@@ -509,7 +495,7 @@ class AgentRuntime:
                 f"  [{i}] {s['date']} {s['time']} {s['teacher']}（剩余{s['remaining']}个）"
             )
 
-        lines.append("\n例如回复 \"1\" 或 \"第1个\"")
+        lines.append('\n例如回复 "1" 或 "第1个"')
 
         return "\n".join(lines)
 
@@ -524,11 +510,19 @@ class AgentRuntime:
         import re
 
         chinese_map = {
-            "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
-            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+            "一": 1,
+            "二": 2,
+            "三": 3,
+            "四": 4,
+            "五": 5,
+            "六": 6,
+            "七": 7,
+            "八": 8,
+            "九": 9,
+            "十": 10,
         }
 
-        match = re.search(r'(\d+)|[选拿选]?(?:第)?([一二三四五六七八九十]+)[个号号]?', user_input)
+        match = re.search(r"(\d+)|[选拿选]?(?:第)?([一二三四五六七八九十]+)[个号号]?", user_input)
 
         if not match:
             return None

@@ -81,6 +81,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
             count_query = count_query.where(CourseSchedule.start_at <= start_to)
 
         from app.core.tenant_context import get_tenant_id
+
         tenant_id = get_tenant_id()
         if tenant_id:
             base_query = base_query.where(CourseSchedule.tenant_id == tenant_id)
@@ -182,11 +183,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         schedule_id: int,
     ) -> bool:
         """预约人数 -1（取消预约时调用）"""
-        stmt = (
-            select(CourseSchedule)
-            .where(CourseSchedule.id == schedule_id)
-            .with_for_update()
-        )
+        stmt = select(CourseSchedule).where(CourseSchedule.id == schedule_id).with_for_update()
         result = await db.execute(stmt)
         schedule = result.scalar_one_or_none()
 

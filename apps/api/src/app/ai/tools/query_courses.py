@@ -7,10 +7,7 @@ from app.ai.context import ToolContext
 
 
 async def query_courses(
-    ctx: ToolContext,
-    keyword: str = "",
-    category: str = None,
-    level: str = None
+    ctx: ToolContext, keyword: str = "", category: str = None, level: str = None
 ) -> dict:
     """
     搜索课程列表
@@ -38,6 +35,6 @@ async def query_courses(
     return {
         "courses": [
             {"id": 1, "name": "瑜伽基础班", "teacher": "张老师", "level": "beginner"},
-            {"id": 2, "name": "瑜伽进阶班", "teacher": "李老师", "level": "intermediate"}
+            {"id": 2, "name": "瑜伽进阶班", "teacher": "李老师", "level": "intermediate"},
         ]
     }

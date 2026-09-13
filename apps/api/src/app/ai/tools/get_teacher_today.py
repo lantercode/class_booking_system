@@ -21,6 +21,6 @@ async def get_teacher_today(ctx: ToolContext) -> dict:
     return {
         "courses": [
             {"time": "14:00", "name": "瑜伽基础班", "room": "A教室", "students": 8},
-            {"time": "16:00", "name": "街舞初级", "room": "B教室", "students": 12}
+            {"time": "16:00", "name": "街舞初级", "room": "B教室", "students": 12},
         ]
     }

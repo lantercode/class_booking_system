@@ -38,7 +38,11 @@ class AuthRepository:
         returns:
             用户对象，不存在则返回None
         """
-        result = await session.execute(select(User).where(User.tenant_id == tenant_id, User.phone == phone, User.deleted_at.is_(None)))
+        result = await session.execute(
+            select(User).where(
+                User.tenant_id == tenant_id, User.phone == phone, User.deleted_at.is_(None)
+            )
+        )
         return result.scalar_one_or_none()
 
     # 用户创建
@@ -59,7 +63,6 @@ class AuthRepository:
         await session.flush()
         return user
 
-
     # 用户更新
     @staticmethod
     async def update_user(session: AsyncSession, user: User, data: dict) -> User:
@@ -74,7 +77,7 @@ class AuthRepository:
         if not data:
             raise ValueError("No data to update")
 
-        for key, value in data.items(): # 先遍历完所有的字段
+        for key, value in data.items():  # 先遍历完所有的字段
             setattr(user, key, value)
 
         await session.flush()
@@ -96,7 +99,7 @@ class AuthRepository:
         await session.flush()
 
     @staticmethod
-    async def get_user_roles(session: AsyncSession, user_id:  int) -> list[Role]:
+    async def get_user_roles(session: AsyncSession, user_id: int) -> list[Role]:
         """
         获取用户角色列表
 
@@ -139,23 +142,35 @@ class AuthRepository:
         Returns:
             角色对象，不存在则返回 None
         """
-        result = await session.execute(select(Role).where(Role.code == code, Role.tenant_id == tenant_id))
+        result = await session.execute(
+            select(Role).where(Role.code == code, Role.tenant_id == tenant_id)
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_wechat_account_by_openid(session: AsyncSession, openid: str, appid: str) -> WechatAccount | None:
-        result = await session.execute(select(WechatAccount).where(WechatAccount.open_id == openid, WechatAccount.app_id == appid))
+    async def get_wechat_account_by_openid(
+        session: AsyncSession, openid: str, appid: str
+    ) -> WechatAccount | None:
+        result = await session.execute(
+            select(WechatAccount).where(
+                WechatAccount.open_id == openid, WechatAccount.app_id == appid
+            )
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def create_wechat_account(session: AsyncSession, wechat_account_data: dict) -> WechatAccount:
+    async def create_wechat_account(
+        session: AsyncSession, wechat_account_data: dict
+    ) -> WechatAccount:
         wechat_account = WechatAccount(**wechat_account_data)
         session.add(wechat_account)
         await session.flush()
         return wechat_account
 
     @staticmethod
-    async def get_wechat_account_by_user_id(session: AsyncSession, user_id: int) -> WechatAccount | None:
+    async def get_wechat_account_by_user_id(
+        session: AsyncSession, user_id: int
+    ) -> WechatAccount | None:
         result = await session.execute(
             select(WechatAccount).where(WechatAccount.user_id == user_id)
         )

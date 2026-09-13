@@ -6,10 +6,7 @@
 from app.ai.context import ToolContext
 
 
-async def check_in(
-    ctx: ToolContext,
-    booking_id: int
-) -> dict:
+async def check_in(ctx: ToolContext, booking_id: int) -> dict:
     """
     为指定预约签到
 
@@ -22,7 +19,4 @@ async def check_in(
     """
     # TODO: 接入真实的服务
     # 安全：teacher 只能给自己的课程签到
-    return {
-        "success": True,
-        "message": "签到成功！"
-    }
+    return {"success": True, "message": "签到成功！"}

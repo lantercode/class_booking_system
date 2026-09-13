@@ -1,6 +1,7 @@
 """
 排期定时任务 - 自动标记过期排期为已完成
 """
+
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -55,21 +56,23 @@ async def auto_finish_expired_schedules():
             schedule.status = ScheduleStatus.FINISHED.value
 
         await db.execute(
-            update(Booking).where(
+            update(Booking)
+            .where(
                 Booking.schedule_id.in_(schedule_ids),
                 Booking.status == BookingStatus.CHECKED_IN.value,
-            ).values(status=BookingStatus.COMPLETED.value)
+            )
+            .values(status=BookingStatus.COMPLETED.value)
         )
 
         await db.execute(
-            update(Booking).where(
+            update(Booking)
+            .where(
                 Booking.schedule_id.in_(schedule_ids),
                 Booking.status == BookingStatus.BOOKED.value,
-            ).values(status=BookingStatus.NO_SHOW.value)
+            )
+            .values(status=BookingStatus.NO_SHOW.value)
         )
 
         await db.commit()
 
-        logger.info(
-            f"[定时任务] 自动标记 {len(schedule_ids)} 个排期为已完成"
-        )
+        logger.info(f"[定时任务] 自动标记 {len(schedule_ids)} 个排期为已完成")

@@ -45,6 +45,7 @@ router = APIRouter(prefix="/admin", tags=["管理后台 - 用户管理"])
 # 用户管理 CRUD（基于权限的细粒度控制）
 # ============================================================
 
+
 @router.post(
     "/users",
     response_model=dict,
@@ -115,12 +116,14 @@ async def get_user(
     current_user: dict = Depends(get_current_user),
 ):
     """获取用户详情"""
-    return success(data={
-        "id": user_id,
-        "username": f"user_{user_id}",
-        "phone": "13800138000",
-        "roles": ["student"],
-    })
+    return success(
+        data={
+            "id": user_id,
+            "username": f"user_{user_id}",
+            "phone": "13800138000",
+            "roles": ["student"],
+        }
+    )
 
 
 @router.put(
@@ -144,7 +147,9 @@ async def update_user(
 ):
     """更新用户"""
     result = await admin_user_service.update_user(
-        user_id, data.model_dump(exclude_unset=True), current_user,
+        user_id,
+        data.model_dump(exclude_unset=True),
+        current_user,
     )
     return success(data=result, msg=f"用户 {user_id} 更新成功")
 
@@ -181,6 +186,7 @@ async def delete_user(
 # 基于角色的快速判断（适用于身份验证场景）
 # ============================================================
 
+
 @router.get(
     "/dashboard",
     response_model=dict,
@@ -200,7 +206,9 @@ async def admin_dashboard(
     tenant_id = get_tenant_id()
 
     total_users_result = await db.execute(
-        select(func.count()).select_from(User).where(
+        select(func.count())
+        .select_from(User)
+        .where(
             User.tenant_id == tenant_id,
             User.deleted_at.is_(None),
         )
@@ -208,7 +216,9 @@ async def admin_dashboard(
     total_users = total_users_result.scalar() or 0
 
     active_courses_result = await db.execute(
-        select(func.count()).select_from(Course).where(
+        select(func.count())
+        .select_from(Course)
+        .where(
             Course.tenant_id == tenant_id,
             Course.status == CourseStatus.ONLINE.value,
             Course.deleted_at.is_(None),
@@ -220,7 +230,9 @@ async def admin_dashboard(
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     monthly_schedules_result = await db.execute(
-        select(func.count()).select_from(CourseSchedule).where(
+        select(func.count())
+        .select_from(CourseSchedule)
+        .where(
             CourseSchedule.tenant_id == tenant_id,
             CourseSchedule.start_at >= month_start,
         )
@@ -228,7 +240,9 @@ async def admin_dashboard(
     monthly_schedules = monthly_schedules_result.scalar() or 0
 
     monthly_bookings_result = await db.execute(
-        select(func.count()).select_from(Booking).where(
+        select(func.count())
+        .select_from(Booking)
+        .where(
             Booking.tenant_id == tenant_id,
             Booking.booked_at >= month_start,
         )
@@ -246,27 +260,32 @@ async def admin_dashboard(
     recent_booking_list = []
     if recent_bookings:
         student_ids = list({b.student_id for b in recent_bookings})
-        students_result = await db.execute(
-            select(User).where(User.id.in_(student_ids))
-        )
+        students_result = await db.execute(select(User).where(User.id.in_(student_ids)))
         student_map = {u.id: u for u in students_result.scalars().all()}
 
         for b in recent_bookings:
             student = student_map.get(b.student_id)
-            recent_booking_list.append({
-                "student": student.nickname or student.phone if student else f"学员#{b.student_id}",
-                "course": f"课程#{b.schedule_id}",
-                "time": b.booked_at.strftime("%Y-%m-%d %H:%M") if b.booked_at else "",
-                "status": "已签到" if b.status == 3 else "待签到",
-            })
+            recent_booking_list.append(
+                {
+                    "student": student.nickname or student.phone
+                    if student
+                    else f"学员#{b.student_id}",
+                    "course": f"课程#{b.schedule_id}",
+                    "time": b.booked_at.strftime("%Y-%m-%d %H:%M") if b.booked_at else "",
+                    "status": "已签到" if b.status == 3 else "待签到",
+                }
+            )
 
     disabled_teachers_result = await db.execute(
         select(User)
         .join(UserRole, User.id == UserRole.user_id)
-        .join(Role, and_(
-            UserRole.role_id == Role.id,
-            or_(Role.tenant_id == tenant_id, Role.tenant_id.is_(None)),
-        ))
+        .join(
+            Role,
+            and_(
+                UserRole.role_id == Role.id,
+                or_(Role.tenant_id == tenant_id, Role.tenant_id.is_(None)),
+            ),
+        )
         .where(
             User.tenant_id == tenant_id,
             User.status == UserStatus.DISABLED.value,
@@ -285,15 +304,17 @@ async def admin_dashboard(
         for t in disabled_teachers
     ]
 
-    return success(data={
-        "message": f"欢迎回来，{current_user.get('nickname') or current_user.get('username', '管理员')}!",
-        "total_users": total_users,
-        "active_courses": active_courses,
-        "monthly_schedules": monthly_schedules,
-        "monthly_bookings": monthly_bookings,
-        "recent_bookings": recent_booking_list,
-        "disabled_teachers": disabled_teacher_list,
-    })
+    return success(
+        data={
+            "message": f"欢迎回来，{current_user.get('nickname') or current_user.get('username', '管理员')}!",
+            "total_users": total_users,
+            "active_courses": active_courses,
+            "monthly_schedules": monthly_schedules,
+            "monthly_bookings": monthly_bookings,
+            "recent_bookings": recent_booking_list,
+            "disabled_teachers": disabled_teacher_list,
+        }
+    )
 
 
 @router.get(
@@ -314,18 +335,21 @@ async def system_settings(
     current_user: dict = Depends(get_current_user),
 ):
     """系统设置"""
-    return success(data={
-        "settings": {
-            "site_name": "舞蹈培训管理系统",
-            "maintenance_mode": False,
-            "max_upload_size": "10MB",
-        },
-    })
+    return success(
+        data={
+            "settings": {
+                "site_name": "舞蹈培训管理系统",
+                "maintenance_mode": False,
+                "max_upload_size": "10MB",
+            },
+        }
+    )
 
 
 # ============================================================
 # 组合使用（角色 + 权限 双重验证）
 # ============================================================
+
 
 @router.post(
     "/users/{user_id}/assign-roles",
@@ -352,15 +376,17 @@ async def assign_user_roles(
 ):
     """分配用户角色"""
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.info(
-        f"[Admin] 用户 {current_user['user_id']} 正在为用户 {user_id} 分配角色: {role_ids}"
-    )
+    logger.info(f"[Admin] 用户 {current_user['user_id']} 正在为用户 {user_id} 分配角色: {role_ids}")
 
     from app.core.rbac import clear_user_permission_cache
+
     if redis_client:
         await clear_user_permission_cache(
-            redis_client, current_user.get('tenant_id'), user_id,
+            redis_client,
+            current_user.get("tenant_id"),
+            user_id,
         )
 
     return success(data={"user_id": user_id, "role_ids": role_ids}, msg="角色分配成功")
@@ -369,6 +395,7 @@ async def assign_user_roles(
 # ============================================================
 # 特殊场景（获取自身权限、公开接口等）
 # ============================================================
+
 
 @router.get(
     "/my-permissions",
@@ -410,17 +437,20 @@ async def get_my_permissions(
 )
 async def public_stats():
     """公开接口"""
-    return success(data={
-        "total_students": 5000,
-        "total_teachers": 200,
-        "total_classes": 1000,
-        "total_bookings": 10000,
-    })
+    return success(
+        data={
+            "total_students": 5000,
+            "total_teachers": 200,
+            "total_classes": 1000,
+            "total_bookings": 10000,
+        }
+    )
 
 
 # ============================================================
 # 高级用法（AND 角色检查）
 # ============================================================
+
 
 @router.post(
     "/users/batch-delete",
@@ -449,6 +479,7 @@ async def batch_delete_users(
 ):
     """批量删除用户"""
     import logging
+
     logger = logging.getLogger(__name__)
 
     logger.critical(
@@ -458,6 +489,7 @@ async def batch_delete_users(
     )
 
     from app.core.rbac.cache import clear_user_permission_cache
+
     tenant_id = current_user.get("tenant_id")
     for uid in user_ids:
         if redis_client:

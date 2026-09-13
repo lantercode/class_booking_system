@@ -163,9 +163,7 @@ class TestTenantIsolation:
 
         try:
             # Permission 表没有 tenant_id 字段
-            result = await db_session.execute(
-                select(Permission).limit(3)
-            )
+            result = await db_session.execute(select(Permission).limit(3))
             permissions = list(result.scalars().all())
 
             # 验证查询成功

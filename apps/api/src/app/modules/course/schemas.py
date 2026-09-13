@@ -8,13 +8,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================
 # 课程类型相关
 # ============================================================
 
+
 class CourseTypeCreate(BaseModel):
     """创建课程类型请求体"""
+
     name: str = Field(..., min_length=1, max_length=50, description="类型名称")
     code: str = Field(..., min_length=1, max_length=50, description="类型代码")
     description: str | None = Field(None, description="描述")
@@ -25,6 +26,7 @@ class CourseTypeCreate(BaseModel):
 
 class CourseTypeUpdate(BaseModel):
     """更新课程类型请求体（部分更新）"""
+
     name: str | None = Field(None, min_length=1, max_length=50, description="类型名称")
     code: str | None = Field(None, min_length=1, max_length=50, description="类型代码")
     description: str | None = Field(None, description="描述")
@@ -35,6 +37,7 @@ class CourseTypeUpdate(BaseModel):
 
 class CourseTypeResponse(BaseModel):
     """课程类型响应体"""
+
     id: int
     public_id: str
     tenant_id: int
@@ -53,6 +56,7 @@ class CourseTypeResponse(BaseModel):
 
 class CourseTypeListResponse(BaseModel):
     """课程类型列表响应"""
+
     total: int = Field(..., description="总数")
     items: list[CourseTypeResponse]
 
@@ -61,8 +65,10 @@ class CourseTypeListResponse(BaseModel):
 # 课程相关
 # ============================================================
 
+
 class CourseCreate(BaseModel):
     """创建课程请求体"""
+
     name: str = Field(..., min_length=1, max_length=100, description="课程名称")
     category: str = Field(..., min_length=1, max_length=50, description="分类")
     course_type_code: str = Field(..., min_length=1, max_length=50, description="课程类型代码")
@@ -76,9 +82,12 @@ class CourseCreate(BaseModel):
 
 class CourseUpdate(BaseModel):
     """更新课程请求体（部分更新）"""
+
     name: str | None = Field(None, min_length=1, max_length=100, description="课程名称")
     category: str | None = Field(None, max_length=50, description="分类")
-    course_type_code: str | None = Field(None, min_length=1, max_length=50, description="课程类型代码")
+    course_type_code: str | None = Field(
+        None, min_length=1, max_length=50, description="课程类型代码"
+    )
     level: str | None = Field(None, max_length=20, description="难度等级")
     cover_url: str | None = Field(None, max_length=500, description="封面图URL")
     description: str | None = Field(None, description="课程描述")
@@ -90,6 +99,7 @@ class CourseUpdate(BaseModel):
 
 class CourseResponse(BaseModel):
     """课程响应体"""
+
     id: int
     public_id: str
     tenant_id: int
@@ -111,6 +121,7 @@ class CourseResponse(BaseModel):
 
 class CourseListResponse(BaseModel):
     """课程列表分页响应"""
+
     total: int = Field(..., description="总数")
     page: int = Field(..., ge=1, description="当前页码")
     page_size: int = Field(..., ge=1, le=500, description="每页数量")

@@ -50,23 +50,19 @@ async def get_agent_runtime(
     current_user=Depends(get_current_user),
 ) -> AgentRuntime:
     return AgentRuntime(
-        redis_client=redis_client,
-        user_id=current_user.get("user_id") if current_user else None
+        redis_client=redis_client, user_id=current_user.get("user_id") if current_user else None
     )
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
-    body: ChatRequest,
-    request: Request,
-    agent_runtime: AgentRuntime = Depends(get_agent_runtime)
+    body: ChatRequest, request: Request, agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
     start_time = time.time()
 
     try:
         response_text = await agent_runtime.chat(
-            user_input=body.message,
-            session_id=body.session_id
+            user_input=body.message, session_id=body.session_id
         )
 
         state = await agent_runtime.session.get_state(body.session_id)
@@ -81,24 +77,20 @@ async def chat(
                 "session_id": body.session_id,
                 "timestamp": datetime.now().isoformat(),
                 "has_pending_state": has_pending_state,
-                "latency_ms": latency_ms
-            }
+                "latency_ms": latency_ms,
+            },
         )
 
     except DanceSaasException as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
 
     except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail={"code": 50001, "message": "AI 服务暂时不可用"}
-        )
+        raise HTTPException(status_code=500, detail={"code": 50001, "message": "AI 服务暂时不可用"})
 
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_history(
-    session_id: str = "default",
-    agent_runtime: AgentRuntime = Depends(get_agent_runtime)
+    session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
     try:
         messages = await agent_runtime.session.get_history(session_id)
@@ -108,7 +100,7 @@ async def get_history(
                 {
                     "role": msg.get("role", "user"),
                     "content": msg.get("content", ""),
-                    "timestamp": msg.get("timestamp", "")
+                    "timestamp": msg.get("timestamp", ""),
                 }
                 for msg in messages[-50:]
             ]
@@ -120,8 +112,7 @@ async def get_history(
 
 @router.delete("/history")
 async def clear_history(
-    session_id: str = "default",
-    agent_runtime: AgentRuntime = Depends(get_agent_runtime)
+    session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
     try:
         await agent_runtime.session.clear(session_id)
@@ -138,10 +129,12 @@ async def get_supported_intents():
 
     intents = []
     for intent_name, intent_config in recognizer.intents.items():
-        intents.append({
-            "intent": intent_name,
-            "description": intent_config.get("description", ""),
-            "examples": intent_config.get("examples", [])
-        })
+        intents.append(
+            {
+                "intent": intent_name,
+                "description": intent_config.get("description", ""),
+                "examples": intent_config.get("examples", []),
+            }
+        )
 
     return {"code": 0, "data": intents}

@@ -20,7 +20,9 @@ class AuditLog(Base):
     ip: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now(),
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
     __table_args__ = (

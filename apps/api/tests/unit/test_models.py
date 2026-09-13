@@ -31,10 +31,7 @@ class TestTenantModel:
     def test_tenant_instance_creation(self):
         """测试能否创建租户实例"""
         tenant = Tenant(
-            name="测试舞蹈工作室",
-            slug="test-studio",
-            status=TenantStatus.ACTIVE.value,
-            plan="pro"
+            name="测试舞蹈工作室", slug="test-studio", status=TenantStatus.ACTIVE.value, plan="pro"
         )
 
         assert tenant.name == "测试舞蹈工作室"
@@ -89,7 +86,7 @@ class TestRoleModel:
             code="test_role",
             name="测试角色",
             is_system=False,
-            description="这是一个测试角色"
+            description="这是一个测试角色",
         )
 
         assert role.code == "test_role"
@@ -107,10 +104,7 @@ class TestPermissionModel:
     def test_permission_instance_creation(self):
         """测试能否创建权限实例"""
         perm = Permission(
-            code="test:permission",
-            name="测试权限",
-            module="test",
-            description="这是一个测试权限"
+            code="test:permission", name="测试权限", module="test", description="这是一个测试权限"
         )
 
         assert perm.code == "test:permission"

@@ -7,10 +7,7 @@
 from app.ai.context import ToolContext
 
 
-async def cancel_booking(
-    ctx: ToolContext,
-    booking_id: int
-) -> dict:
+async def cancel_booking(ctx: ToolContext, booking_id: int) -> dict:
     """
     取消当前用户的指定预约
 
@@ -27,7 +24,4 @@ async def cancel_booking(
     # 2. 是否已签到/已完成（不可取消）
     # 3. 是否在取消截止时间前
 
-    return {
-        "success": True,
-        "message": "取消成功！课时已退回"
-    }
+    return {"success": True, "message": "取消成功！课时已退回"}

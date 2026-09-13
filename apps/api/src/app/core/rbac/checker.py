@@ -40,9 +40,7 @@ PERMISSION_CHECK_BYPASS = False
 
 
 async def query_permissions_from_db(
-    db_session: AsyncSession,
-    user_id: int,
-    tenant_id: int
+    db_session: AsyncSession, user_id: int, tenant_id: int
 ) -> list[str]:
     """
     从数据库查询用户的所有权限码
@@ -102,13 +100,13 @@ async def query_permissions_from_db(
         logger.debug(f"[RBAC Checker] 权限IDs: {permission_ids}")
 
         # 步骤3: 查询权限码
-        stmt_codes = select(Permission.code).where(
-            Permission.id.in_(permission_ids)
-        )
+        stmt_codes = select(Permission.code).where(Permission.id.in_(permission_ids))
         result_codes = await db_session.execute(stmt_codes)
         permissions = [row[0] for row in result_codes.fetchall()]
 
-        logger.debug(f"[RBAC Checker] 用户 {user_id} 的权限码 ({len(permissions)}个): {permissions}")
+        logger.debug(
+            f"[RBAC Checker] 用户 {user_id} 的权限码 ({len(permissions)}个): {permissions}"
+        )
         return permissions
 
     except Exception as e:
@@ -120,7 +118,7 @@ async def get_user_permissions(
     db_session: AsyncSession,
     redis_client=None,
     user_id: int | None = None,
-    tenant_id: int | None = None
+    tenant_id: int | None = None,
 ) -> list[str]:
     """
     获取用户的完整权限列表（带缓存优化）
@@ -176,7 +174,7 @@ async def check_permission(
     required_permission: str,
     redis_client=None,
     user_id: int | None = None,
-    tenant_id: int | None = None
+    tenant_id: int | None = None,
 ) -> bool:
     """
     检查用户是否拥有指定的单个权限
@@ -199,9 +197,7 @@ async def check_permission(
     if PERMISSION_CHECK_BYPASS:
         return True
 
-    permissions = await get_user_permissions(
-        db_session, redis_client, user_id, tenant_id
-    )
+    permissions = await get_user_permissions(db_session, redis_client, user_id, tenant_id)
 
     has_permission = required_permission in permissions
 
@@ -218,7 +214,7 @@ async def check_permissions(
     require_all: bool = True,
     redis_client=None,
     user_id: int | None = None,
-    tenant_id: int | None = None
+    tenant_id: int | None = None,
 ) -> bool:
     """
     检查用户是否拥有多个权限（支持 AND/OR 逻辑）
@@ -249,19 +245,21 @@ async def check_permissions(
     if PERMISSION_CHECK_BYPASS:
         return True
 
-    permissions_set = set(
-        await get_user_permissions(db_session, redis_client, user_id, tenant_id)
-    )
+    permissions_set = set(await get_user_permissions(db_session, redis_client, user_id, tenant_id))
 
     if require_all:
         # AND 逻辑：必须包含所有要求的权限
         result = set(required_permissions).issubset(permissions_set)
-        logger.debug(f"[RBAC Checker] AND 权限检查: {required_permissions} -> {'✅' if result else '❌'}")
+        logger.debug(
+            f"[RBAC Checker] AND 权限检查: {required_permissions} -> {'✅' if result else '❌'}"
+        )
         return result
     else:
         # OR 逻辑：至少包含其中一个权限
         result = bool(set(required_permissions) & permissions_set)
-        logger.debug(f"[RBAC Checker] OR 权限检查: {required_permissions} -> {'✅' if result else '❌'}")
+        logger.debug(
+            f"[RBAC Checker] OR 权限检查: {required_permissions} -> {'✅' if result else '❌'}"
+        )
         return result
 
 
@@ -270,7 +268,7 @@ async def check_role(
     required_role_code: str,
     redis_client=None,
     user_id: int | None = None,
-    tenant_id: int | None = None
+    tenant_id: int | None = None,
 ) -> bool:
     """
     检查用户是否拥有指定角色
@@ -296,23 +294,27 @@ async def check_role(
 
     try:
         # 查询用户的角色代码
-        stmt = select(Role.code).join(UserRole).where(
-            and_(
-                UserRole.user_id == _user_id,
-                # 匹配当前租户的角色或全局角色
-                or_(
-                    Role.tenant_id == _tenant_id,
-                    Role.tenant_id.is_(None)
-                ),
-                Role.code == required_role_code
+        stmt = (
+            select(Role.code)
+            .join(UserRole)
+            .where(
+                and_(
+                    UserRole.user_id == _user_id,
+                    # 匹配当前租户的角色或全局角色
+                    or_(Role.tenant_id == _tenant_id, Role.tenant_id.is_(None)),
+                    Role.code == required_role_code,
+                )
             )
-        ).limit(1)  # 只需知道是否存在，limit 1 提升性能
+            .limit(1)
+        )  # 只需知道是否存在，limit 1 提升性能
 
         result = await db_session.execute(stmt)
         role = result.scalar_one_or_none()
 
         has_role = role is not None
-        logger.debug(f"[RBAC Checker] 角色检查: {required_role_code} -> {'✅' if has_role else '❌'}")
+        logger.debug(
+            f"[RBAC Checker] 角色检查: {required_role_code} -> {'✅' if has_role else '❌'}"
+        )
 
         return has_role
 
@@ -327,7 +329,7 @@ async def check_roles(
     require_all: bool = False,  # 默认 OR 模式更常用
     redis_client=None,
     user_id: int | None = None,
-    tenant_id: int | None = None
+    tenant_id: int | None = None,
 ) -> bool:
     """
     检查用户是否拥有多个角色中的任意一个或全部
@@ -357,12 +359,13 @@ async def check_roles(
 
     try:
         # 查询用户的所有角色代码
-        stmt = select(Role.code).join(UserRole).where(
-            and_(
-                UserRole.user_id == _user_id,
-                or_(
-                    Role.tenant_id == _tenant_id,
-                    Role.tenant_id.is_(None)
+        stmt = (
+            select(Role.code)
+            .join(UserRole)
+            .where(
+                and_(
+                    UserRole.user_id == _user_id,
+                    or_(Role.tenant_id == _tenant_id, Role.tenant_id.is_(None)),
                 )
             )
         )

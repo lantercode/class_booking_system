@@ -16,7 +16,7 @@ Day 4 测试：多轮对话预约流程
 import asyncio
 import sys
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 from app.ai.agent.runtime import AgentRuntime
 
@@ -139,7 +139,9 @@ async def test_parse_user_selection():
     for input_str, max_index, expected, desc in test_cases:
         result = runtime._parse_user_selection(input_str, max_index)
         status = "✅" if result == expected else "❌"
-        print(f"{status} {desc:10s} | 输入: {input_str:8s} | 最大: {max_index} | 预期: {str(expected):5s} | 实际: {str(result):5s}")
+        print(
+            f"{status} {desc:10s} | 输入: {input_str:8s} | 最大: {max_index} | 预期: {str(expected):5s} | 实际: {str(result):5s}"
+        )
         if result != expected:
             all_passed = False
 

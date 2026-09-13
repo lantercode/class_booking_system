@@ -11,8 +11,8 @@
         "tags": [
           "Common"
         ],
-        "summary": "Health",
-        "description": "健康检查接口 - T01 验收依据.",
+        "summary": "健康检查",
+        "description": "检查服务运行状态和 Redis 连接",
         "operationId": "health_api_v1_common_health_get",
         "responses": {
           "200": {
@@ -35,8 +35,8 @@
         "tags": [
           "Common"
         ],
-        "summary": "Test Exception",
-        "description": "测试异常接口 - T02 验收依据.",
+        "summary": "测试异常",
+        "description": "测试各类异常处理",
         "operationId": "test_exception_api_v1_common_test_exception_get",
         "parameters": [
           {
@@ -80,7 +80,8 @@
         "tags": [
           "Common"
         ],
-        "summary": "Test Auth",
+        "summary": "测试认证",
+        "description": "测试认证依赖注入",
         "operationId": "test_auth_api_v1_common_test_auth_get",
         "parameters": [
           {
@@ -131,7 +132,8 @@
         "tags": [
           "Common"
         ],
-        "summary": "Test Generate Token",
+        "summary": "生成测试 Token",
+        "description": "创建一个测试用的 Token，用于测试认证依赖",
         "operationId": "test_generate_token_api_v1_common_test_token_get",
         "responses": {
           "200": {
@@ -185,7 +187,14 @@
             "description": "手机号已存在或租户不存在"
           },
           "422": {
-            "description": "请求参数验证失败"
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -229,7 +238,14 @@
             "description": "账号已被禁用"
           },
           "422": {
-            "description": "请求参数验证失败"
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       }
@@ -272,9 +288,6 @@
                 }
               }
             }
-          },
-          "401": {
-            "description": "未登录或Token无效"
           },
           "422": {
             "description": "Validation Error",
@@ -380,8 +393,231 @@
               }
             }
           },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "更新当前用户信息",
+        "description": "更新当前登录用户的个人信息（仅允许修改昵称和头像）",
+        "operationId": "update_me_api_v1_auth_me_patch",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Me Api V1 Auth Me Patch",
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "没有可更新的字段"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/wechat-auto-login": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "微信自动登录",
+        "description": "通过微信 code 自动登录，已绑定用户直接返回 Token，未绑定返回 bind_token",
+        "operationId": "wechat_auto_login_api_v1_auth_wechat_auto_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WechatLoginResponse",
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Wechat Auto Login Api V1 Auth Wechat Auto Login Post"
+                }
+              }
+            }
+          },
           "401": {
-            "description": "未登录或Token无效"
+            "description": "微信登录失败"
+          },
+          "403": {
+            "description": "账号已被禁用"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/wechat-login": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "微信绑定登录",
+        "description": "通过 bind_token 和加密手机号/手动输入手机号绑定微信账号，完成登录",
+        "operationId": "wechat_login_api_v1_auth_wechat_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "绑定成功 / 手机号未注册",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WechatLoginResponse",
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Wechat Login Api V1 Auth Wechat Login Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "绑定凭证无效或已过期"
+          },
+          "403": {
+            "description": "账号已被禁用"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/wechat-unbind": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "微信解绑",
+        "description": "解除当前用户与微信账号的绑定关系，openid 将被清空",
+        "operationId": "wechat_unbind_api_v1_auth_wechat_unbind_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解绑成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Wechat Unbind Api V1 Auth Wechat Unbind Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录或 token 无效"
+          },
+          "400": {
+            "description": "该账号未绑定微信"
           },
           "422": {
             "description": "Validation Error",
@@ -402,7 +638,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "创建用户",
-        "description": "创建新用户账号。\n    \n    **权限要求**: user:create（创建用户权限）\n    \n    **适用角色**:\n    - admin（管理员）- 通常有此权限\n    - hr（人事）- 可能也有此权限\n    \n    **不适用角色**:\n    - teacher（教师）- 不应该能创建用户\n    - student（学生）- 绝对不能创建用户\n    \n    **请求示例**:\n    ```json\n    {\n        \"username\": \"zhangsan\",\n        \"email\": \"zhangsan@example.com\",\n        \"phone\": \"13800138000\",\n        \"password\": \"123456\",\n        \"role_ids\": [1, 2]\n    }\n    ```",
+        "description": "创建新用户账号。\n\n**权限要求**: user:create（创建用户权限）\n\n**适用角色**:\n- admin（管理员）- 通常有此权限\n- hr（人事）- 可能也有此权限\n\n**不适用角色**:\n- teacher（教师）- 不应该能创建用户\n- student（学生）- 绝对不能创建用户",
         "operationId": "create_user_api_v1_admin_users_post",
         "parameters": [
           {
@@ -462,7 +698,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "获取用户列表",
-        "description": "分页获取用户列表（支持关键词搜索）。\n    \n    **权限要求**: user:read（查看用户权限）\n    \n    **查询参数**:\n    - page: 页码，默认 1\n    - page_size: 每页数量，默认 20，最大 100\n    - keyword: 搜索关键词（匹配用户名/手机号）",
+        "description": "分页获取用户列表（支持关键词搜索）。\n\n**权限要求**: user:read（查看用户权限）\n\n**查询参数**:\n- page: 页码，默认 1\n- page_size: 每页数量，默认 20，最大 100\n- keyword: 搜索关键词（匹配用户名/手机号）",
         "operationId": "list_users_api_v1_admin_users_get",
         "parameters": [
           {
@@ -552,7 +788,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "获取用户详情",
-        "description": "获取指定用户的详细信息。\n\n    **权限要求**: user:read",
+        "description": "获取指定用户的详细信息。\n\n**权限要求**: user:read",
         "operationId": "get_user_api_v1_admin_users__user_id__get",
         "parameters": [
           {
@@ -613,7 +849,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "更新用户信息",
-        "description": "更新用户信息（部分更新）。\n    \n    **权限要求**: user:update AND user:read（必须同时拥有两个权限）\n    \n    为什么需要两个权限？\n    - user:update: 允许修改用户数据\n    - user:read: 编辑前必须能看到当前值（防止盲目修改）\n    \n    这是一个 **AND 逻辑** 的典型应用场景！",
+        "description": "更新用户信息（部分更新）。\n\n**权限要求**: user:update AND user:read（必须同时拥有两个权限）\n\n为什么需要两个权限？\n- user:update: 允许修改用户数据\n- user:read: 编辑前必须能看到当前值（防止盲目修改）",
         "operationId": "update_user_api_v1_admin_users__user_id__put",
         "parameters": [
           {
@@ -684,7 +920,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "删除用户",
-        "description": "删除用户（高危操作！）。\n    \n    **权限要求**: user:delete（专门的删除权限）\n    \n    安全措施：\n    1. 需要单独的删除权限（比 update 权限更高级）\n    2. 不能删除自己的账号\n    3. 删除后自动清除该用户的权限缓存\n    4. 记录详细的审计日志\n    \n    ⚠️ 此权限应该只分配给极少数超级管理员",
+        "description": "删除用户（高危操作！）。\n\n**权限要求**: user:delete（专门的删除权限）\n\n安全措施：\n1. 需要单独的删除权限（比 update 权限更高级）\n2. 不能删除自己的账号\n3. 删除后自动清除该用户的权限缓存\n4. 记录详细的审计日志\n\n⚠️ 此权限应该只分配给极少数超级管理员",
         "operationId": "delete_user_api_v1_admin_users__user_id__delete",
         "parameters": [
           {
@@ -747,7 +983,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "管理员后台首页",
-        "description": "管理员后台首页（Dashboard）。\n    \n    **角色要求**: admin 或 super_admin（OR 逻辑）\n    \n    为什么用角色而不是权限？\n    - Dashboard 是身份概念，不是操作概念\n    - 只要你是管理员就能看，不关心具体权限\n    - 更简洁、更直观\n    \n    对比：\n    - 用权限：@require_permissions(\"dashboard:view\", \"admin:all\", ...) 太繁琐\n    - 用角色：@require_roles(\"admin\", \"super_admin\") 一行搞定 ✅",
+        "description": "管理员后台首页（Dashboard）。\n\n**角色要求**: admin 或 super_admin（OR 逻辑）\n\n返回聚合统计数据，替代前端多次请求。",
         "operationId": "admin_dashboard_api_v1_admin_dashboard_get",
         "parameters": [
           {
@@ -799,7 +1035,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "系统设置",
-        "description": "系统设置页面。\n    \n    **权限要求**: admin:all 或 super:manage（OR 逻辑）\n    \n    OR 逻辑说明：\n    - 有 admin:all 权限的普通管理员可以访问\n    - 有 super:manage 权限的超管也可以访问\n    - 两者满足其一即可\n    \n    适用场景：\n    - 不同级别的管理员都有权访问某些功能\n    - 但他们的权限来源不同",
+        "description": "系统设置页面。\n\n**权限要求**: admin:all 或 super:manage（OR 逻辑）\n\nOR 逻辑说明：\n- 有 admin:all 权限的普通管理员可以访问\n- 有 super:manage 权限的超管也可以访问\n- 两者满足其一即可",
         "operationId": "system_settings_api_v1_admin_settings_get",
         "parameters": [
           {
@@ -851,7 +1087,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "分配用户角色",
-        "description": "为用户分配或修改角色（双重验证）。\n    \n    **第一层验证**: 必须是 admin 或 manager 角色\n    **第二层验证**: 必须有 role:assign 权限\n    \n    为什么需要双重验证？\n    - 有些管理员虽然有 admin 角色，但可能没有分配角色的具体权限\n    - 例如：部门管理员可以看 Dashboard，但不能改角色\n    - 两层检查更安全、更灵活\n    \n    执行顺序：\n    1. 先检查角色（快速失败，避免无谓的数据库查询）\n    2. 再检查权限（精确控制操作能力）",
+        "description": "为用户分配或修改角色（双重验证）。\n\n**第一层验证**: 必须是 admin 或 manager 角色\n**第二层验证**: 必须有 role:assign 权限\n\n为什么需要双重验证？\n- 有些管理员虽然有 admin 角色，但可能没有分配角色的具体权限\n- 例如：部门管理员可以看 Dashboard，但不能改角色\n- 两层检查更安全、更灵活",
         "operationId": "assign_user_roles_api_v1_admin_users__user_id__assign_roles_post",
         "parameters": [
           {
@@ -928,7 +1164,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "获取我的权限列表",
-        "description": "获取当前登录用户的完整权限列表。\n    \n    **用途**:\n    - 前端根据权限列表动态渲染菜单和按钮\n    - 如：有 'user:create' 权限才显示\"新建\"按钮\n    - 有 'report:view' 权限才显示\"报表\"菜单项\n    \n    **特点**:\n    - 无需额外的权限要求（已登录即可）\n    - 返回详细的权限信息和缓存状态\n    - 用于前端权限控制的基础数据源\n    \n    **前端使用示例** (Vue.js):\n    ```javascript\n    // 获取权限列表\n    const res = await api.get('/admin/my-permissions')\n    const permissions = res.data.permissions.map(p => p.code)\n    \n    // 控制按钮显示\n    <el-button v-if=\"permissions.includes('user:create')\">\n      新建用户\n    </el-button>\n    ```",
+        "description": "获取当前登录用户的完整权限列表。\n\n**用途**:\n- 前端根据权限列表动态渲染菜单和按钮\n- 如：有 'user:create' 权限才显示\"新建\"按钮\n- 有 'report:view' 权限才显示\"报表\"菜单项\n\n**特点**:\n- 无需额外的权限要求（已登录即可）\n- 返回详细的权限信息和缓存状态",
         "operationId": "get_my_permissions_api_v1_admin_my_permissions_get",
         "parameters": [
           {
@@ -980,7 +1216,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "公开统计数据",
-        "description": "公开的统计信息（无需登录）。\n    \n    **权限要求**: 无（完全公开）\n    \n    适用场景：\n    - 首页展示的总数据量\n    - 学校简介中的数字\n    - 其他不敏感的聚合数据",
+        "description": "公开的统计信息（无需登录）。\n\n**权限要求**: 无（完全公开）\n\n适用场景：\n- 首页展示的总数据量\n- 学校简介中的数字\n- 其他不敏感的聚合数据",
         "operationId": "public_stats_api_v1_admin_public_stats_get",
         "responses": {
           "200": {
@@ -1004,7 +1240,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "批量删除用户（高危）",
-        "description": "批量删除多个用户（极度危险的操作！）。\n    \n    **角色要求**: super_admin AND security_admin（必须同时拥有两个角色）\n    \n    为什么用 AND 逻辑？\n    - 单人误操作风险太高\n    - 需要两种不同角色的确认\n    - 类似银行转账需要两个U盾的场景\n    \n    ⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️\n    - 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行\n    - 会触发审计日志告警\n    - 建议增加二次确认机制",
+        "description": "批量删除多个用户（极度危险的操作！）。\n\n**角色要求**: super_admin AND security_admin（必须同时拥有两个角色）\n\n为什么用 AND 逻辑？\n- 单人误操作风险太高\n- 需要两种不同角色的确认\n- 类似银行转账需要两个U盾的场景\n\n⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️\n- 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行\n- 会触发审计日志告警\n- 建议增加二次确认机制",
         "operationId": "batch_delete_users_api_v1_admin_users_batch_delete_post",
         "parameters": [
           {
@@ -1064,14 +1300,14 @@
         }
       }
     },
-    "/api/v1/users": {
+    "/api/v1/users/": {
       "post": {
         "tags": [
           "用户管理"
         ],
         "summary": "创建用户",
         "description": "创建新用户账号（需 user:create 权限）",
-        "operationId": "create_user_api_v1_users_post",
+        "operationId": "create_user_api_v1_users__post",
         "parameters": [
           {
             "name": "authorization",
@@ -1108,7 +1344,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Create User Api V1 Users Post"
+                  "title": "Response Create User Api V1 Users  Post"
                 }
               }
             }
@@ -1124,7 +1360,9 @@
             }
           }
         }
-      },
+      }
+    },
+    "/api/v1/users": {
       "get": {
         "tags": [
           "用户管理"
@@ -1183,6 +1421,17 @@
               "title": "Status"
             },
             "description": "状态筛选：0禁用/1启用"
+          },
+          {
+            "name": "role_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "角色筛选（角色代码）",
+              "title": "Role Code"
+            },
+            "description": "角色筛选（角色代码）"
           },
           {
             "name": "authorization",
@@ -1671,12 +1920,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "type": "integer"
-                },
-                "description": "角色ID列表",
-                "title": "Role Ids"
+                "$ref": "#/components/schemas/Body_assign_user_roles_api_v1_users__user_id__roles_put"
               }
             }
           }
@@ -1707,14 +1951,77 @@
         }
       }
     },
-    "/api/v1/roles": {
+    "/api/v1/users/{user_id}/wechat/unbind": {
       "post": {
         "tags": [
-          "角色权限管理"
+          "用户管理"
+        ],
+        "summary": "解绑微信",
+        "description": "管理员解除指定用户的微信绑定（需 user:update 权限）",
+        "operationId": "admin_unbind_wechat_api_v1_users__user_id__wechat_unbind_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "用户ID",
+              "title": "User Id"
+            },
+            "description": "用户ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Unbind Wechat Api V1 Users  User Id  Wechat Unbind Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/roles/": {
+      "post": {
+        "tags": [
+          "角色管理"
         ],
         "summary": "创建角色",
         "description": "创建新角色（需 role:create 权限）",
-        "operationId": "create_role_api_v1_roles_post",
+        "operationId": "create_role_api_v1_roles__post",
         "parameters": [
           {
             "name": "authorization",
@@ -1751,7 +2058,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Create Role Api V1 Roles Post"
+                  "title": "Response Create Role Api V1 Roles  Post"
                 }
               }
             }
@@ -1767,10 +2074,12 @@
             }
           }
         }
-      },
+      }
+    },
+    "/api/v1/roles": {
       "get": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "获取角色列表",
         "description": "分页获取角色列表（支持关键词搜索，需 role:read 权限）",
@@ -1857,10 +2166,73 @@
         }
       }
     },
+    "/api/v1/roles/permission-list": {
+      "get": {
+        "tags": [
+          "角色管理"
+        ],
+        "summary": "获取权限列表",
+        "description": "获取所有权限列表（支持按模块筛选，需 role:read 权限）",
+        "operationId": "list_permissions_api_v1_roles_permission_list_get",
+        "parameters": [
+          {
+            "name": "module",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "模块筛选",
+              "title": "Module"
+            },
+            "description": "模块筛选"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Permissions Api V1 Roles Permission List Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/roles/{role_id}": {
       "get": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "获取角色详情",
         "description": "获取指定角色的详细信息（需 role:read 权限）",
@@ -1921,7 +2293,7 @@
       },
       "patch": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "更新角色",
         "description": "更新角色信息（需 role:update 权限，不能修改系统角色）",
@@ -1992,7 +2364,7 @@
       },
       "delete": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "删除角色",
         "description": "删除角色（需 role:delete 权限，不能删除系统角色）",
@@ -2052,73 +2424,10 @@
         }
       }
     },
-    "/api/v1/roles/permissions": {
-      "get": {
-        "tags": [
-          "角色权限管理"
-        ],
-        "summary": "获取权限列表",
-        "description": "获取所有权限列表（支持按模块筛选，需 role:read 权限）",
-        "operationId": "list_permissions_api_v1_roles_permissions_get",
-        "parameters": [
-          {
-            "name": "module",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "模块筛选",
-              "title": "Module"
-            },
-            "description": "模块筛选"
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Permissions Api V1 Roles Permissions Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/roles/{role_id}/permissions": {
       "get": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "获取角色权限",
         "description": "获取指定角色的权限列表（需 role:read 权限）",
@@ -2179,7 +2488,7 @@
       },
       "put": {
         "tags": [
-          "角色权限管理"
+          "角色管理"
         ],
         "summary": "分配角色权限",
         "description": "为角色分配权限（覆盖式，需 role:assign 权限）",
@@ -2243,6 +2552,3989 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/types": {
+      "post": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "创建课程类型",
+        "description": "创建新课程类型（需 course:create 权限）",
+        "operationId": "create_course_type_api_v1_courses_types_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseTypeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Course Type Api V1 Courses Types Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取课程类型列表",
+        "description": "获取课程类型列表（支持状态筛选）",
+        "operationId": "list_course_types_api_v1_courses_types_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "状态筛选",
+              "title": "Status"
+            },
+            "description": "状态筛选"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Course Types Api V1 Courses Types Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/types/{type_id}": {
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取课程类型详情",
+        "description": "获取课程类型详情",
+        "operationId": "get_course_type_api_v1_courses_types__type_id__get",
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程类型ID",
+              "title": "Type Id"
+            },
+            "description": "课程类型ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Course Type Api V1 Courses Types  Type Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "更新课程类型",
+        "description": "更新课程类型信息（需 course:update 权限）",
+        "operationId": "update_course_type_api_v1_courses_types__type_id__patch",
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程类型ID",
+              "title": "Type Id"
+            },
+            "description": "课程类型ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseTypeUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Course Type Api V1 Courses Types  Type Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "删除课程类型",
+        "description": "删除课程类型（需 course:delete 权限，有课程使用时不可删除）",
+        "operationId": "delete_course_type_api_v1_courses_types__type_id__delete",
+        "parameters": [
+          {
+            "name": "type_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程类型ID",
+              "title": "Type Id"
+            },
+            "description": "课程类型ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Course Type Api V1 Courses Types  Type Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/": {
+      "post": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "创建课程",
+        "description": "创建新课程（需 course:create 权限）",
+        "operationId": "create_course_api_v1_courses__post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Course Api V1 Courses  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses": {
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取课程列表",
+        "description": "分页获取课程列表（支持关键词、分类、等级、状态、课程类型筛选）",
+        "operationId": "list_courses_api_v1_courses_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "搜索关键词",
+              "title": "Keyword"
+            },
+            "description": "搜索关键词"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "分类筛选",
+              "title": "Category"
+            },
+            "description": "分类筛选"
+          },
+          {
+            "name": "level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "等级筛选",
+              "title": "Level"
+            },
+            "description": "等级筛选"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "状态筛选",
+              "title": "Status"
+            },
+            "description": "状态筛选"
+          },
+          {
+            "name": "course_type_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "课程类型筛选",
+              "title": "Course Type Code"
+            },
+            "description": "课程类型筛选"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Courses Api V1 Courses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}": {
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取课程详情",
+        "description": "获取课程详情",
+        "operationId": "get_course_api_v1_courses__course_id__get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程ID",
+              "title": "Course Id"
+            },
+            "description": "课程ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Course Api V1 Courses  Course Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "更新课程",
+        "description": "更新课程信息（需 course:update 权限）",
+        "operationId": "update_course_api_v1_courses__course_id__patch",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程ID",
+              "title": "Course Id"
+            },
+            "description": "课程ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Course Api V1 Courses  Course Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "删除课程",
+        "description": "软删除课程（需 course:delete 权限）",
+        "operationId": "delete_course_api_v1_courses__course_id__delete",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "课程ID",
+              "title": "Course Id"
+            },
+            "description": "课程ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Course Api V1 Courses  Course Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/classrooms/": {
+      "post": {
+        "tags": [
+          "教室管理"
+        ],
+        "summary": "创建教室",
+        "description": "创建新教室（需 classroom:create 权限）",
+        "operationId": "create_classroom_api_v1_classrooms__post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassroomCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Classroom Api V1 Classrooms  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/classrooms": {
+      "get": {
+        "tags": [
+          "教室管理"
+        ],
+        "summary": "获取教室列表",
+        "description": "分页获取教室列表（支持关键词、状态筛选）",
+        "operationId": "list_classrooms_api_v1_classrooms_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "搜索关键词",
+              "title": "Keyword"
+            },
+            "description": "搜索关键词"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "状态筛选",
+              "title": "Status"
+            },
+            "description": "状态筛选"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Classrooms Api V1 Classrooms Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/classrooms/{classroom_id}": {
+      "get": {
+        "tags": [
+          "教室管理"
+        ],
+        "summary": "获取教室详情",
+        "description": "获取教室详情",
+        "operationId": "get_classroom_api_v1_classrooms__classroom_id__get",
+        "parameters": [
+          {
+            "name": "classroom_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "教室ID",
+              "title": "Classroom Id"
+            },
+            "description": "教室ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Classroom Api V1 Classrooms  Classroom Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "教室管理"
+        ],
+        "summary": "更新教室",
+        "description": "更新教室信息（需 classroom:update 权限）",
+        "operationId": "update_classroom_api_v1_classrooms__classroom_id__patch",
+        "parameters": [
+          {
+            "name": "classroom_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "教室ID",
+              "title": "Classroom Id"
+            },
+            "description": "教室ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassroomUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Classroom Api V1 Classrooms  Classroom Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "教室管理"
+        ],
+        "summary": "删除教室",
+        "description": "删除教室（需 classroom:delete 权限）",
+        "operationId": "delete_classroom_api_v1_classrooms__classroom_id__delete",
+        "parameters": [
+          {
+            "name": "classroom_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "教室ID",
+              "title": "Classroom Id"
+            },
+            "description": "教室ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Classroom Api V1 Classrooms  Classroom Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/": {
+      "post": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "创建排期",
+        "description": "创建新排期（需 schedule:create 权限），自动校验时间冲突",
+        "operationId": "create_schedule_api_v1_schedules__post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Schedule Api V1 Schedules  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/batch": {
+      "post": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "批量创建排期",
+        "description": "批量创建排期（需 schedule:create 权限），自动校验时间冲突",
+        "operationId": "batch_create_schedules_api_v1_schedules_batch_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ScheduleCreate"
+                },
+                "description": "排期列表",
+                "title": "Items"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Batch Create Schedules Api V1 Schedules Batch Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules": {
+      "get": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "获取排期列表",
+        "description": "分页获取排期列表（支持多条件筛选）",
+        "operationId": "list_schedules_api_v1_schedules_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "course_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "课程ID",
+              "title": "Course Id"
+            },
+            "description": "课程ID"
+          },
+          {
+            "name": "course_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "课程名称（模糊搜索）",
+              "title": "Course Name"
+            },
+            "description": "课程名称（模糊搜索）"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "课程分类筛选",
+              "title": "Category"
+            },
+            "description": "课程分类筛选"
+          },
+          {
+            "name": "course_type_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "课程类型筛选",
+              "title": "Course Type Code"
+            },
+            "description": "课程类型筛选"
+          },
+          {
+            "name": "teacher_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "教师ID",
+              "title": "Teacher Id"
+            },
+            "description": "教师ID"
+          },
+          {
+            "name": "classroom_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "教室ID",
+              "title": "Classroom Id"
+            },
+            "description": "教室ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选（DB状态：1正常/2已取消/3已完成）",
+              "title": "Status"
+            },
+            "description": "状态筛选（DB状态：1正常/2已取消/3已完成）"
+          },
+          {
+            "name": "display_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "显示状态筛选：1待上课/2上课中/3已取消/4已完成",
+              "title": "Display Status"
+            },
+            "description": "显示状态筛选：1待上课/2上课中/3已取消/4已完成"
+          },
+          {
+            "name": "start_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始时间范围-起",
+              "title": "Start From"
+            },
+            "description": "开始时间范围-起"
+          },
+          {
+            "name": "start_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "开始时间范围-止",
+              "title": "Start To"
+            },
+            "description": "开始时间范围-止"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Schedules Api V1 Schedules Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/{schedule_id}": {
+      "get": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "获取排期详情",
+        "description": "获取排期详情",
+        "operationId": "get_schedule_api_v1_schedules__schedule_id__get",
+        "parameters": [
+          {
+            "name": "schedule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Schedule Api V1 Schedules  Schedule Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "更新排期",
+        "description": "更新排期信息（需 schedule:update 权限），自动校验时间冲突",
+        "operationId": "update_schedule_api_v1_schedules__schedule_id__patch",
+        "parameters": [
+          {
+            "name": "schedule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Schedule Api V1 Schedules  Schedule Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "删除排期",
+        "description": "硬删除排期（需 schedule:delete 权限）",
+        "operationId": "delete_schedule_api_v1_schedules__schedule_id__delete",
+        "parameters": [
+          {
+            "name": "schedule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Schedule Api V1 Schedules  Schedule Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/{schedule_id}/cancel": {
+      "post": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "取消排期",
+        "description": "取消指定排期（需 schedule:cancel 权限），自动处理学员预约和课时退还",
+        "operationId": "cancel_schedule_api_v1_schedules__schedule_id__cancel_post",
+        "parameters": [
+          {
+            "name": "schedule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleCancel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel Schedule Api V1 Schedules  Schedule Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/schedules/batch-delete": {
+      "post": {
+        "tags": [
+          "排期管理"
+        ],
+        "summary": "批量删除排期",
+        "description": "批量删除排期（需 schedule:delete 权限），仅支持删除已取消或禁用的排期",
+        "operationId": "batch_delete_schedules_api_v1_schedules_batch_delete_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "排期ID列表",
+                "title": "Data"
+              },
+              "example": {
+                "schedule_ids": [
+                  1,
+                  2,
+                  3
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Batch Delete Schedules Api V1 Schedules Batch Delete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "创建预约",
+        "description": "学员预约课程排期（自动校验容量、重复预约、时间窗口）",
+        "operationId": "create_booking_api_v1_bookings__post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Booking Api V1 Bookings  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings": {
+      "get": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "获取预约列表",
+        "description": "分页获取预约列表（支持多条件筛选，status 支持逗号分隔多个状态）",
+        "operationId": "list_bookings_api_v1_bookings_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "每页数量",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量"
+          },
+          {
+            "name": "schedule_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show",
+              "title": "Status"
+            },
+            "description": "状态筛选，支持逗号分隔多个状态，如 3,4,5 或 completed,cancelled,no_show"
+          },
+          {
+            "name": "display_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "显示状态筛选：1待上课/2已取消/3上课中/4已完成",
+              "title": "Display Status"
+            },
+            "description": "显示状态筛选：1待上课/2已取消/3上课中/4已完成"
+          },
+          {
+            "name": "upcoming",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否只查询待上课（未开始）的预约",
+              "default": false,
+              "title": "Upcoming"
+            },
+            "description": "是否只查询待上课（未开始）的预约"
+          },
+          {
+            "name": "exclude_cancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "是否排除已取消的记录（小程序端使用）",
+              "default": false,
+              "title": "Exclude Cancelled"
+            },
+            "description": "是否排除已取消的记录（小程序端使用）"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Bookings Api V1 Bookings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{booking_id}": {
+      "get": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "获取预约详情",
+        "description": "获取预约详情",
+        "operationId": "get_booking_api_v1_bookings__booking_id__get",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "预约ID",
+              "title": "Booking Id"
+            },
+            "description": "预约ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Booking Api V1 Bookings  Booking Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{booking_id}/cancel": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "取消预约",
+        "description": "取消指定预约（自动释放名额）",
+        "operationId": "cancel_booking_api_v1_bookings__booking_id__cancel_post",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "预约ID",
+              "title": "Booking Id"
+            },
+            "description": "预约ID"
+          },
+          {
+            "name": "reason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "取消原因",
+              "default": "",
+              "title": "Reason"
+            },
+            "description": "取消原因"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel Booking Api V1 Bookings  Booking Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/cancel": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "取消预约（学员端）",
+        "description": "学员通过排期ID取消自己的预约",
+        "operationId": "cancel_booking_by_schedule_api_v1_bookings_cancel_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel Booking By Schedule Api V1 Bookings Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{booking_id}/check-in": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "签到",
+        "description": "学员签到确认（需 booking:manage 权限）",
+        "operationId": "check_in_booking_api_v1_bookings__booking_id__check_in_post",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "预约ID",
+              "title": "Booking Id"
+            },
+            "description": "预约ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Check In Booking Api V1 Bookings  Booking Id  Check In Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{booking_id}/complete": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "完成课程",
+        "description": "标记课程完成（需 booking:manage 权限）",
+        "operationId": "complete_booking_api_v1_bookings__booking_id__complete_post",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "预约ID",
+              "title": "Booking Id"
+            },
+            "description": "预约ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Complete Booking Api V1 Bookings  Booking Id  Complete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teachers/me": {
+      "get": {
+        "tags": [
+          "教师管理"
+        ],
+        "summary": "获取当前教师信息",
+        "description": "获取当前登录教师的详细信息",
+        "operationId": "get_current_teacher_api_v1_teachers_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Current Teacher Api V1 Teachers Me Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "教师管理"
+        ],
+        "summary": "更新教师信息",
+        "description": "更新当前教师的个人信息",
+        "operationId": "update_current_teacher_api_v1_teachers_me_patch",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Current Teacher Api V1 Teachers Me Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/products": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "创建会员卡产品",
+        "description": "创建会员卡产品",
+        "operationId": "create_product_api_v1_membership_products_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardProductCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Product Api V1 Membership Products Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取产品列表",
+        "description": "获取产品列表",
+        "operationId": "list_products_api_v1_membership_products_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "状态：0下架/1上架（不传表示全部）",
+              "title": "Status"
+            },
+            "description": "状态：0下架/1上架（不传表示全部）"
+          },
+          {
+            "name": "card_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Products Api V1 Membership Products Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/products/{product_id}": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取产品详情",
+        "description": "获取产品详情",
+        "operationId": "get_product_api_v1_membership_products__product_id__get",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Product Api V1 Membership Products  Product Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "更新产品",
+        "description": "更新产品",
+        "operationId": "update_product_api_v1_membership_products__product_id__put",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardProductUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Product Api V1 Membership Products  Product Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "删除产品",
+        "description": "删除产品（软删除：设置 deleted_at）",
+        "operationId": "delete_product_api_v1_membership_products__product_id__delete",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Product Api V1 Membership Products  Product Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/products/recycle-bin": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "回收站列表",
+        "description": "获取回收站中的产品列表",
+        "operationId": "list_deleted_products_api_v1_membership_products_recycle_bin_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Deleted Products Api V1 Membership Products Recycle Bin Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/products/{product_id}/restore": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "恢复产品",
+        "description": "从回收站恢复产品",
+        "operationId": "restore_product_api_v1_membership_products__product_id__restore_post",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Restore Product Api V1 Membership Products  Product Id  Restore Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "发放会员卡",
+        "description": "发放会员卡\n\n- 默认不允许重复发卡（allow_duplicate=False）\n- 如果学员已有同产品的有效卡，返回 409 Conflict\n- 续卡场景请设置 allow_duplicate=true",
+        "operationId": "issue_card_api_v1_membership_cards_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Issue Card Api V1 Membership Cards Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取会员卡列表",
+        "description": "获取会员卡列表",
+        "operationId": "list_cards_api_v1_membership_cards_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "student_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Student Id"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "card_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Keyword"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Cards Api V1 Membership Cards Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/my-cards": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取我的会员卡（学员端）",
+        "description": "获取当前学员的有效会员卡（学员端专用）",
+        "operationId": "get_my_cards_api_v1_membership_my_cards_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get My Cards Api V1 Membership My Cards Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取会员卡详情",
+        "description": "获取会员卡详情",
+        "operationId": "get_card_api_v1_membership_cards__card_id__get",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Card Api V1 Membership Cards  Card Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/freeze": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "冻结会员卡",
+        "description": "冻结会员卡",
+        "operationId": "freeze_card_api_v1_membership_cards__card_id__freeze_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardFreezeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Freeze Card Api V1 Membership Cards  Card Id  Freeze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/unfreeze": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "解冻会员卡",
+        "description": "解冻会员卡",
+        "operationId": "unfreeze_card_api_v1_membership_cards__card_id__unfreeze_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Unfreeze Card Api V1 Membership Cards  Card Id  Unfreeze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/extend": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "延长会员卡有效期",
+        "description": "延长会员卡有效期（付费延期）",
+        "operationId": "extend_card_api_v1_membership_cards__card_id__extend_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardExtendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Extend Card Api V1 Membership Cards  Card Id  Extend Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/activate": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "激活会员卡（学员端）",
+        "description": "学员主动激活待激活的会员卡",
+        "operationId": "activate_card_api_v1_membership_cards__card_id__activate_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Activate Card Api V1 Membership Cards  Card Id  Activate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/admin-activate": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "管理员激活会员卡",
+        "description": "管理员手动激活待激活的会员卡",
+        "operationId": "admin_activate_card_api_v1_membership_cards__card_id__admin_activate_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Activate Card Api V1 Membership Cards  Card Id  Admin Activate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/cancel": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "作废会员卡",
+        "description": "作废会员卡（管理员操作）",
+        "operationId": "cancel_card_api_v1_membership_cards__card_id__cancel_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardCancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cancel Card Api V1 Membership Cards  Card Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/transactions": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取消费流水列表",
+        "description": "获取消费流水列表",
+        "operationId": "list_transactions_api_v1_membership_transactions_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "card_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "operation_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Operation Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Transactions Api V1 Membership Transactions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/chat": {
+      "post": {
+        "tags": [
+          "AI 智能助手"
+        ],
+        "summary": "Chat",
+        "operationId": "chat_api_v1_ai_chat_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/history": {
+      "get": {
+        "tags": [
+          "AI 智能助手"
+        ],
+        "summary": "Get History",
+        "operationId": "get_history_api_v1_ai_history_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AI 智能助手"
+        ],
+        "summary": "Clear History",
+        "operationId": "clear_history_api_v1_ai_history_delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/intents": {
+      "get": {
+        "tags": [
+          "AI 智能助手"
+        ],
+        "summary": "Get Supported Intents",
+        "operationId": "get_supported_intents_api_v1_ai_intents_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -2320,6 +6612,49 @@
         "title": "AuthResponse",
         "description": "认证响应（继承 TokenResponse + 用户信息）"
       },
+      "Body_assign_user_roles_api_v1_users__user_id__roles_put": {
+        "properties": {
+          "role_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Role Ids",
+            "description": "角色ID列表"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role_ids"
+        ],
+        "title": "Body_assign_user_roles_api_v1_users__user_id__roles_put"
+      },
+      "Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post": {
+        "properties": {
+          "schedule_id": {
+            "type": "integer",
+            "title": "Schedule Id",
+            "description": "排期ID"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "取消原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_id"
+        ],
+        "title": "Body_cancel_booking_by_schedule_api_v1_bookings_cancel_post"
+      },
       "Body_reset_password_api_v1_users__user_id__password_reset_post": {
         "properties": {
           "new_password": {
@@ -2333,6 +6668,46 @@
           "new_password"
         ],
         "title": "Body_reset_password_api_v1_users__user_id__password_reset_post"
+      },
+      "BookingCreate": {
+        "properties": {
+          "schedule_id": {
+            "type": "integer",
+            "title": "Schedule Id",
+            "description": "排期ID"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "预约来源: self/admin/teacher",
+            "default": "self"
+          },
+          "membership_card_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Membership Card Id",
+            "description": "会员卡ID"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schedule_id"
+        ],
+        "title": "BookingCreate",
+        "description": "创建预约请求体"
       },
       "ChangePasswordRequest": {
         "properties": {
@@ -2357,6 +6732,526 @@
         "title": "ChangePasswordRequest",
         "description": "修改密码请求"
       },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "default": "default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "ChatResponse": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 0
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "success"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "title": "ChatResponse"
+      },
+      "ClassroomCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "description": "教室名称"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment",
+            "description": "设备列表",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ClassroomCreate",
+        "description": "创建教室请求体"
+      },
+      "ClassroomUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "教室名称"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment",
+            "description": "设备列表"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：0禁用/1启用"
+          }
+        },
+        "type": "object",
+        "title": "ClassroomUpdate",
+        "description": "更新教室请求体（部分更新）"
+      },
+      "CourseCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "课程名称"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Category",
+            "description": "分类"
+          },
+          "course_type_code": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Course Type Code",
+            "description": "课程类型代码"
+          },
+          "level": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Level",
+            "description": "难度等级"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url",
+            "description": "封面图URL"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "课程描述"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Duration Minutes",
+            "description": "时长（分钟）",
+            "default": 90
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Price",
+            "description": "价格",
+            "default": 0.0
+          },
+          "required_credits": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Required Credits",
+            "description": "所需积分",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "course_type_code",
+          "level"
+        ],
+        "title": "CourseCreate",
+        "description": "创建课程请求体"
+      },
+      "CourseTypeCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "description": "类型名称"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Code",
+            "description": "类型代码"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "描述"
+          },
+          "required_card_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Card Types",
+            "description": "需要的会员卡类型列表"
+          },
+          "sort_order": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sort Order",
+            "description": "排序",
+            "default": 0
+          },
+          "status": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Status",
+            "description": "状态：0禁用/1启用",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "code"
+        ],
+        "title": "CourseTypeCreate",
+        "description": "创建课程类型请求体"
+      },
+      "CourseTypeUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "类型名称"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "类型代码"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "描述"
+          },
+          "required_card_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Card Types",
+            "description": "需要的会员卡类型列表"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order",
+            "description": "排序"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：0禁用/1启用"
+          }
+        },
+        "type": "object",
+        "title": "CourseTypeUpdate",
+        "description": "更新课程类型请求体（部分更新）"
+      },
+      "CourseUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "课程名称"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category",
+            "description": "分类"
+          },
+          "course_type_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Type Code",
+            "description": "课程类型代码"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level",
+            "description": "难度等级"
+          },
+          "cover_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Url",
+            "description": "封面图URL"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "课程描述"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes",
+            "description": "时长（分钟）"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price",
+            "description": "价格"
+          },
+          "required_credits": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Credits",
+            "description": "所需积分"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：0下架/1上架"
+          }
+        },
+        "type": "object",
+        "title": "CourseUpdate",
+        "description": "更新课程请求体（部分更新）"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2369,6 +7264,28 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HistoryResponse": {
+        "properties": {
+          "code": {
+            "type": "integer",
+            "title": "Code",
+            "default": 0
+          },
+          "msg": {
+            "type": "string",
+            "title": "Msg",
+            "default": "success"
+          },
+          "data": {
+            "items": {},
+            "type": "array",
+            "title": "Data",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "HistoryResponse"
       },
       "LoginRequest": {
         "properties": {
@@ -2410,6 +7327,463 @@
         ],
         "title": "LoginRequest",
         "description": "用户登录请求"
+      },
+      "MembershipCardCancelRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Reason",
+            "description": "作废原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "MembershipCardCancelRequest",
+        "description": "作废会员卡请求体"
+      },
+      "MembershipCardCreate": {
+        "properties": {
+          "student_id": {
+            "type": "integer",
+            "title": "Student Id",
+            "description": "学员ID"
+          },
+          "product_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Id",
+            "description": "关联产品ID"
+          },
+          "total_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Credits",
+            "description": "总次数（次卡专用）"
+          },
+          "validity_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validity Days",
+            "description": "有效天数（次卡必填，期卡必填）"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From",
+            "description": "生效时间（NULL表示立即激活，支持 YYYY-MM-DD 或 ISO 格式）"
+          },
+          "applicable_course_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Ids",
+            "description": "适用课程ID列表"
+          },
+          "applicable_course_type_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Type Codes",
+            "description": "适用的课程类型代码列表"
+          },
+          "max_weekly_usage": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Weekly Usage",
+            "description": "每周最多使用次数"
+          },
+          "allow_duplicate": {
+            "type": "boolean",
+            "title": "Allow Duplicate",
+            "description": "是否允许重复发卡（默认False，True表示允许续卡）",
+            "default": false
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark",
+            "description": "备注"
+          }
+        },
+        "type": "object",
+        "required": [
+          "student_id"
+        ],
+        "title": "MembershipCardCreate",
+        "description": "发放会员卡请求体"
+      },
+      "MembershipCardExtendRequest": {
+        "properties": {
+          "extend_days": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Extend Days",
+            "description": "延长天数"
+          },
+          "remark": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remark",
+            "description": "延期原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "extend_days"
+        ],
+        "title": "MembershipCardExtendRequest",
+        "description": "延长会员卡有效期请求体"
+      },
+      "MembershipCardFreezeRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Reason",
+            "description": "冻结原因"
+          },
+          "freeze_days": {
+            "type": "integer",
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Freeze Days",
+            "description": "冻结天数（1-365天）"
+          },
+          "auto_unfreeze": {
+            "type": "boolean",
+            "title": "Auto Unfreeze",
+            "description": "是否到期自动解冻（默认True）",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "freeze_days"
+        ],
+        "title": "MembershipCardFreezeRequest",
+        "description": "冻结会员卡请求体"
+      },
+      "MembershipCardProductCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name",
+            "description": "产品名称"
+          },
+          "card_type": {
+            "type": "string",
+            "title": "Card Type",
+            "description": "卡类型：count/period/unlimited"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Price",
+            "description": "售价"
+          },
+          "total_credits": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Credits",
+            "description": "总次数（次卡专用）"
+          },
+          "validity_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validity Days",
+            "description": "有效天数"
+          },
+          "applicable_course_type_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Applicable Course Type Codes",
+            "description": "适用的课程类型代码列表（必填，至少一项）"
+          },
+          "applicable_course_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Ids",
+            "description": "适用课程ID列表，NULL表示不限"
+          },
+          "max_weekly_usage": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Weekly Usage",
+            "description": "每周最多使用次数，NULL表示不限"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "产品描述"
+          },
+          "sort_order": {
+            "type": "integer",
+            "title": "Sort Order",
+            "description": "排序",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "card_type",
+          "price",
+          "applicable_course_type_codes"
+        ],
+        "title": "MembershipCardProductCreate",
+        "description": "创建会员卡产品请求体"
+      },
+      "MembershipCardProductUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "产品名称"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price",
+            "description": "售价"
+          },
+          "total_credits": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Credits",
+            "description": "总次数（次卡专用）"
+          },
+          "validity_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validity Days",
+            "description": "有效天数"
+          },
+          "applicable_course_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Ids",
+            "description": "适用课程ID列表，NULL表示不限"
+          },
+          "applicable_course_type_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Type Codes",
+            "description": "适用的课程类型代码列表，NULL表示不限"
+          },
+          "max_weekly_usage": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Weekly Usage",
+            "description": "每周最多使用次数，NULL表示不限"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "产品描述"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：0下架/1上架"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order",
+            "description": "排序"
+          }
+        },
+        "type": "object",
+        "title": "MembershipCardProductUpdate",
+        "description": "更新会员卡产品请求体"
       },
       "RefreshTokenRequest": {
         "properties": {
@@ -2580,6 +7954,277 @@
         "title": "RoleUpdate",
         "description": "更新角色请求体（部分更新）"
       },
+      "ScheduleCancel": {
+        "properties": {
+          "cancel_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Cancel Reason",
+            "description": "取消原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cancel_reason"
+        ],
+        "title": "ScheduleCancel",
+        "description": "取消排期请求体"
+      },
+      "ScheduleCreate": {
+        "properties": {
+          "course_id": {
+            "type": "integer",
+            "title": "Course Id",
+            "description": "课程ID"
+          },
+          "teacher_id": {
+            "type": "integer",
+            "title": "Teacher Id",
+            "description": "教师ID（用户ID）"
+          },
+          "classroom_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classroom Id",
+            "description": "教室ID"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At",
+            "description": "开始时间"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At",
+            "description": "结束时间"
+          },
+          "capacity": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Capacity",
+            "description": "容量上限"
+          },
+          "booking_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booking Opens At",
+            "description": "预约开放时间"
+          },
+          "booking_closes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booking Closes At",
+            "description": "预约截止时间"
+          },
+          "cancel_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Deadline",
+            "description": "取消截止时间"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes",
+            "description": "备注"
+          }
+        },
+        "type": "object",
+        "required": [
+          "course_id",
+          "teacher_id",
+          "start_at",
+          "end_at",
+          "capacity"
+        ],
+        "title": "ScheduleCreate",
+        "description": "创建排期请求体"
+      },
+      "ScheduleUpdate": {
+        "properties": {
+          "course_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course Id",
+            "description": "课程ID"
+          },
+          "teacher_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher Id",
+            "description": "教师ID"
+          },
+          "classroom_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classroom Id",
+            "description": "教室ID"
+          },
+          "start_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start At",
+            "description": "开始时间"
+          },
+          "end_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End At",
+            "description": "结束时间"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity",
+            "description": "容量上限"
+          },
+          "booking_opens_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booking Opens At",
+            "description": "预约开放时间"
+          },
+          "booking_closes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Booking Closes At",
+            "description": "预约截止时间"
+          },
+          "cancel_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Deadline",
+            "description": "取消截止时间"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：1正常/2已取消/3已完成"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes",
+            "description": "备注"
+          }
+        },
+        "type": "object",
+        "title": "ScheduleUpdate",
+        "description": "更新排期请求体（部分更新）"
+      },
       "TokenResponse": {
         "properties": {
           "access_token": {
@@ -2646,9 +8291,10 @@
           "nickname": {
             "type": "string",
             "maxLength": 20,
-            "minLength": 2,
+            "minLength": 0,
             "title": "Nickname",
             "description": "用户昵称",
+            "default": "",
             "examples": [
               "小明"
             ]
@@ -2691,6 +8337,20 @@
               1
             ]
           },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Roles",
+            "description": "用户角色代码列表",
+            "examples": [
+              [
+                "admin",
+                "teacher"
+              ]
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2705,7 +8365,6 @@
         "required": [
           "id",
           "phone",
-          "nickname",
           "status",
           "created_at"
         ],
@@ -2751,6 +8410,230 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WechatBindRequest": {
+        "properties": {
+          "bind_token": {
+            "type": "string",
+            "title": "Bind Token",
+            "description": "上一步自动登录返回的临时凭证"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^1[3-9]\\d{9}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone",
+            "description": "手机号码（手动输入时使用）",
+            "examples": [
+              "13800138000"
+            ]
+          },
+          "encrypted_data": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encrypted Data",
+            "description": "微信手机号授权返回的加密数据"
+          },
+          "iv": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iv",
+            "description": "微信手机号授权返回的初始向量"
+          },
+          "tenant_slug": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Tenant Slug",
+            "description": "租户标识符",
+            "examples": [
+              "dance-school"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "bind_token",
+          "tenant_slug"
+        ],
+        "title": "WechatBindRequest",
+        "description": "微信绑定请求"
+      },
+      "WechatLoginRequest": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "微信登录凭证"
+          },
+          "tenant_slug": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Tenant Slug",
+            "description": "租户标识符",
+            "examples": [
+              "dance-school"
+            ]
+          },
+          "app_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Id",
+            "description": "小程序 AppId，不传则使用默认配置"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "tenant_slug"
+        ],
+        "title": "WechatLoginRequest",
+        "description": "微信登录请求"
+      },
+      "WechatLoginResponse": {
+        "properties": {
+          "need_bind": {
+            "type": "boolean",
+            "title": "Need Bind",
+            "description": "是否需要绑定手机号",
+            "examples": [
+              true
+            ]
+          },
+          "bind_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bind Token",
+            "description": "绑定凭证"
+          },
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token",
+            "description": "访问令牌"
+          },
+          "refresh_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Token",
+            "description": "刷新令牌"
+          },
+          "token_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Type",
+            "description": "令牌类型",
+            "default": "bearer",
+            "examples": [
+              "bearer"
+            ]
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "访问令牌过期时间（秒）",
+            "default": 7200,
+            "examples": [
+              7200
+            ]
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前用户信息"
+          },
+          "decrypted_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decrypted Phone",
+            "description": "解密后的微信绑定手机号（手机号未注册时返回）",
+            "examples": [
+              "13800138000"
+            ]
+          },
+          "error_msg": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Msg",
+            "description": "错误提示信息",
+            "examples": [
+              "该手机号未在系统中注册，请联系机构前台"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "need_bind"
+        ],
+        "title": "WechatLoginResponse",
+        "description": "微信登录响应"
       },
       "app__modules__admin__schemas__UserCreate": {
         "properties": {
@@ -2991,6 +8874,22 @@
             "title": "Role Ids",
             "description": "初始角色ID列表",
             "default": []
+          },
+          "role_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Codes",
+            "description": "初始角色代码列表（如 ['teacher']）",
+            "default": []
           }
         },
         "type": "object",
@@ -3109,6 +9008,21 @@
             ],
             "title": "Status",
             "description": "状态：0禁用/1启用"
+          },
+          "role_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role Ids",
+            "description": "角色ID列表（传入则覆盖更新）"
           }
         },
         "type": "object",

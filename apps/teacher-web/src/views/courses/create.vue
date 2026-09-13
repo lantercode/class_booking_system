@@ -67,6 +67,15 @@
               />
             </el-form-item>
           </el-col>
+          <el-col :span="12">
+            <el-form-item label="课程类型" prop="course_type_code">
+              <el-select v-model="form.course_type_code" placeholder="请选择">
+                <el-option label="常规课" value="regular" />
+                <el-option label="私教课" value="private" />
+                <el-option label="集训课" value="intensive" />
+              </el-select>
+            </el-form-item>
+          </el-col>
         </el-row>
 
         <el-form-item label="课程标签" prop="tags">
@@ -131,6 +140,7 @@ const form = reactive({
   difficulty: 'beginner' as string,
   duration: 60,
   price: 120,
+  course_type_code: 'regular',
   tags: [] as string[],
 })
 
@@ -170,6 +180,7 @@ async function handleSubmit() {
       level: LEVEL_REVERSE_MAP[form.difficulty],
       duration_minutes: form.duration,
       price: form.price,
+      course_type_code: form.course_type_code,
     }
     if (isEdit.value) {
       const id = Number(route.params.id)
