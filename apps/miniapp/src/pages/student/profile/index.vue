@@ -115,7 +115,7 @@
       </view>
     </view>
 
-    <StudentTabBar currentRoute="/pages/student/profile/index" />
+    <HomeTabBar currentRoute="/pages/student/profile/index" />
 
     <!-- AI 智能助手 -->
     <AiAssistant :session-id="'student_' + (userId || 'default')" />
@@ -127,7 +127,7 @@ import { clearAuthData } from "@/api";
 import AiAssistant from "@/components/AiAssistant.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
-import StudentTabBar from "@/components/StudentTabBar.vue";
+import HomeTabBar from "@/components/HomeTabBar.vue";
 import { checkLogin, logout } from "@/utils/auth";
 import { navigateTo } from "@/utils/navigation";
 import { wechatUnbind } from "@/utils/wechat";

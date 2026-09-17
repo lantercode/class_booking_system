@@ -151,6 +151,68 @@
         }
       }
     },
+    "/api/v1/common/upload/image": {
+      "post": {
+        "tags": [
+          "Common"
+        ],
+        "summary": "上传图片",
+        "description": "上传图片文件（头像、封面等），支持 JPG/PNG/GIF/WEBP 格式，最大 2MB",
+        "operationId": "upload_image_api_v1_common_upload_image_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_image_api_v1_common_upload_image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Upload Image Api V1 Common Upload Image Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "tags": [
@@ -2878,6 +2940,326 @@
         }
       }
     },
+    "/api/v1/courses/categories": {
+      "post": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "创建舞蹈分类",
+        "description": "创建新舞蹈分类（需 course:create 权限）",
+        "operationId": "create_course_category_api_v1_courses_categories_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseCategoryCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Create Course Category Api V1 Courses Categories Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取舞蹈分类列表",
+        "description": "获取舞蹈分类列表（支持状态筛选）",
+        "operationId": "list_course_categories_api_v1_courses_categories_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1,
+              "minimum": 0,
+              "description": "状态筛选",
+              "title": "Status"
+            },
+            "description": "状态筛选"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Course Categories Api V1 Courses Categories Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/categories/{category_id}": {
+      "get": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "获取舞蹈分类详情",
+        "description": "获取舞蹈分类详情",
+        "operationId": "get_course_category_api_v1_courses_categories__category_id__get",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "舞蹈分类ID",
+              "title": "Category Id"
+            },
+            "description": "舞蹈分类ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Course Category Api V1 Courses Categories  Category Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "更新舞蹈分类",
+        "description": "更新舞蹈分类信息（需 course:update 权限）",
+        "operationId": "update_course_category_api_v1_courses_categories__category_id__patch",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "舞蹈分类ID",
+              "title": "Category Id"
+            },
+            "description": "舞蹈分类ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseCategoryUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Course Category Api V1 Courses Categories  Category Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "课程管理"
+        ],
+        "summary": "删除舞蹈分类",
+        "description": "删除舞蹈分类（需 course:delete 权限，有课程使用时不可删除）",
+        "operationId": "delete_course_category_api_v1_courses_categories__category_id__delete",
+        "parameters": [
+          {
+            "name": "category_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "舞蹈分类ID",
+              "title": "Category Id"
+            },
+            "description": "舞蹈分类ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Course Category Api V1 Courses Categories  Category Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/courses/": {
       "post": {
         "tags": [
@@ -4910,6 +5292,58 @@
         }
       }
     },
+    "/api/v1/teachers/": {
+      "get": {
+        "tags": [
+          "教师管理"
+        ],
+        "summary": "获取教师列表",
+        "description": "获取当前租户下的所有活跃教师",
+        "operationId": "list_teachers_api_v1_teachers__get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Teachers Api V1 Teachers  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/teachers/me": {
       "get": {
         "tags": [
@@ -5007,6 +5441,110 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Update Current Teacher Api V1 Teachers Me Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenant/settings": {
+      "get": {
+        "tags": [
+          "租户管理"
+        ],
+        "summary": "获取租户配置",
+        "description": "获取当前租户的配置信息",
+        "operationId": "get_tenant_settings_api_v1_tenant_settings_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Tenant Settings Api V1 Tenant Settings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenant/info": {
+      "get": {
+        "tags": [
+          "租户管理"
+        ],
+        "summary": "获取租户基本信息",
+        "description": "获取当前租户的基本信息（名称、logo等）",
+        "operationId": "get_tenant_info_api_v1_tenant_info_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Tenant Info Api V1 Tenant Info Get"
                 }
               }
             }
@@ -5382,6 +5920,68 @@
         }
       }
     },
+    "/api/v1/membership/products/batch-delete": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "批量删除产品",
+        "description": "批量删除产品（软删除：设置 deleted_at）",
+        "operationId": "batch_delete_products_api_v1_membership_products_batch_delete_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardProductBatchDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Batch Delete Products Api V1 Membership Products Batch Delete Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/membership/products/recycle-bin": {
       "get": {
         "tags": [
@@ -5665,14 +6265,16 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
+              "description": "状态筛选（多选，逗号分隔：0,1,2,3）",
               "title": "Status"
-            }
+            },
+            "description": "状态筛选（多选，逗号分隔：0,1,2,3）"
           },
           {
             "name": "keyword",
@@ -6242,6 +6844,68 @@
         }
       }
     },
+    "/api/v1/membership/cards/batch-cancel": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "批量作废会员卡",
+        "description": "批量作废会员卡（管理员操作）",
+        "operationId": "batch_cancel_cards_api_v1_membership_cards_batch_cancel_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipCardBatchCancelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Batch Cancel Cards Api V1 Membership Cards Batch Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/membership/transactions": {
       "get": {
         "tags": [
@@ -6669,6 +7333,21 @@
         ],
         "title": "Body_reset_password_api_v1_users__user_id__password_reset_post"
       },
+      "Body_upload_image_api_v1_common_upload_image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "图片文件"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_image_api_v1_common_upload_image_post"
+      },
       "BookingCreate": {
         "properties": {
           "schedule_id": {
@@ -6870,6 +7549,158 @@
         "title": "ClassroomUpdate",
         "description": "更新教室请求体（部分更新）"
       },
+      "CourseCategoryCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "description": "分类名称"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Code",
+            "description": "分类代码"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "分类描述/介绍"
+          },
+          "icon_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Url",
+            "description": "分类图标URL"
+          },
+          "sort_order": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sort Order",
+            "description": "排序",
+            "default": 0
+          },
+          "status": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Status",
+            "description": "状态：0禁用/1启用",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "code"
+        ],
+        "title": "CourseCategoryCreate",
+        "description": "创建舞蹈分类请求体"
+      },
+      "CourseCategoryUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "分类名称"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "分类代码"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "description": "分类描述/介绍"
+          },
+          "icon_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Url",
+            "description": "分类图标URL"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order",
+            "description": "排序"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "状态：0禁用/1启用"
+          }
+        },
+        "type": "object",
+        "title": "CourseCategoryUpdate",
+        "description": "更新舞蹈分类请求体（部分更新）"
+      },
       "CourseCreate": {
         "properties": {
           "name": {
@@ -7014,6 +7845,32 @@
             "title": "Status",
             "description": "状态：0禁用/1启用",
             "default": 1
+          },
+          "min_students": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Students",
+            "description": "最低成课人数（仅常规课有效）"
+          },
+          "cancel_before_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Before Minutes",
+            "description": "开课前多少分钟不能取消（仅常规课有效）"
           }
         },
         "type": "object",
@@ -7107,6 +7964,32 @@
             ],
             "title": "Status",
             "description": "状态：0禁用/1启用"
+          },
+          "min_students": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Students",
+            "description": "最低成课人数（仅常规课有效）"
+          },
+          "cancel_before_minutes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel Before Minutes",
+            "description": "开课前多少分钟不能取消（仅常规课有效）"
           }
         },
         "type": "object",
@@ -7328,6 +8211,32 @@
         "title": "LoginRequest",
         "description": "用户登录请求"
       },
+      "MembershipCardBatchCancelRequest": {
+        "properties": {
+          "card_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Card Ids",
+            "description": "要作废的会员卡ID列表"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Reason",
+            "description": "作废原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "card_ids",
+          "reason"
+        ],
+        "title": "MembershipCardBatchCancelRequest",
+        "description": "批量作废会员卡请求体"
+      },
       "MembershipCardCancelRequest": {
         "properties": {
           "reason": {
@@ -7419,20 +8328,18 @@
             "title": "Applicable Course Ids",
             "description": "适用课程ID列表"
           },
-          "applicable_course_type_codes": {
+          "applicable_course_type_code": {
             "anyOf": [
               {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Applicable Course Type Codes",
-            "description": "适用的课程类型代码列表"
+            "title": "Applicable Course Type Code",
+            "description": "适用的课程类型代码（单选）"
           },
           "max_weekly_usage": {
             "anyOf": [
@@ -7533,6 +8440,25 @@
         "title": "MembershipCardFreezeRequest",
         "description": "冻结会员卡请求体"
       },
+      "MembershipCardProductBatchDeleteRequest": {
+        "properties": {
+          "product_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Product Ids",
+            "description": "要删除的产品ID列表"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_ids"
+        ],
+        "title": "MembershipCardProductBatchDeleteRequest",
+        "description": "批量删除卡类型产品请求体"
+      },
       "MembershipCardProductCreate": {
         "properties": {
           "name": {
@@ -7578,14 +8504,18 @@
             "title": "Validity Days",
             "description": "有效天数"
           },
-          "applicable_course_type_codes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Applicable Course Type Codes",
-            "description": "适用的课程类型代码列表（必填，至少一项）"
+          "applicable_course_type_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applicable Course Type Code",
+            "description": "适用的课程类型代码（单选）"
           },
           "applicable_course_ids": {
             "anyOf": [
@@ -7639,8 +8569,7 @@
         "required": [
           "name",
           "card_type",
-          "price",
-          "applicable_course_type_codes"
+          "price"
         ],
         "title": "MembershipCardProductCreate",
         "description": "创建会员卡产品请求体"
@@ -7713,20 +8642,18 @@
             "title": "Applicable Course Ids",
             "description": "适用课程ID列表，NULL表示不限"
           },
-          "applicable_course_type_codes": {
+          "applicable_course_type_code": {
             "anyOf": [
               {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
+                "type": "string",
+                "maxLength": 50
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Applicable Course Type Codes",
-            "description": "适用的课程类型代码列表，NULL表示不限"
+            "title": "Applicable Course Type Code",
+            "description": "适用的课程类型代码（单选）"
           },
           "max_weekly_usage": {
             "anyOf": [
@@ -8064,6 +8991,19 @@
             ],
             "title": "Notes",
             "description": "备注"
+          },
+          "preview_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Content",
+            "description": "预告内容（教学内容、视频名称等）"
           }
         },
         "type": "object",
@@ -8219,6 +9159,19 @@
             ],
             "title": "Notes",
             "description": "备注"
+          },
+          "preview_content": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Content",
+            "description": "预告内容（教学内容、视频名称等）"
           }
         },
         "type": "object",

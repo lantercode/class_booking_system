@@ -5,17 +5,18 @@ Revises: 07e19ff7324b
 Create Date: 2026-09-17 14:39:17.253268
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '107a2d677c16'
-down_revision: Union[str, Sequence[str], None] = '07e19ff7324b'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "107a2d677c16"
+down_revision: str | Sequence[str] | None = "07e19ff7324b"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -24,7 +25,13 @@ def upgrade() -> None:
     op.create_table(
         "course_categories",
         sa.Column("id", sa.BigInteger, primary_key=True, autoincrement=True),
-        sa.Column("public_id", sa.dialects.postgresql.UUID(as_uuid=True), unique=True, nullable=False, server_default=sa.text("gen_random_uuid()")),
+        sa.Column(
+            "public_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            unique=True,
+            nullable=False,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
         sa.Column("tenant_id", sa.BigInteger, nullable=False),
         sa.Column("name", sa.String(50), nullable=False),
         sa.Column("code", sa.String(50), nullable=False),

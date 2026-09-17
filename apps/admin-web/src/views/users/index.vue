@@ -270,7 +270,6 @@ function resetForm() {
   form.phone = ''
   form.nickname = ''
   form.password = ''
-  form.accountType = 'teacher'
   form.roleCodes = []
   formRef.value?.resetFields()
 }
@@ -428,18 +427,6 @@ function handleEdit(user: User) {
   editForm.nickname = user.nickname || ''
   editForm.status = user.status
   editForm.roleCodes = user.roles || []
-
-  // 根据用户现有角色推断账号类型
-  const userRoles = user.roles || []
-  if (userRoles.includes('admin') || userRoles.includes('super_admin')) {
-    editForm.accountType = 'admin'
-  } else if (userRoles.includes('teacher')) {
-    editForm.accountType = 'teacher'
-  } else if (userRoles.includes('student')) {
-    editForm.accountType = 'student'
-  } else {
-    editForm.accountType = 'teacher' // 默认
-  }
 
   editVisible.value = true
   editFormRef.value?.clearValidate()

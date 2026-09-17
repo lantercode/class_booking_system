@@ -35,8 +35,8 @@ from app.modules.membership.scheduler import (
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.schedule.router import router as schedule_router  # 排期路由
 from app.modules.schedule.scheduler import (
-    auto_finish_expired_schedules,
     auto_cancel_underbooked_schedules,
+    auto_finish_expired_schedules,
 )
 from app.modules.teacher.router import router as teacher_router  # 教师路由
 from app.modules.tenant.router import router as tenant_router  # 租户配置路由

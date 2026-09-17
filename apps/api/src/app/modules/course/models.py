@@ -42,6 +42,7 @@ class CourseTypeStatus(Enum):
 
 class CourseCategoryStatus(Enum):
     """舞蹈分类状态"""
+
     DISABLED = 0
     ACTIVE = 1
 

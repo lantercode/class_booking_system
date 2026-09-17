@@ -52,8 +52,12 @@ class CourseSchedule(Base, TenantMixin, TimestampMixin):
         default=ScheduleStatus.NORMAL.value,
     )
     notes: Mapped[str | None] = mapped_column(Text)
-    preview_content: Mapped[str | None] = mapped_column(Text, comment="预告内容（教学内容、视频名称等）")
-    preview_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="预告更新时间")
+    preview_content: Mapped[str | None] = mapped_column(
+        Text, comment="预告内容（教学内容、视频名称等）"
+    )
+    preview_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), comment="预告更新时间"
+    )
     cancel_reason: Mapped[str | None] = mapped_column(Text)
     cancelled_by: Mapped[int | None] = mapped_column(BigInteger)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

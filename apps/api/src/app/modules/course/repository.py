@@ -173,7 +173,9 @@ class CourseCategoryRepository(TenantAwareRepository[CourseCategory]):
             base_query = base_query.where(CourseCategory.tenant_id == tenant_id)
             count_query = count_query.where(CourseCategory.tenant_id == tenant_id)
 
-        base_query = base_query.order_by(CourseCategory.sort_order.asc(), CourseCategory.created_at.desc())
+        base_query = base_query.order_by(
+            CourseCategory.sort_order.asc(), CourseCategory.created_at.desc()
+        )
 
         result = await db.execute(base_query)
         items = list(result.scalars().all())

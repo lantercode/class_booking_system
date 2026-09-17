@@ -220,7 +220,7 @@ const formRef = ref()
 
 const form = ref<MembershipCardProductCreateParams & { applicable_course_type_code?: string }>({
   name: '',
-  card_type: undefined,
+  card_type: '' as string,
   total_credits: undefined,
   validity_days: undefined,
   price: 0,
@@ -311,7 +311,7 @@ function openCreateDialog() {
   editingId.value = null
   form.value = {
     name: '',
-    card_type: undefined,
+    card_type: '' as string,
     total_credits: undefined,
     validity_days: undefined,
     price: 0,

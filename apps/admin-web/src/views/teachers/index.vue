@@ -265,7 +265,6 @@ async function handleSubmit() {
     await userApi.update(editId.value, {
       nickname: form.value.nickname || undefined,
       avatar_url: form.value.avatar_url || undefined,
-      bio: form.value.bio || undefined,
       status: form.value.status,
     })
     ElMessage.success('编辑成功')

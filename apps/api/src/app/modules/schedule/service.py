@@ -81,13 +81,17 @@ class ScheduleService:
             if conflicts["classroom_conflicts"]:
                 classroom_names = []
                 for c in conflicts["classroom_conflicts"]:
-                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    time_range = (
+                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    )
                     classroom_names.append(time_range)
                 error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
             if conflicts["teacher_conflicts"]:
                 teacher_names = []
                 for c in conflicts["teacher_conflicts"]:
-                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    time_range = (
+                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    )
                     teacher_names.append(time_range)
                 error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
             raise BusinessException("；".join(error_messages), code=400)
@@ -199,13 +203,17 @@ class ScheduleService:
             if conflicts["classroom_conflicts"]:
                 classroom_names = []
                 for c in conflicts["classroom_conflicts"]:
-                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    time_range = (
+                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    )
                     classroom_names.append(time_range)
                 error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
             if conflicts["teacher_conflicts"]:
                 teacher_names = []
                 for c in conflicts["teacher_conflicts"]:
-                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    time_range = (
+                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    )
                     teacher_names.append(time_range)
                 error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
             raise BusinessException("；".join(error_messages), code=400)
@@ -621,16 +629,22 @@ class ScheduleService:
                 if conflicts["classroom_conflicts"]:
                     classroom_names = []
                     for c in conflicts["classroom_conflicts"]:
-                        time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        time_range = (
+                            f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        )
                         classroom_names.append(time_range)
                     error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
                 if conflicts["teacher_conflicts"]:
                     teacher_names = []
                     for c in conflicts["teacher_conflicts"]:
-                        time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        time_range = (
+                            f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        )
                         teacher_names.append(time_range)
                     error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
-                raise BusinessException(f"第 {idx + 1} 个排期：{'；'.join(error_messages)}", code=400)
+                raise BusinessException(
+                    f"第 {idx + 1} 个排期：{'；'.join(error_messages)}", code=400
+                )
 
         # 批量创建
         results = []

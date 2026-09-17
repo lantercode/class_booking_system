@@ -5,17 +5,14 @@ Revises: add_schedule_preview_content, b2c3d4e5f6a7
 Create Date: 2026-09-17 14:17:25.809225
 
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
-
+from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
-revision: str = '07e19ff7324b'
-down_revision: Union[str, Sequence[str], None] = ('add_schedule_preview_content', 'b2c3d4e5f6a7')
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "07e19ff7324b"
+down_revision: str | Sequence[str] | None = ("add_schedule_preview_content", "b2c3d4e5f6a7")
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

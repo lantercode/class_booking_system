@@ -11,11 +11,11 @@
       <scroll-view scroll-x class="filter-scroll" :show-scrollbar="false">
         <view class="filter-list">
           <view
-              v-for="tab in filterTabs"
-              :key="tab.value"
-              class="filter-pill"
-              :class="{ 'pill-active': selectedCategory === tab.value }"
-              @tap="handleCategoryClick(tab.value)"
+            v-for="tab in filterTabs"
+            :key="tab.value"
+            class="filter-pill"
+            :class="{ 'pill-active': selectedCategory === tab.value }"
+            @tap="handleCategoryClick(tab.value)"
           >
             <text>{{ tab.label }}</text>
           </view>
@@ -26,11 +26,11 @@
       <scroll-view scroll-x class="date-scroll" :show-scrollbar="false">
         <view class="date-list">
           <view
-              v-for="day in dateList"
-              :key="day.date"
-              class="date-pill"
-              :class="{ 'pill-active': selectedDate === day.date }"
-              @tap="selectDate(day.date)"
+            v-for="day in dateList"
+            :key="day.date"
+            class="date-pill"
+            :class="{ 'pill-active': selectedDate === day.date }"
+            @tap="selectDate(day.date)"
           >
             <text class="pill-day-name">{{ day.name }}</text>
             <text class="pill-day-date">{{ day.dateStr }}</text>
@@ -39,30 +39,30 @@
       </scroll-view>
 
       <scroll-view
-          scroll-y
-          class="schedule-scroll"
-          :style="{ height: scrollViewHeight + 'px' }"
-          :show-scrollbar="false"
+        scroll-y
+        class="schedule-scroll"
+        :style="{ height: scrollViewHeight + 'px' }"
+        :show-scrollbar="false"
       >
         <view v-if="loading" class="loading-state">
           <text class="loading-text">加载中...</text>
         </view>
         <view v-else-if="displaySchedules.length === 0" class="empty-state">
           <image
-              :src="emptyScheduleIcon"
-              mode="aspectFit"
-              class="empty-illustration-img"
+            :src="emptyScheduleIcon"
+            mode="aspectFit"
+            class="empty-illustration-img"
           />
           <text class="empty-title">暂无排期</text>
           <text class="empty-desc">您还没有相关的课程安排</text>
         </view>
 
         <view
-            v-else
-            v-for="(schedule, index) in displaySchedules"
-            :key="schedule._key"
-            class="schedule-card"
-            :style="{ animationDelay: `${index * 0.04}s` }"
+          v-else
+          v-for="(schedule, index) in displaySchedules"
+          :key="schedule._key"
+          class="schedule-card"
+          :style="{ animationDelay: `${index * 0.04}s` }"
         >
           <view class="schedule-time-section">
             <text class="time-start">{{ schedule._startTime }}</text>
@@ -73,47 +73,45 @@
           <view class="schedule-content">
             <view class="schedule-top">
               <view
-                  class="course-type-tag"
-                  :class="getCourseTypeClass(schedule)"
+                class="course-type-tag"
+                :class="getCourseTypeClass(schedule)"
               >
                 <text>{{ getCourseTypeLabel(schedule) }}</text>
               </view>
-              <text class="course-name">{{
+              <text class="course-name"
+                >{{
                   schedule.preview_content || schedule.course_name || "未知课程"
                 }}
               </text>
-              <AppIcon name="arrow-right" :size="32" color="#c9a66b"/>
+              <AppIcon name="arrow-right" :size="32" color="#c9a66b" />
             </view>
 
             <view class="schedule-info">
               <view class="info-item">
-                <AppIcon name="location" :size="28" color="#b8a088"/>
-                <text class="info-text">{{
-                    schedule.classroom_name || "未安排教室"
-                  }}
+                <AppIcon name="location" :size="28" color="#b8a088" />
+                <text class="info-text"
+                  >{{ schedule.classroom_name || "未安排教室" }}
                 </text>
               </view>
               <view class="info-item">
-                <AppIcon name="user" :size="28" color="#b8a088"/>
-                <text class="info-text">{{
-                    schedule.teacher_name || "未知"
-                  }}
+                <AppIcon name="user" :size="28" color="#b8a088" />
+                <text class="info-text"
+                  >{{ schedule.teacher_name || "未知" }}
                 </text>
               </view>
             </view>
 
             <view class="schedule-footer">
               <view class="capacity-info">
-                <AppIcon name="people" :size="28" color="#b8a088"/>
+                <AppIcon name="people" :size="28" color="#b8a088" />
                 <text class="capacity-text"
-                >{{ schedule.booked_count }}/{{ schedule.capacity }}人
-                </text
-                >
+                  >{{ schedule.booked_count }}/{{ schedule.capacity }}人
+                </text>
               </view>
               <view class="btn-wrapper">
                 <button
-                    class="book-btn"
-                    :class="{
+                  class="book-btn"
+                  :class="{
                     disabled: schedule._isDisabled,
                     booked: schedule._isBooked,
                     'no-card': schedule._statusClass === 'no_card',
@@ -122,8 +120,8 @@
                     insufficient: schedule._statusClass === 'insufficient',
                     'weekly-limit': schedule._statusClass === 'weekly_limit',
                   }"
-                    :disabled="schedule._isDisabled"
-                    @tap="
+                  :disabled="schedule._isDisabled"
+                  @tap="
                     schedule._isBooked
                       ? handleBooking(schedule.id)
                       : openCardSelector(schedule.id)
@@ -131,9 +129,8 @@
                 >
                   {{ schedule._btnText }}
                 </button>
-                <text v-if="schedule._cancelHint" class="cancel-hint">{{
-                    schedule._cancelHint
-                  }}
+                <text v-if="schedule._cancelHint" class="cancel-hint"
+                  >{{ schedule._cancelHint }}
                 </text>
               </view>
             </view>
@@ -142,21 +139,26 @@
       </scroll-view>
     </view>
 
-    <StudentTabBar currentRoute="/pages/student/schedule/index"/>
-    <AiAssistant :session-id="'student_' + (userId || 'default')"/>
+    <HomeTabBar currentRoute="/pages/student/schedule/index" />
+    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
-import {bookingApi, courseTypeApi, membershipApi, scheduleApi} from "@/api";
+import { bookingApi, courseTypeApi, membershipApi, scheduleApi } from "@/api";
 import AiAssistant from "@/components/AiAssistant.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
-import StudentTabBar from "@/components/StudentTabBar.vue";
-import {iconSvgMap} from "@/static/icons/icon-map";
-import {checkLogin} from "@/utils/auth";
-import {formatTime, isScheduleExpired, isWithinBookingWindow, toAPIDateTime,} from "@/utils/date";
-import {extractList} from "@/utils/helpers";
-import {computed, nextTick, onMounted, onUnmounted, ref} from "vue";
+import HomeTabBar from "@/components/HomeTabBar.vue";
+import { iconSvgMap } from "@/static/icons/icon-map";
+import { checkLogin } from "@/utils/auth";
+import {
+  formatTime,
+  isScheduleExpired,
+  isWithinBookingWindow,
+  toAPIDateTime,
+} from "@/utils/date";
+import { extractList } from "@/utils/helpers";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 
 const emptyScheduleIcon = computed(() => {
   const svg = iconSvgMap["empty-schedule"];
@@ -165,7 +167,7 @@ const emptyScheduleIcon = computed(() => {
 });
 
 const filterTabs = ref<Array<{ label: string; value: string }>>([
-  {label: "全部", value: "all"},
+  { label: "全部", value: "all" },
 ]);
 const selectedCategory = ref("all");
 const selectedDate = ref("");
@@ -184,11 +186,11 @@ interface CardValidationResult {
   availableCards: any[];
   reason?: string;
   reasonType?:
-      | "no_card"
-      | "not_applicable"
-      | "insufficient"
-      | "weekly_limit"
-      | "expired";
+    | "no_card"
+    | "not_applicable"
+    | "insufficient"
+    | "weekly_limit"
+    | "expired";
 }
 
 const systemInfo = uni.getSystemInfoSync();
@@ -196,10 +198,10 @@ const navbarHeight = systemInfo.statusBarHeight + 44;
 const tabbarHeight = (100 / 750) * systemInfo.windowWidth;
 const filterAreaHeight = (280 / 750) * systemInfo.windowWidth;
 const scrollViewHeight = ref(
-    Math.max(
-        systemInfo.windowHeight - navbarHeight - tabbarHeight - filterAreaHeight,
-        300,
-    ),
+  Math.max(
+    systemInfo.windowHeight - navbarHeight - tabbarHeight - filterAreaHeight,
+    300,
+  ),
 );
 
 let isLoadingSchedules = false;
@@ -230,7 +232,7 @@ const dateList = computed(() => {
 
 const displaySchedules = computed(() => {
   const bookedScheduleIds = new Set(
-      bookings.value.map((b: any) => b.schedule_id),
+    bookings.value.map((b: any) => b.schedule_id),
   );
   const now = Date.now();
 
@@ -244,14 +246,14 @@ const displaySchedules = computed(() => {
     const startAtTime = new Date(schedule.start_at).getTime();
     const minutesBeforeStart = (startAtTime - now) / (1000 * 60);
     const isWithinCancelLimit =
-        minutesBeforeStart <= cancelMinutes.value && minutesBeforeStart > 0;
+      minutesBeforeStart <= cancelMinutes.value && minutesBeforeStart > 0;
     const isOngoing = minutesBeforeStart <= 0 && !isExpired;
 
     const isDisabled =
-        isExpired ||
-        isOutOfWindow ||
-        (isFull && !isBooked) ||
-        (isBooked && (isWithinCancelLimit || isOngoing));
+      isExpired ||
+      isOutOfWindow ||
+      (isFull && !isBooked) ||
+      (isBooked && (isWithinCancelLimit || isOngoing));
 
     let statusText: string;
     let btnText: string;
@@ -336,12 +338,12 @@ const displaySchedules = computed(() => {
       _isBooked: isBooked,
       _isFull: isFull,
       _isDisabled:
-          isDisabled ||
-          (!isBooked &&
-              !isExpired &&
-              !isOutOfWindow &&
-              !isFull &&
-              !validateCardForSchedule(schedule).valid),
+        isDisabled ||
+        (!isBooked &&
+          !isExpired &&
+          !isOutOfWindow &&
+          !isFull &&
+          !validateCardForSchedule(schedule).valid),
       _statusClass: statusClass,
       _statusText: statusText,
       _btnText: btnText,
@@ -349,9 +351,9 @@ const displaySchedules = computed(() => {
       _isOngoing: isOngoing,
       _cancelHint: cancelHint,
       _cardValidation:
-          !isBooked && !isExpired && !isOutOfWindow && !isFull
-              ? validateCardForSchedule(schedule)
-              : null,
+        !isBooked && !isExpired && !isOutOfWindow && !isFull
+          ? validateCardForSchedule(schedule)
+          : null,
     };
   });
 });
@@ -438,8 +440,8 @@ const validateCardForSchedule = (schedule: any): CardValidationResult => {
   // 检查适用课程
   const applicableCards = typeApplicableCards.filter((card: any) => {
     if (
-        !card.applicable_course_ids ||
-        card.applicable_course_ids.length === 0
+      !card.applicable_course_ids ||
+      card.applicable_course_ids.length === 0
     ) {
       return true; // 适用于所有课程
     }
@@ -534,8 +536,7 @@ onMounted(async () => {
     try {
       const parsed = JSON.parse(userInfo);
       userId.value = parsed.id || "";
-    } catch {
-    }
+    } catch {}
   }
 
   // 加载租户配置
@@ -544,9 +545,9 @@ onMounted(async () => {
     if (settingsResult.code === 0 || settingsResult.code === 200) {
       cancelMinutes.value = settingsResult.data?.booking_cancel_minutes || 90;
       console.log(
-          "✅ 租户配置加载成功，取消时间限制:",
-          cancelMinutes.value,
-          "分钟",
+        "✅ 租户配置加载成功，取消时间限制:",
+        cancelMinutes.value,
+        "分钟",
       );
     }
   } catch (error) {
@@ -565,7 +566,7 @@ onMounted(async () => {
 
 const loadCourseTypes = async () => {
   try {
-    const result = await courseTypeApi.list({status: 1});
+    const result = await courseTypeApi.list({ status: 1 });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;
@@ -579,12 +580,12 @@ const loadCourseTypes = async () => {
 
     // 构建 filter tabs，使用课程类型名称作为显示标签
     const tabs: Array<{ label: string; value: string }> = [
-      {label: "全部", value: "all"},
+      { label: "全部", value: "all" },
     ];
 
     items.forEach((type: any) => {
       if (type.code && type.status === 1) {
-        tabs.push({label: type.name, value: type.code});
+        tabs.push({ label: type.name, value: type.code });
       }
     });
 
@@ -595,7 +596,7 @@ const loadCourseTypes = async () => {
 };
 
 const goToBookCourse = () => {
-  uni.switchTab({url: "/pages/student/course/index"});
+  uni.switchTab({ url: "/pages/student/course/index" });
 };
 
 onUnmounted(() => {
@@ -659,7 +660,7 @@ const loadSchedules = async () => {
     }, 150) as unknown as number;
   } catch (error) {
     console.error("加载排期失败:", error);
-    uni.showToast({title: "加载失败", icon: "none"});
+    uni.showToast({ title: "加载失败", icon: "none" });
     isLoadingSchedules = false;
     loading.value = false;
   }
@@ -682,7 +683,7 @@ const loadBookings = async () => {
   isLoadingBookings = true;
 
   try {
-    const result = await bookingApi.list({status: 1});
+    const result = await bookingApi.list({ status: 1 });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;
@@ -728,7 +729,7 @@ const selectDate = (date: string) => {
 
 const isScheduleBooked = (scheduleId: number): boolean => {
   return bookings.value.some(
-      (booking: any) => booking.schedule_id === scheduleId,
+    (booking: any) => booking.schedule_id === scheduleId,
   );
 };
 
@@ -739,7 +740,7 @@ const getCourseTypeLabel = (schedule: any): string => {
     special: "特色课",
   };
   return (
-      typeMap[schedule.course_type_code] || schedule.course_type_name || "常规课"
+    typeMap[schedule.course_type_code] || schedule.course_type_name || "常规课"
   );
 };
 
@@ -755,17 +756,17 @@ const getCourseTypeClass = (schedule: any): string => {
 const handleBooking = async (scheduleId: number) => {
   const schedule = daySchedules.value.find((s: any) => s.id === scheduleId);
   if (!schedule) {
-    uni.showToast({title: "排期不存在", icon: "none"});
+    uni.showToast({ title: "排期不存在", icon: "none" });
     return;
   }
 
   if (isScheduleExpired(schedule.start_at)) {
-    uni.showToast({title: "该课程已过期，无法预约", icon: "none"});
+    uni.showToast({ title: "该课程已过期，无法预约", icon: "none" });
     return;
   }
 
   if (!isWithinBookingWindow(schedule.start_at, 14)) {
-    uni.showToast({title: "仅可预约两周内的课程", icon: "none"});
+    uni.showToast({ title: "仅可预约两周内的课程", icon: "none" });
     return;
   }
 
@@ -810,10 +811,10 @@ const handleBooking = async (scheduleId: number) => {
 const cancelBooking = async (scheduleId: number) => {
   try {
     const booking = bookings.value.find(
-        (b: any) => b.schedule_id === scheduleId,
+      (b: any) => b.schedule_id === scheduleId,
     );
     if (!booking) {
-      uni.showToast({title: "未找到预约记录", icon: "none"});
+      uni.showToast({ title: "未找到预约记录", icon: "none" });
       return;
     }
 
@@ -832,13 +833,13 @@ const cancelBooking = async (scheduleId: number) => {
 
     const result = await bookingApi.cancel(booking.id);
     if (result.code === 0 || result.code === 200) {
-      uni.showToast({title: "取消成功", icon: "success"});
+      uni.showToast({ title: "取消成功", icon: "success" });
       await Promise.all([loadSchedules(), loadBookings()]);
     } else {
-      uni.showToast({title: result.msg || "取消失败", icon: "none"});
+      uni.showToast({ title: result.msg || "取消失败", icon: "none" });
     }
   } catch {
-    uni.showToast({title: "取消失败", icon: "none"});
+    uni.showToast({ title: "取消失败", icon: "none" });
   }
 };
 
@@ -1065,8 +1066,9 @@ const handleBookingSuccess = async () => {
   padding: 28rpx 24rpx;
   margin-bottom: $space-md;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.04);
-  transition: transform $duration-fast $ease-standard,
-  box-shadow $duration-fast $ease-standard;
+  transition:
+    transform $duration-fast $ease-standard,
+    box-shadow $duration-fast $ease-standard;
   animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
   position: relative;
   overflow: hidden;
@@ -1079,9 +1081,9 @@ const handleBookingSuccess = async () => {
     width: 200rpx;
     height: 200rpx;
     background: radial-gradient(
-            circle,
-            rgba(201, 166, 107, 0.06) 0%,
-            transparent 70%
+      circle,
+      rgba(201, 166, 107, 0.06) 0%,
+      transparent 70%
     );
     pointer-events: none;
   }
@@ -1100,9 +1102,9 @@ const handleBookingSuccess = async () => {
   margin-right: $space-md;
   flex-shrink: 0;
   background: linear-gradient(
-          180deg,
-          rgba(232, 213, 183, 0.3) 0%,
-          rgba(212, 184, 150, 0.15) 100%
+    180deg,
+    rgba(232, 213, 183, 0.3) 0%,
+    rgba(212, 184, 150, 0.15) 100%
   );
   border-radius: 16rpx;
   padding: 16rpx 12rpx;
@@ -1120,9 +1122,9 @@ const handleBookingSuccess = async () => {
   width: 2rpx;
   height: 24rpx;
   background: linear-gradient(
-          180deg,
-          #c9a66b 0%,
-          rgba(201, 166, 107, 0.3) 100%
+    180deg,
+    #c9a66b 0%,
+    rgba(201, 166, 107, 0.3) 100%
   );
   margin: 8rpx 0;
   border-radius: $radius-full;
@@ -1149,27 +1151,27 @@ const handleBookingSuccess = async () => {
 
   &.tag-private {
     background: linear-gradient(
-            135deg,
-            rgba(232, 213, 183, 0.5) 0%,
-            rgba(212, 184, 150, 0.3) 100%
+      135deg,
+      rgba(232, 213, 183, 0.5) 0%,
+      rgba(212, 184, 150, 0.3) 100%
     );
     color: #8b7355;
   }
 
   &.tag-regular {
     background: linear-gradient(
-            135deg,
-            rgba(200, 180, 220, 0.4) 0%,
-            rgba(180, 160, 200, 0.2) 100%
+      135deg,
+      rgba(200, 180, 220, 0.4) 0%,
+      rgba(180, 160, 200, 0.2) 100%
     );
     color: #7b6b8a;
   }
 
   &.tag-special {
     background: linear-gradient(
-            135deg,
-            rgba(180, 220, 200, 0.4) 0%,
-            rgba(160, 200, 180, 0.2) 100%
+      135deg,
+      rgba(180, 220, 200, 0.4) 0%,
+      rgba(160, 200, 180, 0.2) 100%
     );
     color: #5b8a7b;
   }

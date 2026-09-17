@@ -111,7 +111,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         exclude_id: int | None = None,
     ) -> dict:
         """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）
-        
+
         Returns:
             dict: {
                 "has_conflict": bool,

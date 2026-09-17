@@ -7,6 +7,7 @@ Teacher Service - 教师业务逻辑层
 """
 
 import logging
+from datetime import UTC
 from typing import Any
 
 from sqlalchemy import select
@@ -42,15 +43,17 @@ class TeacherService:
         teachers = []
         for row in rows:
             user, profile = row
-            teachers.append({
-                "id": user.id,
-                "nickname": user.nickname,
-                "avatar_url": user.avatar_url,
-                "title": profile.title,
-                "bio": profile.bio,
-                "specialties": profile.specialties,
-                "years_of_experience": profile.years_of_experience,
-            })
+            teachers.append(
+                {
+                    "id": user.id,
+                    "nickname": user.nickname,
+                    "avatar_url": user.avatar_url,
+                    "title": profile.title,
+                    "bio": profile.bio,
+                    "specialties": profile.specialties,
+                    "years_of_experience": profile.years_of_experience,
+                }
+            )
         return teachers
 
     async def get_teacher_by_user_id(
@@ -109,12 +112,15 @@ class TeacherService:
 
         if not profile:
             # 创建教师档案
-            from datetime import datetime, timezone
             import random
-            date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+            from datetime import datetime
+
+            date_str = datetime.now(UTC).strftime("%Y%m%d")
             random_digits = "".join([str(random.randint(0, 9)) for _ in range(6)])
             teacher_code = f"T{date_str}{random_digits}"
-            profile = TeacherProfile(user_id=user_id, tenant_id=tenant_id, teacher_code=teacher_code)
+            profile = TeacherProfile(
+                user_id=user_id, tenant_id=tenant_id, teacher_code=teacher_code
+            )
             db.add(profile)
 
         # 更新教师档案字段

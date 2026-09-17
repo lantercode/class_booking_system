@@ -11,13 +11,13 @@ class TenantService:
         """获取租户配置"""
         result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         tenant = result.scalar_one_or_none()
-        
+
         if not tenant:
             return {}
-        
+
         # 返回默认配置，如果 settings 中没有则使用默认值
         settings = tenant.settings or {}
-        
+
         return {
             "booking_cancel_minutes": settings.get("booking_cancel_minutes", 90),
             "booking_advance_days": settings.get("booking_advance_days", 14),
@@ -27,10 +27,10 @@ class TenantService:
         """获取租户基本信息"""
         result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
         tenant = result.scalar_one_or_none()
-        
+
         if not tenant:
             return {}
-        
+
         return {
             "id": tenant.id,
             "name": tenant.name,

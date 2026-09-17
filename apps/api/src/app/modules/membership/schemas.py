@@ -80,9 +80,7 @@ class MembershipCardProductResponse(BaseModel):
     total_credits: int | None = Field(None, description="总次数")
     validity_days: int | None = Field(None, description="有效天数")
     applicable_course_ids: list[int] | None = Field(None, description="适用课程ID列表")
-    applicable_course_type_code: str | None = Field(
-        None, description="适用的课程类型代码（单选）"
-    )
+    applicable_course_type_code: str | None = Field(None, description="适用的课程类型代码（单选）")
     max_weekly_usage: int | None = Field(None, description="每周最多使用次数")
     description: str | None = Field(None, description="产品描述")
     status: int = Field(..., description="状态")
@@ -168,9 +166,7 @@ class MembershipCardResponse(BaseModel):
     valid_from: str | None = Field(None, description="生效时间")
     expire_at: str | None = Field(None, description="过期时间")
     applicable_course_ids: list[int] | None = Field(None, description="适用课程ID列表")
-    applicable_course_type_code: str | None = Field(
-        None, description="适用的课程类型代码（单选）"
-    )
+    applicable_course_type_code: str | None = Field(None, description="适用的课程类型代码（单选）")
     max_weekly_usage: int | None = Field(None, description="每周最多使用次数")
     status: int = Field(..., description="状态")
     frozen_at: str | None = Field(None, description="冻结时间")

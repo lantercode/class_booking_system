@@ -9,6 +9,7 @@ from app.shared.base_model import Base, TenantMixin, TimestampMixin
 
 class StudentStatus(Enum):
     """学员状态"""
+
     DISABLED = 0
     ACTIVE = 1
 

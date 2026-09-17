@@ -84,6 +84,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/common/upload/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 上传图片
+         * @description 上传图片文件（头像、封面等），支持 JPG/PNG/GIF/WEBP 格式，最大 2MB
+         */
+        post: operations["upload_image_api_v1_common_upload_image_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -818,6 +838,58 @@ export interface paths {
         patch: operations["update_course_type_api_v1_courses_types__type_id__patch"];
         trace?: never;
     };
+    "/api/v1/courses/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取舞蹈分类列表
+         * @description 获取舞蹈分类列表（支持状态筛选）
+         */
+        get: operations["list_course_categories_api_v1_courses_categories_get"];
+        put?: never;
+        /**
+         * 创建舞蹈分类
+         * @description 创建新舞蹈分类（需 course:create 权限）
+         */
+        post: operations["create_course_category_api_v1_courses_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/courses/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取舞蹈分类详情
+         * @description 获取舞蹈分类详情
+         */
+        get: operations["get_course_category_api_v1_courses_categories__category_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * 删除舞蹈分类
+         * @description 删除舞蹈分类（需 course:delete 权限，有课程使用时不可删除）
+         */
+        delete: operations["delete_course_category_api_v1_courses_categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新舞蹈分类
+         * @description 更新舞蹈分类信息（需 course:update 权限）
+         */
+        patch: operations["update_course_category_api_v1_courses_categories__category_id__patch"];
+        trace?: never;
+    };
     "/api/v1/courses/": {
         parameters: {
             query?: never;
@@ -1222,6 +1294,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teachers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取教师列表
+         * @description 获取当前租户下的所有活跃教师
+         */
+        get: operations["list_teachers_api_v1_teachers__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teachers/me": {
         parameters: {
             query?: never;
@@ -1244,6 +1336,46 @@ export interface paths {
          * @description 更新当前教师的个人信息
          */
         patch: operations["update_current_teacher_api_v1_teachers_me_patch"];
+        trace?: never;
+    };
+    "/api/v1/tenant/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取租户配置
+         * @description 获取当前租户的配置信息
+         */
+        get: operations["get_tenant_settings_api_v1_tenant_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取租户基本信息
+         * @description 获取当前租户的基本信息（名称、logo等）
+         */
+        get: operations["get_tenant_info_api_v1_tenant_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/membership/products": {
@@ -1293,6 +1425,26 @@ export interface paths {
          * @description 删除产品（软删除：设置 deleted_at）
          */
         delete: operations["delete_product_api_v1_membership_products__product_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/products/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量删除产品
+         * @description 批量删除产品（软删除：设置 deleted_at）
+         */
+        post: operations["batch_delete_products_api_v1_membership_products_batch_delete_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1526,6 +1678,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/membership/cards/batch-cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量作废会员卡
+         * @description 批量作废会员卡（管理员操作）
+         */
+        post: operations["batch_cancel_cards_api_v1_membership_cards_batch_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/membership/transactions": {
         parameters: {
             query?: never;
@@ -1676,6 +1848,14 @@ export interface components {
              */
             new_password: string;
         };
+        /** Body_upload_image_api_v1_common_upload_image_post */
+        Body_upload_image_api_v1_common_upload_image_post: {
+            /**
+             * File
+             * @description 图片文件
+             */
+            file: string;
+        };
         /**
          * BookingCreate
          * @description 创建预约请求体
@@ -1780,6 +1960,80 @@ export interface components {
             status?: number | null;
         };
         /**
+         * CourseCategoryCreate
+         * @description 创建舞蹈分类请求体
+         */
+        CourseCategoryCreate: {
+            /**
+             * Name
+             * @description 分类名称
+             */
+            name: string;
+            /**
+             * Code
+             * @description 分类代码
+             */
+            code: string;
+            /**
+             * Description
+             * @description 分类描述/介绍
+             */
+            description?: string | null;
+            /**
+             * Icon Url
+             * @description 分类图标URL
+             */
+            icon_url?: string | null;
+            /**
+             * Sort Order
+             * @description 排序
+             * @default 0
+             */
+            sort_order: number;
+            /**
+             * Status
+             * @description 状态：0禁用/1启用
+             * @default 1
+             */
+            status: number;
+        };
+        /**
+         * CourseCategoryUpdate
+         * @description 更新舞蹈分类请求体（部分更新）
+         */
+        CourseCategoryUpdate: {
+            /**
+             * Name
+             * @description 分类名称
+             */
+            name?: string | null;
+            /**
+             * Code
+             * @description 分类代码
+             */
+            code?: string | null;
+            /**
+             * Description
+             * @description 分类描述/介绍
+             */
+            description?: string | null;
+            /**
+             * Icon Url
+             * @description 分类图标URL
+             */
+            icon_url?: string | null;
+            /**
+             * Sort Order
+             * @description 排序
+             */
+            sort_order?: number | null;
+            /**
+             * Status
+             * @description 状态：0禁用/1启用
+             */
+            status?: number | null;
+        };
+        /**
          * CourseCreate
          * @description 创建课程请求体
          */
@@ -1870,6 +2124,16 @@ export interface components {
              * @default 1
              */
             status: number;
+            /**
+             * Min Students
+             * @description 最低成课人数（仅常规课有效）
+             */
+            min_students?: number | null;
+            /**
+             * Cancel Before Minutes
+             * @description 开课前多少分钟不能取消（仅常规课有效）
+             */
+            cancel_before_minutes?: number | null;
         };
         /**
          * CourseTypeUpdate
@@ -1906,6 +2170,16 @@ export interface components {
              * @description 状态：0禁用/1启用
              */
             status?: number | null;
+            /**
+             * Min Students
+             * @description 最低成课人数（仅常规课有效）
+             */
+            min_students?: number | null;
+            /**
+             * Cancel Before Minutes
+             * @description 开课前多少分钟不能取消（仅常规课有效）
+             */
+            cancel_before_minutes?: number | null;
         };
         /**
          * CourseUpdate
@@ -2011,6 +2285,22 @@ export interface components {
             password: string;
         };
         /**
+         * MembershipCardBatchCancelRequest
+         * @description 批量作废会员卡请求体
+         */
+        MembershipCardBatchCancelRequest: {
+            /**
+             * Card Ids
+             * @description 要作废的会员卡ID列表
+             */
+            card_ids: number[];
+            /**
+             * Reason
+             * @description 作废原因
+             */
+            reason: string;
+        };
+        /**
          * MembershipCardCancelRequest
          * @description 作废会员卡请求体
          */
@@ -2057,10 +2347,10 @@ export interface components {
              */
             applicable_course_ids?: number[] | null;
             /**
-             * Applicable Course Type Codes
-             * @description 适用的课程类型代码列表
+             * Applicable Course Type Code
+             * @description 适用的课程类型代码（单选）
              */
-            applicable_course_type_codes?: string[] | null;
+            applicable_course_type_code?: string | null;
             /**
              * Max Weekly Usage
              * @description 每周最多使用次数
@@ -2117,6 +2407,17 @@ export interface components {
             auto_unfreeze: boolean;
         };
         /**
+         * MembershipCardProductBatchDeleteRequest
+         * @description 批量删除卡类型产品请求体
+         */
+        MembershipCardProductBatchDeleteRequest: {
+            /**
+             * Product Ids
+             * @description 要删除的产品ID列表
+             */
+            product_ids: number[];
+        };
+        /**
          * MembershipCardProductCreate
          * @description 创建会员卡产品请求体
          */
@@ -2147,10 +2448,10 @@ export interface components {
              */
             validity_days?: number | null;
             /**
-             * Applicable Course Type Codes
-             * @description 适用的课程类型代码列表（必填，至少一项）
+             * Applicable Course Type Code
+             * @description 适用的课程类型代码（单选）
              */
-            applicable_course_type_codes: string[];
+            applicable_course_type_code?: string | null;
             /**
              * Applicable Course Ids
              * @description 适用课程ID列表，NULL表示不限
@@ -2204,10 +2505,10 @@ export interface components {
              */
             applicable_course_ids?: number[] | null;
             /**
-             * Applicable Course Type Codes
-             * @description 适用的课程类型代码列表，NULL表示不限
+             * Applicable Course Type Code
+             * @description 适用的课程类型代码（单选）
              */
-            applicable_course_type_codes?: string[] | null;
+            applicable_course_type_code?: string | null;
             /**
              * Max Weekly Usage
              * @description 每周最多使用次数，NULL表示不限
@@ -2388,6 +2689,11 @@ export interface components {
              * @description 备注
              */
             notes?: string | null;
+            /**
+             * Preview Content
+             * @description 预告内容（教学内容、视频名称等）
+             */
+            preview_content?: string | null;
         };
         /**
          * ScheduleUpdate
@@ -2449,6 +2755,11 @@ export interface components {
              * @description 备注
              */
             notes?: string | null;
+            /**
+             * Preview Content
+             * @description 预告内容（教学内容、视频名称等）
+             */
+            preview_content?: string | null;
         };
         /**
          * TokenResponse
@@ -2942,6 +3253,43 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    upload_image_api_v1_common_upload_image_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_image_api_v1_common_upload_image_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -4585,6 +4933,191 @@ export interface operations {
             };
         };
     };
+    list_course_categories_api_v1_courses_categories_get: {
+        parameters: {
+            query?: {
+                /** @description 状态筛选 */
+                status?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_course_category_api_v1_courses_categories_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_course_category_api_v1_courses_categories__category_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 舞蹈分类ID */
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_course_category_api_v1_courses_categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 舞蹈分类ID */
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_course_category_api_v1_courses_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 舞蹈分类ID */
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_course_api_v1_courses__post: {
         parameters: {
             query?: never;
@@ -5574,6 +6107,39 @@ export interface operations {
             };
         };
     };
+    list_teachers_api_v1_teachers__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_current_teacher_api_v1_teachers_me_get: {
         parameters: {
             query?: never;
@@ -5623,6 +6189,72 @@ export interface operations {
                 };
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_settings_api_v1_tenant_settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tenant_info_api_v1_tenant_info_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5831,6 +6463,43 @@ export interface operations {
             };
         };
     };
+    batch_delete_products_api_v1_membership_products_batch_delete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardProductBatchDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deleted_products_api_v1_membership_products_recycle_bin_get: {
         parameters: {
             query?: {
@@ -5910,7 +6579,8 @@ export interface operations {
                 student_id?: number | null;
                 product_id?: number | null;
                 card_type?: string | null;
-                status?: number | null;
+                /** @description 状态筛选（多选，逗号分隔：0,1,2,3） */
+                status?: string | null;
                 keyword?: string | null;
             };
             header?: {
@@ -6245,6 +6915,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MembershipCardCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_cancel_cards_api_v1_membership_cards_batch_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCardBatchCancelRequest"];
             };
         };
         responses: {

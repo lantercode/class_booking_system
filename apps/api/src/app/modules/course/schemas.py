@@ -23,7 +23,9 @@ class CourseTypeCreate(BaseModel):
     sort_order: int = Field(0, ge=0, description="排序")
     status: int = Field(1, ge=0, le=1, description="状态：0禁用/1启用")
     min_students: int | None = Field(None, ge=1, description="最低成课人数（仅常规课有效）")
-    cancel_before_minutes: int | None = Field(None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）")
+    cancel_before_minutes: int | None = Field(
+        None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）"
+    )
 
 
 class CourseTypeUpdate(BaseModel):
@@ -36,7 +38,9 @@ class CourseTypeUpdate(BaseModel):
     sort_order: int | None = Field(None, ge=0, description="排序")
     status: int | None = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
     min_students: int | None = Field(None, ge=1, description="最低成课人数（仅常规课有效）")
-    cancel_before_minutes: int | None = Field(None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）")
+    cancel_before_minutes: int | None = Field(
+        None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）"
+    )
 
 
 class CourseTypeResponse(BaseModel):

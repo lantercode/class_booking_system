@@ -10,7 +10,7 @@ User Service - 用户业务逻辑层
 
 import logging
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -49,7 +49,7 @@ class UserService:
         """
         生成编号：前缀 + 日期(yyyyMMdd) + 6位随机数
         """
-        date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+        date_str = datetime.now(UTC).strftime("%Y%m%d")
         random_digits = "".join([str(random.randint(0, 9)) for _ in range(6)])
         return f"{prefix}{date_str}{random_digits}"
 
@@ -89,10 +89,6 @@ class UserService:
             "password_hash": hash_password(data.password),
             "status": UserStatus.ACTIVE.value,
         }
-
-        # 生成用户编号
-        role_codes_for_code = data.role_codes or []
-        user_data["user_code"] = None  # 编号现在在 Profile 中生成
 
         # 可选字段
         if data.email:
@@ -161,7 +157,7 @@ class UserService:
         # 获取教师编号和学员编号
         teacher_code = None
         student_code = None
-        
+
         if "teacher" in role_codes:
             teacher_result = await db.execute(
                 select(TeacherProfile).where(TeacherProfile.user_id == user.id)
@@ -169,9 +165,10 @@ class UserService:
             teacher_profile = teacher_result.scalar_one_or_none()
             if teacher_profile:
                 teacher_code = teacher_profile.teacher_code
-        
+
         if "student" in role_codes:
             from app.modules.student.models import StudentProfile
+
             student_result = await db.execute(
                 select(StudentProfile).where(StudentProfile.user_id == user.id)
             )
@@ -271,37 +268,47 @@ class UserService:
             # 获取用户角色
             roles = await AuthRepository.get_user_roles(db, user_id)
             role_codes = [r.code for r in roles]
-            
+
             # 更新 TeacherProfile 状态
             if "teacher" in role_codes:
                 from app.modules.teacher.models import TeacherProfile, TeacherStatus
-                
-                new_teacher_status = TeacherStatus.ACTIVE.value if data.status == 1 else TeacherStatus.DISABLED.value
+
+                new_teacher_status = (
+                    TeacherStatus.ACTIVE.value if data.status == 1 else TeacherStatus.DISABLED.value
+                )
                 await db.execute(
                     TeacherProfile.__table__.update()
                     .where(TeacherProfile.user_id == user_id)
                     .values(status=new_teacher_status)
                 )
-                logger.info(f"[UserService] 🔄 同步更新 TeacherProfile 状态: user_id={user_id}, status={new_teacher_status}")
-            
+                logger.info(
+                    f"[UserService] 🔄 同步更新 TeacherProfile 状态: user_id={user_id}, status={new_teacher_status}"
+                )
+
             # 更新 StudentProfile 状态
             if "student" in role_codes:
                 from app.modules.student.models import StudentProfile, StudentStatus
-                
-                new_student_status = StudentStatus.ACTIVE.value if data.status == 1 else StudentStatus.DISABLED.value
+
+                new_student_status = (
+                    StudentStatus.ACTIVE.value if data.status == 1 else StudentStatus.DISABLED.value
+                )
                 await db.execute(
                     StudentProfile.__table__.update()
                     .where(StudentProfile.user_id == user_id)
                     .values(status=new_student_status)
                 )
-                logger.info(f"[UserService] 🔄 同步更新 StudentProfile 状态: user_id={user_id}, status={new_student_status}")
+                logger.info(
+                    f"[UserService] 🔄 同步更新 StudentProfile 状态: user_id={user_id}, status={new_student_status}"
+                )
 
         await db.commit()
         await db.refresh(user)
 
         # 更新角色（如果传入 role_ids）
         if data.role_ids is not None and operator_id is not None:
-            await self.assign_roles(db, user_id, data.role_ids, operator_id=operator_id, redis_client=redis_client)
+            await self.assign_roles(
+                db, user_id, data.role_ids, operator_id=operator_id, redis_client=redis_client
+            )
 
         # 获取角色列表
         roles = await AuthRepository.get_user_roles(db, user.id)
@@ -323,6 +330,7 @@ class UserService:
         student_code = None
         if "student" in role_codes:
             from app.modules.student.models import StudentProfile
+
             student_result = await db.execute(
                 select(StudentProfile).where(StudentProfile.user_id == user.id)
             )
@@ -396,7 +404,7 @@ class UserService:
         active_schedule_query = select(CourseSchedule).where(
             CourseSchedule.teacher_id == user_id,
             CourseSchedule.status == ScheduleStatus.NORMAL.value,
-            CourseSchedule.start_at > datetime.now(timezone.utc),
+            CourseSchedule.start_at > datetime.now(UTC),
         )
         if tenant_id:
             active_schedule_query = active_schedule_query.where(
@@ -449,7 +457,7 @@ class UserService:
         # 获取教师编号和学员编号
         teacher_code = None
         student_code = None
-        
+
         if "teacher" in role_codes:
             teacher_result = await db.execute(
                 select(TeacherProfile).where(TeacherProfile.user_id == user.id)
@@ -457,9 +465,10 @@ class UserService:
             teacher_profile = teacher_result.scalar_one_or_none()
             if teacher_profile:
                 teacher_code = teacher_profile.teacher_code
-        
+
         if "student" in role_codes:
             from app.modules.student.models import StudentProfile
+
             student_result = await db.execute(
                 select(StudentProfile).where(StudentProfile.user_id == user.id)
             )
@@ -545,6 +554,7 @@ class UserService:
             student_code = None
             if "student" in role_codes:
                 from app.modules.student.models import StudentProfile
+
                 student_result = await db.execute(
                     select(StudentProfile).where(StudentProfile.user_id == user.id)
                 )
@@ -555,7 +565,9 @@ class UserService:
             # 查询微信绑定状态
             wechat_account = await AuthRepository.get_wechat_account_by_user_id(db, user.id)
             wechat_bound = wechat_account is not None
-            print(f"[用户列表] user_id={user.id}, phone={user.phone}, wechat_bound={wechat_bound}, wechat_account={wechat_account}")
+            print(
+                f"[用户列表] user_id={user.id}, phone={user.phone}, wechat_bound={wechat_bound}, wechat_account={wechat_account}"
+            )
 
             user_responses.append(
                 UserResponse(
@@ -704,9 +716,10 @@ class UserService:
         # 检查操作人权限（只有管理员和超级管理员可以执行）
         operator_roles = await AuthRepository.get_user_roles(db, operator_id)
         operator_role_codes = [r.code for r in operator_roles]
-        
+
         if "admin" not in operator_role_codes and "super_admin" not in operator_role_codes:
             from app.core.exceptions import PermissionException
+
             raise PermissionException("只有管理员和超级管理员才能修改用户角色")
 
         # 检查用户存在
@@ -744,7 +757,7 @@ class UserService:
                 select(TeacherProfile).where(TeacherProfile.user_id == user_id)
             )
             existing_profile = existing.scalar_one_or_none()
-            
+
             if existing_profile:
                 # Profile 已存在（之前被停用），重新激活
                 await db.execute(

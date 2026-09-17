@@ -119,7 +119,8 @@ async def auto_cancel_underbooked_schedules():
                 CourseSchedule.status == ScheduleStatus.NORMAL.value,
                 CourseType.min_students.isnot(None),
                 CourseType.cancel_before_minutes.isnot(None),
-                CourseSchedule.start_at - timedelta(minutes=CourseType.cancel_before_minutes) <= now,
+                CourseSchedule.start_at - timedelta(minutes=CourseType.cancel_before_minutes)
+                <= now,
                 CourseSchedule.booked_count < CourseType.min_students,
             )
         )
@@ -130,9 +131,7 @@ async def auto_cancel_underbooked_schedules():
         if not rows:
             return
 
-        logger.info(
-            f"[定时任务] 发现 {len(rows)} 个预约人数不足的排期，准备自动取消"
-        )
+        logger.info(f"[定时任务] 发现 {len(rows)} 个预约人数不足的排期，准备自动取消")
 
         cancelled_count = 0
         failed_count = 0
@@ -144,12 +143,9 @@ async def auto_cancel_underbooked_schedules():
             cancel_minutes = row.cancel_before_minutes
             type_name = row.type_name
             course_name = row.course_name
-            start_at = row.start_at
 
             try:
-                cancel_reason = (
-                    f"预约人数不足（{booked}/{min_req}），系统自动取消"
-                )
+                cancel_reason = f"预约人数不足（{booked}/{min_req}），系统自动取消"
                 # 复用现有的 cancel_schedule 逻辑处理学员预约和课时退还
                 await schedule_service.cancel_schedule(
                     db,
@@ -165,13 +161,10 @@ async def auto_cancel_underbooked_schedules():
                 )
             except Exception as e:
                 failed_count += 1
-                logger.error(
-                    f"[定时任务] 自动取消排期 #{schedule_id} 失败: {e}"
-                )
+                logger.error(f"[定时任务] 自动取消排期 #{schedule_id} 失败: {e}")
 
         await db.commit()
 
         logger.info(
-            f"[定时任务] 自动取消人数不足课程完成: "
-            f"成功 {cancelled_count}, 失败 {failed_count}"
+            f"[定时任务] 自动取消人数不足课程完成: 成功 {cancelled_count}, 失败 {failed_count}"
         )

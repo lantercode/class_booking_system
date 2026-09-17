@@ -184,6 +184,7 @@ class BookingService:
             cancel_minutes = 90
             try:
                 from app.modules.tenant.service import TenantService
+
                 tenant_service = TenantService()
                 settings = await tenant_service.get_settings(db, booking.tenant_id)
                 cancel_minutes = settings.get("booking_cancel_minutes", 90)

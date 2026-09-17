@@ -19,22 +19,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.modules.auth.models import Permission, Role, RolePermission, UserRole
+from app.modules.course.models import CourseCategory, CourseCategoryStatus
 from app.modules.tenant.models import Tenant, TenantStatus
 from app.modules.user.models import User, UserStatus
-from app.modules.course.models import CourseCategory, CourseCategoryStatus
 
 
 async def create_default_tenant(session: AsyncSession) -> Tenant:
     """创建默认租户机构"""
     from sqlalchemy import select
-    
+
     # 检查租户是否已存在
     result = await session.execute(select(Tenant).where(Tenant.slug == "dance-school"))
     existing_tenant = result.scalar_one_or_none()
     if existing_tenant:
         print(f"⚠️  租户已存在: {existing_tenant.name}")
         return existing_tenant
-    
+
     tenant = Tenant(
         name="奕欣舞蹈",
         slug="dance-school",
@@ -55,7 +55,7 @@ async def create_default_tenant(session: AsyncSession) -> Tenant:
 async def create_system_roles(session: AsyncSession, tenant_id: int) -> list[Role]:
     """创建 4 个系统角色"""
     from sqlalchemy import select
-    
+
     # 检查角色是否已存在
     result = await session.execute(
         select(Role).where(Role.tenant_id == tenant_id, Role.code == "super_admin")
@@ -65,7 +65,7 @@ async def create_system_roles(session: AsyncSession, tenant_id: int) -> list[Rol
         print("⚠️  角色已存在，跳过创建")
         result = await session.execute(select(Role).where(Role.tenant_id == tenant_id))
         return list(result.scalars().all())
-    
+
     roles_data = [
         {
             "code": "super_admin",
@@ -95,7 +95,7 @@ async def create_system_roles(session: AsyncSession, tenant_id: int) -> list[Rol
 async def create_permissions(session: AsyncSession) -> list[Permission]:
     """创建 9 个基础权限项"""
     from sqlalchemy import select
-    
+
     # 检查权限是否已存在
     result = await session.execute(select(Permission).where(Permission.code == "course:create"))
     existing_perm = result.scalar_one_or_none()
@@ -103,7 +103,7 @@ async def create_permissions(session: AsyncSession) -> list[Permission]:
         print("⚠️  权限已存在，跳过创建")
         result = await session.execute(select(Permission))
         return list(result.scalars().all())
-    
+
     permissions_data = [
         # 课程管理 (3个)
         {"code": "course:create", "name": "创建课程", "module": "course"},
@@ -158,14 +158,14 @@ async def assign_role_permissions(
 ) -> None:
     """分配权限给角色"""
     from sqlalchemy import select
-    
+
     # 检查是否已分配权限
     result = await session.execute(select(RolePermission).limit(1))
     existing_rp = result.scalar_one_or_none()
     if existing_rp:
         print("⚠️  角色权限已分配，跳过")
         return
-    
+
     # 超级管理员拥有所有权限
     super_admin_role = next(r for r in roles if r.code == "super_admin")
     for perm in permissions:
@@ -225,14 +225,14 @@ async def assign_role_permissions(
 async def create_admin_user(session: AsyncSession, tenant_id: int, roles: list[Role]) -> User:
     """创建默认管理员账号"""
     from sqlalchemy import select
-    
+
     # 检查管理员是否已存在
     result = await session.execute(select(User).where(User.phone == "13800000001"))
     existing_user = result.scalar_one_or_none()
     if existing_user:
         print(f"⚠️  管理员已存在: {existing_user.phone}")
         return existing_user
-    
+
     password_hash = hash_password("Test@123456")
 
     user = User(
@@ -256,14 +256,14 @@ async def create_admin_user(session: AsyncSession, tenant_id: int, roles: list[R
 async def create_teacher_user(session: AsyncSession, tenant_id: int, roles: list[Role]) -> User:
     """创建默认教师账号"""
     from sqlalchemy import select
-    
+
     # 检查教师是否已存在
     result = await session.execute(select(User).where(User.phone == "13800138001"))
     existing_user = result.scalar_one_or_none()
     if existing_user:
         print(f"⚠️  教师已存在: {existing_user.phone}")
         return existing_user
-    
+
     password_hash = hash_password("Test@123456")
 
     user = User(
@@ -286,14 +286,14 @@ async def create_teacher_user(session: AsyncSession, tenant_id: int, roles: list
 async def create_student_user(session: AsyncSession, tenant_id: int, roles: list[Role]) -> User:
     """创建默认学员账号"""
     from sqlalchemy import select
-    
+
     # 检查学员是否已存在
     result = await session.execute(select(User).where(User.phone == "13900139001"))
     existing_user = result.scalar_one_or_none()
     if existing_user:
         print(f"⚠️  学员已存在: {existing_user.phone}")
         return existing_user
-    
+
     password_hash = hash_password("Test@123456")
 
     user = User(
@@ -316,17 +316,21 @@ async def create_student_user(session: AsyncSession, tenant_id: int, roles: list
 async def create_course_categories(session: AsyncSession, tenant_id: int) -> list[CourseCategory]:
     """创建默认舞蹈分类（舞蹈类型）"""
     from sqlalchemy import select
-    
+
     # 检查分类是否已存在
     result = await session.execute(
-        select(CourseCategory).where(CourseCategory.tenant_id == tenant_id, CourseCategory.code == "jazz")
+        select(CourseCategory).where(
+            CourseCategory.tenant_id == tenant_id, CourseCategory.code == "jazz"
+        )
     )
     existing_category = result.scalar_one_or_none()
     if existing_category:
         print("⚠️  舞蹈分类已存在，跳过创建")
-        result = await session.execute(select(CourseCategory).where(CourseCategory.tenant_id == tenant_id))
+        result = await session.execute(
+            select(CourseCategory).where(CourseCategory.tenant_id == tenant_id)
+        )
         return list(result.scalars().all())
-    
+
     categories_data = [
         {
             "name": "爵士舞",

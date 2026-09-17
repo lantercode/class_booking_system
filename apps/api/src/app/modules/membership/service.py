@@ -109,7 +109,7 @@ class MembershipCardService:
         """更新产品"""
         product = await self.get_product(db, product_id, tenant_id)
         update_data = data.model_dump(exclude_unset=True)
-        
+
         for field, value in update_data.items():
             setattr(product, field, value)
         await db.flush()
@@ -170,7 +170,7 @@ class MembershipCardService:
         tenant_id: int,
     ) -> dict:
         """批量删除卡类型产品（软删除）
-        
+
         Returns:
             dict: {
                 "success_count": 成功删除的数量,
@@ -188,22 +188,16 @@ class MembershipCardService:
                 success_count += 1
             except HTTPException as e:
                 failed_count += 1
-                failed_products.append({
-                    "product_id": product_id,
-                    "error": e.detail
-                })
+                failed_products.append({"product_id": product_id, "error": e.detail})
             except Exception as e:
                 failed_count += 1
-                failed_products.append({
-                    "product_id": product_id,
-                    "error": str(e)
-                })
+                failed_products.append({"product_id": product_id, "error": str(e)})
 
         return {
             "success_count": success_count,
             "failed_count": failed_count,
             "failed_products": failed_products,
-            "total": len(product_ids)
+            "total": len(product_ids),
         }
 
     async def restore_product(
@@ -269,7 +263,7 @@ class MembershipCardService:
         # 检查学员是否已有同课程类型的有效卡（防止不同产品但课程类型重叠）
         now = datetime.now(UTC)
         validity_days = data.validity_days or (product.validity_days if product else None)
-        
+
         # 获取新卡的课程类型（单选字段）
         new_card_course_type = data.applicable_course_type_code or (
             product.applicable_course_type_code if product else None
@@ -304,16 +298,19 @@ class MembershipCardService:
             for existing_card_dict in all_existing_cards:
                 # 获取现有卡的课程类型（单选字段）
                 existing_course_type = existing_card_dict.get("applicable_course_type_code")
-                
+
                 # 如果课程类型相同
                 if existing_course_type == new_card_course_type:
                     # 检查时间是否重叠
                     existing_valid_from = existing_card_dict.get("valid_from")
                     existing_expire_at = existing_card_dict.get("expire_at")
-                    
+
                     if existing_valid_from and existing_expire_at and temp_expire_at:
                         # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
-                        if temp_valid_from <= existing_expire_at and existing_valid_from <= temp_expire_at:
+                        if (
+                            temp_valid_from <= existing_expire_at
+                            and existing_valid_from <= temp_expire_at
+                        ):
                             conflicting_cards.append(existing_card_dict)
 
             # 如果不是续卡模式，且有冲突卡，则拒绝
@@ -327,6 +324,7 @@ class MembershipCardService:
                     expire_at = card.get("expire_at")
                     if expire_at:
                         from datetime import timedelta
+
                         candidate = datetime(
                             year=expire_at.year,
                             month=expire_at.month,
@@ -341,7 +339,9 @@ class MembershipCardService:
 
                 detail_msg = f"该学员已有 {card_count} 张同课程类型的有效卡（{conflict_type}）。请先将旧卡作废或冻结后再发放新卡。"
                 if earliest_date:
-                    detail_msg += f" 如需续卡，最早生效时间为 {earliest_date.strftime('%Y-%m-%d')}。"
+                    detail_msg += (
+                        f" 如需续卡，最早生效时间为 {earliest_date.strftime('%Y-%m-%d')}。"
+                    )
 
                 raise HTTPException(
                     status_code=409,
@@ -355,7 +355,7 @@ class MembershipCardService:
             existing_cards = await self.card_repo.get_active_cards_by_product(
                 db, data.student_id, data.product_id, tenant_id
             )
-            
+
             if existing_cards:
                 # 找到最晚的到期时间
                 latest_expire_at = None
@@ -712,7 +712,7 @@ class MembershipCardService:
                     # 检查时间是否重叠
                     existing_valid_from = existing_card_dict.get("valid_from")
                     existing_expire_at = existing_card_dict.get("expire_at")
-                    
+
                     if existing_valid_from and existing_expire_at:
                         # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
                         if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
@@ -790,7 +790,7 @@ class MembershipCardService:
                     # 检查时间是否重叠
                     existing_valid_from = existing_card_dict.get("valid_from")
                     existing_expire_at = existing_card_dict.get("expire_at")
-                    
+
                     if existing_valid_from and existing_expire_at:
                         # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
                         if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
@@ -1066,7 +1066,7 @@ class MembershipCardService:
         operator_id: int,
     ) -> dict:
         """批量作废会员卡（管理员操作）
-        
+
         Returns:
             dict: {
                 "success_count": 成功作废的数量,
@@ -1085,22 +1085,16 @@ class MembershipCardService:
                 success_count += 1
             except HTTPException as e:
                 failed_count += 1
-                failed_cards.append({
-                    "card_id": card_id,
-                    "error": e.detail
-                })
+                failed_cards.append({"card_id": card_id, "error": e.detail})
             except Exception as e:
                 failed_count += 1
-                failed_cards.append({
-                    "card_id": card_id,
-                    "error": str(e)
-                })
+                failed_cards.append({"card_id": card_id, "error": str(e)})
 
         return {
             "success_count": success_count,
             "failed_count": failed_count,
             "failed_cards": failed_cards,
-            "total": len(card_ids)
+            "total": len(card_ids),
         }
 
 

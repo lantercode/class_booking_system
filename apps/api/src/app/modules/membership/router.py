@@ -129,9 +129,7 @@ async def batch_delete_products(
 ):
     """批量删除产品（软删除：设置 deleted_at）"""
     tenant_id = current_user.get("tenant_id")
-    result = await membership_card_service.batch_delete_products(
-        db, data.product_ids, tenant_id
-    )
+    result = await membership_card_service.batch_delete_products(db, data.product_ids, tenant_id)
     await db.commit()
     return success(data=result, msg=f"成功删除 {result['success_count']} 个产品")
 

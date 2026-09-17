@@ -14,8 +14,18 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessException, NotFoundException, ValidationException
-from app.modules.course.models import Course, CourseCategory, CourseCategoryStatus, CourseStatus, CourseType, CourseTypeStatus
-from app.modules.course.repository import CourseCategoryRepository, CourseRepository, CourseTypeRepository
+from app.modules.course.models import (
+    Course,
+    CourseCategory,
+    CourseStatus,
+    CourseType,
+    CourseTypeStatus,
+)
+from app.modules.course.repository import (
+    CourseCategoryRepository,
+    CourseRepository,
+    CourseTypeRepository,
+)
 from app.modules.course.schemas import (
     CourseCategoryCreate,
     CourseCategoryListResponse,

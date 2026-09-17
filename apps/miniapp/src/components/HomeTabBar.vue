@@ -62,7 +62,8 @@ const currentRoute = computed(() => {
   const routeMap: Record<string, string> = {
     "/pages/student/courses/index": "home",
     "/pages/student/courses/detail": "home",
-    "/pages/student/bookings/index": "booking",
+    "/pages/student/bookings/index": "schedule",
+    "/pages/student/schedule/index": "schedule",
     "/pages/student/profile/index": "profile",
     "/pages/student/profile/edit": "profile",
     "/pages/student/profile/settings": "profile",

@@ -409,21 +409,23 @@ class AuthService:
             # 检查用户状态
             if user.status != UserStatus.ACTIVE.value:
                 raise AuthException("账号已被禁用")
-            
+
             # 查询用户角色
-            from app.modules.auth.models import Role, UserRole
             from sqlalchemy import select
+
+            from app.modules.auth.models import Role, UserRole
+
             result = await session.execute(
                 select(Role.code)
                 .join(UserRole, Role.id == UserRole.role_id)
                 .where(UserRole.user_id == user.id)
             )
             user_roles = [row[0] for row in result.fetchall()]
-            
+
             # 检查是否有 student 角色（学员端小程序需要 student 角色）
             if "student" not in user_roles:
                 raise AuthException("该账号没有学员权限，无法登录学员端小程序")
-            
+
             # 生成双Token
             access_token = create_access_token({"user_id": user.id, "tenant_id": user.tenant_id})
             refresh_token = create_refresh_token({"user_id": user.id})
@@ -491,23 +493,27 @@ class AuthService:
 
         if user.status != UserStatus.ACTIVE.value:
             raise AuthException("账号已被禁用，请联系管理员")
-        
+
         # 查询用户角色
-        from app.modules.auth.models import Role, UserRole
         from sqlalchemy import select
+
+        from app.modules.auth.models import Role, UserRole
+
         result = await session.execute(
             select(Role.code)
             .join(UserRole, Role.id == UserRole.role_id)
             .where(UserRole.user_id == user.id)
         )
         user_roles = [row[0] for row in result.fetchall()]
-        
+
         # 检查是否有 student 角色（学员端小程序需要 student 角色）
         if "student" not in user_roles:
             raise AuthException("该账号没有学员权限，无法登录学员端小程序")
 
-        print(f"[微信绑定] 准备创建微信绑定记录: user_id={user.id}, openid={openid}, app_id={app_id}")
-        
+        print(
+            f"[微信绑定] 准备创建微信绑定记录: user_id={user.id}, openid={openid}, app_id={app_id}"
+        )
+
         await AuthRepository.create_wechat_account(
             session,
             {
@@ -521,7 +527,7 @@ class AuthService:
         await session.commit()
         print(f"[微信绑定] 事务已提交: user_id={user.id}")
         await session.refresh(user)
-        
+
         # 验证绑定是否成功
         verify_account = await AuthRepository.get_wechat_account_by_user_id(session, user.id)
         print(f"[微信绑定] 验证查询结果: {verify_account}")

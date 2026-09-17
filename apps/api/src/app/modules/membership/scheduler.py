@@ -76,7 +76,7 @@ async def auto_activate_membership_cards():
                         # 检查时间是否重叠
                         existing_valid_from = existing_card_dict.get("valid_from")
                         existing_expire_at = existing_card_dict.get("expire_at")
-                        
+
                         if (
                             card.valid_from
                             and existing_card_dict.get("expire_at")
