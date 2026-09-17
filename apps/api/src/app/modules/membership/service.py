@@ -61,6 +61,7 @@ class MembershipCardService:
             total_credits=data.total_credits,
             validity_days=data.validity_days,
             applicable_course_ids=data.applicable_course_ids,
+            applicable_course_type_code=data.applicable_course_type_code,
             max_weekly_usage=data.max_weekly_usage,
             description=data.description,
             sort_order=data.sort_order,
@@ -108,6 +109,7 @@ class MembershipCardService:
         """更新产品"""
         product = await self.get_product(db, product_id, tenant_id)
         update_data = data.model_dump(exclude_unset=True)
+        
         for field, value in update_data.items():
             setattr(product, field, value)
         await db.flush()
@@ -121,15 +123,26 @@ class MembershipCardService:
         if product.status != ProductStatus.OFFLINE.value:
             raise HTTPException(status_code=400, detail="请先下架该产品后再删除")
 
-        # 检查是否有关联的会员卡
+        # 检查是否有关联的有效会员卡（排除已作废的卡）
+        # 有效状态：PENDING(0), ACTIVE(1), EXPIRED(2), FROZEN(3)
+        # 无效状态：CANCELLED(6)
+        valid_statuses = [
+            CardStatus.PENDING.value,
+            CardStatus.ACTIVE.value,
+            CardStatus.EXPIRED.value,
+            CardStatus.FROZEN.value,
+        ]
         result = await db.execute(
-            select(func.count()).where(MembershipCard.product_id == product_id)
+            select(func.count()).where(
+                MembershipCard.product_id == product_id,
+                MembershipCard.status.in_(valid_statuses),
+            )
         )
         card_count = result.scalar() or 0
         if card_count > 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"该卡类型已被 {card_count} 张会员卡使用，无法删除。请先处理关联的会员卡。",
+                detail=f"该卡类型已被 {card_count} 张有效会员卡使用，无法删除。请先作废或退款关联的会员卡。",
             )
 
         # 检查是否有关联的消费流水
@@ -149,6 +162,49 @@ class MembershipCardService:
 
         product.deleted_at = datetime.now(UTC)
         await db.flush()
+
+    async def batch_delete_products(
+        self,
+        db: AsyncSession,
+        product_ids: list[int],
+        tenant_id: int,
+    ) -> dict:
+        """批量删除卡类型产品（软删除）
+        
+        Returns:
+            dict: {
+                "success_count": 成功删除的数量,
+                "failed_count": 失败的数量,
+                "failed_products": 失败的产品ID和原因列表
+            }
+        """
+        success_count = 0
+        failed_count = 0
+        failed_products = []
+
+        for product_id in product_ids:
+            try:
+                await self.delete_product(db, product_id, tenant_id)
+                success_count += 1
+            except HTTPException as e:
+                failed_count += 1
+                failed_products.append({
+                    "product_id": product_id,
+                    "error": e.detail
+                })
+            except Exception as e:
+                failed_count += 1
+                failed_products.append({
+                    "product_id": product_id,
+                    "error": str(e)
+                })
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "failed_products": failed_products,
+            "total": len(product_ids)
+        }
 
     async def restore_product(
         self, db: AsyncSession, product_id: int, tenant_id: int
@@ -210,78 +266,119 @@ class MembershipCardService:
             if not product:
                 raise HTTPException(status_code=404, detail="产品不存在")
 
-        # 检查学员是否已有同产品的有效卡
-        existing_cards = []
-        if data.product_id:
-            existing_cards = await self.card_repo.get_active_cards_by_product(
-                db, data.student_id, data.product_id, tenant_id
+        # 检查学员是否已有同课程类型的有效卡（防止不同产品但课程类型重叠）
+        now = datetime.now(UTC)
+        validity_days = data.validity_days or (product.validity_days if product else None)
+        
+        # 获取新卡的课程类型（单选字段）
+        new_card_course_type = data.applicable_course_type_code or (
+            product.applicable_course_type_code if product else None
+        )
+
+        if new_card_course_type:
+            # 获取学员所有有效卡
+            all_existing_cards = await self.card_repo.get_active_cards_by_student(
+                db, data.student_id, tenant_id
             )
 
-        # 如果不是续卡模式，且已有有效卡，则拒绝
-        if not allow_duplicate and existing_cards:
-            card_count = len(existing_cards)
-
-            # 计算最早生效时间（旧卡中最晚的到期时间的次日）
-            earliest_valid_from = None
-            latest_expire_at = None
-            for card in existing_cards:
-                if card.expire_at and (
-                    latest_expire_at is None or card.expire_at > latest_expire_at
-                ):
-                    latest_expire_at = card.expire_at
-
-            if latest_expire_at:
-                from datetime import timedelta
-
-                earliest_valid_from = datetime(
-                    year=latest_expire_at.year,
-                    month=latest_expire_at.month,
-                    day=latest_expire_at.day,
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    tzinfo=latest_expire_at.tzinfo or UTC,
-                ) + timedelta(days=1)
-
-            error_msg = (
-                f"该学员已有 {card_count} 张同类型有效卡。如需续卡，请修改生效时间后重新提交"
+            # 计算新卡的生效时间和到期时间（用于时间重叠检查）
+            temp_valid_from = data.valid_from or now
+            if temp_valid_from.tzinfo is None:
+                temp_valid_from = temp_valid_from.replace(tzinfo=UTC)
+            temp_valid_from = datetime(
+                year=temp_valid_from.year,
+                month=temp_valid_from.month,
+                day=temp_valid_from.day,
+                hour=0,
+                minute=0,
+                second=0,
+                tzinfo=temp_valid_from.tzinfo or UTC,
             )
-            if earliest_valid_from:
-                error_msg += f"，最早生效时间：{earliest_valid_from.strftime('%Y-%m-%d')}"
 
-            raise HTTPException(
-                status_code=409,  # Conflict
-                detail=error_msg,
-            )
+            temp_expire_at = None
+            if validity_days:
+                temp_expire_at = self._calc_expire_at(temp_valid_from, validity_days)
+
+            # 过滤出课程类型相同且时间重叠的卡
+            conflicting_cards = []
+            for existing_card_dict in all_existing_cards:
+                # 获取现有卡的课程类型（单选字段）
+                existing_course_type = existing_card_dict.get("applicable_course_type_code")
+                
+                # 如果课程类型相同
+                if existing_course_type == new_card_course_type:
+                    # 检查时间是否重叠
+                    existing_valid_from = existing_card_dict.get("valid_from")
+                    existing_expire_at = existing_card_dict.get("expire_at")
+                    
+                    if existing_valid_from and existing_expire_at and temp_expire_at:
+                        # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
+                        if temp_valid_from <= existing_expire_at and existing_valid_from <= temp_expire_at:
+                            conflicting_cards.append(existing_card_dict)
+
+            # 如果不是续卡模式，且有冲突卡，则拒绝
+            if conflicting_cards and not allow_duplicate:
+                card_count = len(conflicting_cards)
+                conflict_type = new_card_course_type
+
+                # 计算最早可选生效时间（旧卡到期时间的次日）
+                earliest_date = None
+                for card in conflicting_cards:
+                    expire_at = card.get("expire_at")
+                    if expire_at:
+                        from datetime import timedelta
+                        candidate = datetime(
+                            year=expire_at.year,
+                            month=expire_at.month,
+                            day=expire_at.day,
+                            hour=0,
+                            minute=0,
+                            second=0,
+                            tzinfo=expire_at.tzinfo or UTC,
+                        ) + timedelta(days=1)
+                        if earliest_date is None or candidate > earliest_date:
+                            earliest_date = candidate
+
+                detail_msg = f"该学员已有 {card_count} 张同课程类型的有效卡（{conflict_type}）。请先将旧卡作废或冻结后再发放新卡。"
+                if earliest_date:
+                    detail_msg += f" 如需续卡，最早生效时间为 {earliest_date.strftime('%Y-%m-%d')}。"
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=detail_msg,
+                )
 
         # 如果是续卡模式，计算新卡的最早生效时间
         earliest_valid_from = None
-        if allow_duplicate and existing_cards:
-            # 找到最晚的到期时间
-            latest_expire_at = None
-            for card in existing_cards:
-                if card.expire_at and (
-                    latest_expire_at is None or card.expire_at > latest_expire_at
-                ):
-                    latest_expire_at = card.expire_at
+        if allow_duplicate and product:
+            # 获取学员所有同产品的有效卡
+            existing_cards = await self.card_repo.get_active_cards_by_product(
+                db, data.student_id, data.product_id, tenant_id
+            )
+            
+            if existing_cards:
+                # 找到最晚的到期时间
+                latest_expire_at = None
+                for card in existing_cards:
+                    if card.expire_at and (
+                        latest_expire_at is None or card.expire_at > latest_expire_at
+                    ):
+                        latest_expire_at = card.expire_at
 
-            if latest_expire_at:
-                # 新卡的生效时间必须晚于旧卡的到期时间
-                # 到期时间是 23:59:59，所以新卡生效时间应该是到期时间的第二天 00:00:00
-                from datetime import timedelta
+                if latest_expire_at:
+                    # 新卡的生效时间必须晚于旧卡的到期时间
+                    # 到期时间是 23:59:59，所以新卡生效时间应该是到期时间的第二天 00:00:00
+                    from datetime import timedelta
 
-                earliest_valid_from = datetime(
-                    year=latest_expire_at.year,
-                    month=latest_expire_at.month,
-                    day=latest_expire_at.day,
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    tzinfo=latest_expire_at.tzinfo or UTC,
-                ) + timedelta(days=1)
-
-        now = datetime.now(UTC)
-        validity_days = data.validity_days or (product.validity_days if product else None)
+                    earliest_valid_from = datetime(
+                        year=latest_expire_at.year,
+                        month=latest_expire_at.month,
+                        day=latest_expire_at.day,
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        tzinfo=latest_expire_at.tzinfo or UTC,
+                    ) + timedelta(days=1)
 
         # 次卡和期卡必须有有效天数
         card_type = product.card_type if product else "count"
@@ -303,7 +400,7 @@ class MembershipCardService:
         # 续卡场景：如果用户传入的生效时间早于最早允许时间，则拒绝
         if earliest_valid_from and valid_from < earliest_valid_from:
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail=f"续卡生效时间不能早于 {earliest_valid_from.strftime('%Y-%m-%d')}（旧卡到期时间的次日）。"
                 f"如需立即生效，请先将旧卡作废或冻结。",
             )
@@ -329,19 +426,24 @@ class MembershipCardService:
         if validity_days:
             expire_at = self._calc_expire_at(valid_from, validity_days)
 
+        # 确定适用课程类型（单选）
+        applicable_course_type_code = data.applicable_course_type_code or (
+            product.applicable_course_type_code if product else None
+        )
+
         card = MembershipCard(
             tenant_id=tenant_id,
             student_id=data.student_id,
             product_id=data.product_id,
             card_type=card_type,
+            card_no=MembershipCard.generate_card_no(),
             total_credits=data.total_credits or (product.total_credits if product else None),
             used_credits=0,
             valid_from=valid_from,
             expire_at=expire_at,
             applicable_course_ids=data.applicable_course_ids
             or (product.applicable_course_ids if product else None),
-            applicable_course_type_codes=data.applicable_course_type_codes
-            or (product.applicable_course_type_codes if product else None),
+            applicable_course_type_code=applicable_course_type_code,
             max_weekly_usage=data.max_weekly_usage
             or (product.max_weekly_usage if product else None),
             status=status,
@@ -409,7 +511,7 @@ class MembershipCardService:
         student_id: int | None = None,
         product_id: int | None = None,
         card_type: str | None = None,
-        status: int | None = None,
+        status: list[int] | None = None,
         keyword: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -592,35 +694,36 @@ class MembershipCardService:
         card.valid_from = valid_from
         card.expire_at = expire_at
 
-        # 检查学员是否已有同产品且课程类型重叠的有效卡（防止同一时段多张卡重叠）
-        if card.product_id:
-            existing_cards = await self.card_repo.get_active_cards_by_product(
-                db, card.student_id, card.product_id, tenant_id, exclude_pending=True
+        # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
+        # 注意：这里检查所有有效卡，不只是同产品的卡
+        all_existing_cards = await self.card_repo.get_active_cards_by_student(
+            db, card.student_id, tenant_id
+        )
+
+        # 过滤出课程类型相同且时间重叠的卡
+        conflicting_cards = []
+        new_card_course_type = card.applicable_course_type_code
+
+        if new_card_course_type:
+            for existing_card_dict in all_existing_cards:
+                existing_course_type = existing_card_dict.get("applicable_course_type_code")
+                # 如果课程类型相同
+                if existing_course_type == new_card_course_type:
+                    # 检查时间是否重叠
+                    existing_valid_from = existing_card_dict.get("valid_from")
+                    existing_expire_at = existing_card_dict.get("expire_at")
+                    
+                    if existing_valid_from and existing_expire_at:
+                        # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
+                        if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
+                            conflicting_cards.append(existing_card_dict)
+
+        if conflicting_cards:
+            card_count = len(conflicting_cards)
+            raise HTTPException(
+                status_code=409,
+                detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{new_card_course_type}）。请先将旧卡作废或冻结后再激活新卡。",
             )
-
-            # 过滤出课程类型有重叠的卡
-            conflicting_cards = []
-            new_card_course_types = set(card.applicable_course_type_codes or [])
-
-            for existing_card in existing_cards:
-                existing_course_types = set(existing_card.applicable_course_type_codes or [])
-                # 如果课程类型有交集，说明存在冲突
-                if new_card_course_types & existing_course_types:
-                    # 进一步检查时间是否重叠
-                    if self._check_time_overlap(card, existing_card):
-                        conflicting_cards.append(existing_card)
-
-            if conflicting_cards:
-                card_count = len(conflicting_cards)
-                # 获取冲突卡的课程类型名称
-                conflict_types = set()
-                for c in conflicting_cards:
-                    conflict_types.update(c.applicable_course_type_codes or [])
-
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{', '.join(conflict_types)}）。请先将旧卡作废或冻结后再激活新卡。",
-                )
 
         card.status = CardStatus.ACTIVE.value
         # valid_from 和 expire_at 已在上面设置，无需重复设置
@@ -650,36 +753,6 @@ class MembershipCardService:
         if card.status != CardStatus.PENDING.value:
             raise HTTPException(status_code=400, detail="会员卡已激活或已过期，无法重复激活")
 
-        # 检查学员是否已有同产品且课程类型重叠的有效卡（防止同一时段多张卡重叠）
-        if card.product_id:
-            existing_cards = await self.card_repo.get_active_cards_by_product(
-                db, card.student_id, card.product_id, tenant_id, exclude_pending=True
-            )
-
-            # 过滤出课程类型有重叠的卡
-            conflicting_cards = []
-            new_card_course_types = set(card.applicable_course_type_codes or [])
-
-            for existing_card in existing_cards:
-                existing_course_types = set(existing_card.applicable_course_type_codes or [])
-                # 如果课程类型有交集，说明存在冲突
-                if new_card_course_types & existing_course_types:
-                    # 进一步检查时间是否重叠
-                    if self._check_time_overlap(card, existing_card):
-                        conflicting_cards.append(existing_card)
-
-            if conflicting_cards:
-                card_count = len(conflicting_cards)
-                # 获取冲突卡的课程类型名称
-                conflict_types = set()
-                for c in conflicting_cards:
-                    conflict_types.update(c.applicable_course_type_codes or [])
-
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{', '.join(conflict_types)}）。请先将旧卡作废或冻结后再激活新卡。",
-                )
-
         now = datetime.now(UTC)
 
         # 先计算生效时间和到期时间（用于冲突检查）
@@ -699,35 +772,36 @@ class MembershipCardService:
         card.valid_from = valid_from
         card.expire_at = expire_at
 
-        # 检查学员是否已有同产品且课程类型重叠的有效卡（防止同一时段多张卡重叠）
-        if card.product_id:
-            existing_cards = await self.card_repo.get_active_cards_by_product(
-                db, card.student_id, card.product_id, tenant_id, exclude_pending=True
+        # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
+        # 注意：这里检查所有有效卡，不只是同产品的卡
+        all_existing_cards = await self.card_repo.get_active_cards_by_student(
+            db, card.student_id, tenant_id
+        )
+
+        # 过滤出课程类型相同且时间重叠的卡
+        conflicting_cards = []
+        new_card_course_type = card.applicable_course_type_code
+
+        if new_card_course_type:
+            for existing_card_dict in all_existing_cards:
+                existing_course_type = existing_card_dict.get("applicable_course_type_code")
+                # 如果课程类型相同
+                if existing_course_type == new_card_course_type:
+                    # 检查时间是否重叠
+                    existing_valid_from = existing_card_dict.get("valid_from")
+                    existing_expire_at = existing_card_dict.get("expire_at")
+                    
+                    if existing_valid_from and existing_expire_at:
+                        # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
+                        if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
+                            conflicting_cards.append(existing_card_dict)
+
+        if conflicting_cards:
+            card_count = len(conflicting_cards)
+            raise HTTPException(
+                status_code=409,
+                detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{new_card_course_type}）。请先将旧卡作废或冻结后再激活新卡。",
             )
-
-            # 过滤出课程类型有重叠的卡
-            conflicting_cards = []
-            new_card_course_types = set(card.applicable_course_type_codes or [])
-
-            for existing_card in existing_cards:
-                existing_course_types = set(existing_card.applicable_course_type_codes or [])
-                # 如果课程类型有交集，说明存在冲突
-                if new_card_course_types & existing_course_types:
-                    # 进一步检查时间是否重叠
-                    if self._check_time_overlap(card, existing_card):
-                        conflicting_cards.append(existing_card)
-
-            if conflicting_cards:
-                card_count = len(conflicting_cards)
-                # 获取冲突卡的课程类型名称
-                conflict_types = set()
-                for c in conflicting_cards:
-                    conflict_types.update(c.applicable_course_type_codes or [])
-
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{', '.join(conflict_types)}）。请先将旧卡作废或冻结后再激活新卡。",
-                )
 
         card.status = CardStatus.ACTIVE.value
         # valid_from 和 expire_at 已在上面设置，无需重复设置
@@ -768,6 +842,19 @@ class MembershipCardService:
         card = await self.get_card_with_lock(db, card_id, tenant_id)
         if card.status != CardStatus.ACTIVE.value:
             raise HTTPException(status_code=400, detail="会员卡状态异常，无法扣次")
+
+        # 期卡有效期验证
+        now = datetime.now(UTC)
+        if card.valid_from and now < card.valid_from:
+            raise HTTPException(
+                status_code=400,
+                detail=f"会员卡尚未生效，生效时间：{card.valid_from.strftime('%Y-%m-%d')}",
+            )
+        if card.expire_at and now > card.expire_at:
+            raise HTTPException(
+                status_code=400,
+                detail=f"会员卡已过期，到期时间：{card.expire_at.strftime('%Y-%m-%d')}",
+            )
 
         # 期卡/无限卡：total_credits 为 None，不限制次数
         if card.total_credits is None:
@@ -941,8 +1028,6 @@ class MembershipCardService:
         card = await self.get_card(db, card_id, tenant_id)
         if card.status == CardStatus.CANCELLED.value:
             raise HTTPException(status_code=400, detail="会员卡已处于作废状态")
-        if card.status == CardStatus.REFUNDED.value:
-            raise HTTPException(status_code=400, detail="会员卡已退款，无需重复作废")
 
         now = datetime.now(UTC)
         remaining = (card.total_credits or 0) - card.used_credits
@@ -971,6 +1056,52 @@ class MembershipCardService:
 
         await db.flush()
         return card
+
+    async def batch_cancel_cards(
+        self,
+        db: AsyncSession,
+        card_ids: list[int],
+        tenant_id: int,
+        reason: str,
+        operator_id: int,
+    ) -> dict:
+        """批量作废会员卡（管理员操作）
+        
+        Returns:
+            dict: {
+                "success_count": 成功作废的数量,
+                "failed_count": 失败的数量,
+                "failed_cards": 失败的卡ID和原因列表
+            }
+        """
+        success_count = 0
+        failed_count = 0
+        failed_cards = []
+
+        for card_id in card_ids:
+            try:
+                # 复用单个作废逻辑
+                await self.cancel_card(db, card_id, tenant_id, reason, operator_id)
+                success_count += 1
+            except HTTPException as e:
+                failed_count += 1
+                failed_cards.append({
+                    "card_id": card_id,
+                    "error": e.detail
+                })
+            except Exception as e:
+                failed_count += 1
+                failed_cards.append({
+                    "card_id": card_id,
+                    "error": str(e)
+                })
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "failed_cards": failed_cards,
+            "total": len(card_ids)
+        }
 
 
 membership_card_service = MembershipCardService()

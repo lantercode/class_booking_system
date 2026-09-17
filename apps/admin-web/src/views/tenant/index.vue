@@ -76,6 +76,7 @@ const bizHours = ref([new Date(2026, 0, 1, 9, 0), new Date(2026, 0, 1, 21, 0)])
   &::-webkit-scrollbar-thumb {
     background: #dcdfe6;
     border-radius: 2px;
+    transition: background 0.3s;
   }
 
   &::-webkit-scrollbar-thumb:hover {

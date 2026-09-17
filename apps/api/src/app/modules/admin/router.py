@@ -299,7 +299,7 @@ async def admin_dashboard(
             "id": t.id,
             "name": t.nickname or t.phone,
             "phone": t.phone,
-            "speciality": "暂无",
+            "speciality": "--",
         }
         for t in disabled_teachers
     ]

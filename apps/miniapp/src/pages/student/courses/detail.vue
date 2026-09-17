@@ -72,7 +72,7 @@
           <text class="card-title-custom">📖 课程简介</text>
         </view>
         <view class="card-body-custom">
-          <text class="description-text">{{ course.description || '暂无介绍' }}</text>
+          <text class="description-text">{{ course.description || '--' }}</text>
         </view>
       </AppCard>
 

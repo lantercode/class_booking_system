@@ -10,6 +10,8 @@ export interface CourseType {
   required_card_types: string[] | null
   sort_order: number
   status: number
+  min_students: number | null
+  cancel_before_minutes: number | null
   created_at: string
   updated_at: string
 }
@@ -21,6 +23,8 @@ export interface CourseTypeCreateParams {
   required_card_types?: string[]
   sort_order?: number
   status?: number
+  min_students?: number
+  cancel_before_minutes?: number
 }
 
 export interface CourseTypeUpdateParams {
@@ -30,6 +34,8 @@ export interface CourseTypeUpdateParams {
   required_card_types?: string[]
   sort_order?: number
   status?: number
+  min_students?: number
+  cancel_before_minutes?: number
 }
 
 export interface Course {
@@ -85,6 +91,39 @@ export interface CourseUpdateParams {
   status?: number
 }
 
+export interface CourseCategory {
+  id: number
+  public_id: string
+  tenant_id: number
+  name: string
+  code: string
+  description: string | null
+  icon_url: string | null
+  sort_order: number
+  status: number
+  course_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CourseCategoryCreateParams {
+  name: string
+  code: string
+  description?: string
+  icon_url?: string
+  sort_order?: number
+  status?: number
+}
+
+export interface CourseCategoryUpdateParams {
+  name?: string
+  code?: string
+  description?: string
+  icon_url?: string
+  sort_order?: number
+  status?: number
+}
+
 export interface CourseListResponse {
   total: number
   page: number
@@ -133,5 +172,29 @@ export const courseApi = {
 
   remove(id: number) {
     return apiClient.delete(`/courses/${id}`)
+  },
+}
+
+export const courseCategoryApi = {
+  list(params?: { status?: number }) {
+    return apiClient.get<{ total: number; items: CourseCategory[] }>('/courses/categories', {
+      params,
+    })
+  },
+
+  getById(id: number) {
+    return apiClient.get<CourseCategory>(`/courses/categories/${id}`)
+  },
+
+  create(data: CourseCategoryCreateParams) {
+    return apiClient.post<CourseCategory>('/courses/categories', data)
+  },
+
+  update(id: number, data: CourseCategoryUpdateParams) {
+    return apiClient.patch<CourseCategory>(`/courses/categories/${id}`, data)
+  },
+
+  remove(id: number) {
+    return apiClient.delete(`/courses/categories/${id}`)
   },
 }

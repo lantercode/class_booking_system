@@ -23,7 +23,7 @@
         </view>
 
         <view class="form-item">
-          <text class="label">课程分类</text>
+          <text class="label">舞蹈分类</text>
           <view class="category-picker">
             <view
               v-for="cat in categories"

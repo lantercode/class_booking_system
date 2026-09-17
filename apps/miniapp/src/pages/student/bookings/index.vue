@@ -1,11 +1,7 @@
 <template>
   <view class="book-container">
     <!-- 自定义导航栏 - 统一使用AppNavbar -->
-    <AppNavbar
-      title="预约记录"
-      :show-back="true"
-      variant="default"
-    >
+    <AppNavbar title="预约记录" :show-back="true" variant="default">
     </AppNavbar>
 
     <!-- 主内容区域 - 参照课程页面结构 -->
@@ -40,362 +36,427 @@
             class="booking-card"
             :style="{ animationDelay: `${index * 0.04}s` }"
           >
-            <view class="booking-status-bar" :class="getStatusClass(booking.display_status || booking.status)"></view>
+            <view
+              class="booking-status-bar"
+              :class="getStatusClass(booking.display_status || booking.status)"
+            ></view>
             <view class="booking-content">
               <view class="booking-header">
-                <text class="course-name">{{ booking.course_name || '未知课程' }}</text>
-                <text class="booking-status" :class="getStatusClass(booking.display_status || booking.status)">
+                <text class="course-name">{{
+                  booking.course_name || "未知课程"
+                }}</text>
+                <text
+                  class="booking-status"
+                  :class="
+                    getStatusClass(booking.display_status || booking.status)
+                  "
+                >
                   {{ getStatusText(booking.display_status || booking.status) }}
                 </text>
               </view>
               <view class="booking-info">
-                <text class="booking-date">{{ formatDateTime(booking.start_at) }}</text>
-                <text class="classroom">📍 {{ booking.classroom_name || '未安排' }}</text>
-                <text class="teacher">👨‍🏫 {{ booking.teacher_name || '未知' }}</text>
+                <text class="booking-date">{{
+                  formatDateTime(booking.start_at)
+                }}</text>
+                <text class="classroom"
+                  >📍 {{ booking.classroom_name || "未安排" }}</text
+                >
+                <text class="teacher"
+                  >👨‍🏫 {{ booking.teacher_name || "未知" }}</text
+                >
               </view>
               <view class="booking-footer">
-                <text class="booking-time">预约时间: {{ formatTime(booking.created_at) }}</text>
-                <view v-if="Number(booking.display_status || booking.status) === 1 && canCancelBooking(booking)" class="booking-actions">
-                  <button class="action-btn cancel" @tap="handleCancel(booking)">取消预约</button>
+                <text class="booking-time"
+                  >预约时间: {{ formatTime(booking.created_at) }}</text
+                >
+                <view
+                  v-if="
+                    Number(booking.display_status || booking.status) === 1 &&
+                    canCancelBooking(booking)
+                  "
+                  class="booking-actions"
+                >
+                  <button
+                    class="action-btn cancel"
+                    @tap="handleCancel(booking)"
+                  >
+                    取消预约
+                  </button>
                 </view>
-                <view v-else-if="Number(booking.display_status || booking.status) === 1 && !canCancelBooking(booking)" class="booking-actions">
-                  <text class="cancel-disabled">开课前90分钟内不可取消</text>
+                <view
+                  v-else-if="
+                    Number(booking.display_status || booking.status) === 1 &&
+                    !canCancelBooking(booking)
+                  "
+                  class="booking-actions"
+                >
+                  <text class="cancel-disabled"
+                    >开课前{{ cancelMinutes }}分钟内不可取消</text
+                  >
                 </view>
               </view>
             </view>
           </view>
         </view>
-      </scroll-view>
-    </view><!-- /main-content -->
+      </scroll-view> </view
+    ><!-- /main-content -->
 
     <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'student_' + (userId || 'default')"
-    />
+    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { bookingApi } from '@/api'
-import { checkLogin, getUserId } from '@/utils/auth'
-import { formatDateTime, formatTime } from '@/utils/date'
-import StudentTabBar from '@/components/StudentTabBar.vue'
-import AppNavbar from '@/components/AppNavbar.vue'
-import AppFilterTabs from '@/components/AppFilterTabs.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
-import { navigateTo } from '@/utils/navigation'
-import { extractList } from '@/utils/helpers'
+import { bookingApi } from "@/api";
+import AiAssistant from "@/components/AiAssistant.vue";
+import AppFilterTabs from "@/components/AppFilterTabs.vue";
+import AppNavbar from "@/components/AppNavbar.vue";
+import { checkLogin, getUserId } from "@/utils/auth";
+import { formatDateTime, formatTime } from "@/utils/date";
+import { nextTick, onMounted, onUnmounted, ref } from "vue";
 
 const BOOKING_STATUS = {
-  ALL: 'all',
-  BOOKED: 1,        // 待上课
-  CANCELLED: 2,     // 已取消
-  CHECKED_IN: 3,    // 上课中
-  COMPLETED: 4      // 已完成
-} as const
+  ALL: "all",
+  BOOKED: 1, // 待上课
+  CANCELLED: 2, // 已取消
+  CHECKED_IN: 3, // 上课中
+  COMPLETED: 4, // 已完成
+} as const;
 
-const activeFilter = ref<string | number>('all')
-const bookings = ref<any[]>([])
-const userId = ref('')
+const activeFilter = ref<string | number>("all");
+const bookings = ref<any[]>([]);
+const userId = ref("");
+const cancelMinutes = ref(90); // 默认90分钟
 
-const systemInfo = uni.getSystemInfoSync()
-const navbarHeight = systemInfo.statusBarHeight + 44
-const tabbarHeight = (100 / 750) * systemInfo.windowWidth
-const scrollViewHeight = ref(Math.max(
-  systemInfo.windowHeight - navbarHeight - tabbarHeight - 110,
-  400
-))
+const systemInfo = uni.getSystemInfoSync();
+const navbarHeight = systemInfo.statusBarHeight + 44;
+const tabbarHeight = (100 / 750) * systemInfo.windowWidth;
+const scrollViewHeight = ref(
+  Math.max(systemInfo.windowHeight - navbarHeight - tabbarHeight - 110, 400),
+);
 
 // ✅ 页面卸载标记
-let isUnmounted = false
+let isUnmounted = false;
 
 // ✅ 不再需要手动计算 scrollHeight，使用 CSS Flex 布局自动填充
 
 const filterTabs = [
-  { label: '全部', value: BOOKING_STATUS.ALL },
-  { label: '待上课', value: BOOKING_STATUS.BOOKED },
-  { label: '上课中', value: BOOKING_STATUS.CHECKED_IN },
-  { label: '已完成', value: BOOKING_STATUS.COMPLETED }
-]
+  { label: "全部", value: BOOKING_STATUS.ALL },
+  { label: "待上课", value: BOOKING_STATUS.BOOKED },
+  { label: "上课中", value: BOOKING_STATUS.CHECKED_IN },
+  { label: "已完成", value: BOOKING_STATUS.COMPLETED },
+];
 
-onMounted(() => {
-  console.log('\n📱 ===== 我的预约页面 - onMounted 触发 =====\n')
+onMounted(async () => {
+  console.log("\n📱 ===== 我的预约页面 - onMounted 触发 =====\n");
 
-  const isLoggedIn = checkLogin('student')
-  console.log('✓ checkLogin 结果:', isLoggedIn)
+  const isLoggedIn = checkLogin("student");
+  console.log("✓ checkLogin 结果:", isLoggedIn);
 
   if (!isLoggedIn) {
-    console.warn('⚠️ 用户未登录或角色不匹配，停止加载')
-    return
+    console.warn("⚠️ 用户未登录或角色不匹配，停止加载");
+    return;
   }
 
-  console.log('✓ 用户已登录，开始初始化页面')
+  console.log("✓ 用户已登录，开始初始化页面");
 
-  userId.value = String(getUserId() || '')
+  userId.value = String(getUserId() || "");
 
-  console.log('🚀 准备调用 loadBookings()...')
-  loadBookings()
-})
+  // 加载租户配置
+  try {
+    const settingsResult = await tenantApi.getSettings();
+    if (settingsResult.code === 0 || settingsResult.code === 200) {
+      cancelMinutes.value = settingsResult.data?.booking_cancel_minutes || 90;
+      console.log(
+        "✅ 租户配置加载成功，取消时间限制:",
+        cancelMinutes.value,
+        "分钟",
+      );
+    }
+  } catch (error) {
+    console.warn("️ 加载租户配置失败，使用默认值90分钟:", error);
+  }
+
+  console.log("🚀 准备调用 loadBookings()...");
+  loadBookings();
+});
 
 onUnmounted(() => {
-  isUnmounted = true
-})
+  isUnmounted = true;
+});
 
 // ✅ 滚动到底部事件（可选，用于加载更多）
 const onScrollToLower = () => {
-  console.log('📜 滚动到底部')
+  console.log("📜 滚动到底部");
   // 可以在这里实现分页加载
-}
+};
 
 const loadBookings = async () => {
   try {
-    console.log('\n🚀 ===== 开始加载我的预约列表 =====\n')
+    console.log("\n🚀 ===== 开始加载我的预约列表 =====\n");
 
     // Step 1: 准备参数
     const params: any = {
-      exclude_cancelled: true  // 小程序端：不展示已取消的课程
-    }
-    
-    if (activeFilter.value !== 'all') {
-      params.display_status = activeFilter.value
+      exclude_cancelled: true, // 小程序端：不展示已取消的课程
+    };
+
+    if (activeFilter.value !== "all") {
+      params.display_status = activeFilter.value;
     }
 
-    console.log('📋 Step 1 - 请求参数:', JSON.stringify(params))
+    console.log("📋 Step 1 - 请求参数:", JSON.stringify(params));
 
     // Step 2: 发起 API 请求（添加超时控制）
-    console.log('📡 Step 2 - 正在调用 bookingApi.list()...')
-    
-    let result: any
+    console.log("📡 Step 2 - 正在调用 bookingApi.list()...");
+
+    let result: any;
     try {
       // 设置 10 秒超时
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('API 请求超时 (>10s)')), 10000)
-      )
-      
-      result = await Promise.race([
-        bookingApi.list(params),
-        timeoutPromise
-      ])
-      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("API 请求超时 (>10s)")), 10000),
+      );
+
+      result = await Promise.race([bookingApi.list(params), timeoutPromise]);
+
       // ✅ 页面已卸载，不再更新数据
-      if (isUnmounted) return
-      
-      console.log('✅ Step 2 - API 请求成功！')
-      
+      if (isUnmounted) return;
+
+      console.log("✅ Step 2 - API 请求成功！");
     } catch (apiError: any) {
-      console.error('❌ Step 2 - API 请求失败:', apiError.message || apiError)
-      throw new Error(`API 请求失败: ${apiError.message || apiError}`)
+      console.error("❌ Step 2 - API 请求失败:", apiError.message || apiError);
+      throw new Error(`API 请求失败: ${apiError.message || apiError}`);
     }
 
     // Step 3: 分析返回结果
-    console.log('\n🔍 Step 3 - 分析 API 返回数据:')
-    console.log('-'.repeat(50))
-    console.log('result 完整内容:')
-    console.log(JSON.stringify(result, null, 2))
-    console.log('-'.repeat(50))
-    
+    console.log("\n🔍 Step 3 - 分析 API 返回数据:");
+    console.log("-".repeat(50));
+    console.log("result 完整内容:");
+    console.log(JSON.stringify(result, null, 2));
+    console.log("-".repeat(50));
+
     // 检查 result 本身
     if (!result) {
-      throw new Error('API 返回为空 (null/undefined)')
+      throw new Error("API 返回为空 (null/undefined)");
     }
-    
-    console.log('✓ result 存在')
-    console.log('  - 类型:', typeof result)
-    console.log('  - code:', result.code)
-    console.log('  - msg:', result.msg)
+
+    console.log("✓ result 存在");
+    console.log("  - 类型:", typeof result);
+    console.log("  - code:", result.code);
+    console.log("  - msg:", result.msg);
 
     // Step 4: 提取 data
-    console.log('\n📦 Step 4 - 提取 result.data:')
-    
-    const rawData = result.data
-    console.log('rawData:', rawData)
-    console.log('rawData 类型:', typeof rawData)
-    console.log('rawData 是否为 null/undefined:', rawData == null)
+    console.log("\n📦 Step 4 - 提取 result.data:");
+
+    const rawData = result.data;
+    console.log("rawData:", rawData);
+    console.log("rawData 类型:", typeof rawData);
+    console.log("rawData 是否为 null/undefined:", rawData == null);
 
     if (rawData == null) {
-      console.warn('⚠️ rawData 为 null 或 undefined，尝试使用整个 result')
+      console.warn("⚠️ rawData 为 null 或 undefined，尝试使用整个 result");
       // 有些 API 直接返回数组，不在 data 字段中
       if (Array.isArray(result)) {
-        console.log('✓ result 本身是数组，直接使用')
-        bookings.value = [...result]
-        console.log(`\n🎉 成功！获取到 ${bookings.value.length} 条记录`)
-        return
+        console.log("✓ result 本身是数组，直接使用");
+        bookings.value = [...result];
+        console.log(`\n🎉 成功！获取到 ${bookings.value.length} 条记录`);
+        return;
       }
-      throw new Error('无法提取数据：data 为空且 result 不是数组')
+      throw new Error("无法提取数据：data 为空且 result 不是数组");
     }
 
     // Step 5: 根据数据格式提取列表
-    console.log('\n🎯 Step 5 - 智能提取列表数据:')
-    
-    let extractedData: any[] = []
-    const dataAsAny = rawData as any  // 类型断言
+    console.log("\n🎯 Step 5 - 智能提取列表数据:");
+
+    let extractedData: any[] = [];
+    const dataAsAny = rawData as any; // 类型断言
 
     // 情况 A: 标准 RESTful 分页 { items: [...], total: N }
     if (dataAsAny.items && Array.isArray(dataAsAny.items)) {
-      console.log('✓ 发现分页结构: { items: [...], total: ', dataAsAny.total, '}')
-      extractedData = dataAsAny.items
-      console.log('  → 使用 data.items，长度:', extractedData.length)
+      console.log(
+        "✓ 发现分页结构: { items: [...], total: ",
+        dataAsAny.total,
+        "}",
+      );
+      extractedData = dataAsAny.items;
+      console.log("  → 使用 data.items，长度:", extractedData.length);
     }
     // 情况 B: data 本身就是数组
     else if (Array.isArray(rawData)) {
-      console.log('✓ data 是直接数组')
-      extractedData = rawData
-      console.log('  → 使用 data，长度:', extractedData.length)
+      console.log("✓ data 是直接数组");
+      extractedData = rawData;
+      console.log("  → 使用 data，长度:", extractedData.length);
     }
     // 情况 C: 其他嵌套结构 { list: [...] } 或 { data: [...] }
-    else if (typeof dataAsAny === 'object') {
-      console.log('✓ data 是对象，查找可能的数组属性...')
-      const possibleKeys = ['list', 'records', 'rows', 'content', 'data']
-      
+    else if (typeof dataAsAny === "object") {
+      console.log("✓ data 是对象，查找可能的数组属性...");
+      const possibleKeys = ["list", "records", "rows", "content", "data"];
+
       for (const key of possibleKeys) {
         if (Array.isArray(dataAsAny[key])) {
-          console.log(`  → 找到 data.${key} 数组`)
-          extractedData = dataAsAny[key]
-          break
+          console.log(`  → 找到 data.${key} 数组`);
+          extractedData = dataAsAny[key];
+          break;
         }
       }
-      
+
       if (extractedData.length === 0 && Object.keys(dataAsAny).length > 0) {
         // 尝试找到任何数组属性
-        const arrayKey = Object.keys(dataAsAny).find(k => Array.isArray(dataAsAny[k]))
+        const arrayKey = Object.keys(dataAsAny).find((k) =>
+          Array.isArray(dataAsAny[k]),
+        );
         if (arrayKey) {
-          console.log(`  → 找到 data.${arrayKey} 数组 (自动探测)`)
-          extractedData = dataAsAny[arrayKey]
+          console.log(`  → 找到 data.${arrayKey} 数组 (自动探测)`);
+          extractedData = dataAsAny[arrayKey];
         } else {
-          console.warn('  ⚠️ 未找到任何数组属性，keys:', Object.keys(dataAsAny))
+          console.warn(
+            "  ⚠️ 未找到任何数组属性，keys:",
+            Object.keys(dataAsAny),
+          );
         }
       }
     }
 
     // 最终检查
-    console.log('\n📊 Step 6 - 提取结果统计:')
-    console.log('提取的数据长度:', extractedData.length)
-    
+    console.log("\n📊 Step 6 - 提取结果统计:");
+    console.log("提取的数据长度:", extractedData.length);
+
     if (extractedData.length > 0) {
-      console.log('前 3 条数据预览:')
+      console.log("前 3 条数据预览:");
       extractedData.slice(0, 3).forEach((item: any, index: number) => {
-        console.log(`  [${index}]`, JSON.stringify(item).substring(0, 200))
-      })
+        console.log(`  [${index}]`, JSON.stringify(item).substring(0, 200));
+      });
     }
 
     // Step 7: 赋值给响应式变量
-    console.log('\n Step 7 - 更新 Vue 响应式数据:')
-    
+    console.log("\n Step 7 - 更新 Vue 响应式数据:");
+
     // 强制创建新引用
-    bookings.value = [...extractedData]
-    
-    console.log('✓ bookings.value 已更新')
-    console.log('  - 新长度:', bookings.value.length)
-    console.log('  - 引用地址已改变 (触发 Vue 更新)')
+    bookings.value = [...extractedData];
+
+    console.log("✓ bookings.value 已更新");
+    console.log("  - 新长度:", bookings.value.length);
+    console.log("  - 引用地址已改变 (触发 Vue 更新)");
 
     // Step 8: 等待 DOM 更新
-    await nextTick()
-    
-    console.log('\n✨ Step 8 - DOM 已更新 (nextTick 完成)')
-    console.log('=' .repeat(50))
-    
+    await nextTick();
+
+    console.log("\n✨ Step 8 - DOM 已更新 (nextTick 完成)");
+    console.log("=".repeat(50));
+
     // 最终状态报告
     if (bookings.value.length > 0) {
-      console.log(`\n🎉🎉🎉 成功！页面应该显示 ${bookings.value.length} 条预约记录 🎉🎉🎉\n`)
+      console.log(
+        `\n🎉🎉🎉 成功！页面应该显示 ${bookings.value.length} 条预约记录 🎉🎉🎉\n`,
+      );
     } else {
-      console.warn('\n⚠️ bookings 为空数组，页面将显示"暂无预约"')
-      console.warn('可能原因：1. 该用户确实没有预约记录  2. API 返回了空数据\n')
+      console.warn('\n⚠️ bookings 为空数组，页面将显示"暂无预约"');
+      console.warn(
+        "可能原因：1. 该用户确实没有预约记录  2. API 返回了空数据\n",
+      );
     }
-
   } catch (error: any) {
-    console.error('\n💥 ===== 加载失败 =====')
-    console.error('错误类型:', error.constructor.name)
-    console.error('错误信息:', error.message || error)
-    console.error('完整错误:', error)
-    console.error('=' .repeat(50), '\n')
-    
-    uni.showToast({ 
-      title: error.message?.substring(0, 20) || '加载失败', 
-      icon: 'none',
-      duration: 3000
-    })
+    console.error("\n💥 ===== 加载失败 =====");
+    console.error("错误类型:", error.constructor.name);
+    console.error("错误信息:", error.message || error);
+    console.error("完整错误:", error);
+    console.error("=".repeat(50), "\n");
+
+    uni.showToast({
+      title: error.message?.substring(0, 20) || "加载失败",
+      icon: "none",
+      duration: 3000,
+    });
   }
-}
+};
 
 const getStatusClass = (status: number | string) => {
-  const statusNum = Number(status)
-  
+  const statusNum = Number(status);
+
   switch (statusNum) {
-    case 1: return 'booked'
-    case 2: return 'cancelled'
-    case 3: return 'in-progress'
-    case 4: return 'completed'
-    default: return 'booked'
+    case 1:
+      return "booked";
+    case 2:
+      return "cancelled";
+    case 3:
+      return "in-progress";
+    case 4:
+      return "completed";
+    default:
+      return "booked";
   }
-}
+};
 
 const getStatusText = (status: number | string) => {
-  const statusNum = Number(status)
-  
+  const statusNum = Number(status);
+
   switch (statusNum) {
-    case 1: return '待上课'
-    case 2: return '已取消'
-    case 3: return '上课中'
-    case 4: return '已完成'
-    default: return '待上课'
+    case 1:
+      return "待上课";
+    case 2:
+      return "已取消";
+    case 3:
+      return "上课中";
+    case 4:
+      return "已完成";
+    default:
+      return "待上课";
   }
-}
+};
 
 const canCancelBooking = (booking: any): boolean => {
-  if (!booking.start_at) return true
-  const startTime = new Date(booking.start_at).getTime()
-  const now = Date.now()
-  const minutesBefore = (startTime - now) / (1000 * 60)
-  return minutesBefore > 90
-}
+  if (!booking.start_at) return true;
+  const startTime = new Date(booking.start_at).getTime();
+  const now = Date.now();
+  const minutesBefore = (startTime - now) / (1000 * 60);
+  return minutesBefore > cancelMinutes.value;
+};
 
 const handleCancel = async (booking: any) => {
   uni.showModal({
-    title: '确认取消',
-    content: '确定要取消此预约吗？',
+    title: "确认取消",
+    content: "确定要取消此预约吗？",
     success: async (res) => {
       if (res.confirm) {
         try {
-          const result = await bookingApi.cancel(booking.id)
+          const result = await bookingApi.cancel(booking.id);
           if (result.code === 0 || result.code === 200) {
-            uni.showToast({ title: '取消成功', icon: 'success' })
-            loadBookings()
+            uni.showToast({ title: "取消成功", icon: "success" });
+            loadBookings();
           } else {
-            uni.showToast({ title: result.msg || '取消失败', icon: 'none' })
+            uni.showToast({ title: result.msg || "取消失败", icon: "none" });
           }
         } catch {
-          uni.showToast({ title: '取消失败', icon: 'none' })
+          uni.showToast({ title: "取消失败", icon: "none" });
         }
       }
-    }
-  })
-}
+    },
+  });
+};
 
 // ✅ 强制刷新方法（调试用）
 const forceRefresh = async () => {
-  console.log('🔄 强制刷新预约列表...')
-  
+  console.log("🔄 强制刷新预约列表...");
+
   // 先清空
-  bookings.value = []
-  await nextTick()
-  
+  bookings.value = [];
+  await nextTick();
+
   // 重新加载
-  await loadBookings()
-  
-  console.log('✅ 强制刷新完成，当前数据量:', bookings.value.length)
-}
+  await loadBookings();
+
+  console.log("✅ 强制刷新完成，当前数据量:", bookings.value.length);
+};
 </script>
 
 <style lang="scss">
 .book-container {
-  @include page-container;           // ✅ 使用统一的页面容器Mixin（默认$bg-primary）
+  @include page-container; // ✅ 使用统一的页面容器Mixin（默认$bg-primary）
 }
 
 // 主内容区域 - 统一结构
 .main-content {
-  @include main-content;             // ✅ 使用统一的主内容区Mixin
-  padding: $space-lg $space-md $space-sm;   // 上边距增大
+  @include main-content; // ✅ 使用统一的主内容区Mixin
+  padding: $space-lg $space-md $space-sm; // 上边距增大
 }
 
 // ============================================
@@ -403,21 +464,21 @@ const forceRefresh = async () => {
 // ============================================
 // 可滚动内容区域 - 自适应屏幕高度（筛选标签已提取为AppFilterTabs组件）
 .booking-list {
-  flex: 1;                              // 撑满剩余空间
-  min-height: 0;                        // 允许flex子项缩小
-  padding-bottom: 180rpx;               // 底部间距，避免被TabBar遮挡
+  flex: 1; // 撑满剩余空间
+  min-height: 0; // 允许flex子项缩小
+  padding-bottom: 180rpx; // 底部间距，避免被TabBar遮挡
   box-sizing: border-box;
-  overflow-y: auto;                     // 只在内容超出时显示滚动条
+  overflow-y: auto; // 只在内容超出时显示滚动条
 
   // 空状态时禁用滚动
   &.no-scroll {
-    overflow-y: hidden;                 // 隐藏滚动条
-    height: auto;                       // 高度自适应内容
+    overflow-y: hidden; // 隐藏滚动条
+    height: auto; // 高度自适应内容
   }
 }
 
 .booking-list-inner {
-  min-height: 100%;                       // 确保有数据时撑开
+  min-height: 100%; // 确保有数据时撑开
 }
 
 .empty-state {
@@ -440,14 +501,14 @@ const forceRefresh = async () => {
 }
 
 .empty-btn {
-  background: $primary-gradient;        // ✅ 更新：香槟金渐变
+  background: $primary-gradient; // ✅ 更新：香槟金渐变
   border: none;
-  border-radius: $radius-lg;          // ✅ 更新：使用圆角系统
+  border-radius: $radius-lg; // ✅ 更新：使用圆角系统
   padding: $space-md $space-xl;
   color: #fff;
   font-size: $font-size-body;
   font-weight: $font-weight-medium;
-  box-shadow: $shadow-button;          // ✅ 更新：按钮阴影
+  box-shadow: $shadow-button; // ✅ 更新：按钮阴影
 
   &:active {
     transform: scale(0.96);
@@ -455,16 +516,17 @@ const forceRefresh = async () => {
 }
 
 .booking-card {
-  background: rgba(255, 255, 255, 0.95);  // ✅ 更新：玻璃态背景
+  background: rgba(255, 255, 255, 0.95); // ✅ 更新：玻璃态背景
   backdrop-filter: blur(20rpx);
   -webkit-backdrop-filter: blur(20rpx);
-  border-radius: $radius-lg;            // ✅ 更新：使用圆角系统
-  border: 1rpx solid $border-subtle;     // ✅ 新增：浅边框
+  border-radius: $radius-lg; // ✅ 更新：使用圆角系统
+  border: 1rpx solid $border-subtle; // ✅ 新增：浅边框
   margin-bottom: $space-md;
   overflow: hidden;
   box-shadow: $shadow-card;
-  transition: transform $duration-fast $ease-standard,
-              box-shadow $duration-fast $ease-standard;
+  transition:
+    transform $duration-fast $ease-standard,
+    box-shadow $duration-fast $ease-standard;
   animation: cardFadeIn 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 
   &:active {
@@ -477,11 +539,15 @@ const forceRefresh = async () => {
   height: 6rpx;
 
   &.booked {
-    background: $primary-gradient;      // ✅ 更新：香槟金渐变
+    background: $primary-gradient; // ✅ 更新：香槟金渐变
   }
 
   &.in-progress {
-    background: linear-gradient(90deg, $info-color, color.adjust($info-color, $lightness: 15%));
+    background: linear-gradient(
+      90deg,
+      $info-color,
+      color.adjust($info-color, $lightness: 15%)
+    );
   }
 
   &.completed {
@@ -514,17 +580,17 @@ const forceRefresh = async () => {
 .booking-status {
   font-size: $font-size-caption;
   padding: $space-2xs $space-sm;
-  border-radius: $radius-full;          // ✅ 更新：使用圆角系统
+  border-radius: $radius-full; // ✅ 更新：使用圆角系统
   font-weight: $font-weight-medium;
 
   &.booked {
-    background: $primary-bg;            // ✅ 更新：浅金背景
-    color: $primary-solid;              // ✅ 更新：香槟金色
+    background: $primary-bg; // ✅ 更新：浅金背景
+    color: $primary-solid; // ✅ 更新：香槟金色
   }
 
   &.in-progress {
-    background: $info-bg;               // ✅ 更新：信息背景
-    color: $info-color;                 // ✅ 更新：信息颜色
+    background: $info-bg; // ✅ 更新：信息背景
+    color: $info-color; // ✅ 更新：信息颜色
   }
 
   &.completed {
@@ -533,8 +599,8 @@ const forceRefresh = async () => {
   }
 
   &.cancelled {
-    background: $error-bg;              // ✅ 更新：错误背景
-    color: $error-color;                // ✅ 更新：错误颜色
+    background: $error-bg; // ✅ 更新：错误背景
+    color: $error-color; // ✅ 更新：错误颜色
   }
 }
 
@@ -544,15 +610,16 @@ const forceRefresh = async () => {
 
 .booking-date {
   font-size: $font-size-body;
-  color: $primary-solid;               // ✅ 更新：香槟金色
+  color: $primary-solid; // ✅ 更新：香槟金色
   display: block;
   margin-bottom: $space-2xs;
   font-weight: $font-weight-medium;
 }
 
-.classroom, .teacher {
+.classroom,
+.teacher {
   font-size: $font-size-body_sm;
-  color: $text-secondary;              // ✅ 更新：使用文本变量
+  color: $text-secondary; // ✅ 更新：使用文本变量
   display: block;
   margin-bottom: $space-2xs;
 }
@@ -562,7 +629,7 @@ const forceRefresh = async () => {
   align-items: center;
   justify-content: space-between;
   padding-top: $space-sm;
-  border-top: 1rpx solid $border-subtle;  // ✅ 更新：使用边框变量
+  border-top: 1rpx solid $border-subtle; // ✅ 更新：使用边框变量
 }
 
 .booking-time {
@@ -579,13 +646,14 @@ const forceRefresh = async () => {
   border-radius: $radius-xl;
   font-size: $font-size-body_sm;
   font-weight: $font-weight-medium;
-  transition: background $duration-fast $ease-standard,
-              color $duration-fast $ease-standard,
-              transform $duration-fast $ease-standard;
+  transition:
+    background $duration-fast $ease-standard,
+    color $duration-fast $ease-standard,
+    transform $duration-fast $ease-standard;
 
   &.cancel {
-    background: $error-bg;             // ✅ 更新：错误背景
-    color: $error-color;               // ✅ 更新：错误颜色
+    background: $error-bg; // ✅ 更新：错误背景
+    color: $error-color; // ✅ 更新：错误颜色
 
     &:active {
       transform: scale(0.96);
@@ -610,10 +678,10 @@ const forceRefresh = async () => {
   left: 0;
   right: 0;
   display: flex;
-  background: rgba(255, 255, 255, 0.98);   // ✅ 更新：近白色背景
+  background: rgba(255, 255, 255, 0.98); // ✅ 更新：近白色背景
   backdrop-filter: blur(20rpx);
   -webkit-backdrop-filter: blur(20rpx);
   padding: $space-sm 0 $space-2xl;
-  border-top: 1rpx solid $border-light;     // ✅ 更新�
+  border-top: 1rpx solid $border-light; // ✅ 更新�
 }
 </style>

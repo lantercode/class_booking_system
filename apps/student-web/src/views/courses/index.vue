@@ -92,7 +92,7 @@
               <span v-if="course.level" class="tag-chip">{{ course.level }}</span>
             </div>
             <h3 class="card-title">{{ course.name }}</h3>
-            <p class="card-desc">{{ course.description?.slice(0, 40) || '暂无简介' }}</p>
+            <p class="card-desc">{{ course.description?.slice(0, 40) || '--' }}</p>
             <div class="card-meta">
               <div class="meta-item">
                 <el-icon><Clock /></el-icon>

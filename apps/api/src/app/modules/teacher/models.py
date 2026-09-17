@@ -22,6 +22,9 @@ class TeacherProfile(Base, TenantMixin, TimestampMixin):
         nullable=False,
         unique=True,
     )
+    teacher_code: Mapped[str | None] = mapped_column(
+        String(20), unique=True, index=True, comment="教师编号：T + yyyyMMdd + 6位随机数"
+    )
     title: Mapped[str | None] = mapped_column(String(100))
     bio: Mapped[str | None] = mapped_column(Text)
     specialties: Mapped[list[str] | None] = mapped_column(ARRAY(String))

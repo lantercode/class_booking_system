@@ -3845,10 +3845,10 @@
                   "type": "null"
                 }
               ],
-              "description": "课程分类筛选",
+              "description": "舞蹈分类筛选",
               "title": "Category"
             },
-            "description": "课程分类筛选"
+            "description": "舞蹈分类筛选"
           },
           {
             "name": "course_type_code",

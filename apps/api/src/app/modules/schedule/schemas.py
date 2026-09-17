@@ -22,6 +22,7 @@ class ScheduleCreate(BaseModel):
     booking_closes_at: datetime | None = Field(None, description="预约截止时间")
     cancel_deadline: datetime | None = Field(None, description="取消截止时间")
     notes: str | None = Field(None, max_length=500, description="备注")
+    preview_content: str | None = Field(None, max_length=1000, description="预告内容（教学内容、视频名称等）")
 
 
 class ScheduleUpdate(BaseModel):
@@ -38,6 +39,7 @@ class ScheduleUpdate(BaseModel):
     cancel_deadline: datetime | None = Field(None, description="取消截止时间")
     status: int | None = Field(None, ge=1, le=3, description="状态：1正常/2已取消/3已完成")
     notes: str | None = Field(None, max_length=500, description="备注")
+    preview_content: str | None = Field(None, max_length=1000, description="预告内容（教学内容、视频名称等）")
 
 
 class ScheduleCancel(BaseModel):
@@ -65,6 +67,8 @@ class ScheduleResponse(BaseModel):
     status: int
     display_status: int = Field(..., description="显示状态：1待上课/2上课中/3已取消/4已完成")
     notes: str | None = None
+    preview_content: str | None = None
+    preview_updated_at: datetime | None = None
     cancel_reason: str | None = None
     cancelled_by: int | None = None
     cancelled_at: datetime | None = None

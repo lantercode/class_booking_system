@@ -40,6 +40,43 @@ class CourseTypeStatus(Enum):
     ACTIVE = 1
 
 
+class CourseCategoryStatus(Enum):
+    """舞蹈分类状态"""
+    DISABLED = 0
+    ACTIVE = 1
+
+
+class CourseCategory(Base, TenantMixin, TimestampMixin):
+    """舞蹈分类（按舞种/内容分类：爵士、街舞、芭蕾等）"""
+
+    __tablename__ = "course_categories"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    public_id: Mapped[str] = mapped_column(
+        PG_UUID(as_uuid=True),
+        unique=True,
+        nullable=False,
+        default=uuid4,
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False, comment="分类名称")
+    code: Mapped[str] = mapped_column(String(50), nullable=False, comment="分类代码")
+    description: Mapped[str | None] = mapped_column(Text, comment="分类描述/介绍")
+    icon_url: Mapped[str | None] = mapped_column(String(500), comment="分类图标URL")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, comment="排序")
+    status: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        default=CourseCategoryStatus.ACTIVE.value,
+        comment="状态：0禁用/1启用",
+    )
+
+    __table_args__ = (
+        Index("uq_course_categories_tenant_code", "tenant_id", "code", unique=True),
+        Index("uq_course_categories_tenant_name", "tenant_id", "name", unique=True),
+        Index("idx_course_categories_tenant_status", "tenant_id", "status"),
+    )
+
+
 class CourseType(Base, TenantMixin, TimestampMixin):
     """课程类型（按授课形式分类：常规课、特色课、私教课等）"""
 
@@ -66,6 +103,16 @@ class CourseType(Base, TenantMixin, TimestampMixin):
         nullable=False,
         default=CourseTypeStatus.ACTIVE.value,
         comment="状态",
+    )
+    min_students: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+        comment="最低成课人数（仅常规课有效，NULL表示不限制）",
+    )
+    cancel_before_minutes: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+        comment="开课前多少分钟不能取消（仅常规课有效，NULL表示不限制）",
     )
 
     __table_args__ = (

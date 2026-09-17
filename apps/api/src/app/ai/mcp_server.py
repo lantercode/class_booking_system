@@ -51,7 +51,7 @@ async def query_courses(
 
     Args:
         keyword: 搜索关键词，如'瑜伽'、'街舞'、'芭蕾'
-        category: 课程分类，可选值：yoga, dance, fitness, kids, other
+        category: 舞蹈分类，可选值：yoga, dance, fitness, kids, other
         level: 难度等级，可选值：beginner, intermediate, advanced
     """
     try:

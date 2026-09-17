@@ -2,10 +2,19 @@
   <div class="page-container">
     <div class="page-header">
       <h2>会员卡管理</h2>
-      <el-button type="primary" @click="openCreateDialog"> 发放会员卡 </el-button>
+      <div style="display: flex; gap: 12px">
+        <el-button type="primary" @click="openCreateDialog"> 发放会员卡 </el-button>
+        <el-button
+          type="danger"
+          :disabled="selectedCards.length === 0"
+          @click="openBatchCancelDialog"
+        >
+          批量作废
+        </el-button>
+      </div>
     </div>
 
-    <div style="display: flex; gap: 12px; margin-bottom: 16px">
+    <div style="display: flex; gap: 12px; margin-bottom: 16px; align-items: center">
       <el-input
         v-model="search"
         placeholder="搜索学员或手机号"
@@ -13,27 +22,59 @@
         clearable
         @keyup.enter="handleSearch"
         @clear="handleSearch"
-      />
+      >
+        <template #suffix>
+          <el-icon class="search-icon" style="cursor: pointer" @click="handleSearch">
+            <Search />
+          </el-icon>
+        </template>
+      </el-input>
       <el-select
         v-model="statusFilter"
         placeholder="状态筛选"
-        style="width: 120px"
+        style="width: 160px"
         clearable
+        multiple
+        collapse-tags
+        collapse-tags-tooltip
         @change="handleSearch"
       >
         <el-option label="未激活" :value="0" />
         <el-option label="正常" :value="1" />
-        <el-option label="已冻结" :value="2" />
-        <el-option label="已过期" :value="3" />
+        <el-option label="已过期" :value="2" />
+        <el-option label="已冻结" :value="3" />
+        <el-option label="已作废" :value="6" />
       </el-select>
     </div>
 
-    <el-table v-loading="loading" :data="cards" stripe style="width: 100%">
+    <el-table
+      v-loading="loading"
+      :data="cards"
+      stripe
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="55" />
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column prop="product_name" label="产品名称" min-width="120" />
-      <el-table-column prop="card_type" label="卡类型" width="100">
+      <el-table-column prop="card_no" label="会员卡号" width="170">
         <template #default="{ row }">
-          {{ getCardTypeText(row.card_type) }}
+          <el-link
+            v-if="row.card_no"
+            type="primary"
+            :underline="false"
+            @click="openDetailDialog(row)"
+          >
+            {{ row.card_no }}
+          </el-link>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="product_name" label="产品名称" min-width="120" />
+      <el-table-column prop="card_type" label="计费方式" width="100">
+        <template #default="{ row }">
+          <el-tag :type="getCardTypeTag(row.card_type)" size="small">
+            {{ getCardTypeText(row.card_type) }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="student_nickname" label="学员" width="100" />
@@ -83,11 +124,8 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
-          <el-button type="primary" size="small" link @click="openDetailDialog(row)">
-            详情
-          </el-button>
           <el-button
             v-if="row.status === 0"
             type="success"
@@ -198,7 +236,7 @@
             天数由产品决定，不可修改
           </span>
         </el-form-item>
-        <el-form-item v-if="selectedProduct?.card_type === 'unlimited'" label="卡类型">
+        <el-form-item v-if="selectedProduct?.card_type === 'unlimited'" label="计费方式">
           <el-tag type="success"> 无限卡 </el-tag>
           <span style="margin-left: 8px; color: #909399; font-size: 12px">
             无限卡无次数和天数限制
@@ -233,17 +271,20 @@
 
     <el-dialog v-model="detailDialogVisible" title="会员卡详情" width="600px">
       <el-descriptions v-if="detailCard" :column="2" border>
+        <el-descriptions-item label="会员卡号" :span="2">
+          {{ detailCard.card_no || '-' }}
+        </el-descriptions-item>
         <el-descriptions-item label="产品名称">
           {{ detailCard.product_name || '-' }}
         </el-descriptions-item>
-        <el-descriptions-item label="卡类型">
+        <el-descriptions-item label="计费方式">
           {{ getCardTypeText(detailCard.card_type) }}
         </el-descriptions-item>
         <el-descriptions-item label="学员">
           {{ detailCard.student_nickname || '-' }}
         </el-descriptions-item>
         <el-descriptions-item label="手机号">
-          detailCard.student_phone || '-' }}
+          {{ detailCard.student_phone || '-' }}
         </el-descriptions-item>
         <template v-if="detailCard.card_type === 'count'">
           <el-descriptions-item label="总次数">
@@ -331,11 +372,11 @@
 
     <el-dialog
       v-model="cancelDialogVisible"
-      title="作废会员卡"
+      title="作废"
       width="460px"
       :close-on-click-modal="false"
     >
-      <el-form ref="cancelFormRef" :model="cancelForm" label-width="100px">
+      <el-form ref="cancelFormRef" :model="cancelForm" :rules="cancelRules" label-width="100px">
         <el-form-item label="作废原因" prop="reason">
           <el-input
             v-model="cancelForm.reason"
@@ -351,6 +392,51 @@
       </template>
     </el-dialog>
 
+    <!-- 批量作废对话框 -->
+    <el-dialog
+      v-model="batchCancelDialogVisible"
+      title="批量作废"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div class="batch-cancel-info">
+        <p>
+          已选择 <strong>{{ selectedCards.length }}</strong> 张会员卡进行批量作废
+        </p>
+        <div class="selected-cards-list">
+          <div v-for="card in selectedCards" :key="card.id" class="selected-card-item">
+            <span>{{ card.student_nickname || '-' }}</span>
+            <span>{{ card.student_phone || '-' }}</span>
+            <el-tag :type="getStatusType(card.status)" size="small">
+              {{ getStatusText(card.status) }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
+      <el-form
+        ref="batchCancelFormRef"
+        :model="batchCancelForm"
+        :rules="batchCancelRules"
+        label-width="90px"
+        style="margin-top: 16px"
+      >
+        <el-form-item label="作废原因" prop="reason">
+          <el-input
+            v-model="batchCancelForm.reason"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入批量作废原因"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchCancelDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleBatchCancel">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 续卡提示对话框 -->
     <el-dialog
       v-model="renewalDialogVisible"
@@ -363,7 +449,7 @@
       <div class="renewal-content">
         <div class="renewal-header">
           <span class="renewal-icon">⚠️</span>
-          <span class="renewal-title">该学员已有 {{ renewalCardCount }} 张同类型有效卡</span>
+          <span class="renewal-title">该学员已有 {{ renewalCardCount }} 张同课程类型有效卡</span>
         </div>
         <div class="renewal-subtitle">如需继续发卡（续卡），请确认以下规则：</div>
         <div class="renewal-rules">
@@ -380,17 +466,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  membershipCardApi,
   cardTypeApi,
   type MembershipCard,
+  membershipCardApi,
   type MembershipCardCreateParams,
   type MembershipCardProduct,
+  userApi,
 } from '@dance-saas/api-client'
-import { userApi } from '@dance-saas/api-client'
+import { Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -399,7 +485,7 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const search = ref('')
-const statusFilter = ref<number | undefined>(undefined)
+const statusFilter = ref<number[]>([])
 const users = ref<any[]>([])
 const products = ref<MembershipCardProduct[]>([])
 
@@ -440,6 +526,19 @@ const cancelFormRef = ref()
 const cancelForm = ref({ reason: '' })
 const cancelingCardId = ref<number | null>(null)
 
+const cancelRules = {
+  reason: [{ required: true, message: '请输入作废原因', trigger: 'blur' }],
+}
+
+const batchCancelDialogVisible = ref(false)
+const batchCancelFormRef = ref()
+const batchCancelForm = ref({ reason: '' })
+const selectedCards = ref<MembershipCard[]>([])
+
+const batchCancelRules = {
+  reason: [{ required: true, message: '请输入作废原因', trigger: 'blur' }],
+}
+
 const renewalDialogVisible = ref(false)
 const renewalCardCount = ref('')
 const renewalEarliestDate = ref<string | null>(null)
@@ -453,7 +552,9 @@ async function fetchCards() {
     const params: any = {
       page: currentPage.value,
       page_size: pageSize.value,
-      status: statusFilter.value,
+    }
+    if (statusFilter.value && statusFilter.value.length > 0) {
+      params.status = statusFilter.value.join(',')
     }
     if (search.value) {
       params.keyword = search.value
@@ -498,7 +599,6 @@ async function fetchProducts() {
 function handleSearch() {
   currentPage.value = 1
   fetchCards()
-  fetchUsers()
 }
 
 function handleSearchStudent(keyword: string) {
@@ -533,6 +633,9 @@ function openCreateDialog() {
   }
   users.value = []
   dialogVisible.value = true
+  formRef.value?.clearValidate()
+  // 打开弹窗时才加载学员列表
+  fetchUsers()
 }
 
 function handleStudentChange() {
@@ -688,6 +791,7 @@ function openFreezeDialog(row: MembershipCard) {
   freezingCardId.value = row.id
   freezeForm.value = { reason: '', freeze_days: 7 }
   freezeDialogVisible.value = true
+  freezeFormRef.value?.clearValidate()
 }
 
 async function handleFreeze() {
@@ -735,16 +839,21 @@ function openCancelDialog(row: MembershipCard) {
   cancelingCardId.value = row.id
   cancelForm.value = { reason: '' }
   cancelDialogVisible.value = true
+  cancelFormRef.value?.clearValidate()
 }
 
 async function handleCancel() {
-  if (!cancelingCardId.value || !cancelForm.value.reason) {
-    ElMessage.warning('请输入作废原因')
+  if (!cancelFormRef.value) return
+
+  try {
+    await cancelFormRef.value.validate()
+  } catch {
     return
   }
+
   submitting.value = true
   try {
-    await membershipCardApi.cancel(cancelingCardId.value, { reason: cancelForm.value.reason })
+    await membershipCardApi.cancel(cancelingCardId.value!, { reason: cancelForm.value.reason })
     ElMessage.success('作废成功')
     cancelDialogVisible.value = false
     fetchCards()
@@ -755,19 +864,93 @@ async function handleCancel() {
   }
 }
 
+function handleSelectionChange(selection: MembershipCard[]) {
+  selectedCards.value = selection
+}
+
+function openBatchCancelDialog() {
+  if (selectedCards.value.length === 0) {
+    ElMessage.warning('请先选择要作废的会员卡')
+    return
+  }
+  batchCancelForm.value = { reason: '' }
+  batchCancelDialogVisible.value = true
+  batchCancelFormRef.value?.clearValidate()
+}
+
+async function handleBatchCancel() {
+  if (!batchCancelFormRef.value) return
+
+  try {
+    await batchCancelFormRef.value.validate()
+  } catch {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要批量作废选中的 ${selectedCards.value.length} 张会员卡吗？此操作不可撤销。`,
+      '批量作废确认',
+      {
+        confirmButtonText: '确定作废',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+  } catch {
+    return
+  }
+
+  submitting.value = true
+  try {
+    const cardIds = selectedCards.value.map(card => card.id)
+    await membershipCardApi.batchCancel(cardIds, { reason: batchCancelForm.value.reason })
+    ElMessage.success(`成功作废 ${cardIds.length} 张会员卡`)
+    batchCancelDialogVisible.value = false
+    selectedCards.value = []
+    fetchCards()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '批量作废失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
 function getStatusType(status: number) {
-  const map: Record<number, string> = { 0: 'info', 1: 'success', 2: 'warning', 3: 'danger' }
+  const map: Record<number, string> = {
+    0: 'info', // 未激活
+    1: 'success', // 正常
+    2: 'warning', // 已过期
+    3: 'danger', // 已冻结
+    6: 'info', // 已作废
+  }
   return map[status] || 'info'
 }
 
 function getStatusText(status: number) {
-  const map: Record<number, string> = { 0: '未激活', 1: '正常', 2: '已过期', 3: '已冻结' }
+  const map: Record<number, string> = {
+    0: '未激活',
+    1: '正常',
+    2: '已过期',
+    3: '已冻结',
+    6: '已作废',
+  }
   return map[status] || '未知'
 }
 
 function getCardTypeText(type: string) {
   const map: Record<string, string> = { count: '次卡', period: '期卡', unlimited: '无限卡' }
   return map[type] || type
+}
+
+const cardTypeTagMap: Record<string, string> = {
+  count: 'primary',
+  period: 'success',
+  unlimited: 'warning',
+}
+
+function getCardTypeTag(type: string) {
+  return cardTypeTagMap[type] || 'info'
 }
 
 function formatDate(dateStr: string) {
@@ -795,12 +978,16 @@ function getFrozenRemainingDays(card: MembershipCard) {
 
 onMounted(() => {
   fetchCards()
-  fetchUsers()
   fetchProducts()
 })
 </script>
 
 <style scoped>
+/* 会员卡号可点击样式 */
+:deep(.el-link.is-underline) {
+  font-weight: 500;
+}
+
 /* 续卡提示对话框样式 */
 :deep(.renewal-dialog) {
   border-radius: 12px;
@@ -874,5 +1061,73 @@ onMounted(() => {
 .renewal-footer {
   font-size: 12px;
   color: #909399;
+}
+
+.batch-cancel-info {
+  margin-bottom: 16px;
+
+  p {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #606266;
+
+    strong {
+      color: #f56c6c;
+      font-size: 16px;
+    }
+  }
+}
+
+.selected-cards-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fafafa;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
+}
+
+.selected-card-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  margin-bottom: 4px;
+  background: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #606266;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  span:first-child {
+    font-weight: 500;
+    min-width: 60px;
+  }
+
+  span:nth-child(2) {
+    color: #909399;
+    min-width: 100px;
+  }
 }
 </style>

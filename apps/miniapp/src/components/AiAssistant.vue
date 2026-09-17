@@ -1,37 +1,44 @@
 <template>
   <view class="ai-assistant">
     <!-- 悬浮按钮 -->
-    <view 
+    <view
       v-if="isLoggedIn"
-      class="ai-fab" 
+      class="ai-fab"
       :class="{ 'ai-fab-active': isVisible }"
       @tap="toggleChat"
     >
-      <text class="ai-fab-icon">{{ isVisible ? '✕' : '🤖' }}</text>
-      <view v-if="unreadCount > 0" class="ai-badge">
-        {{ unreadCount > 99 ? '99+' : unreadCount }}
+      <view class="ai-fab-glow" />
+      <view class="ai-fab-circle">
+        <AppIcon name="ai-robot" :size="56" color="#fff" />
       </view>
+      <view v-if="unreadCount > 0" class="ai-badge">
+        {{ unreadCount > 99 ? "99+" : unreadCount }}
+      </view>
+      <view class="ai-label">AI助手</view>
     </view>
 
     <!-- 聊天窗口 -->
     <view v-if="isVisible" class="ai-chat-window">
       <!-- 头部 -->
       <view class="chat-header">
-        <text class="chat-title">🤖 AI 助手</text>
+        <view class="chat-title-wrapper">
+          <AppIcon name="ai-robot" :size="40" color="#fff" />
+          <text class="chat-title">AI 助手</text>
+        </view>
         <view class="chat-actions">
           <text class="action-btn" @tap.stop="clearHistory">清空</text>
         </view>
       </view>
 
       <!-- 消息列表 -->
-      <scroll-view 
-        class="chat-messages" 
-        scroll-y 
+      <scroll-view
+        class="chat-messages"
+        scroll-y
         :scroll-into-view="scrollToView"
         :scroll-top="scrollTop"
       >
-        <view 
-          v-for="(msg, index) in messages" 
+        <view
+          v-for="(msg, index) in messages"
           :id="'msg-' + index"
           :key="index"
           class="message-wrapper"
@@ -52,8 +59,8 @@
         <!-- 快捷入口（始终显示在底部） -->
         <view v-if="!isLoading" class="quick-actions">
           <text class="quick-title">💡 您可以问我：</text>
-          <view 
-            v-for="(item, idx) in quickActions" 
+          <view
+            v-for="(item, idx) in quickActions"
             :key="idx"
             class="quick-item"
             @tap="sendQuickMessage(item.text)"
@@ -65,7 +72,7 @@
 
       <!-- 输入框 -->
       <view class="chat-input-area">
-        <input 
+        <input
           class="chat-input"
           v-model="inputText"
           placeholder="输入您的问题..."
@@ -75,7 +82,7 @@
           @focus="isInputFocused = true"
           @blur="isInputFocused = false"
         />
-        <view 
+        <view
           class="send-btn"
           :class="{ 'send-btn-active': inputText.trim() }"
           @tap="sendMessage"
@@ -88,181 +95,186 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { aiChatApi } from '@/api'
+import { aiChatApi } from "@/api";
+import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import AppIcon from "./AppIcon.vue";
 
 interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: number
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
 }
 
-const props = withDefaults(defineProps<{
-  sessionId?: string
-}>(), {
-  sessionId: ''
-})
+const props = withDefaults(
+  defineProps<{
+    sessionId?: string;
+  }>(),
+  {
+    sessionId: "",
+  },
+);
 
 const emit = defineEmits<{
-  (e: 'booking-created', data: any): void
-  (e: 'booking-cancelled', bookingId: number): void
-}>()
+  (e: "booking-created", data: any): void;
+  (e: "booking-cancelled", bookingId: number): void;
+}>();
 
-const isLoggedIn = ref(false)
-const isVisible = ref(false)
-const messages = ref<Message[]>([])
-const inputText = ref('')
-const isLoading = ref(false)
-const isInputFocused = ref(false)
-const unreadCount = ref(0)
-const scrollToView = ref('')
-const scrollTop = ref(0)
+const isLoggedIn = ref(false);
+const isVisible = ref(false);
+const messages = ref<Message[]>([]);
+const inputText = ref("");
+const isLoading = ref(false);
+const isInputFocused = ref(false);
+const unreadCount = ref(0);
+const scrollToView = ref("");
+const scrollTop = ref(0);
 
 const quickActions = [
-  { label: '📚 查询课程', text: '帮我查一下有哪些课程' },
-  { label: '📅 预约课程', text: '帮我约一节瑜伽课' },
-  { label: '💰 查询余额', text: '我的课时余额还剩多少' },
-  { label: '📋 我的预约', text: '查看我的预约记录' }
-]
+  { label: "📚 查询课程", text: "帮我查一下有哪些课程" },
+  { label: "📅 预约课程", text: "帮我约一节瑜伽课" },
+  { label: "💰 查询余额", text: "我的课时余额还剩多少" },
+  { label: "📋 我的预约", text: "查看我的预约记录" },
+];
 
 const buildSessionId = (): string => {
-  if (props.sessionId) return props.sessionId
+  if (props.sessionId) return props.sessionId;
 
-  const userInfo = uni.getStorageSync('userInfo')
-  const userId = userInfo?.id || userInfo?.user_id || 'anon'
-  return `session_${userId}`
-}
+  const userInfo = uni.getStorageSync("userInfo");
+  const userId = userInfo?.id || userInfo?.user_id || "anon";
+  return `session_${userId}`;
+};
 
-let currentSessionId = buildSessionId()
+let currentSessionId = buildSessionId();
 
 const checkLogin = () => {
-  const token = uni.getStorageSync('token')
-  const wasLoggedIn = isLoggedIn.value
-  isLoggedIn.value = !!token
+  const token = uni.getStorageSync("token");
+  const wasLoggedIn = isLoggedIn.value;
+  isLoggedIn.value = !!token;
 
   if (isLoggedIn.value && isLoggedIn.value !== wasLoggedIn) {
-    currentSessionId = buildSessionId()
-    messages.value = []
+    currentSessionId = buildSessionId();
+    messages.value = [];
   }
-}
+};
 
 onMounted(() => {
-  checkLogin()
-  uni.$on('login-success', checkLogin)
-})
+  checkLogin();
+  uni.$on("login-success", checkLogin);
+});
 
 onBeforeUnmount(() => {
-  uni.$off('login-success', checkLogin)
-})
+  uni.$off("login-success", checkLogin);
+});
 
 const toggleChat = () => {
-  isVisible.value = !isVisible.value
+  isVisible.value = !isVisible.value;
   if (isVisible.value) {
-    unreadCount.value = 0
-    loadHistory()
+    unreadCount.value = 0;
+    loadHistory();
   }
-}
+};
 
 const loadHistory = async () => {
   try {
-    const res = await aiChatApi.getHistory(currentSessionId)
+    const res = await aiChatApi.getHistory(currentSessionId);
     if (res.code === 0 || res.code === 200) {
       messages.value = (res.data || []).map((msg: any) => ({
         role: msg.role,
         content: msg.content,
-        timestamp: Date.now()
-      }))
-      scrollToBottom()
+        timestamp: Date.now(),
+      }));
+      scrollToBottom();
     }
   } catch (error) {
-    console.error('加载历史记录失败:', error)
+    console.error("加载历史记录失败:", error);
   }
-}
+};
 
 const sendMessage = async () => {
-  const text = inputText.value.trim()
-  if (!text || isLoading.value) return
+  const text = inputText.value.trim();
+  if (!text || isLoading.value) return;
 
-  inputText.value = ''
-  
+  inputText.value = "";
+
   messages.value.push({
-    role: 'user',
+    role: "user",
     content: text,
-    timestamp: Date.now()
-  })
+    timestamp: Date.now(),
+  });
 
-  isLoading.value = true
-  scrollToBottom()
+  isLoading.value = true;
+  scrollToBottom();
 
   try {
-    const res = await aiChatApi.chat(text, currentSessionId)
-    
-    if (res.code === 0 || res.code === 200) {
-      const aiResponse = res.data?.response || res.msg || '抱歉，我暂时无法回答'
-      
-      messages.value.push({
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: Date.now()
-      })
+    const res = await aiChatApi.chat(text, currentSessionId);
 
-      emit('message-sent', { userMessage: text, aiResponse })
+    if (res.code === 0 || res.code === 200) {
+      const aiResponse =
+        res.data?.response || res.msg || "抱歉，我暂时无法回答";
+
+      messages.value.push({
+        role: "assistant",
+        content: aiResponse,
+        timestamp: Date.now(),
+      });
+
+      emit("message-sent", { userMessage: text, aiResponse });
     } else {
       messages.value.push({
-        role: 'assistant',
-        content: res.msg || '请求失败，请稍后重试',
-        timestamp: Date.now()
-      })
+        role: "assistant",
+        content: res.msg || "请求失败，请稍后重试",
+        timestamp: Date.now(),
+      });
     }
   } catch (error: any) {
-    console.error('AI 对话失败:', error)
+    console.error("AI 对话失败:", error);
     messages.value.push({
-      role: 'assistant',
-      content: '网络错误，请检查连接后重试',
-      timestamp: Date.now()
-    })
+      role: "assistant",
+      content: "网络错误，请检查连接后重试",
+      timestamp: Date.now(),
+    });
   } finally {
-    isLoading.value = false
-    scrollToBottom()
+    isLoading.value = false;
+    scrollToBottom();
   }
-}
+};
 
 const sendQuickMessage = (text: string) => {
-  inputText.value = text
-  sendMessage()
-}
+  inputText.value = text;
+  sendMessage();
+};
 
 const clearHistory = async () => {
   uni.showModal({
-    title: '提示',
-    content: '确定要清空聊天记录吗？',
+    title: "提示",
+    content: "确定要清空聊天记录吗？",
     success: async (res) => {
       if (res.confirm) {
         try {
-          await aiChatApi.clearHistory(currentSessionId)
-          messages.value = []
-          uni.showToast({ title: '已清空', icon: 'success' })
+          await aiChatApi.clearHistory(currentSessionId);
+          messages.value = [];
+          uni.showToast({ title: "已清空", icon: "success" });
         } catch (error) {
-          uni.showToast({ title: '清空失败', icon: 'none' })
+          uni.showToast({ title: "清空失败", icon: "none" });
         }
       }
-    }
-  })
-}
+    },
+  });
+};
 
 const scrollToBottom = () => {
   nextTick(() => {
     if (messages.value.length > 0) {
-      scrollToView.value = `msg-${messages.value.length - 1}`
-      scrollTop.value = Math.random() * 100
+      scrollToView.value = `msg-${messages.value.length - 1}`;
+      scrollTop.value = Math.random() * 100;
     }
-  })
-}
+  });
+};
 
 defineExpose({
   toggleChat,
-  sendMessage
-})
+  sendMessage,
+});
 </script>
 
 <style lang="scss" scoped>
@@ -274,38 +286,85 @@ defineExpose({
 }
 
 .ai-fab {
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 8rpx 24rpx rgba(102, 126, 234, 0.4);
+  position: relative;
+  width: 120rpx;
+  height: 120rpx;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s ease,
-              box-shadow 0.3s ease;
-  
-  &-active {
-    transform: rotate(90deg);
+
+  &-glow {
+    position: absolute;
+    width: 100rpx;
+    height: 100rpx;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 8rpx 32rpx rgba(102, 126, 234, 0.5);
+    animation: pulse-glow 2s ease-in-out infinite;
   }
 
-  &-icon {
-    font-size: 48rpx;
+  &-circle {
+    position: relative;
+    width: 100rpx;
+    height: 100rpx;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    box-shadow: 0 8rpx 32rpx rgba(102, 126, 234, 0.4);
+  }
+
+  &-active {
+    .ai-fab-glow {
+      animation: none;
+      opacity: 0.6;
+    }
+
+    .ai-fab-circle {
+      box-shadow: 0 4rpx 16rpx rgba(102, 126, 234, 0.3);
+    }
+  }
+
+  .ai-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: #ff4757;
     color: white;
+    font-size: 20rpx;
+    padding: 4rpx 10rpx;
+    border-radius: 20rpx;
+    min-width: 32rpx;
+    text-align: center;
+    z-index: 2;
+  }
+
+  .ai-label {
+    position: absolute;
+    top: -8rpx;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 20rpx;
+    padding: 4rpx 16rpx;
+    border-radius: 20rpx;
+    white-space: nowrap;
+    z-index: 2;
   }
 }
 
-.ai-badge {
-  position: absolute;
-  top: -10rpx;
-  right: -10rpx;
-  background: #ff4757;
-  color: white;
-  font-size: 20rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 20rpx;
-  min-width: 32rpx;
-  text-align: center;
+@keyframes pulse-glow {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 8rpx 32rpx rgba(102, 126, 234, 0.5);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 12rpx 40rpx rgba(102, 126, 234, 0.6);
+  }
 }
 
 .ai-chat-window {
@@ -323,14 +382,20 @@ defineExpose({
 }
 
 .chat-header {
-  padding: 28rpx 32rpx;
+  padding: 24rpx 32rpx;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
 
+  .chat-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
   .chat-title {
-    font-size: 34rpx;
+    font-size: 32rpx;
     font-weight: 600;
     color: white;
   }
@@ -358,7 +423,7 @@ defineExpose({
       .message-bubble {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 20rpx 20rpx 4rpx 20rpx;
-        
+
         .message-text {
           color: white;
         }
@@ -447,8 +512,9 @@ defineExpose({
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.3s,
-              transform 0.3s;
+    transition:
+      background 0.3s,
+      transform 0.3s;
 
     &-active {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

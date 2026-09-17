@@ -22,6 +22,8 @@ class CourseTypeCreate(BaseModel):
     required_card_types: list[str] | None = Field(None, description="需要的会员卡类型列表")
     sort_order: int = Field(0, ge=0, description="排序")
     status: int = Field(1, ge=0, le=1, description="状态：0禁用/1启用")
+    min_students: int | None = Field(None, ge=1, description="最低成课人数（仅常规课有效）")
+    cancel_before_minutes: int | None = Field(None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）")
 
 
 class CourseTypeUpdate(BaseModel):
@@ -33,6 +35,8 @@ class CourseTypeUpdate(BaseModel):
     required_card_types: list[str] | None = Field(None, description="需要的会员卡类型列表")
     sort_order: int | None = Field(None, ge=0, description="排序")
     status: int | None = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
+    min_students: int | None = Field(None, ge=1, description="最低成课人数（仅常规课有效）")
+    cancel_before_minutes: int | None = Field(None, ge=0, description="开课前多少分钟不能取消（仅常规课有效）")
 
 
 class CourseTypeResponse(BaseModel):
@@ -47,6 +51,8 @@ class CourseTypeResponse(BaseModel):
     required_card_types: list[str] | None = None
     sort_order: int
     status: int
+    min_students: int | None = None
+    cancel_before_minutes: int | None = None
     course_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -59,6 +65,59 @@ class CourseTypeListResponse(BaseModel):
 
     total: int = Field(..., description="总数")
     items: list[CourseTypeResponse]
+
+
+# ============================================================
+# 舞蹈分类相关
+# ============================================================
+
+
+class CourseCategoryCreate(BaseModel):
+    """创建舞蹈分类请求体"""
+
+    name: str = Field(..., min_length=1, max_length=50, description="分类名称")
+    code: str = Field(..., min_length=1, max_length=50, description="分类代码")
+    description: str | None = Field(None, description="分类描述/介绍")
+    icon_url: str | None = Field(None, max_length=500, description="分类图标URL")
+    sort_order: int = Field(0, ge=0, description="排序")
+    status: int = Field(1, ge=0, le=1, description="状态：0禁用/1启用")
+
+
+class CourseCategoryUpdate(BaseModel):
+    """更新舞蹈分类请求体（部分更新）"""
+
+    name: str | None = Field(None, min_length=1, max_length=50, description="分类名称")
+    code: str | None = Field(None, min_length=1, max_length=50, description="分类代码")
+    description: str | None = Field(None, description="分类描述/介绍")
+    icon_url: str | None = Field(None, max_length=500, description="分类图标URL")
+    sort_order: int | None = Field(None, ge=0, description="排序")
+    status: int | None = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
+
+
+class CourseCategoryResponse(BaseModel):
+    """舞蹈分类响应体"""
+
+    id: int
+    public_id: str
+    tenant_id: int
+    name: str
+    code: str
+    description: str | None = None
+    icon_url: str | None = None
+    sort_order: int
+    status: int
+    course_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CourseCategoryListResponse(BaseModel):
+    """舞蹈分类列表响应"""
+
+    total: int = Field(..., description="总数")
+    items: list[CourseCategoryResponse]
 
 
 # ============================================================

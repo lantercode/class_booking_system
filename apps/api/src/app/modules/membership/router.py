@@ -16,10 +16,12 @@ from app.core.rbac import require_roles
 from app.core.response import success
 from app.deps.auth import get_current_user
 from app.modules.membership.schemas import (
+    MembershipCardBatchCancelRequest,
     MembershipCardCancelRequest,
     MembershipCardCreate,
     MembershipCardExtendRequest,
     MembershipCardFreezeRequest,
+    MembershipCardProductBatchDeleteRequest,
     MembershipCardProductCreate,
     MembershipCardProductResponse,
     MembershipCardProductUpdate,
@@ -118,6 +120,22 @@ async def delete_product(
     return success(msg="产品已删除")
 
 
+@router.post("/products/batch-delete", response_model=dict, summary="批量删除产品")
+@require_roles("admin", "super_admin")
+async def batch_delete_products(
+    data: MembershipCardProductBatchDeleteRequest = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """批量删除产品（软删除：设置 deleted_at）"""
+    tenant_id = current_user.get("tenant_id")
+    result = await membership_card_service.batch_delete_products(
+        db, data.product_ids, tenant_id
+    )
+    await db.commit()
+    return success(data=result, msg=f"成功删除 {result['success_count']} 个产品")
+
+
 @router.get("/products/recycle-bin", response_model=dict, summary="回收站列表")
 @require_roles("admin", "super_admin")
 async def list_deleted_products(
@@ -196,20 +214,28 @@ async def list_cards(
     student_id: int | None = Query(None),
     product_id: int | None = Query(None),
     card_type: str | None = Query(None),
-    status: int | None = Query(None),
+    status: str | None = Query(None, description="状态筛选（多选，逗号分隔：0,1,2,3）"),
     keyword: str | None = Query(None),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
     """获取会员卡列表"""
     tenant_id = current_user.get("tenant_id")
+    # 解析多选状态：将逗号分隔的字符串转为整数列表
+    status_list: list[int] | None = None
+    if status:
+        try:
+            status_list = [int(s.strip()) for s in status.split(",") if s.strip()]
+        except ValueError:
+            status_list = None
+
     result = await membership_card_service.list_cards(
         db,
         tenant_id,
         student_id=student_id,
         product_id=product_id,
         card_type=card_type,
-        status=status,
+        status=status_list,
         keyword=keyword,
         page=page,
         page_size=page_size,
@@ -347,6 +373,23 @@ async def cancel_card(
     await db.commit()
     await db.refresh(result)
     return success(data=MembershipCardResponse.model_validate(result), msg="会员卡已作废")
+
+
+@router.post("/cards/batch-cancel", response_model=dict, summary="批量作废会员卡")
+@require_roles("admin", "super_admin")
+async def batch_cancel_cards(
+    data: MembershipCardBatchCancelRequest = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """批量作废会员卡（管理员操作）"""
+    tenant_id = current_user.get("tenant_id")
+    operator_id = current_user.get("user_id")
+    result = await membership_card_service.batch_cancel_cards(
+        db, data.card_ids, tenant_id, data.reason, operator_id
+    )
+    await db.commit()
+    return success(data=result, msg=f"成功作废 {result['success_count']} 张会员卡")
 
 
 # ============================================================

@@ -14,9 +14,13 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessException, NotFoundException, ValidationException
-from app.modules.course.models import Course, CourseStatus, CourseType, CourseTypeStatus
-from app.modules.course.repository import CourseRepository, CourseTypeRepository
+from app.modules.course.models import Course, CourseCategory, CourseCategoryStatus, CourseStatus, CourseType, CourseTypeStatus
+from app.modules.course.repository import CourseCategoryRepository, CourseRepository, CourseTypeRepository
 from app.modules.course.schemas import (
+    CourseCategoryCreate,
+    CourseCategoryListResponse,
+    CourseCategoryResponse,
+    CourseCategoryUpdate,
     CourseCreate,
     CourseListResponse,
     CourseResponse,
@@ -63,6 +67,10 @@ class CourseTypeService:
             type_data["description"] = data.description
         if data.required_card_types is not None:
             type_data["required_card_types"] = data.required_card_types
+        if data.min_students is not None:
+            type_data["min_students"] = data.min_students
+        if data.cancel_before_minutes is not None:
+            type_data["cancel_before_minutes"] = data.cancel_before_minutes
 
         course_type = await self.repo.create(db, type_data)
         await db.flush()
@@ -107,6 +115,10 @@ class CourseTypeService:
             update_data["sort_order"] = data.sort_order
         if data.status is not None:
             update_data["status"] = data.status
+        if data.min_students is not None:
+            update_data["min_students"] = data.min_students
+        if data.cancel_before_minutes is not None:
+            update_data["cancel_before_minutes"] = data.cancel_before_minutes
 
         if update_data:
             course_type = await self.repo.update(db, type_id, update_data)
@@ -194,9 +206,181 @@ class CourseTypeService:
             required_card_types=course_type.required_card_types,
             sort_order=course_type.sort_order,
             status=course_type.status,
+            min_students=course_type.min_students,
+            cancel_before_minutes=course_type.cancel_before_minutes,
             course_count=0,
             created_at=course_type.created_at,
             updated_at=course_type.updated_at,
+        )
+
+
+class CourseCategoryService:
+    """舞蹈分类管理服务"""
+
+    def __init__(self):
+        self.repo = CourseCategoryRepository()
+        self.course_repo = CourseRepository()
+
+    async def create_category(
+        self,
+        db: AsyncSession,
+        data: CourseCategoryCreate,
+        tenant_id: int,
+    ) -> CourseCategory:
+        """创建舞蹈分类"""
+        logger.info(f"[CourseCategoryService] 创建舞蹈分类: name={data.name}, code={data.code}")
+
+        if await self.repo.exists_by_code(db, data.code):
+            raise ValidationException("分类代码已存在")
+
+        if await self.repo.exists_by_name(db, data.name):
+            raise ValidationException("分类名称已存在")
+
+        category_data: dict[str, Any] = {
+            "name": data.name,
+            "code": data.code,
+            "sort_order": data.sort_order,
+            "status": data.status,
+        }
+
+        if data.description is not None:
+            category_data["description"] = data.description
+        if data.icon_url is not None:
+            category_data["icon_url"] = data.icon_url
+
+        category = await self.repo.create(db, category_data)
+        await db.flush()
+
+        logger.info(f"[CourseCategoryService] ✅ 舞蹈分类创建成功: id={category.id}")
+        return category
+
+    async def update_category(
+        self,
+        db: AsyncSession,
+        category_id: int,
+        data: CourseCategoryUpdate,
+        tenant_id: int,
+    ) -> CourseCategory:
+        """更新舞蹈分类"""
+        logger.info(f"[CourseCategoryService] 更新舞蹈分类: category_id={category_id}")
+
+        category = await self.repo.get_by_id(db, category_id)
+        if not category:
+            raise NotFoundException("舞蹈分类不存在")
+
+        if category.tenant_id != tenant_id:
+            raise ValidationException("无权操作此舞蹈分类")
+
+        update_data: dict[str, Any] = {}
+
+        if data.name is not None and data.name != category.name:
+            if await self.repo.exists_by_name(db, data.name, exclude_id=category_id):
+                raise ValidationException("分类名称已存在")
+            update_data["name"] = data.name
+
+        if data.code is not None and data.code != category.code:
+            if await self.repo.exists_by_code(db, data.code, exclude_id=category_id):
+                raise ValidationException("分类代码已存在")
+            update_data["code"] = data.code
+
+        if data.description is not None:
+            update_data["description"] = data.description
+        if data.icon_url is not None:
+            update_data["icon_url"] = data.icon_url
+        if data.sort_order is not None:
+            update_data["sort_order"] = data.sort_order
+        if data.status is not None:
+            update_data["status"] = data.status
+
+        if update_data:
+            category = await self.repo.update(db, category_id, update_data)
+
+        await db.flush()
+        await db.refresh(category)
+
+        logger.info(f"[CourseCategoryService] ✅ 舞蹈分类更新成功: id={category_id}")
+        return category
+
+    async def delete_category(
+        self,
+        db: AsyncSession,
+        category_id: int,
+        tenant_id: int,
+    ) -> bool:
+        """删除舞蹈分类（检查是否有课程使用）"""
+        logger.warning(f"[CourseCategoryService] 删除舞蹈分类: category_id={category_id}")
+
+        category = await self.repo.get_by_id(db, category_id)
+        if not category:
+            raise NotFoundException("舞蹈分类不存在")
+
+        if category.tenant_id != tenant_id:
+            raise ValidationException("无权操作此舞蹈分类")
+
+        course_count = await self.course_repo.search(db, category=category.code)
+        if course_count[1] > 0:
+            raise BusinessException(f"该舞蹈分类正在被 {course_count[1]} 个课程使用，无法删除")
+
+        await self.repo.delete(db, category_id)
+        await db.flush()
+
+        logger.warning(f"[CourseCategoryService] ✅ 舞蹈分类删除成功: id={category_id}")
+        return True
+
+    async def get_category_by_id(
+        self,
+        db: AsyncSession,
+        category_id: int,
+        tenant_id: int,
+    ) -> CourseCategory:
+        """获取舞蹈分类详情"""
+        category = await self.repo.get_by_id(db, category_id)
+        if not category:
+            raise NotFoundException("舞蹈分类不存在")
+
+        if category.tenant_id != tenant_id:
+            raise ValidationException("无权访问此舞蹈分类")
+
+        return category
+
+    async def list_categories(
+        self,
+        db: AsyncSession,
+        tenant_id: int,
+        *,
+        status: int | None = None,
+    ) -> CourseCategoryListResponse:
+        """获取舞蹈分类列表"""
+        items, total = await self.repo.list_categories(db, status=status)
+
+        # 为每个分类统计课程数量
+        category_responses = []
+        for c in items:
+            course_count = await self.repo.count_courses_by_category(db, c.code)
+            resp = self._to_response(c)
+            resp.course_count = course_count
+            category_responses.append(resp)
+
+        return CourseCategoryListResponse(
+            total=total,
+            items=category_responses,
+        )
+
+    def _to_response(self, category: CourseCategory) -> CourseCategoryResponse:
+        """将 ORM 模型转换为响应对象"""
+        return CourseCategoryResponse(
+            id=category.id,
+            public_id=str(category.public_id),
+            tenant_id=category.tenant_id,
+            name=category.name,
+            code=category.code,
+            description=category.description,
+            icon_url=category.icon_url,
+            sort_order=category.sort_order,
+            status=category.status,
+            course_count=0,
+            created_at=category.created_at,
+            updated_at=category.updated_at,
         )
 
 

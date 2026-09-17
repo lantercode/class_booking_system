@@ -95,12 +95,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { Plus, Delete } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import type { ElTree } from 'element-plus'
 import { roleApi, type Role } from '@dance-saas/api-client'
+import { Delete } from '@element-plus/icons-vue'
+import type { ElTree, FormInstance, FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -151,6 +150,7 @@ function openCreateDialog() {
   roleForm.value = { code: '', name: '', description: '' }
   roleFormRef.value?.resetFields()
   showRoleDialog.value = true
+  roleFormRef.value?.clearValidate()
 }
 
 async function handleCreateRole() {

@@ -39,8 +39,8 @@ class MembershipCardProductCreate(BaseModel):
     price: float = Field(..., ge=0, description="售价")
     total_credits: int | None = Field(None, ge=1, description="总次数（次卡专用）")
     validity_days: int | None = Field(None, ge=1, description="有效天数")
-    applicable_course_type_codes: list[str] = Field(
-        ..., min_length=1, description="适用的课程类型代码列表（必填，至少一项）"
+    applicable_course_type_code: str | None = Field(
+        None, max_length=50, description="适用的课程类型代码（单选）"
     )
     applicable_course_ids: list[int] | None = Field(
         None, description="适用课程ID列表，NULL表示不限"
@@ -60,8 +60,8 @@ class MembershipCardProductUpdate(BaseModel):
     applicable_course_ids: list[int] | None = Field(
         None, description="适用课程ID列表，NULL表示不限"
     )
-    applicable_course_type_codes: list[str] | None = Field(
-        None, description="适用的课程类型代码列表，NULL表示不限"
+    applicable_course_type_code: str | None = Field(
+        None, max_length=50, description="适用的课程类型代码（单选）"
     )
     max_weekly_usage: int | None = Field(None, ge=1, description="每周最多使用次数，NULL表示不限")
     description: str | None = Field(None, max_length=500, description="产品描述")
@@ -80,8 +80,8 @@ class MembershipCardProductResponse(BaseModel):
     total_credits: int | None = Field(None, description="总次数")
     validity_days: int | None = Field(None, description="有效天数")
     applicable_course_ids: list[int] | None = Field(None, description="适用课程ID列表")
-    applicable_course_type_codes: list[str] | None = Field(
-        None, description="适用的课程类型代码列表"
+    applicable_course_type_code: str | None = Field(
+        None, description="适用的课程类型代码（单选）"
     )
     max_weekly_usage: int | None = Field(None, description="每周最多使用次数")
     description: str | None = Field(None, description="产品描述")
@@ -124,8 +124,8 @@ class MembershipCardCreate(BaseModel):
         None, description="生效时间（NULL表示立即激活，支持 YYYY-MM-DD 或 ISO 格式）"
     )
     applicable_course_ids: list[int] | None = Field(None, description="适用课程ID列表")
-    applicable_course_type_codes: list[str] | None = Field(
-        None, description="适用的课程类型代码列表"
+    applicable_course_type_code: str | None = Field(
+        None, max_length=50, description="适用的课程类型代码（单选）"
     )
     max_weekly_usage: int | None = Field(None, ge=1, description="每周最多使用次数")
     allow_duplicate: bool = Field(
@@ -158,6 +158,7 @@ class MembershipCardResponse(BaseModel):
 
     id: int = Field(..., description="会员卡ID")
     public_id: str = Field(..., description="对外公开ID（UUID）")
+    card_no: str | None = Field(None, description="会员卡号")
     student_id: int = Field(..., description="学员ID")
     product_id: int | None = Field(None, description="关联产品ID")
     card_type: str = Field(..., description="卡类型")
@@ -167,8 +168,8 @@ class MembershipCardResponse(BaseModel):
     valid_from: str | None = Field(None, description="生效时间")
     expire_at: str | None = Field(None, description="过期时间")
     applicable_course_ids: list[int] | None = Field(None, description="适用课程ID列表")
-    applicable_course_type_codes: list[str] | None = Field(
-        None, description="适用的课程类型代码列表"
+    applicable_course_type_code: str | None = Field(
+        None, description="适用的课程类型代码（单选）"
     )
     max_weekly_usage: int | None = Field(None, description="每周最多使用次数")
     status: int = Field(..., description="状态")
@@ -278,6 +279,19 @@ class MembershipCardCancelRequest(BaseModel):
     """作废会员卡请求体"""
 
     reason: str = Field(..., max_length=255, description="作废原因")
+
+
+class MembershipCardBatchCancelRequest(BaseModel):
+    """批量作废会员卡请求体"""
+
+    card_ids: list[int] = Field(..., min_length=1, description="要作废的会员卡ID列表")
+    reason: str = Field(..., max_length=255, description="作废原因")
+
+
+class MembershipCardProductBatchDeleteRequest(BaseModel):
+    """批量删除卡类型产品请求体"""
+
+    product_ids: list[int] = Field(..., min_length=1, description="要删除的产品ID列表")
 
 
 class MembershipCardFreezeResponse(BaseModel):

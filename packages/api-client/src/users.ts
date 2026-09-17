@@ -10,8 +10,12 @@ export interface User {
   birthday: string | null
   status: number
   roles: string[]
+  teacher_code: string | null
+  student_code: string | null
   created_at: string
   updated_at: string
+  bio: string | null
+  wechat_bound: boolean
 }
 
 export interface UserListParams {

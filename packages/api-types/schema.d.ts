@@ -5058,7 +5058,7 @@ export interface operations {
                 course_id?: number | null;
                 /** @description 课程名称（模糊搜索） */
                 course_name?: string | null;
-                /** @description 课程分类筛选 */
+                /** @description 舞蹈分类筛选 */
                 category?: string | null;
                 /** @description 课程类型筛选 */
                 course_type_code?: string | null;

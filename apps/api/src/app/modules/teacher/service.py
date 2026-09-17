@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
-from app.modules.teacher.models import TeacherProfile
+from app.modules.teacher.models import TeacherProfile, TeacherStatus
 from app.modules.user.models import User
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,37 @@ logger = logging.getLogger(__name__)
 
 class TeacherService:
     """教师管理服务"""
+
+    async def get_teachers_by_tenant(
+        self,
+        db: AsyncSession,
+        tenant_id: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """获取租户下所有活跃教师"""
+        query = (
+            select(User, TeacherProfile)
+            .join(TeacherProfile, User.id == TeacherProfile.user_id)
+            .where(TeacherProfile.status == TeacherStatus.ACTIVE.value)
+        )
+        if tenant_id:
+            query = query.where(User.tenant_id == tenant_id)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        teachers = []
+        for row in rows:
+            user, profile = row
+            teachers.append({
+                "id": user.id,
+                "nickname": user.nickname,
+                "avatar_url": user.avatar_url,
+                "title": profile.title,
+                "bio": profile.bio,
+                "specialties": profile.specialties,
+                "years_of_experience": profile.years_of_experience,
+            })
+        return teachers
 
     async def get_teacher_by_user_id(
         self,
@@ -78,7 +109,12 @@ class TeacherService:
 
         if not profile:
             # 创建教师档案
-            profile = TeacherProfile(user_id=user_id, tenant_id=tenant_id)
+            from datetime import datetime, timezone
+            import random
+            date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
+            random_digits = "".join([str(random.randint(0, 9)) for _ in range(6)])
+            teacher_code = f"T{date_str}{random_digits}"
+            profile = TeacherProfile(user_id=user_id, tenant_id=tenant_id, teacher_code=teacher_code)
             db.add(profile)
 
         # 更新教师档案字段

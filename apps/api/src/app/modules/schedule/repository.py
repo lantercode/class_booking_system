@@ -109,8 +109,16 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         start_at: datetime,
         end_at: datetime,
         exclude_id: int | None = None,
-    ) -> list[CourseSchedule]:
-        """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）"""
+    ) -> dict:
+        """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）
+        
+        Returns:
+            dict: {
+                "has_conflict": bool,
+                "classroom_conflicts": list[CourseSchedule],
+                "teacher_conflicts": list[CourseSchedule],
+            }
+        """
         from app.core.tenant_context import get_tenant_id
 
         conditions = [
@@ -143,15 +151,11 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
             result = await db.execute(teacher_query)
             teacher_conflicts = list(result.scalars().all())
 
-        all_conflicts = classroom_conflicts + teacher_conflicts
-        seen_ids = set()
-        unique_conflicts = []
-        for c in all_conflicts:
-            if c.id not in seen_ids:
-                seen_ids.add(c.id)
-                unique_conflicts.append(c)
-
-        return unique_conflicts
+        return {
+            "has_conflict": len(classroom_conflicts) > 0 or len(teacher_conflicts) > 0,
+            "classroom_conflicts": classroom_conflicts,
+            "teacher_conflicts": teacher_conflicts,
+        }
 
     async def increment_booked_count(
         self,

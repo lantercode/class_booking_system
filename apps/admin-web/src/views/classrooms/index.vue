@@ -12,7 +12,13 @@
         style="width: 240px"
         clearable
         @input="onSearch"
-      />
+      >
+        <template #suffix>
+          <el-icon class="search-icon" style="cursor: pointer" @click="onSearch">
+            <Search />
+          </el-icon>
+        </template>
+      </el-input>
     </div>
 
     <div v-loading="loading" class="classroom-content">
@@ -38,7 +44,7 @@
               </div>
               <div v-else class="info-item">
                 <el-icon><Setting /></el-icon>
-                <span style="color: #c0c4cc">暂无设备</span>
+                <span style="color: #c0c4cc">--</span>
               </div>
             </div>
             <div class="room-actions">
@@ -61,7 +67,7 @@
         </el-col>
       </el-row>
 
-      <el-empty v-if="!loading && classrooms.length === 0" description="暂无教室" />
+      <el-empty v-if="!loading && classrooms.length === 0" description="--" />
     </div>
 
     <el-dialog
@@ -108,9 +114,9 @@ import {
   type ClassroomCreateParams,
   type ClassroomUpdateParams,
 } from '@dance-saas/api-client'
-import {Setting} from '@element-plus/icons-vue'
-import {ElMessage, ElMessageBox} from 'element-plus'
-import {onMounted, ref} from 'vue'
+import { Search, Setting } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -155,6 +161,7 @@ function openCreateDialog() {
   editingId.value = null
   form.value = { name: '', equipment: [] }
   dialogVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 function openEditDialog(row: Classroom) {
@@ -165,6 +172,7 @@ function openEditDialog(row: Classroom) {
     equipment: row.equipment || [],
   }
   dialogVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 async function handleSubmit() {
@@ -227,6 +235,10 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.search-icon:hover {
+  color: #409eff;
+}
+
 .classroom-content {
   flex: 1;
   overflow-y: auto;
@@ -244,6 +256,7 @@ onMounted(() => {
   &::-webkit-scrollbar-thumb {
     background: #dcdfe6;
     border-radius: 2px;
+    transition: background 0.3s;
   }
 
   &::-webkit-scrollbar-thumb:hover {

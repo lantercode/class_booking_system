@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2>用户管理</h2>
-      <el-button type="primary" @click="dialogVisible = true"> 新增 </el-button>
+      <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
     </div>
 
     <div style="display: flex; gap: 12px; margin-bottom: 16px">
@@ -13,7 +13,13 @@
         clearable
         @keyup.enter="handleSearch"
         @clear="handleSearch"
-      />
+      >
+        <template #suffix>
+          <el-icon class="search-icon" style="cursor: pointer" @click="handleSearch">
+            <Search />
+          </el-icon>
+        </template>
+      </el-input>
       <el-select
         v-model="roleFilter"
         placeholder="角色筛选"
@@ -45,10 +51,27 @@
         </template>
       </el-table-column>
       <el-table-column prop="phone" label="手机号" width="140" />
+      <el-table-column prop="teacher_code" label="教师编号" width="160">
+        <template #default="{ row }">
+          {{ row.teacher_code || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="student_code" label="学员编号" width="160">
+        <template #default="{ row }">
+          {{ row.student_code || '-' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
             {{ row.status === 1 ? '正常' : '禁用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="wechat_bound" label="微信绑定" width="100">
+        <template #default="{ row }">
+          <el-tag :type="row.wechat_bound ? 'success' : 'info'" size="small">
+            {{ row.wechat_bound ? '已绑定' : '未绑定' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -57,14 +80,20 @@
           {{ row.created_at?.slice(0, 10) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="300" fixed="right">
+      <el-table-column label="操作" width="380" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
           <el-button type="warning" size="small" link @click="handleResetPwd(row)">
             重置密码
           </el-button>
           <el-button type="danger" size="small" link @click="handleDelete(row)"> 删除 </el-button>
-          <el-button type="info" size="small" link @click="handleUnbindWechat(row)">
+          <el-button
+            v-if="row.wechat_bound"
+            type="danger"
+            size="small"
+            link
+            @click="handleUnbindWechat(row)"
+          >
             解绑微信
           </el-button>
         </template>
@@ -124,7 +153,7 @@
             <el-option label="禁用" :value="0" />
           </el-select>
         </el-form-item>
-        <el-form-item label="角色">
+        <el-form-item label="角色" prop="roleCodes">
           <el-select
             v-model="editForm.roleCodes"
             multiple
@@ -133,6 +162,7 @@
           >
             <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
           </el-select>
+          <div class="form-tip">⚠️ 修改角色将自动同步教师/学员档案，历史数据将保留</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -166,11 +196,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { roleApi, userApi, type User } from '@dance-saas/api-client'
+import { Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { userApi, roleApi, type User } from '@dance-saas/api-client'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -205,10 +235,12 @@ const rules: FormRules = {
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' },
   ],
+  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少6位', trigger: 'blur' },
   ],
+  roleCodes: [{ required: true, message: '请选择角色', trigger: 'change', type: 'array' as const }],
 }
 
 const editForm = reactive({
@@ -220,6 +252,7 @@ const editForm = reactive({
 
 const editRules: FormRules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  roleCodes: [{ required: true, message: '请选择角色', trigger: 'change', type: 'array' as const }],
 }
 
 const pwdForm = reactive({
@@ -237,6 +270,7 @@ function resetForm() {
   form.phone = ''
   form.nickname = ''
   form.password = ''
+  form.accountType = 'teacher'
   form.roleCodes = []
   formRef.value?.resetFields()
 }
@@ -274,6 +308,12 @@ async function fetchRoles() {
   }
 }
 
+function openCreateDialog() {
+  resetForm()
+  dialogVisible.value = true
+  formRef.value?.clearValidate()
+}
+
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -298,9 +338,37 @@ async function handleSubmit() {
 }
 
 async function handleDelete(user: User) {
+  const hasTeacherRole = user.roles?.includes('teacher')
+  const hasStudentRole = user.roles?.includes('student')
+
+  let warningMessage = `确定要删除用户 "<strong>${user.nickname || user.phone}</strong>" 吗？<br/><br/>`
+
+  const impacts: string[] = []
+
+  if (hasTeacherRole) {
+    impacts.push('• 清除教师档案（教师编号、个人简介、专长、教学经验等）')
+    impacts.push('• 该教师的历史排课记录、课程评价等数据将无法关联查看')
+  }
+
+  if (hasStudentRole) {
+    impacts.push('• 清除学员档案（学员编号、紧急联系人、学习等级、标签等）')
+    impacts.push('• 该学员的预约记录、课程历史、学习进度等数据将无法关联查看')
+  }
+
+  if (impacts.length > 0) {
+    warningMessage += '⚠️ 删除后将清除以下关联信息：<br/>' + impacts.join('<br/>') + '<br/><br/>'
+    warningMessage += '🔒 此操作不可恢复，请谨慎操作！'
+  } else {
+    warningMessage += '此操作不可恢复，请谨慎操作！'
+  }
+
   try {
-    await ElMessageBox.confirm(`确定要删除用户 "${user.nickname || user.phone}" 吗？`, '删除确认', {
+    await ElMessageBox.confirm(warningMessage, '删除确认', {
       type: 'warning',
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      dangerouslyUseHTMLString: true,
+      customClass: 'delete-confirm-dialog',
     })
     await userApi.delete(user.id)
     ElMessage.success('删除成功')
@@ -313,12 +381,37 @@ async function handleDelete(user: User) {
 }
 
 async function handleUnbindWechat(user: User) {
+  const hasStudentRole = user.roles?.includes('student')
+  const hasTeacherRole = user.roles?.includes('teacher')
+  const hasAdminRole = user.roles?.includes('admin') || user.roles?.includes('super_admin')
+
+  let warningMessage = `确定要解除用户 "<strong>${user.nickname || user.phone}</strong>" 的微信绑定吗？<br/><br/>`
+
+  const impacts: string[] = []
+  impacts.push('• 解绑后该用户将无法使用微信一键登录')
+
+  if (hasStudentRole && !hasTeacherRole && !hasAdminRole) {
+    // 只有学员角色
+    impacts.push('• 该用户仅有学员权限，解绑后将无法登录学员端小程序')
+    impacts.push('• 需要重新绑定微信后才能继续使用小程序')
+  } else if (hasStudentRole) {
+    // 有学员角色和其他角色
+    impacts.push('• 该用户拥有学员权限，解绑后将无法使用微信登录学员端小程序')
+    impacts.push('• 但仍可通过手机号+密码登录管理后台')
+  } else {
+    // 没有学员角色
+    impacts.push('• 该用户没有学员权限，解绑后不影响其他功能使用')
+  }
+
+  warningMessage += impacts.join('<br/>')
+
   try {
-    await ElMessageBox.confirm(
-      `确定要解除用户 "${user.nickname || user.phone}" 的微信绑定吗？解绑后该用户将无法使用微信一键登录。`,
-      '解绑微信确认',
-      { type: 'warning', confirmButtonText: '确定解绑', cancelButtonText: '取消' }
-    )
+    await ElMessageBox.confirm(warningMessage, '解绑微信确认', {
+      type: 'warning',
+      confirmButtonText: '确定解绑',
+      cancelButtonText: '取消',
+      dangerouslyUseHTMLString: true,
+    })
     await userApi.unbindWechat(user.id)
     ElMessage.success('微信解绑成功')
     fetchUsers()
@@ -335,7 +428,21 @@ function handleEdit(user: User) {
   editForm.nickname = user.nickname || ''
   editForm.status = user.status
   editForm.roleCodes = user.roles || []
+
+  // 根据用户现有角色推断账号类型
+  const userRoles = user.roles || []
+  if (userRoles.includes('admin') || userRoles.includes('super_admin')) {
+    editForm.accountType = 'admin'
+  } else if (userRoles.includes('teacher')) {
+    editForm.accountType = 'teacher'
+  } else if (userRoles.includes('student')) {
+    editForm.accountType = 'student'
+  } else {
+    editForm.accountType = 'teacher' // 默认
+  }
+
   editVisible.value = true
+  editFormRef.value?.clearValidate()
 }
 
 async function handleEditSubmit() {
@@ -367,6 +474,7 @@ function handleResetPwd(user: User) {
   pwdForm.newPassword = ''
   pwdFormRef.value?.resetFields()
   pwdVisible.value = true
+  pwdFormRef.value?.clearValidate()
 }
 
 async function handlePwdSubmit() {
@@ -396,3 +504,9 @@ onMounted(() => {
   fetchRoles()
 })
 </script>
+
+<style scoped>
+.search-icon:hover {
+  color: #409eff;
+}
+</style>

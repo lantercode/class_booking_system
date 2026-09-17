@@ -109,28 +109,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
-import {
-  Management,
-  Fold,
-  Expand,
-  ArrowDown,
-  SwitchButton,
-  Odometer,
-  User,
-  Key,
-  Avatar,
-  UserFilled,
-  Reading,
-  Calendar,
-  OfficeBuilding,
-  Setting,
-  CreditCard,
-  Collection,
-} from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import {
+  ArrowDown,
+  Avatar,
+  Calendar,
+  Collection,
+  CreditCard,
+  Expand,
+  Fold,
+  Key,
+  Management,
+  Odometer,
+  OfficeBuilding,
+  Reading,
+  Setting,
+  SwitchButton,
+  User,
+  UserFilled,
+} from '@element-plus/icons-vue'
+import { ElMessageBox } from 'element-plus'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
 interface MenuItem {
   path: string
@@ -152,7 +152,7 @@ const menuItems: MenuItem[] = [
   { path: '/courses', title: '课程管理', icon: Reading },
   { path: '/classrooms', title: '教室管理', icon: OfficeBuilding },
   { path: '/schedules', title: '排期管理', icon: Calendar },
-  { path: '/card-types', title: '卡类型管理', icon: Collection },
+  { path: '/card-types', title: '卡产品管理', icon: Collection },
   { path: '/membership', title: '会员卡管理', icon: CreditCard },
   { path: '/tenant', title: '机构设置', icon: Setting },
 ]

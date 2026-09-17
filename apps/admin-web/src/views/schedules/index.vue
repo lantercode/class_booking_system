@@ -3,54 +3,58 @@
     <div class="page-header">
       <h2>排期管理</h2>
       <div style="display: flex; gap: 8px; align-items: center">
-        <el-input
-          v-model="courseNameFilter"
-          placeholder="搜索课程名称"
-          style="width: 180px"
-          clearable
-          @change="handleSearch"
-          @clear="handleSearch"
-        />
-        <el-select
-          v-model="teacherFilter"
-          placeholder="筛选教师"
-          style="width: 180px"
-          clearable
-          @change="handleSearch"
-        >
-          <el-option
-            v-for="t in teachers"
-            :key="t.id"
-            :label="t.nickname || t.phone"
-            :value="t.id"
-          />
-        </el-select>
-        <el-select
-          v-model="statusFilter"
-          placeholder="排期状态"
-          style="width: 140px"
-          clearable
-          @change="handleSearch"
-        >
-          <el-option label="待上课" value="pending" />
-          <el-option label="上课中" value="ongoing" />
-          <el-option label="已取消" value="cancelled" />
-          <el-option label="已完成" value="finished" />
-        </el-select>
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          style="width: 260px"
-          @change="handleSearch"
-        />
         <el-button type="primary" @click="showCreateDialog"> 新增 </el-button>
         <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchDelete">
           批量删除
         </el-button>
       </div>
+    </div>
+
+    <div class="filter-bar">
+      <el-input
+        v-model="courseNameFilter"
+        placeholder="搜索课程名称"
+        style="width: 180px"
+        clearable
+        @change="handleSearch"
+        @clear="handleSearch"
+      >
+        <template #suffix>
+          <el-icon class="search-icon" style="cursor: pointer" @click="handleSearch">
+            <Search />
+          </el-icon>
+        </template>
+      </el-input>
+      <el-select
+        v-model="teacherFilter"
+        placeholder="筛选教师"
+        style="width: 180px"
+        clearable
+        @change="handleSearch"
+      >
+        <el-option v-for="t in teachers" :key="t.id" :label="t.nickname || t.phone" :value="t.id" />
+      </el-select>
+      <el-select
+        v-model="statusFilter"
+        placeholder="排期状态"
+        style="width: 140px"
+        clearable
+        @change="handleSearch"
+      >
+        <el-option label="待上课" value="pending" />
+        <el-option label="上课中" value="ongoing" />
+        <el-option label="已取消" value="cancelled" />
+        <el-option label="已完成" value="finished" />
+      </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        class="date-range-picker"
+        @change="handleSearch"
+      />
     </div>
 
     <el-table
@@ -231,6 +235,14 @@
         <el-form-item label="容量" prop="capacity">
           <el-input-number v-model="form.capacity" :min="1" :max="200" style="width: 100%" />
         </el-form-item>
+        <el-form-item label="预告内容">
+          <el-input
+            v-model="form.preview_content"
+            type="textarea"
+            :rows="3"
+            placeholder="选填，如：看视频《爵士基础教学第3集》、复习上节课内容等"
+          />
+        </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.notes" type="textarea" :rows="2" placeholder="选填" />
         </el-form-item>
@@ -318,6 +330,22 @@
         </el-form-item>
         <el-form-item label="容量" prop="capacity">
           <el-input-number v-model="batchForm.capacity" :min="1" :max="200" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="预告内容">
+          <el-input
+            v-model="batchForm.preview_content"
+            type="textarea"
+            :rows="3"
+            placeholder="选填，如：看视频《爵士基础教学第3集》、复习上节课内容等"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="batchForm.notes"
+            type="textarea"
+            :rows="2"
+            placeholder="选填"
+          />
         </el-form-item>
       </el-form>
 
@@ -443,17 +471,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { Plus, Delete } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  scheduleApi,
-  courseApi,
-  classroomApi,
-  userApi,
   bookingApi,
+  classroomApi,
+  courseApi,
+  scheduleApi,
+  userApi,
   type Schedule,
 } from '@dance-saas/api-client'
+import { Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -601,6 +629,7 @@ const form = ref({
   start_time: null as Date | null,
   end_time: null as Date | null,
   capacity: 20,
+  preview_content: '',
   notes: '',
 })
 
@@ -626,13 +655,16 @@ function showCreateDialog() {
     start_time: null,
     end_time: null,
     capacity: 20,
+    preview_content: '',
     notes: '',
   }
   dialogVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 function showEditDialog(row: Schedule) {
   isEdit.value = true
+  scheduleMode.value = 'single'
   const startAt = new Date(row.start_at)
   const endAt = new Date(row.end_at)
   form.value = {
@@ -644,9 +676,11 @@ function showEditDialog(row: Schedule) {
     start_time: startAt,
     end_time: endAt,
     capacity: row.capacity,
+    preview_content: row.preview_content || '',
     notes: row.notes || '',
   }
   dialogVisible.value = true
+  formRef.value?.clearValidate()
 }
 
 function onCourseChange() {
@@ -764,6 +798,7 @@ async function handleSingleSubmit() {
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
       capacity: form.value.capacity,
+      preview_content: form.value.preview_content || undefined,
       notes: form.value.notes || undefined,
     }
     if (isEdit.value) {
@@ -877,7 +912,7 @@ async function handleBatchDelete() {
   try {
     await ElMessageBox.confirm(
       `确定要批量删除选中的 ${selectedCount} 个排期吗？删除后将无法恢复！`,
-      '批量删除确认',
+      '批量删除',
       { type: 'warning' }
     )
   } catch {
@@ -938,6 +973,8 @@ const batchForm = ref({
   teacher_id: null as number | null,
   classroom_id: null as number | null,
   capacity: 20,
+  preview_content: '',
+  notes: '',
 })
 
 const batchRules = {
@@ -1046,6 +1083,8 @@ async function handleBatchSubmit() {
       start_at: p.start_at,
       end_at: p.end_at,
       capacity: batchForm.value.capacity,
+      preview_content: batchForm.value.preview_content || undefined,
+      notes: batchForm.value.notes || undefined,
     }))
 
     await scheduleApi.batchCreate(items)
@@ -1065,3 +1104,32 @@ onMounted(() => {
   fetchSchedules()
 })
 </script>
+
+<style scoped>
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-icon:hover {
+  color: #409eff;
+}
+
+.date-range-picker {
+  width: 220px !important;
+  max-width: 220px !important;
+}
+
+.date-range-picker :deep(.el-range-input) {
+  width: 70px !important;
+  min-width: 70px !important;
+}
+
+.date-range-picker :deep(.el-range-separator) {
+  width: 20px !important;
+  padding: 0 2px !important;
+}
+</style>

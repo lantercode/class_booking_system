@@ -100,9 +100,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { User, Reading, Calendar, Checked } from '@element-plus/icons-vue'
 import { apiClient } from '@dance-saas/api-client'
+import { Calendar, Checked, Reading, User } from '@element-plus/icons-vue'
+import { onMounted, ref } from 'vue'
 
 const totalUsers = ref(0)
 const activeCourses = ref(0)
@@ -144,6 +144,7 @@ onMounted(() => {
   &::-webkit-scrollbar-thumb {
     background: #dcdfe6;
     border-radius: 2px;
+    transition: background 0.3s;
   }
 
   &::-webkit-scrollbar-thumb:hover {
@@ -154,5 +155,23 @@ onMounted(() => {
 .dashboard-content {
   flex: 1;
   overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
 }
 </style>

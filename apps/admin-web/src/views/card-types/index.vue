@@ -1,15 +1,32 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>卡类型管理</h2>
-      <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
+      <h2>卡产品管理</h2>
+      <div>
+        <el-button type="primary" @click="openCreateDialog"> 新增 </el-button>
+        <el-button
+          v-if="isAdmin"
+          type="danger"
+          :disabled="selectedRows.length === 0"
+          @click="openBatchDeleteDialog"
+        >
+          批量删除
+        </el-button>
+      </div>
     </div>
 
     <!-- 正常列表 -->
-    <el-table v-loading="loading" :data="cardTypes" stripe style="width: 100%">
+    <el-table
+      v-loading="loading"
+      :data="cardTypes"
+      stripe
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="55" />
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column prop="name" label="类型名称" min-width="120" />
-      <el-table-column prop="card_type" label="卡类型" width="100">
+      <el-table-column prop="name" label="产品名称" min-width="120" />
+      <el-table-column prop="card_type" label="计费方式" width="100">
         <template #default="{ row }">
           <el-tag :type="getCardTypeTag(row.card_type)" size="small">
             {{ getCardTypeText(row.card_type) }}
@@ -27,18 +44,11 @@
         </template>
       </el-table-column>
       <el-table-column prop="price" label="价格(元)" width="100" />
-      <el-table-column prop="applicable_course_type_codes" label="适用课程类型" min-width="180">
+      <el-table-column prop="applicable_course_type_code" label="适用课程类型">
         <template #default="{ row }">
-          <template
-            v-if="row.applicable_course_type_codes && row.applicable_course_type_codes.length > 0"
-          >
-            <el-tag
-              v-for="code in row.applicable_course_type_codes"
-              :key="code"
-              size="small"
-              style="margin-right: 4px"
-            >
-              {{ getCourseTypeName(code) }}
+          <template v-if="row.applicable_course_type_code">
+            <el-tag :type="getCourseTypeTagType(row.applicable_course_type_code)" size="small">
+              {{ getCourseTypeName(row.applicable_course_type_code) }}
             </el-tag>
           </template>
           <span v-else style="color: #909399">不限</span>
@@ -96,14 +106,13 @@
       @close="handleDialogClose"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="110px">
-        <el-form-item label="类型名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入类型名称" />
+        <el-form-item label="产品名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入产品名称" />
         </el-form-item>
-        <el-form-item label="卡类型" prop="card_type">
-          <el-select v-model="form.card_type" placeholder="请选择卡类型" style="width: 100%">
+        <el-form-item label="计费方式" prop="card_type">
+          <el-select v-model="form.card_type" placeholder="请选择计费方式" style="width: 100%">
             <el-option label="次卡" value="count" />
             <el-option label="期卡" value="period" />
-            <el-option label="无限卡" value="unlimited" />
           </el-select>
         </el-form-item>
         <el-form-item v-if="form.card_type === 'count'" label="包含次数" prop="total_credits">
@@ -119,11 +128,11 @@
         <el-form-item label="价格(元)" prop="price">
           <el-input-number v-model="form.price" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="适用课程类型" prop="applicable_course_type_codes">
+        <el-form-item label="适用课程类型" prop="applicable_course_type_code">
           <el-select
-            v-model="form.applicable_course_type_codes"
-            placeholder="请选择适用的课程类型（至少选择一项）"
-            multiple
+            v-model="form.applicable_course_type_code"
+            placeholder="请选择适用的课程类型（单选）"
+            clearable
             style="width: 100%"
           >
             <el-option
@@ -135,7 +144,7 @@
             />
           </el-select>
           <div style="margin-top: 4px; color: #909399; font-size: 12px">
-            必填项：选择后学员只能约选中的课程类型，请根据产品定位选择
+            必填项：选择后学员只能预约该课程类型的课程，请根据产品定位选择
           </div>
         </el-form-item>
         <el-form-item label="描述" prop="description">
@@ -147,45 +156,75 @@
         <el-button type="primary" :loading="submitting" @click="handleSubmit"> 确定 </el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量删除对话框 -->
+    <el-dialog
+      v-model="batchDeleteDialogVisible"
+      title="批量删除"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <div style="margin-bottom: 16px">
+        <p>
+          确定要删除以下 <strong>{{ selectedRows.length }}</strong> 个卡类型吗？
+        </p>
+        <ul style="margin-top: 8px; padding-left: 20px; color: #606266">
+          <li v-for="row in selectedRows" :key="row.id">
+            {{ row.name }}（{{ getCardTypeText(row.card_type) }}）
+          </li>
+        </ul>
+        <p style="margin-top: 12px; color: #f56c6c; font-size: 13px">
+          注意：只有已下架的卡类型才能删除，删除后将移入回收站。
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="batchDeleteDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="batchDeleting" @click="handleBatchDelete">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import {
   cardTypeApi,
   courseTypeApi,
+  type CourseType,
   type MembershipCardProduct,
   type MembershipCardProductCreateParams,
   type MembershipCardProductUpdateParams,
-  type CourseType,
 } from '@dance-saas/api-client'
-import { useAuthStore } from '@/stores/auth'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, nextTick, onMounted, ref } from 'vue'
 
 const authStore = useAuthStore()
 
 const loading = ref(false)
 const submitting = ref(false)
+const batchDeleting = ref(false)
 const cardTypes = ref<MembershipCardProduct[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const courseTypes = ref<CourseType[]>([])
+const selectedRows = ref<MembershipCardProduct[]>([])
 
 const dialogVisible = ref(false)
+const batchDeleteDialogVisible = ref(false)
 const isEdit = ref(false)
 const editingId = ref<number | null>(null)
 const formRef = ref()
 
-const form = ref<MembershipCardProductCreateParams>({
+const form = ref<MembershipCardProductCreateParams & { applicable_course_type_code?: string }>({
   name: '',
-  card_type: 'count',
+  card_type: undefined,
   total_credits: undefined,
   validity_days: undefined,
   price: 0,
-  applicable_course_type_codes: [],
+  applicable_course_type_code: undefined,
   description: '',
   sort_order: 0,
 })
@@ -195,11 +234,10 @@ const rules = computed(() => {
     name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
     card_type: [{ required: true, message: '请选择卡类型', trigger: 'change' }],
     price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
-    applicable_course_type_codes: [
+    applicable_course_type_code: [
       {
-        type: 'array' as const,
         required: true,
-        message: '请至少选择一项适用的课程类型',
+        message: '请选择适用的课程类型',
         trigger: 'change',
       },
     ],
@@ -243,6 +281,15 @@ function getCourseTypeName(code: string) {
   return type ? type.name : code
 }
 
+function getCourseTypeTagType(code: string) {
+  const tagMap: Record<string, string> = {
+    regular: 'primary',
+    private: 'warning',
+    special: 'success',
+  }
+  return (tagMap[code] || 'info') as any
+}
+
 async function fetchCardTypes() {
   loading.value = true
   try {
@@ -253,7 +300,7 @@ async function fetchCardTypes() {
     cardTypes.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载卡类型列表失败')
+    ElMessage.error(e?.response?.data?.msg || '加载卡产品列表失败')
   } finally {
     loading.value = false
   }
@@ -264,15 +311,18 @@ function openCreateDialog() {
   editingId.value = null
   form.value = {
     name: '',
-    card_type: 'count',
+    card_type: undefined,
     total_credits: undefined,
     validity_days: undefined,
     price: 0,
-    applicable_course_type_codes: [],
+    applicable_course_type_code: undefined,
     description: '',
     sort_order: 0,
   }
   dialogVisible.value = true
+  nextTick(() => {
+    formRef.value?.clearValidate()
+  })
 }
 
 function openEditDialog(row: MembershipCardProduct) {
@@ -284,11 +334,14 @@ function openEditDialog(row: MembershipCardProduct) {
     total_credits: row.total_credits ?? undefined,
     validity_days: row.validity_days ?? undefined,
     price: row.price,
-    applicable_course_type_codes: row.applicable_course_type_codes || [],
+    applicable_course_type_code: row.applicable_course_type_code || undefined,
     description: row.description || '',
     sort_order: row.sort_order,
   }
   dialogVisible.value = true
+  nextTick(() => {
+    formRef.value?.clearValidate()
+  })
 }
 
 function handleDialogClose() {
@@ -344,6 +397,52 @@ async function handleDelete(row: MembershipCardProduct) {
     if (e !== 'cancel') {
       ElMessage.error(e?.response?.data?.msg || '删除失败')
     }
+  }
+}
+
+function handleSelectionChange(selection: MembershipCardProduct[]) {
+  selectedRows.value = selection
+}
+
+function openBatchDeleteDialog() {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先勾选要删除的卡类型')
+    return
+  }
+
+  const notOffShelfItems = selectedRows.value.filter(row => row.status !== 0)
+  if (notOffShelfItems.length > 0) {
+    const names = notOffShelfItems.map(item => item.name).join('、')
+    ElMessage.warning(`以下卡类型未下架，无法删除：${names}。请先下架后再删除`)
+    return
+  }
+
+  batchDeleteDialogVisible.value = true
+}
+
+async function handleBatchDelete() {
+  batchDeleting.value = true
+  try {
+    const ids = selectedRows.value.map(row => row.id)
+    const res = await cardTypeApi.batchDeleteProducts(ids)
+
+    const result = res.data
+    if (result.success_count > 0) {
+      ElMessage.success(`成功删除 ${result.success_count} 个卡类型`)
+    }
+
+    if (result.failed_count > 0) {
+      const failedNames = result.failed_products.map((p: any) => p.error).join('；')
+      ElMessage.warning(`部分删除失败：${failedNames}`)
+    }
+
+    batchDeleteDialogVisible.value = false
+    selectedRows.value = []
+    fetchCardTypes()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '批量删除失败')
+  } finally {
+    batchDeleting.value = false
   }
 }
 

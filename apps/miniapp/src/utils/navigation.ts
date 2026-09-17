@@ -16,9 +16,6 @@ interface NavigateOptions {
 export function navigateTo(options: NavigateOptions): void {
   uni.navigateTo({
     url: options.url,
-    animationType: options.animationType || 'fade-in',
-    animationDuration: options.animationDuration ?? 200,
-    events: options.events,
     success: options.success,
     fail: options.fail,
     complete: options.complete
@@ -28,8 +25,6 @@ export function navigateTo(options: NavigateOptions): void {
 export function redirectTo(options: NavigateOptions): void {
   uni.redirectTo({
     url: options.url,
-    animationType: options.animationType || 'fade-in',
-    animationDuration: options.animationDuration ?? 200,
     success: options.success,
     fail: options.fail,
     complete: options.complete
@@ -38,8 +33,6 @@ export function redirectTo(options: NavigateOptions): void {
 
 export function navigateBack(delta: number = 1): void {
   uni.navigateBack({
-    delta,
-    animationType: 'fade-in',
-    animationDuration: 200
+    delta
   })
 }

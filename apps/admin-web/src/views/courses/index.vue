@@ -2,74 +2,155 @@
   <div class="page-container">
     <div class="page-header">
       <h2>课程管理</h2>
-      <el-button type="primary" @click="openCourseCreateDialog"> 新增 </el-button>
     </div>
 
     <div class="course-layout">
-      <!-- 左侧：课程分类 -->
+      <!-- 左侧：舞蹈分类 -->
       <div class="category-panel">
-        <div class="panel-header">
-          <h3>课程类型</h3>
-          <el-button type="primary" size="small" text @click="openTypeCreateDialog">
-            新增
-          </el-button>
+        <div class="panel-tabs-header">
+          <el-tabs v-model="categoryTab" class="category-tabs" @tab-click="onCategoryTabChange">
+            <el-tab-pane label="课程类型" name="type" />
+            <el-tab-pane label="舞蹈分类" name="category" />
+          </el-tabs>
+          <el-button type="primary" size="small" text @click="handleAddClick"> 新增 </el-button>
         </div>
 
-        <div v-loading="typeLoading" class="category-list">
-          <div
-            class="category-item"
-            :class="{ active: selectedTypeCode === null }"
-            @click="selectType(null)"
-          >
-            <div class="category-icon-wrapper icon-all">
-              <el-icon><Folder /></el-icon>
+        <!-- 课程类型列表 -->
+        <div v-show="categoryTab === 'type'" class="panel-content">
+          <div v-loading="typeLoading" class="category-list">
+            <div
+              class="category-item"
+              :class="{ active: selectedTypeCode === null }"
+              @click="selectType(null)"
+            >
+              <div class="category-icon-wrapper icon-all">
+                <el-icon><Folder /></el-icon>
+              </div>
+              <span class="category-name">全部</span>
             </div>
-            <span class="category-name">全部课程</span>
-          </div>
 
-          <div
-            v-for="type in courseTypes"
-            :key="type.id"
-            class="category-item"
-            :class="{ active: selectedTypeCode === type.code }"
-            @click="selectType(type)"
-          >
-            <div class="category-icon-wrapper" :class="getCategoryIconClass(type.code)">
-              <el-icon><component :is="getCategoryIcon(type.code)" /></el-icon>
+            <div
+              v-for="type in courseTypes"
+              :key="type.id"
+              class="category-item"
+              :class="{ active: selectedTypeCode === type.code }"
+              @click="selectType(type)"
+            >
+              <div class="category-icon-wrapper" :class="getCategoryIconClass(type.code)">
+                <el-icon><component :is="getCategoryIcon(type.code)" /></el-icon>
+              </div>
+              <el-tooltip :content="type.name" placement="top">
+                <span class="category-name">{{ type.name }}</span>
+              </el-tooltip>
+              <div class="category-actions" @click.stop>
+                <el-button type="primary" size="small" text @click="openTypeEditDialog(type)">
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+                <el-button type="danger" size="small" text @click="handleDeleteType(type)">
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
             </div>
-            <el-tooltip :content="type.name" placement="top">
-              <span class="category-name">{{ type.name }}</span>
-            </el-tooltip>
-            <div class="category-actions" @click.stop>
-              <el-button type="primary" size="small" text @click="openTypeEditDialog(type)">
-                <el-icon><Edit /></el-icon>
-              </el-button>
-              <el-button type="danger" size="small" text @click="handleDeleteType(type)">
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </div>
-          </div>
 
-          <el-empty
-            v-if="!typeLoading && courseTypes.length === 0"
-            description="暂无课程类型"
-            :image-size="60"
-          />
+            <el-empty
+              v-if="!typeLoading && courseTypes.length === 0"
+              description="--"
+              :image-size="60"
+            />
+          </div>
+        </div>
+
+        <!-- 舞蹈分类列表 -->
+        <div v-show="categoryTab === 'category'" class="panel-content">
+          <div v-loading="categoryLoading" class="category-list">
+            <div
+              class="category-item"
+              :class="{ active: selectedCategoryCode === null }"
+              @click="selectCategory(null)"
+            >
+              <div class="category-icon-wrapper icon-all">
+                <el-icon><Folder /></el-icon>
+              </div>
+              <span class="category-name">全部</span>
+            </div>
+
+            <div
+              v-for="cat in courseCategories"
+              :key="cat.id"
+              class="category-item"
+              :class="{ active: selectedCategoryCode === cat.code }"
+              @click="selectCategory(cat)"
+            >
+              <div class="category-icon-wrapper icon-category">
+                <el-icon><Star /></el-icon>
+              </div>
+              <el-tooltip :content="cat.name" placement="top">
+                <span class="category-name">{{ cat.name }}</span>
+              </el-tooltip>
+              <div class="category-actions" @click.stop>
+                <el-button type="primary" size="small" text @click="openCategoryEditDialog(cat)">
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+                <el-button type="danger" size="small" text @click="handleDeleteCategory(cat)">
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
+            </div>
+
+            <el-empty
+              v-if="!categoryLoading && courseCategories.length === 0"
+              description="--"
+              :image-size="60"
+            />
+          </div>
         </div>
       </div>
 
       <!-- 右侧：课程列表 -->
       <div class="course-list-panel">
+        <!-- 当前筛选条件提示 -->
+        <div v-if="selectedTypeCode || selectedCategoryCode" class="active-filters">
+          <span class="filter-label">当前筛选：</span>
+          <el-tag
+            v-if="selectedTypeCode"
+            closable
+            type="primary"
+            size="small"
+            effect="light"
+            @close="selectType(null)"
+          >
+            课程类型：{{ getTypeName(selectedTypeCode) }}
+          </el-tag>
+          <el-tag
+            v-if="selectedCategoryCode"
+            closable
+            type="success"
+            size="small"
+            effect="light"
+            @close="selectCategory(null)"
+          >
+            舞蹈分类：{{ getCategoryName(selectedCategoryCode) }}
+          </el-tag>
+          <el-button type="primary" link size="small" @click="clearAllFilters">
+            清除全部
+          </el-button>
+        </div>
+
         <div class="filter-bar">
           <el-input
             v-model="search"
             placeholder="请输入课程名称"
-            prefix-icon="Search"
             style="width: 260px"
             clearable
             @keyup.enter="handleSearch"
             @clear="handleSearch"
-          />
+          >
+            <template #suffix>
+              <el-icon class="search-icon" style="cursor: pointer" @click="handleSearch">
+                <Search />
+              </el-icon>
+            </template>
+          </el-input>
           <el-select
             v-model="levelFilter"
             placeholder="难度等级：全部"
@@ -92,7 +173,9 @@
             <el-option label="上架" :value="1" />
             <el-option label="下架" :value="0" />
           </el-select>
-          <el-button @click="handleReset"> 重置 </el-button>
+          <div class="filter-bar-actions">
+            <el-button type="primary" @click="openCourseCreateDialog"> 新增 </el-button>
+          </div>
         </div>
 
         <div v-loading="loading" class="table-wrapper">
@@ -101,13 +184,6 @@
             <el-table-column label="课程名称">
               <template #default="{ row }">
                 {{ row.name || '-' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="课程分类">
-              <template #default="{ row }">
-                <el-tag :type="getCategoryTagType(row.category)" size="small" effect="light" round>
-                  {{ row.category || '-' }}
-                </el-tag>
               </template>
             </el-table-column>
             <el-table-column label="难度等级" width="120">
@@ -181,7 +257,7 @@
       :close-on-click-modal="false"
       @close="handleTypeDialogClose"
     >
-      <el-form ref="typeFormRef" :model="typeForm" :rules="typeRules" label-width="100px">
+      <el-form ref="typeFormRef" :model="typeForm" :rules="typeRules" label-width="110px">
         <el-form-item label="类型名称" prop="name">
           <el-input v-model="typeForm.name" placeholder="如：常规课、特色课、私教课" />
         </el-form-item>
@@ -209,10 +285,78 @@
             <el-radio :value="0"> 禁用 </el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="最低成课人数" prop="min_students">
+          <el-input-number
+            v-model="typeForm.min_students"
+            :min="1"
+            :max="50"
+            placeholder="留空表示不限制"
+            clearable
+            style="width: 100%"
+          />
+          <div class="form-tip">仅对常规课生效，预约截止时人数不足将自动取消课程</div>
+        </el-form-item>
+        <el-form-item label="开课前禁止取消" prop="cancel_before_minutes">
+          <el-input-number
+            v-model="typeForm.cancel_before_minutes"
+            :min="0"
+            :max="1440"
+            placeholder="留空表示不限制"
+            clearable
+            style="width: 100%"
+          />
+          <div class="form-tip">开课前多少分钟不能取消课程，同时用于判断人数是否足够的截止时间</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="typeDialogVisible = false"> 取消 </el-button>
         <el-button type="primary" :loading="typeSubmitting" @click="handleTypeSubmit">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 舞蹈分类对话框 -->
+    <el-dialog
+      v-model="categoryDialogVisible"
+      :title="isCategoryEdit ? '编辑' : '新增'"
+      width="560px"
+      :close-on-click-modal="false"
+      @close="handleCategoryDialogClose"
+    >
+      <el-form
+        ref="categoryFormRef"
+        :model="categoryForm"
+        :rules="categoryRules"
+        label-width="100px"
+      >
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="categoryForm.name" placeholder="请输入分类名称" />
+        </el-form-item>
+        <el-form-item label="分类代码" prop="code">
+          <el-input v-model="categoryForm.code" placeholder="请输入分类代码（英文）" />
+        </el-form-item>
+        <el-form-item label="描述" prop="description">
+          <el-input
+            v-model="categoryForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入分类描述/介绍"
+          />
+        </el-form-item>
+        <el-form-item label="排序" prop="sort_order">
+          <el-input-number v-model="categoryForm.sort_order" :min="0" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="categoryForm.status">
+            <el-radio :value="1"> 启用 </el-radio>
+            <el-radio :value="0"> 禁用 </el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="categoryDialogVisible = false"> 取消 </el-button>
+        <el-button type="primary" :loading="categorySubmitting" @click="handleCategorySubmit">
           确定
         </el-button>
       </template>
@@ -245,21 +389,20 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="课程分类" prop="category">
+        <el-form-item label="舞蹈分类" prop="category">
           <el-select
             v-model="courseForm.category"
-            placeholder="请选择或输入分类"
+            placeholder="请选择舞蹈分类"
             clearable
-            allow-create
             style="width: 100%"
           >
-            <el-option label="爵士舞" value="爵士舞" />
-            <el-option label="街舞" value="街舞" />
-            <el-option label="中国舞" value="中国舞" />
-            <el-option label="芭蕾" value="芭蕾" />
-            <el-option label="拉丁" value="拉丁" />
-            <el-option label="现代舞" value="现代舞" />
-            <el-option label="瑜伽" value="瑜伽" />
+            <el-option
+              v-for="cat in courseCategories"
+              :key="cat.code"
+              :label="cat.name"
+              :value="cat.code"
+              :disabled="cat.status !== 1"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="难度等级" prop="level">
@@ -284,12 +427,6 @@
             style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="价格(元)" prop="price">
-          <el-input-number v-model="courseForm.price" :min="0" :precision="2" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="所需积分" prop="required_credits">
-          <el-input-number v-model="courseForm.required_credits" :min="0" style="width: 100%" />
-        </el-form-item>
         <el-form-item label="课程描述" prop="description">
           <el-input
             v-model="courseForm.description"
@@ -310,19 +447,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Plus, Edit, Delete, Folder, User, Medal, Star, Microphone } from '@element-plus/icons-vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   courseApi,
+  courseCategoryApi,
   courseTypeApi,
   type Course,
-  type CourseType,
+  type CourseCategory,
+  type CourseCategoryCreateParams,
+  type CourseCategoryUpdateParams,
   type CourseCreateParams,
-  type CourseUpdateParams,
+  type CourseType,
   type CourseTypeCreateParams,
   type CourseTypeUpdateParams,
+  type CourseUpdateParams,
 } from '@dance-saas/api-client'
+import {
+  Delete,
+  Edit,
+  Folder,
+  Medal,
+  Microphone,
+  Search,
+  Star,
+  User,
+} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 
 // ==================== 课程类型相关 ====================
 const typeLoading = ref(false)
@@ -341,6 +491,8 @@ const typeForm = ref<CourseTypeCreateParams>({
   description: '',
   sort_order: 0,
   status: 1,
+  min_students: undefined,
+  cancel_before_minutes: undefined,
 })
 
 const typeRules = {
@@ -363,6 +515,19 @@ async function fetchCourseTypes() {
 
 function selectType(type: CourseType | null) {
   selectedTypeCode.value = type ? type.code : null
+  currentPage.value = 1
+  fetchCourses()
+}
+
+function selectCategory(cat: CourseCategory | null) {
+  selectedCategoryCode.value = cat ? cat.code : null
+  currentPage.value = 1
+  fetchCourses()
+}
+
+function clearAllFilters() {
+  selectedTypeCode.value = null
+  selectedCategoryCode.value = null
   currentPage.value = 1
   fetchCourses()
 }
@@ -406,8 +571,11 @@ function openTypeCreateDialog() {
     description: '',
     sort_order: 0,
     status: 1,
+    min_students: undefined,
+    cancel_before_minutes: undefined,
   }
   typeDialogVisible.value = true
+  typeFormRef.value?.clearValidate()
 }
 
 function openTypeEditDialog(row: CourseType) {
@@ -419,8 +587,11 @@ function openTypeEditDialog(row: CourseType) {
     description: row.description || '',
     sort_order: row.sort_order,
     status: row.status,
+    min_students: (row as any).min_students ?? undefined,
+    cancel_before_minutes: (row as any).cancel_before_minutes ?? undefined,
   }
   typeDialogVisible.value = true
+  typeFormRef.value?.clearValidate()
 }
 
 function handleTypeDialogClose() {
@@ -470,6 +641,135 @@ async function handleDeleteType(row: CourseType) {
   }
 }
 
+// ==================== 舞蹈分类相关 ====================
+const categoryTab = ref('type')
+const categoryLoading = ref(false)
+const categorySubmitting = ref(false)
+const courseCategories = ref<CourseCategory[]>([])
+const selectedCategoryCode = ref<string | null>(null)
+
+const categoryDialogVisible = ref(false)
+const isCategoryEdit = ref(false)
+const editingCategoryId = ref<number | null>(null)
+const categoryFormRef = ref()
+
+const categoryForm = ref<CourseCategoryCreateParams>({
+  name: '',
+  code: '',
+  description: '',
+  sort_order: 0,
+  status: 1,
+})
+
+const categoryRules = {
+  name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入分类代码', trigger: 'blur' }],
+}
+
+function onCategoryTabChange() {
+  if (categoryTab.value === 'category' && courseCategories.value.length === 0) {
+    fetchCourseCategories()
+  }
+}
+
+function handleAddClick() {
+  if (categoryTab.value === 'type') {
+    openTypeCreateDialog()
+  } else {
+    openCategoryCreateDialog()
+  }
+}
+
+async function fetchCourseCategories() {
+  categoryLoading.value = true
+  try {
+    const res = await courseCategoryApi.list({ status: undefined })
+    courseCategories.value = res.data.items || []
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '加载舞蹈分类失败')
+  } finally {
+    categoryLoading.value = false
+  }
+}
+
+function openCategoryCreateDialog() {
+  isCategoryEdit.value = false
+  editingCategoryId.value = null
+  categoryForm.value = {
+    name: '',
+    code: '',
+    description: '',
+    sort_order: 0,
+    status: 1,
+  }
+  categoryDialogVisible.value = true
+  categoryFormRef.value?.clearValidate()
+}
+
+function openCategoryEditDialog(row: CourseCategory) {
+  isCategoryEdit.value = true
+  editingCategoryId.value = row.id
+  categoryForm.value = {
+    name: row.name,
+    code: row.code,
+    description: row.description || '',
+    sort_order: row.sort_order,
+    status: row.status,
+  }
+  categoryDialogVisible.value = true
+  categoryFormRef.value?.clearValidate()
+}
+
+function handleCategoryDialogClose() {
+  categoryFormRef.value?.clearValidate()
+}
+
+async function handleCategorySubmit() {
+  const valid = await categoryFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  categorySubmitting.value = true
+  try {
+    if (isCategoryEdit.value && editingCategoryId.value) {
+      await courseCategoryApi.update(
+        editingCategoryId.value,
+        categoryForm.value as CourseCategoryUpdateParams
+      )
+      ElMessage.success('舞蹈分类更新成功')
+    } else {
+      await courseCategoryApi.create(categoryForm.value)
+      ElMessage.success('舞蹈分类创建成功')
+    }
+    categoryDialogVisible.value = false
+    fetchCourseCategories()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '操作失败')
+  } finally {
+    categorySubmitting.value = false
+  }
+}
+
+async function handleDeleteCategory(row: CourseCategory) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除舞蹈分类「${row.name}」吗？如有课程使用此分类则无法删除。`,
+      '警告',
+      { type: 'error' }
+    )
+    await courseCategoryApi.remove(row.id)
+    ElMessage.success('删除成功')
+    if (selectedCategoryCode.value === row.code) {
+      selectedCategoryCode.value = null
+    }
+    fetchCourseCategories()
+    fetchCourses()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.response?.data?.msg || '删除失败')
+    }
+  }
+}
+
 // ==================== 课程相关 ====================
 const loading = ref(false)
 const courseSubmitting = ref(false)
@@ -492,8 +792,6 @@ const courseForm = ref<CourseCreateParams>({
   category: undefined,
   level: undefined,
   duration_minutes: 60,
-  price: 0,
-  required_credits: 1,
   description: '',
 })
 
@@ -515,6 +813,7 @@ async function fetchCourses() {
       level: levelFilter.value || undefined,
       status: statusFilter.value !== null ? statusFilter.value : undefined,
       course_type_code: selectedTypeCode.value || undefined,
+      category: selectedCategoryCode.value || undefined,
     })
     courses.value = res.data.items
     total.value = res.data.total
@@ -526,15 +825,6 @@ async function fetchCourses() {
 }
 
 function handleSearch() {
-  currentPage.value = 1
-  fetchCourses()
-}
-
-function handleReset() {
-  search.value = ''
-  levelFilter.value = ''
-  statusFilter.value = null
-  selectedTypeCode.value = null
   currentPage.value = 1
   fetchCourses()
 }
@@ -556,19 +846,24 @@ function getLevelStars(level: string | undefined): number {
 
 function getCategoryTagType(category: string | undefined): string {
   const map: Record<string, string> = {
-    少儿舞蹈: 'danger',
-    成人舞蹈: 'primary',
-    考级课程: 'warning',
-    兴趣课程: 'success',
-    爵士舞: 'danger',
-    街舞: 'primary',
-    中国舞: 'warning',
-    芭蕾: 'success',
-    拉丁: 'danger',
-    现代舞: 'primary',
-    瑜伽: 'success',
+    ballet: 'danger',
+    jazz: 'primary',
+    street: 'warning',
+    latin: 'success',
+    modern: 'danger',
+    yoga: 'primary',
+    children: 'warning',
+    adult: 'success',
+    exam: 'danger',
+    hobby: 'primary',
   }
   return map[category || ''] || 'info'
+}
+
+function getCategoryName(code: string | undefined): string | undefined {
+  if (!code) return undefined
+  const cat = courseCategories.value.find(c => c.code === code)
+  return cat?.name || code
 }
 
 function getCourseThumbColor(row: Course): string {
@@ -610,14 +905,13 @@ function openCourseCreateDialog() {
   courseForm.value = {
     name: '',
     course_type_code: selectedTypeCode.value || '',
-    category: undefined,
+    category: selectedCategoryCode.value || undefined,
     level: undefined,
     duration_minutes: 60,
-    price: 0,
-    required_credits: 1,
     description: '',
   }
   courseDialogVisible.value = true
+  courseFormRef.value?.clearValidate()
 }
 
 function openCourseEditDialog(row: Course) {
@@ -629,11 +923,10 @@ function openCourseEditDialog(row: Course) {
     category: row.category || undefined,
     level: row.level || undefined,
     duration_minutes: row.duration_minutes,
-    price: row.price,
-    required_credits: row.required_credits,
     description: row.description || '',
   }
   courseDialogVisible.value = true
+  courseFormRef.value?.clearValidate()
 }
 
 function handleCourseDialogClose() {
@@ -696,6 +989,7 @@ async function handleDeleteCourse(row: Course) {
 
 onMounted(() => {
   fetchCourseTypes()
+  fetchCourseCategories()
   fetchCourses()
 })
 </script>
@@ -712,7 +1006,7 @@ onMounted(() => {
 
 /* ===== 左侧分类面板 ===== */
 .category-panel {
-  width: 260px;
+  width: 320px;
   flex-shrink: 0;
   background: #fff;
   border-radius: 12px;
@@ -722,26 +1016,94 @@ onMounted(() => {
   flex-direction: column;
 }
 
-.panel-header {
+/* ===== 当前筛选条件提示 ===== */
+.active-filters {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #909399;
+  white-space: nowrap;
+}
+
+.panel-tabs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
   border-bottom: 1px solid #f0f0f0;
   flex-shrink: 0;
 }
 
-.panel-header h3 {
-  margin: 0;
-  font-size: 15px;
+.panel-tabs-header .category-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-tabs-header .category-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
+}
+
+.panel-tabs-header .category-tabs :deep(.el-tabs__nav-wrap::after) {
+  height: 0;
+}
+
+.panel-tabs-header .category-tabs :deep(.el-tabs__item) {
+  color: #606266;
+  font-weight: 500;
+}
+
+.panel-tabs-header .category-tabs :deep(.el-tabs__item.is-active) {
+  color: #409eff;
   font-weight: 600;
-  color: #303133;
+}
+
+.panel-tabs-header .category-tabs :deep(.el-tabs__active-bar) {
+  background-color: #409eff;
+}
+
+.panel-tabs-header .el-button {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .category-list {
   padding: 8px;
   flex: 1;
   overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 2px;
+    transition: background 0.3s;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #c0c4cc;
+  }
 }
 
 .category-item {
@@ -809,6 +1171,11 @@ onMounted(() => {
 .icon-interest {
   background: #f0f9eb;
   color: #67c23a;
+}
+
+.icon-category {
+  background: #fdf6ec;
+  color: #e6a23c;
 }
 
 .category-name {
@@ -893,6 +1260,10 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.filter-bar-actions {
+  margin-left: auto;
+}
+
 .table-wrapper {
   flex: 1;
   min-height: 0;
@@ -969,5 +1340,16 @@ onMounted(() => {
 .action-cell {
   display: flex;
   gap: 4px;
+}
+
+.search-icon:hover {
+  color: #409eff;
+}
+
+.form-tip {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
 }
 </style>

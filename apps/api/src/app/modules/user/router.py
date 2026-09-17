@@ -116,6 +116,7 @@ async def update_user(
         db,
         user_id,
         data,
+        operator_id=current_user.get("user_id"),
         redis_client=redis_client,
     )
     return success(data=result, msg="用户信息更新成功")
@@ -234,6 +235,7 @@ async def assign_user_roles(
         db,
         user_id,
         role_ids,
+        operator_id=current_user["user_id"],
         redis_client=redis_client,
     )
     return success(msg="角色分配成功")

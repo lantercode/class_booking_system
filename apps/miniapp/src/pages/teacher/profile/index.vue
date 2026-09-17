@@ -3,11 +3,13 @@
     <view class="profile-header">
       <view class="avatar-wrapper">
         <view class="avatar">
-          <text class="avatar-text">{{ userInfo?.nickname?.charAt(0) || '?' }}</text>
+          <text class="avatar-text">{{
+            userInfo?.nickname?.charAt(0) || "?"
+          }}</text>
         </view>
       </view>
       <view class="user-info">
-        <text class="user-name">{{ userInfo?.nickname || '教师' }}</text>
+        <text class="user-name">{{ userInfo?.nickname || "教师" }}</text>
         <text class="user-role">教师</text>
       </view>
       <view class="edit-btn" @tap="goToEdit">
@@ -43,14 +45,11 @@
         <text class="menu-text">我的钱包</text>
         <text class="menu-arrow">→</text>
       </view>
-      <view class="menu-item" @tap="goToSettings">
-        <view class="menu-icon">⚙️</view>
-        <text class="menu-text">设置</text>
+      <view class="menu-item" @tap="handleUnbindWechat">
+        <view class="menu-icon">🔗</view>
+        <text class="menu-text">解绑微信</text>
         <text class="menu-arrow">→</text>
       </view>
-    </view>
-
-    <view class="menu-list">
       <view class="menu-item" @tap="handleLogout">
         <view class="menu-icon">🚪</view>
         <text class="menu-text">退出登录</text>
@@ -61,102 +60,161 @@
     <TeacherTabBar currentRoute="/pages/teacher/profile/index" />
 
     <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'teacher_' + (userId || 'default')"
-    />
+    <AiAssistant :session-id="'teacher_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { teacherApi } from '@/api'
-import TeacherTabBar from '@/components/TeacherTabBar.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
-import { navigateTo } from '@/utils/navigation'
-import { checkLogin, logout } from '@/utils/auth'
+import { clearAuthData, teacherApi } from "@/api";
+import AiAssistant from "@/components/AiAssistant.vue";
+import TeacherTabBar from "@/components/TeacherTabBar.vue";
+import { checkLogin, logout } from "@/utils/auth";
+import { navigateTo } from "@/utils/navigation";
+import { wechatUnbind } from "@/utils/wechat";
+import { onMounted, onUnmounted, ref } from "vue";
 
-const userInfo = ref<any>(null)
-const userId = ref('')
+const userInfo = ref<any>(null);
+const userId = ref("");
 const stats = ref({
   courses: 0,
   schedules: 0,
-  students: 0
-})
+  students: 0,
+});
 
 // ✅ 页面卸载标记
-let isUnmounted = false
+let isUnmounted = false;
 
 onMounted(() => {
-  if (!checkLogin('teacher')) return
-  loadUserInfo()
-  loadStats()
-})
+  if (!checkLogin("teacher")) return;
+  loadUserInfo();
+  loadStats();
+});
 
 onUnmounted(() => {
-  isUnmounted = true
-})
+  isUnmounted = true;
+});
 
 const loadUserInfo = () => {
-  const info = uni.getStorageSync('user_info')
+  const info = uni.getStorageSync("user_info");
   if (info) {
-    const parsed = JSON.parse(info)
-    userInfo.value = parsed
-    userId.value = parsed.id || ''
+    const parsed = JSON.parse(info);
+    userInfo.value = parsed;
+    userId.value = parsed.id || "";
   }
-}
+};
 
 const loadStats = async () => {
   try {
-    const result = await teacherApi.getStats()
-    
+    const result = await teacherApi.getStats();
+
     // ✅ 页面已卸载，不再更新数据
-    if (isUnmounted) return
-    
-    stats.value = result.data
+    if (isUnmounted) return;
+
+    stats.value = result.data;
   } catch {
-    console.error('Failed to load stats')
+    console.error("Failed to load stats");
   }
-}
+};
 
 const handleLogout = () => {
   uni.showModal({
-    title: '确认退出',
-    content: '确定要退出登录吗？',
+    title: "确认退出",
+    content: "确定要退出登录吗？",
     success: (res) => {
       if (res.confirm) {
-        logout()
+        logout();
       }
-    }
-  })
-}
+    },
+  });
+};
 
 const goToEdit = () => {
-  navigateTo({ url: '/pages/teacher/profile/edit' })
-}
+  navigateTo({ url: "/pages/teacher/profile/edit" });
+};
 
 const goToBookingHistory = () => {
-  navigateTo({ url: '/pages/teacher/profile/history' })
-}
+  navigateTo({ url: "/pages/teacher/profile/history" });
+};
 
 const goToMyWallet = () => {
-  navigateTo({ url: '/pages/teacher/profile/wallet' })
-}
-
-const goToSettings = () => {
-  navigateTo({ url: '/pages/teacher/profile/settings' })
-}
+  navigateTo({ url: "/pages/teacher/profile/wallet" });
+};
 
 const goToCourses = () => {
-  navigateTo({ url: '/pages/teacher/courses/index' })
-}
+  navigateTo({ url: "/pages/teacher/courses/index" });
+};
 
 const goToSchedule = () => {
-  navigateTo({ url: '/pages/teacher/schedule/index' })
-}
+  navigateTo({ url: "/pages/teacher/schedule/index" });
+};
 
 const goToStudents = () => {
-  navigateTo({ url: '/pages/teacher/students/index' })
-}
+  navigateTo({ url: "/pages/teacher/students/index" });
+};
+
+const handleUnbindWechat = () => {
+  uni.showModal({
+    title: "解绑微信",
+    content: "解绑后您将退出当前登录状态，需重新通过手机号登录。确定要解绑吗？",
+    confirmText: "确定解绑",
+    cancelText: "取消",
+    confirmColor: "#e74c3c",
+    success: async (res) => {
+      if (res.confirm) {
+        uni.showLoading({ title: "解绑中...", mask: true });
+        const result = await wechatUnbind();
+        uni.hideLoading();
+        if (result.success) {
+          console.log("🔓 微信解绑成功，开始清除本地登录态...");
+
+          uni.setStorageSync("just_unbound_wechat", "true");
+          console.log("✅ 已设置 just_unbound_wechat 标志");
+
+          clearAuthData();
+
+          console.log("✅ 本地存储已清除，当前状态:");
+          console.log("  - token:", uni.getStorageSync("token") || "(空)");
+          console.log(
+            "  - refresh_token:",
+            uni.getStorageSync("refresh_token") || "(空)",
+          );
+          console.log(
+            "  - user_role:",
+            uni.getStorageSync("user_role") || "(空)",
+          );
+          console.log(
+            "  - tenant_slug:",
+            uni.getStorageSync("tenant_slug") || "(空)",
+          );
+          console.log(
+            "  - just_unbound_wechat:",
+            uni.getStorageSync("just_unbound_wechat") || "(空)",
+          );
+
+          uni.showToast({
+            title: "微信已解绑",
+            icon: "success",
+            duration: 1500,
+          });
+          setTimeout(() => {
+            console.log("🚀 准备跳转到首页...");
+            uni.reLaunch({
+              url: "/pages/index/index",
+              complete: () => {
+                console.log("✅ 跳转完成");
+              },
+              fail: (err: any) => {
+                console.error("❌ 跳转失败:", err);
+              },
+            });
+          }, 1500);
+        } else {
+          uni.showToast({ title: result.msg, icon: "none" });
+        }
+      }
+    },
+  });
+};
 </script>
 
 <style lang="scss">
@@ -164,7 +222,7 @@ const goToStudents = () => {
 
 .container {
   min-height: 100vh;
-  background: $bg-primary;                 // ✅ 米白背景（替代#f5f5f5）
+  background: $bg-primary; // ✅ 米白背景（替代#f5f5f5）
   padding-bottom: 120rpx;
 }
 
@@ -177,28 +235,36 @@ const goToStudents = () => {
   // 🎨 多层背景（教师专属配色 - 更沉稳的香槟金）
   background:
     radial-gradient(
-      ellipse at 20% 70%,                  // 左下侧光斑
+      ellipse at 20% 70%,
+      // 左下侧光斑
       rgba(201, 166, 107, 0.18) 0%,
       transparent 55%
     ),
     radial-gradient(
-      ellipse at 80% 20%,                  // 右上角光斑
-      rgba(180, 140, 100, 0.15) 0%,       // 稍深的金色
+      ellipse at 80% 20%,
+      // 右上角光斑
+      rgba(180, 140, 100, 0.15) 0%,
+      // 稍深的金色
       transparent 48%
     ),
     linear-gradient(
-      175deg,                              // 角度稍大，更显稳重
-      #B8936A 0%,                          // 深香槟金起点
-      #C9A66B 30%,                         // 标准金
-      #D9C4A8 65%,                         // 浅金
-      #EDE4D8 100%                         // 近白色
+      175deg,
+      // 角度稍大，更显稳重
+      #b8936a 0%,
+      // 深香槟金起点
+      #c9a66b 30%,
+      // 标准金
+      #d9c4a8 65%,
+      // 浅金
+      #ede4d8 100% // 近白色
     );
 
   position: relative;
   overflow: hidden;
 
-  &::before {                             // 光晕装饰
-    content: '';
+  &::before {
+    // 光晕装饰
+    content: "";
     position: absolute;
     top: -50rpx;
     right: -60rpx;
@@ -215,8 +281,9 @@ const goToStudents = () => {
     pointer-events: none;
   }
 
-  &::after {                             // 底部装饰线
-    content: '';
+  &::after {
+    // 底部装饰线
+    content: "";
     position: absolute;
     bottom: 0;
     left: 0;
@@ -234,7 +301,7 @@ const goToStudents = () => {
 }
 
 .avatar-wrapper {
-  margin-right: $space-md;               // ✅ 统一间距
+  margin-right: $space-md; // ✅ 统一间距
 }
 
 .avatar {
@@ -269,7 +336,7 @@ const goToStudents = () => {
 
 .user-role {
   @include text-body;
-  color: rgba(255, 255, 255, 0.85);     // ✅ 稍微提高不透明度
+  color: rgba(255, 255, 255, 0.85); // ✅ 稍微提高不透明度
 }
 
 .edit-btn {
@@ -277,8 +344,9 @@ const goToStudents = () => {
   background: rgba(255, 255, 255, 0.25); // ✅ 提高背景可见度
   backdrop-filter: blur(10rpx);
   border-radius: $radius-full;
-  transition: background $duration-fast $ease-standard,
-              transform $duration-fast $ease-standard;
+  transition:
+    background $duration-fast $ease-standard,
+    transform $duration-fast $ease-standard;
 
   &:active {
     background: rgba(255, 255, 255, 0.35);
@@ -296,10 +364,10 @@ const goToStudents = () => {
   display: flex;
   align-items: center;
   margin: -40rpx $space-lg $space-lg;
-  background: $card-background;            // ✅ 卡片背景（替代#fff）
-  border-radius: $radius-xl;              // ✅ 统一圆角（替代20rpx）
+  background: $card-background; // ✅ 卡片背景（替代#fff）
+  border-radius: $radius-xl; // ✅ 统一圆角（替代20rpx）
   padding: $space-lg;
-  box-shadow: $shadow-lg;                 // ✅ 使用已定义的变量（替代$shadow-elevated）
+  box-shadow: $shadow-lg; // ✅ 使用已定义的变量（替代$shadow-elevated）
 
   // 上浮效果
   position: relative;
@@ -313,18 +381,18 @@ const goToStudents = () => {
 
 .stat-value {
   @include text-display;
-  color: $primary-solid;                 // ✅ 香槟金（替代#667eea）
+  color: $primary-solid; // ✅ 香槟金（替代#667eea）
   display: block;
   margin-bottom: $space-xs;
 
   &.highlight {
-    color: $accent-solid;                // ✅ 莫兰迪粉用于强调
+    color: $accent-solid; // ✅ 莫兰迪粉用于强调
   }
 }
 
 .stat-label {
   @include text-caption;
-  color: $text-secondary;                // ✅ 替代#999
+  color: $text-secondary; // ✅ 替代#999
 }
 
 .stat-divider {
@@ -340,17 +408,17 @@ const goToStudents = () => {
 
 // 📋 菜单列表 - 高级卡片设计
 .menu-list {
-  background: $card-background;            // ✅ 卡片背景（替代#fff）
+  background: $card-background; // ✅ 卡片背景（替代#fff）
   margin: 0 $space-lg $space-md;
-  border-radius: $radius-lg;              // ✅ 统一圆角
+  border-radius: $radius-lg; // ✅ 统一圆角
   overflow: hidden;
-  box-shadow: $shadow-card;               // ✅ 添加阴影
+  box-shadow: $shadow-card; // ✅ 添加阴影
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: $space-lg $space-lg;           // ✅ 统一间距
+  padding: $space-lg $space-lg; // ✅ 统一间距
   border-bottom: 1rpx solid $border-light;
   transition: background $duration-fast $ease-standard;
 
@@ -366,7 +434,7 @@ const goToStudents = () => {
 .menu-icon {
   font-size: 40rpx;
   margin-right: $space-md;
-  width: 44rpx;                           // 固定宽度，对齐文字
+  width: 44rpx; // 固定宽度，对齐文字
   text-align: center;
 }
 
@@ -378,12 +446,12 @@ const goToStudents = () => {
 
 .menu-arrow {
   @include text-caption;
-  color: $text-tertiary;                  // ✅ 替代#ccc
+  color: $text-tertiary; // ✅ 替代#ccc
   transition: transform $duration-fast $ease-standard;
 }
 
 .menu-item:active .menu-arrow {
-  transform: translateX(4rpx);            // 点击时箭头微移动
+  transform: translateX(4rpx); // 点击时箭头微移动
 }
 
 .tab-bar {
@@ -404,7 +472,8 @@ const goToStudents = () => {
   align-items: center;
 
   &.active {
-    .tab-icon, .tab-text {
+    .tab-icon,
+    .tab-text {
       color: #667eea;
     }
   }

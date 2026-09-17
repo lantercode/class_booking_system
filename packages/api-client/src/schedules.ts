@@ -16,6 +16,8 @@ export interface Schedule {
   cancel_deadline: string | null
   status: number
   notes: string | null
+  preview_content: string | null
+  preview_updated_at: string | null
   cancel_reason: string | null
   cancelled_by: number | null
   cancelled_at: string | null
@@ -50,6 +52,7 @@ export interface ScheduleCreateParams {
   booking_closes_at?: string
   cancel_deadline?: string
   notes?: string
+  preview_content?: string
 }
 
 export interface ScheduleUpdateParams {
@@ -63,6 +66,7 @@ export interface ScheduleUpdateParams {
   cancel_deadline?: string
   status?: number
   notes?: string
+  preview_content?: string
 }
 
 export interface ScheduleListResponse {

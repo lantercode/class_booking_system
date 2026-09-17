@@ -1,411 +1,594 @@
 <template>
-  <view class="profile_container">
-
-    <!-- 自定义导航栏 - 参照课程列表页面 -->
-    <AppNavbar
-      title=""
-      :show-back="false"
-      variant="default"
-    >
+  <view class="profile-container">
+    <!-- 自定义导航栏 -->
+    <AppNavbar title="" :show-back="false" variant="default">
       <template #left>
-        <view>我的</view>
+        <view class="navbar-title">我的</view>
       </template>
     </AppNavbar>
 
-    <!-- 沉浸式个人信息区 -->
-    <view class="profile-header-immersive">
-      <view class="profile-header-content">
-        <view class="avatar-wrapper">
-          <view class="avatar">
-            <text class="avatar-text">{{ userInfo?.nickname?.charAt(0) || '?' }}</text>
+    <!-- 个人信息区 -->
+    <view class="profile-header">
+      <view class="header-bg-decoration"></view>
+      <view class="profile-content">
+        <view class="avatar-section">
+          <view v-if="!userInfo?.avatar" class="avatar-placeholder">
+            <text class="avatar-text">{{ getUserInitial() }}</text>
+          </view>
+          <image
+            v-else
+            class="avatar"
+            :src="userInfo.avatar"
+            mode="aspectFill"
+          />
+        </view>
+        <view class="user-info-section">
+          <text class="user-name">{{ userInfo?.nickname || "学员" }}</text>
+          <view class="user-role-row">
+            <text class="user-role">学员</text>
+            <text class="role-divider">·</text>
+            <text class="membership-level">{{ getMembershipLevel() }}</text>
+          </view>
+          <view class="membership-badge">
+            <AppIcon name="crown" :size="28" color="#c9a66b" />
+            <text class="badge-text">{{ getMembershipLevel() }}</text>
           </view>
         </view>
-        <view class="user-info">
-          <text class="user-name">{{ userInfo?.nickname || '学员' }}</text>
-          <text class="user-role">学员</text>
-        </view>
-        <view class="edit-btn" @tap="goToEdit">
-          <text>编辑</text>
-        </view>
+        <!-- <view class="edit-btn" @tap="goToEdit">
+          <AppIcon name="edit" :size="28" color="#8b7355" />
+          <text class="edit-text">编辑</text>
+        </view> -->
       </view>
     </view>
 
-    <view class="menu-list">
-      <view class="menu-item" @tap="goToBookings">
-        <view class="menu-icon">📝</view>
-        <text class="menu-text">预约记录</text>
-        <text class="menu-arrow">→</text>
+    <!-- 内容区域 -->
+    <view class="content-area">
+      <!-- 我的会员卡 - 突出卡片 -->
+      <view class="membership-card" @tap="goToMembership">
+        <view class="card-bg-pattern"></view>
+        <view class="card-content">
+          <view class="card-left">
+            <view class="card-icon-wrapper">
+              <AppIcon name="crown" :size="48" color="#c9a66b" />
+            </view>
+            <view class="card-info">
+              <text class="card-title">我的会员卡</text>
+              <text class="card-desc">查看会员权益 · 课程信息 · 剩余课时</text>
+            </view>
+          </view>
+          <AppIcon name="arrow-right" :size="36" color="#c9a66b" />
+        </view>
       </view>
-      <view class="menu-item" @tap="goToMembership">
-        <view class="menu-icon">💳</view>
-        <text class="menu-text">我的会员卡</text>
-        <text class="menu-arrow">→</text>
+
+      <!-- 功能菜单组 -->
+      <view class="menu-group">
+        <!-- 预约记录 -->
+        <view class="menu-card" @tap="goToBookings">
+          <view class="menu-item">
+            <view class="menu-left">
+              <view class="menu-icon-wrapper">
+                <AppIcon name="calendar" :size="36" color="#8b7355" />
+              </view>
+              <view class="menu-info">
+                <text class="menu-title">预约记录</text>
+                <text class="menu-desc">查看我的课程预约与历史记录</text>
+              </view>
+            </view>
+            <AppIcon name="arrow-right" :size="32" color="#c9a66b" />
+          </view>
+        </view>
       </view>
-      <view class="menu-item" @tap="goToSettings">
-        <view class="menu-icon">⚙️</view>
-        <text class="menu-text">设置</text>
-        <text class="menu-arrow">→</text>
-      </view>
-      <view class="menu-item" @tap="handleLogout">
-        <view class="menu-icon">🚪</view>
-        <text class="menu-text">退出登录</text>
-        <text class="menu-arrow">→</text>
+
+      <!-- 账号设置组 -->
+      <view class="menu-group">
+        <!-- 解绑微信 -->
+        <view class="menu-card" @tap="handleUnbindWechat">
+          <view class="menu-item">
+            <view class="menu-left">
+              <view class="menu-icon-wrapper">
+                <AppIcon name="wechat" :size="36" color="#8b7355" />
+              </view>
+              <view class="menu-info">
+                <text class="menu-title">解绑微信</text>
+                <text class="menu-desc">已绑定微信账号</text>
+              </view>
+            </view>
+            <AppIcon name="arrow-right" :size="32" color="#c9a66b" />
+          </view>
+        </view>
+
+        <!-- 退出登录 -->
+        <view class="menu-card" @tap="handleLogout">
+          <view class="menu-item">
+            <view class="menu-left">
+              <view class="menu-icon-wrapper logout-icon">
+                <AppIcon name="logout" :size="36" color="#e74c3c" />
+              </view>
+              <view class="menu-info">
+                <text class="menu-title">退出登录</text>
+                <text class="menu-desc">安全退出当前账号</text>
+              </view>
+            </view>
+            <AppIcon name="arrow-right" :size="32" color="#c9a66b" />
+          </view>
+        </view>
       </view>
     </view>
 
     <StudentTabBar currentRoute="/pages/student/profile/index" />
 
     <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'student_' + (userId || 'default')"
-    />
+    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { studentApi } from '@/api'
-import { checkLogin, logout } from '@/utils/auth'
-import StudentTabBar from '@/components/StudentTabBar.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
-import { navigateTo } from '@/utils/navigation'
-import AppNavbar from '@/components/AppNavbar.vue'
+import { clearAuthData } from "@/api";
+import AiAssistant from "@/components/AiAssistant.vue";
+import AppIcon from "@/components/AppIcon.vue";
+import AppNavbar from "@/components/AppNavbar.vue";
+import StudentTabBar from "@/components/StudentTabBar.vue";
+import { checkLogin, logout } from "@/utils/auth";
+import { navigateTo } from "@/utils/navigation";
+import { wechatUnbind } from "@/utils/wechat";
+import { onMounted, onUnmounted, ref } from "vue";
 
-const userInfo = ref<any>(null)
-const userId = ref('')
+const userInfo = ref<any>(null);
+const userId = ref("");
 
-// ✅ 页面卸载标记
-let isUnmounted = false
+let isUnmounted = false;
 
 onMounted(() => {
-  console.log('\n ===== 学员"我的"页面 - onMounted 触发 =====\n')
+  console.log('\n ===== 学员"我的"页面 - onMounted 触发 =====\n');
 
-  if (!checkLogin('student')) return
+  if (!checkLogin("student")) return;
 
-  loadUserInfo()
-})
+  loadUserInfo();
+});
 
 onUnmounted(() => {
-  isUnmounted = true
-})
+  isUnmounted = true;
+});
 
 const loadUserInfo = () => {
-  const info = uni.getStorageSync('user_info')
+  const info = uni.getStorageSync("user_info");
   if (info) {
-    const parsed = JSON.parse(info)
-    userInfo.value = parsed
-    userId.value = parsed.id || ''
-    console.log('✅ 用户信息已加载:', parsed?.nickname || '未知')
+    const parsed = JSON.parse(info);
+    userInfo.value = parsed;
+    userId.value = parsed.id || "";
+    console.log("✅ 用户信息已加载:", parsed?.nickname || "未知");
   }
-}
+};
+
+const getMembershipLevel = () => {
+  return userInfo.value?.membership_level || "普通会员";
+};
+
+const getUserInitial = () => {
+  const nickname = userInfo.value?.nickname || "学员";
+  return nickname.charAt(0).toUpperCase();
+};
 
 const handleLogout = () => {
   uni.showModal({
-    title: '确认退出',
-    content: '确定要退出登录吗？',
+    title: "确认退出",
+    content: "确定要退出登录吗？",
     success: (res) => {
       if (res.confirm) {
-        logout()
+        logout();
       }
-    }
-  })
-}
+    },
+  });
+};
 
 const goToEdit = () => {
-  navigateTo({ url: '/pages/student/profile/edit' })
-}
+  navigateTo({ url: "/pages/student/profile/edit" });
+};
 
 const goToMembership = () => {
-  navigateTo({ url: '/pages/student/membership/index' })
-}
-
-const goToSettings = () => {
-  navigateTo({ url: '/pages/student/profile/settings' })
-}
-
-const goToCourses = () => {
-  navigateTo({ url: '/pages/student/courses/index' })
-}
+  navigateTo({ url: "/pages/student/membership/index" });
+};
 
 const goToBookings = () => {
-  navigateTo({ url: '/pages/student/bookings/index' })
-}
+  navigateTo({ url: "/pages/student/bookings/index" });
+};
 
+const handleUnbindWechat = () => {
+  uni.showModal({
+    title: "解绑微信",
+    content: "解绑后您将退出当前登录状态，需重新通过手机号登录。确定要解绑吗？",
+    confirmText: "确定解绑",
+    cancelText: "取消",
+    confirmColor: "#e74c3c",
+    success: async (res) => {
+      if (res.confirm) {
+        uni.showLoading({ title: "解绑中...", mask: true });
+        const result = await wechatUnbind();
+        uni.hideLoading();
+        if (result.success) {
+          console.log("🔓 微信解绑成功，开始清除本地登录态...");
+
+          uni.setStorageSync("just_unbound_wechat", "true");
+          console.log("✅ 已设置 just_unbound_wechat 标志");
+
+          clearAuthData();
+
+          console.log("✅ 本地存储已清除，当前状态:");
+          console.log("  - token:", uni.getStorageSync("token") || "(空)");
+          console.log(
+            "  - refresh_token:",
+            uni.getStorageSync("refresh_token") || "(空)",
+          );
+          console.log(
+            "  - user_role:",
+            uni.getStorageSync("user_role") || "(空)",
+          );
+          console.log(
+            "  - tenant_slug:",
+            uni.getStorageSync("tenant_slug") || "(空)",
+          );
+          console.log(
+            "  - just_unbound_wechat:",
+            uni.getStorageSync("just_unbound_wechat") || "(空)",
+          );
+
+          uni.showToast({
+            title: "微信已解绑",
+            icon: "success",
+            duration: 1500,
+          });
+          setTimeout(() => {
+            console.log(" 准备跳转到首页...");
+            uni.reLaunch({
+              url: "/pages/index/index",
+              complete: () => {
+                console.log("✅ 跳转完成");
+              },
+              fail: (err: any) => {
+                console.error(" 跳转失败:", err);
+              },
+            });
+          }, 1500);
+        } else {
+          uni.showToast({ title: result.msg, icon: "none" });
+        }
+      }
+    },
+  });
+};
 </script>
 
 <style lang="scss">
-.profile_container {
-  @include page-container($gradient-page);  // ✅ 使用统一的Mixin，保留渐变背景
+.profile-container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fef6f0 0%, #faf5f0 50%, #f8f2ed 100%);
+  padding-bottom: 140rpx;
 }
 
-// ✨ 沉浸式个人信息区 - 多层次高级设计（告别单调渐变）
-.profile-header-immersive {
-  // 🎨 第一层：基础渐变（主色调）- 个人中心专属配色
-  background: 
-    radial-gradient(
-      ellipse at 25% 60%,                    // 左下侧光斑（温暖感）
-      rgba(217, 167, 176, 0.16) 0%,
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse at 85% 15%,                    // 右上角光斑（高级感）
-      rgba(201, 166, 107, 0.2) 0%,
-      transparent 48%
-    ),
-    linear-gradient(
-      170deg,                                // 更柔和的角度
-      #D4A574 0%,                            // 深香槟金起点
-      #E0C4A8 25%,                           // 暖金过渡
-      #EBD9CC 55%,                           // 玫瑰米色
-      #F8F2ED 100%                           // 近白色终点（更温暖）
-    );
+// 导航栏标题
+.navbar-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #2c1810;
+  letter-spacing: 1rpx;
+}
 
+// 个人信息区
+.profile-header {
   position: relative;
+  padding: 40rpx 32rpx 60rpx;
   overflow: hidden;
-  margin: 0;                                 // ✅ 完全去除外边距（上下左右）
-  padding: 0;                               // ✅ 去除内边距，由子元素控制
-  width: 100%;                               // ✅ 占满父容器宽度
-  min-width: 100vw;                         // ✅ 最小宽度为屏幕宽度
 
-  // ✨ 第二层：动态光晕装饰（右上角）
-  &::before {
-    content: '';
+  .header-bg-decoration {
     position: absolute;
-    top: -40rpx;
-    right: -70rpx;
-    width: 300rpx;
-    height: 300rpx;
-    background: radial-gradient(
-      circle,
-      rgba(201, 166, 107, 0.22) 0%,
-      rgba(217, 167, 176, 0.12) 35%,
-      transparent 70%
-    );
-    border-radius: 50%;
-    filter: blur(45rpx);
-    animation: gentleFloat 11s ease-in-out infinite;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+      radial-gradient(
+        ellipse at 80% 20%,
+        rgba(212, 165, 116, 0.15) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        ellipse at 20% 80%,
+        rgba(217, 167, 176, 0.12) 0%,
+        transparent 50%
+      );
     pointer-events: none;
   }
 
-  // 💫 第三层：底部装饰线（精致细节）
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3rpx;                           // 稍微粗一点
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(201, 166, 107, 0.3) 20%,
-      rgba(217, 167, 176, 0.4) 50%,         // 中间莫兰迪粉
-      rgba(201, 166, 107, 0.3) 80%,
-      transparent 100%
-    );
-
-    // 底部额外光晕效果
-    box-shadow: 0 2rpx 12rpx rgba(201, 166, 107, 0.15);
-  }
-}
-
-// 🌊 缓慢浮动动画（个人中心专用 - 更柔和的节奏）
-@keyframes gentleFloat {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.7;
-  }
-  33% {
-    transform: translate(-18rpx, 14rpx) scale(1.06);
-    opacity: 0.85;
-  }
-  66% {
-    transform: translate(14rpx, -10rpx) scale(0.96);
-    opacity: 0.72;
-  }
-}
-
-// ✅ 注意：状态栏占位已由 AppNavbar 统一处理
-// 此处不再需要单独的 status-bar-placeholder
-
-.profile-header-content {
-  display: flex;
-  align-items: center;                      // 垂直居中对齐
-  justify-content: space-between;           // 水平两端对齐（头像左，编辑右）
-  position: relative;
-  z-index: 1;
-
-  // 关键优化：增大最小高度，防止按钮被遮挡
-  min-height: 260rpx;                       // 最小高度
-  width: 100%;                               // 占满容器宽度
-  box-sizing: border-box;                   // 边框盒模型
-  padding: $space-lg $space-md;                 // 内边距，保证内容不贴边
-}
-
-.avatar-wrapper {
-  margin-right: $space-md;
-}
-
-.avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: $radius-full;
-  background: rgba(255, 255, 255, 0.25);  // ✅ 更新：半透明白色背景
-  backdrop-filter: blur(10rpx);
-  -webkit-backdrop-filter: blur(10rpx);
-  border: 2rpx solid rgba(255, 255, 255, 0.3);   // 新增：白色边框
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);     // 新增：阴影效果
-}
-
-.avatar-text {
-  font-size: $font-size-h2;
-  color: #fff;
-  font-weight: $font-weight-bold;
-}
-
-.user-info {
-  flex: 1;
-}
-
-.user-name {
-  font-size: $font-size-h3;
-  font-weight: $font-weight-bold;
-  color: #fff;
-  display: block;
-  margin-bottom: $space-2xs;
-  letter-spacing: $letter-spacing-tight;
-}
-
-.user-role {
-  font-size: $font-size-body_sm;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: $font-weight-medium;
-}
-
-.edit-btn {
-  padding: $space-xs $space-md;
-  background: rgba(255, 255, 255, 0.25);  // ✅ 更新：更透明的背景
-  backdrop-filter: blur(10rpx);
-  -webkit-backdrop-filter: blur(10rpx);
-  border: 1rpx solid rgba(255, 255, 255, 0.3);   // 新增：边框
-  border-radius: $radius-2xl;
-  transition: transform $duration-fast $ease-standard,
-              box-shadow $duration-fast $ease-standard,
-              opacity $duration-fast $ease-standard;
-
-  &:active {
-    background: rgba(255, 255, 255, 0.35);
-    transform: scale(0.96);
+  .profile-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 24rpx;
   }
 
-  text {
-    font-size: $font-size-body_sm;
-    color: #fff;
-    font-weight: $font-weight-medium;
-  }
-}
+  .avatar-section {
+    flex-shrink: 0;
 
-.menu-list {
-  background: rgba(255, 255, 255, 0.95);   // ✅ 更新：玻璃态背景
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  margin: $space-lg $space-lg $space-lg;
-  border-radius: $radius-lg;            // ✅ 更新：使用圆角系统
-  overflow: hidden;
-  box-shadow: $shadow-card;             // ✅ 更新：使用阴影系统
-  border: 1rpx solid $border-subtle;
-  transition: background $duration-fast $ease-standard,
-              transform $duration-fast $ease-standard,
-              box-shadow $duration-fast $ease-standard;
+    .avatar {
+      width: 140rpx;
+      height: 140rpx;
+      border-radius: 50%;
+      border: 4rpx solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8rpx 24rpx rgba(44, 24, 16, 0.12);
+      background: #fff;
+    }
 
-  &:active {
-    transform: translateY(-2rpx);
-    box-shadow: $shadow-card-hover;
-  }
-}
+    .avatar-placeholder {
+      width: 140rpx;
+      height: 140rpx;
+      border-radius: 50%;
+      border: 4rpx solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8rpx 24rpx rgba(44, 24, 16, 0.12);
+      background: linear-gradient(135deg, #c9a66b 0%, #d9a7b0 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
-.menu-item {
-  display: flex;
-  align-items: center;
-  padding: $space-md $space-lg;
-  border-bottom: 1rpx solid $border-subtle;
-  transition: background $duration-fast $ease-standard;
-
-  &:last-child {
-    border-bottom: none;
+      .avatar-text {
+        font-size: 56rpx;
+        font-weight: 600;
+        color: #fff;
+        text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+      }
+    }
   }
 
-  &:active {
-    background: $bg-tertiary;           // ✅ 更新：点击反馈背景
+  .user-info-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
+
+    .user-name {
+      font-size: 36rpx;
+      font-weight: 600;
+      color: #2c1810;
+      letter-spacing: 0.5rpx;
+    }
+
+    .user-role-row {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+
+      .user-role {
+        font-size: 26rpx;
+        color: #8b7355;
+        font-weight: 500;
+      }
+
+      .role-divider {
+        font-size: 26rpx;
+        color: #c9a66b;
+        opacity: 0.6;
+      }
+
+      .membership-level {
+        font-size: 26rpx;
+        color: #c9a66b;
+        font-weight: 500;
+      }
+    }
+
+    .membership-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8rpx;
+      padding: 6rpx 16rpx;
+      background: linear-gradient(
+        135deg,
+        rgba(201, 166, 107, 0.15) 0%,
+        rgba(217, 167, 176, 0.12) 100%
+      );
+      border-radius: 24rpx;
+      width: fit-content;
+      margin-top: 4rpx;
+
+      .badge-text {
+        font-size: 22rpx;
+        color: #c9a66b;
+        font-weight: 500;
+      }
+    }
   }
-}
 
-.menu-icon {
-  font-size: $icon-size-md;
-  margin-right: $space-md;
-  width: 48rpx;                        // 新增：固定宽度，保持对齐
-  text-align: center;
-}
+  .edit-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 14rpx 28rpx;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10rpx);
+    border: 1rpx solid rgba(201, 166, 107, 0.2);
+    border-radius: 40rpx;
+    box-shadow: 0 4rpx 12rpx rgba(44, 24, 16, 0.06);
+    transition: all 0.2s ease;
 
-.menu-text {
-  flex: 1;
-  font-size: $font-size-body;
-  color: $text-primary;                // ✅ 更新：使用文本变量
-  font-weight: $font-weight-medium;
-  letter-spacing: $letter-spacing-tight;
-}
+    &:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.95);
+    }
 
-.menu-arrow {
-  font-size: $font-size-body_sm;
-  color: $text-tertiary;
-  transition: transform $duration-fast $ease-standard,
-              color $duration-fast $ease-standard;
-
-  .menu-item:active & {
-    transform: translateX(4rpx);        // 点击时向右移动
-  }
-}
-
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  background: rgba(255, 255, 255, 0.98);   // ✅ 更新：近白色背景
-  backdrop-filter: blur(20rpx);
-  -webkit-backdrop-filter: blur(20rpx);
-  padding: $space-sm 0 $space-2xl;
-  border-top: 1rpx solid $border-light;     // ✅ 更新：使用边框变量
-  box-shadow: 0 -4rpx 16rpx rgba(26, 26, 26, 0.04);  // ✅ 新增：顶部阴影
-}
-
-.tab-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  &.active {
-    .tab-icon, .tab-text {
-      color: $primary-solid;            // ✅ 更新：香槟金色
+    .edit-text {
+      font-size: 26rpx;
+      color: #8b7355;
+      font-weight: 500;
     }
   }
 }
 
-.tab-icon {
-  font-size: $icon-size-md;
-  margin-bottom: $space-2xs;
-  color: $text-tertiary;
-  transition: color $duration-fast $ease-standard;
+// 内容区域
+.content-area {
+  padding: 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
-.tab-text {
-  font-size: $font-size-caption;
-  color: $text-tertiary;
-  transition: color $duration-fast $ease-standard;
+// 会员卡突出卡片
+.membership-card {
+  position: relative;
+  background: linear-gradient(135deg, #fef6f0 0%, #faf0e6 100%);
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(201, 166, 107, 0.15);
+  border: 1rpx solid rgba(201, 166, 107, 0.2);
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+    box-shadow: 0 2rpx 12rpx rgba(201, 166, 107, 0.2);
+  }
+
+  .card-bg-pattern {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200rpx;
+    height: 200rpx;
+    background: radial-gradient(
+      circle,
+      rgba(201, 166, 107, 0.08) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .card-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32rpx;
+
+    .card-left {
+      display: flex;
+      align-items: center;
+      gap: 20rpx;
+      flex: 1;
+
+      .card-icon-wrapper {
+        width: 88rpx;
+        height: 88rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(
+          135deg,
+          rgba(201, 166, 107, 0.2) 0%,
+          rgba(217, 167, 176, 0.15) 100%
+        );
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8rpx;
+
+        .card-title {
+          font-size: 32rpx;
+          font-weight: 600;
+          color: #2c1810;
+          letter-spacing: 0.5rpx;
+        }
+
+        .card-desc {
+          font-size: 24rpx;
+          color: #8b7355;
+          line-height: 1.4;
+        }
+      }
+    }
+  }
+}
+
+// 菜单组
+.menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+// 菜单卡片
+.menu-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10rpx);
+  border-radius: 20rpx;
+  overflow: hidden;
+  border: 1rpx solid rgba(201, 166, 107, 0.1);
+  box-shadow: 0 2rpx 12rpx rgba(44, 24, 16, 0.04);
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28rpx 24rpx;
+
+    .menu-left {
+      display: flex;
+      align-items: center;
+      gap: 20rpx;
+      flex: 1;
+
+      .menu-icon-wrapper {
+        width: 72rpx;
+        height: 72rpx;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(
+          135deg,
+          rgba(254, 246, 240, 0.8) 0%,
+          rgba(250, 240, 230, 0.6) 100%
+        );
+        border-radius: 50%;
+        flex-shrink: 0;
+
+        &.logout-icon {
+          background: linear-gradient(
+            135deg,
+            rgba(231, 76, 60, 0.1) 0%,
+            rgba(231, 76, 60, 0.05) 100%
+          );
+        }
+      }
+
+      .menu-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6rpx;
+        flex: 1;
+
+        .menu-title {
+          font-size: 30rpx;
+          font-weight: 500;
+          color: #2c1810;
+          letter-spacing: 0.3rpx;
+        }
+
+        .menu-desc {
+          font-size: 24rpx;
+          color: #a89279;
+          line-height: 1.3;
+        }
+      }
+    }
+  }
 }
 </style>

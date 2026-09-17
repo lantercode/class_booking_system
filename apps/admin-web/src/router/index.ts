@@ -84,7 +84,7 @@ const router = createRouter({
           path: 'card-types',
           name: 'CardTypes',
           component: () => import('@/views/card-types/index.vue'),
-          meta: { title: '卡类型管理', icon: 'Collection' },
+          meta: { title: '卡产品管理', icon: 'Collection' },
         },
       ],
     },

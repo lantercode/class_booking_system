@@ -11,11 +11,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.response import success
-from app.deps.auth import get_current_user
+from app.core.tenant_context import get_tenant_id
+from app.deps.auth import get_current_user, get_optional_user
 from app.modules.teacher.service import TeacherService
 
 router = APIRouter(prefix="/teachers", tags=["教师管理"])
 teacher_service = TeacherService()
+
+
+@router.get(
+    "/",
+    response_model=dict,
+    summary="获取教师列表",
+    description="获取当前租户下的所有活跃教师",
+)
+async def list_teachers(
+    db: AsyncSession = Depends(get_session),
+    current_user: dict | None = Depends(get_optional_user),
+):
+    """获取当前租户下的教师列表"""
+    # 优先从 ContextVar 获取 tenant_id（由中间件设置）
+    tenant_id = get_tenant_id()
+    result = await teacher_service.get_teachers_by_tenant(db, tenant_id)
+    return success(data=result)
 
 
 @router.get(

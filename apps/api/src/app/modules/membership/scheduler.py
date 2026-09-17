@@ -55,42 +55,46 @@ async def auto_activate_membership_cards():
         logger.info(f"[定时任务] 发现 {len(card_ids)} 个待激活会员卡, ids={card_ids}")
 
         for card in cards:
-            # 检查学员是否已有同产品且课程类型重叠的有效卡（防止同一时段多张卡重叠）
-            if card.product_id:
-                from app.modules.membership.repository import MembershipCardRepository
+            # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
+            # 注意：这里检查所有有效卡，不只是同产品的卡
+            from app.modules.membership.repository import MembershipCardRepository
 
-                card_repo = MembershipCardRepository()
-                existing_cards = await card_repo.get_active_cards_by_product(
-                    db, card.student_id, card.product_id, card.tenant_id, exclude_pending=True
-                )
+            card_repo = MembershipCardRepository()
+            all_existing_cards = await card_repo.get_active_cards_by_student(
+                db, card.student_id, card.tenant_id
+            )
 
-                # 过滤出课程类型有重叠且时间重叠的卡
-                has_conflict = False
-                new_card_course_types = set(card.applicable_course_type_codes or [])
+            # 过滤出课程类型相同且时间重叠的卡
+            has_conflict = False
+            new_card_course_type = card.applicable_course_type_code
 
-                for existing_card in existing_cards:
-                    existing_course_types = set(existing_card.applicable_course_type_codes or [])
-                    # 如果课程类型有交集
-                    if new_card_course_types & existing_course_types:
+            if new_card_course_type:
+                for existing_card_dict in all_existing_cards:
+                    existing_course_type = existing_card_dict.get("applicable_course_type_code")
+                    # 如果课程类型相同
+                    if existing_course_type == new_card_course_type:
                         # 检查时间是否重叠
+                        existing_valid_from = existing_card_dict.get("valid_from")
+                        existing_expire_at = existing_card_dict.get("expire_at")
+                        
                         if (
                             card.valid_from
-                            and existing_card.expire_at
+                            and existing_card_dict.get("expire_at")
                             and card.expire_at
-                            and existing_card.valid_from
+                            and existing_valid_from
                         ):
                             if (
-                                card.valid_from <= existing_card.expire_at
-                                and existing_card.valid_from <= card.expire_at
+                                card.valid_from <= existing_expire_at
+                                and existing_valid_from <= card.expire_at
                             ):
                                 has_conflict = True
                                 break
 
-                if has_conflict:
-                    logger.warning(
-                        f"[定时任务] 跳过激活会员卡 {card.id}：学员 {card.student_id} 已有同课程类型的有效卡"
-                    )
-                    continue
+            if has_conflict:
+                logger.warning(
+                    f"[定时任务] 跳过激活会员卡 {card.id}：学员 {card.student_id} 已有同课程类型的有效卡"
+                )
+                continue
 
             card.status = CardStatus.ACTIVE.value
 

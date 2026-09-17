@@ -2,10 +2,12 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 
@@ -32,8 +34,12 @@ from app.modules.membership.scheduler import (
 )
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.schedule.router import router as schedule_router  # 排期路由
-from app.modules.schedule.scheduler import auto_finish_expired_schedules
+from app.modules.schedule.scheduler import (
+    auto_finish_expired_schedules,
+    auto_cancel_underbooked_schedules,
+)
 from app.modules.teacher.router import router as teacher_router  # 教师路由
+from app.modules.tenant.router import router as tenant_router  # 租户配置路由
 from app.modules.user.router import router as user_router  # 用户管理路由
 
 settings = get_settings()
@@ -114,6 +120,16 @@ async def lifespan(app: FastAPI):
     )
     print("✅ 定时任务已启动: auto_unfreeze_membership_cards (每 30min 运行)")
 
+    # 8. 启动自动取消人数不足课程定时任务
+    scheduler.add_job(
+        auto_cancel_underbooked_schedules,
+        "interval",
+        minutes=15,
+        id="auto_cancel_underbooked_schedules",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已启动: auto_cancel_underbooked_schedules (每 15min 运行)")
+
     yield
 
     # 关闭时清理
@@ -165,5 +181,11 @@ app.include_router(classroom_router, prefix=API_V1_PREFIX)  # ⭐ 教室路由
 app.include_router(schedule_router, prefix=API_V1_PREFIX)  # ⭐ 排期路由
 app.include_router(booking_router, prefix=API_V1_PREFIX)  # ⭐ 预约路由
 app.include_router(teacher_router, prefix=API_V1_PREFIX)  # 教师路由
+app.include_router(tenant_router, prefix=API_V1_PREFIX)  # 租户配置路由
 app.include_router(membership_router, prefix=API_V1_PREFIX)  # 会员卡路由
 app.include_router(ai_router)  # AI 智能助手路由（已在 router.py 中定义前缀 /api/v1/ai）
+
+# ⭐ 挂载静态文件服务，用于提供上传文件的访问
+uploads_path = Path("./uploads")
+uploads_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(uploads_path)), name="uploads")

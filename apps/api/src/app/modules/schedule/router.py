@@ -100,7 +100,7 @@ async def list_schedules(
     page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     course_id: int | None = Query(None, description="课程ID"),
     course_name: str | None = Query(None, description="课程名称（模糊搜索）"),
-    category: str | None = Query(None, description="课程分类筛选"),
+    category: str | None = Query(None, description="舞蹈分类筛选"),
     course_type_code: str | None = Query(None, description="课程类型筛选"),
     teacher_id: int | None = Query(None, description="教师ID"),
     classroom_id: int | None = Query(None, description="教室ID"),

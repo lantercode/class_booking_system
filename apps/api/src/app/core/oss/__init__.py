@@ -31,6 +31,9 @@ OSS (Object Storage Service) - 对象存储服务模块
 """
 
 from .service import (
+    ALLOWED_DOCUMENT_TYPES,
+    ALLOWED_IMAGE_TYPES,
+    ALLOWED_VIDEO_TYPES,
     AliyunOSSService,
     LocalStorageService,
     OSSService,
@@ -44,4 +47,7 @@ __all__ = [
     "LocalStorageService",
     "AliyunOSSService",
     "UploadResult",
+    "ALLOWED_IMAGE_TYPES",
+    "ALLOWED_DOCUMENT_TYPES",
+    "ALLOWED_VIDEO_TYPES",
 ]

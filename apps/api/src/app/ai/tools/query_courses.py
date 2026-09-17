@@ -15,7 +15,7 @@ async def query_courses(
     Args:
         ctx: 工具调用上下文（自动注入 user_id, tenant_id, role）
         keyword: 搜索关键词，如"瑜伽"、"街舞"
-        category: 课程分类
+        category: 舞蹈分类
         level: 难度等级
 
     Returns:

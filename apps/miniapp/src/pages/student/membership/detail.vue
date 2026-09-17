@@ -15,7 +15,9 @@
           <!-- 卡片头部 -->
           <view class="card-header">
             <view class="card-type-badge">
-              <text class="badge-text">{{ getCardTypeText(card.card_type) }}</text>
+              <text class="badge-text">{{
+                getCardTypeText(card.card_type)
+              }}</text>
             </view>
             <view class="card-status-tag">
               <text class="status-text">{{ getStatusText(card.status) }}</text>
@@ -23,18 +25,22 @@
           </view>
 
           <!-- 卡名 -->
-          <text class="card-name">{{ card.product_name || '会员卡' }}</text>
+          <text class="card-name">{{ card.product_name || "会员卡" }}</text>
 
           <!-- 次卡：显示剩余次数 -->
           <view v-if="card.card_type === 'count'" class="card-usage">
             <view class="usage-row">
               <view class="usage-main">
                 <text class="usage-label">剩余</text>
-                <text class="usage-value">{{ card.remaining_credits ?? 0 }}</text>
+                <text class="usage-value">{{
+                  card.remaining_credits ?? 0
+                }}</text>
                 <text class="usage-total">/{{ card.total_credits }}</text>
               </view>
               <view class="usage-sub">
-                <text class="usage-sub-text">已用 {{ card.used_credits }} 次</text>
+                <text class="usage-sub-text"
+                  >已用 {{ card.used_credits }} 次</text
+                >
               </view>
             </view>
           </view>
@@ -48,7 +54,8 @@
               </view>
               <view class="usage-sub">
                 <text class="usage-sub-text">
-                  {{ formatDateShort(card.valid_from) }} - {{ formatDateShort(card.expire_at) }}
+                  {{ formatDateShort(card.valid_from) }} -
+                  {{ formatDateShort(card.expire_at) }}
                 </text>
               </view>
             </view>
@@ -70,14 +77,24 @@
 
         <view class="info-card">
           <view class="info-row">
+            <text class="info-label">会员卡号</text>
+            <text class="info-value">{{ card.card_no || "-" }}</text>
+          </view>
+          <view class="info-divider"></view>
+          <view class="info-row">
             <text class="info-label">生效时间</text>
-            <text class="info-value">{{ card.valid_from ? formatDate(card.valid_from) : '未激活' }}</text>
+            <text class="info-value">{{
+              card.valid_from ? formatDate(card.valid_from) : "未激活"
+            }}</text>
           </view>
           <view class="info-divider"></view>
           <view class="info-row">
             <text class="info-label">过期时间</text>
-            <text class="info-value" :class="{ 'value-warning': isExpiringSoon }">
-              {{ card.expire_at ? formatDate(card.expire_at) : '-' }}
+            <text
+              class="info-value"
+              :class="{ 'value-warning': isExpiringSoon }"
+            >
+              {{ card.expire_at ? formatDate(card.expire_at) : "-" }}
             </text>
           </view>
           <view v-if="card.max_weekly_usage" class="info-divider"></view>
@@ -98,12 +115,16 @@
         <view class="info-card">
           <view class="info-row">
             <text class="info-label">冻结时间</text>
-            <text class="info-value">{{ card.frozen_at ? formatDate(card.frozen_at) : '-' }}</text>
+            <text class="info-value">{{
+              card.frozen_at ? formatDate(card.frozen_at) : "-"
+            }}</text>
           </view>
           <view class="info-divider"></view>
           <view class="info-row">
             <text class="info-label">冻结到期</text>
-            <text class="info-value">{{ card.frozen_until ? formatDate(card.frozen_until) : '-' }}</text>
+            <text class="info-value">{{
+              card.frozen_until ? formatDate(card.frozen_until) : "-"
+            }}</text>
           </view>
           <view class="info-divider"></view>
           <view class="info-row">
@@ -113,12 +134,14 @@
           <view class="info-divider"></view>
           <view class="info-row">
             <text class="info-label">剩余冻结天数</text>
-            <text class="info-value value-warning">{{ getFrozenRemainingDays(card) }} 天</text>
+            <text class="info-value value-warning"
+              >{{ getFrozenRemainingDays(card) }} 天</text
+            >
           </view>
           <view class="info-divider"></view>
           <view class="info-row">
             <text class="info-label">冻结原因</text>
-            <text class="info-value">{{ card.frozen_reason || '-' }}</text>
+            <text class="info-value">{{ card.frozen_reason || "-" }}</text>
           </view>
         </view>
       </view>
@@ -126,18 +149,48 @@
       <!-- 操作按钮 -->
       <view class="action-section">
         <!-- 未激活状态 -->
-        <view v-if="card.status === 0" class="action-btn primary-btn" @tap="handleActivate">
-          <text class="btn-text">立即激活</text>
+        <view v-if="card.status === 0" class="action-area">
+          <view
+            class="action-btn primary-btn"
+            :class="{ 'action-btn-disabled': getActivationBlockReason() }"
+            @tap="handleActivate"
+          >
+            <text class="btn-text">{{
+              getActivationBlockReason() ? "无法激活" : "立即激活"
+            }}</text>
+          </view>
+          <text v-if="getActivationBlockReason()" class="block-hint">
+            {{ getActivationBlockReason() }}
+          </text>
         </view>
 
         <!-- 冻结到期后可提前激活 -->
-        <view v-if="card.status === 3 && canStudentUnfreeze" class="action-btn primary-btn" @tap="handleUnfreeze">
-          <text class="btn-text">提前激活</text>
+        <view
+          v-if="card.status === 3 && canStudentUnfreeze"
+          class="action-area"
+        >
+          <view
+            class="action-btn primary-btn"
+            :class="{ 'action-btn-disabled': getActivationBlockReason() }"
+            @tap="handleUnfreeze"
+          >
+            <text class="btn-text">{{
+              getActivationBlockReason() ? "无法激活" : "提前激活"
+            }}</text>
+          </view>
+          <text v-if="getActivationBlockReason()" class="block-hint">
+            {{ getActivationBlockReason() }}
+          </text>
         </view>
 
         <!-- 冻结中提示 -->
-        <view v-if="card.status === 3 && !canStudentUnfreeze" class="frozen-tip-box">
-          <text class="frozen-tip-text">冻结中，剩余 {{ getFrozenRemainingDays(card) }} 天后可激活</text>
+        <view
+          v-if="card.status === 3 && !canStudentUnfreeze"
+          class="frozen-tip-box"
+        >
+          <text class="frozen-tip-text"
+            >冻结中，剩余 {{ getFrozenRemainingDays(card) }} 天后可激活</text
+          >
         </view>
 
         <!-- 流水记录入口 -->
@@ -151,204 +204,261 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { membershipApi } from '@/api'
-import { checkLogin } from '@/utils/auth'
-import AppLoading from '@/components/AppLoading.vue'
-import AppEmpty from '@/components/AppEmpty.vue'
-import { navigateTo } from '@/utils/navigation'
+import { membershipApi } from "@/api";
+import AppEmpty from "@/components/AppEmpty.vue";
+import AppLoading from "@/components/AppLoading.vue";
+import { checkLogin } from "@/utils/auth";
+import { navigateTo } from "@/utils/navigation";
+import { computed, onMounted, ref } from "vue";
 
 interface MembershipCard {
-  id: number
-  product_name?: string
-  card_type: string
-  total_credits: number | null
-  used_credits: number
-  remaining_credits: number | null
-  status: number
-  expire_at: string | null
-  valid_from: string | null
-  frozen_at: string | null
-  frozen_until: string | null
-  frozen_reason: string | null
-  max_weekly_usage: number | null
-  applicable_course_ids: number[] | null
-  created_at: string
-  updated_at: string
+  id: number;
+  product_name?: string;
+  card_type: string;
+  applicable_course_type_code?: string | null;
+  total_credits: number | null;
+  used_credits: number;
+  remaining_credits: number | null;
+  status: number;
+  expire_at: string | null;
+  valid_from: string | null;
+  frozen_at: string | null;
+  frozen_until: string | null;
+  frozen_reason: string | null;
+  max_weekly_usage: number | null;
+  applicable_course_ids: number[] | null;
+  created_at: string;
+  updated_at: string;
 }
 
-const cardId = ref<number>(0)
-const card = ref<MembershipCard | null>(null)
-const loading = ref(true)
+const cardId = ref<number>(0);
+const card = ref<MembershipCard | null>(null);
+const loading = ref(true);
+const allCards = ref<MembershipCard[]>([]);
 
 onMounted(() => {
-  if (!checkLogin('student')) return
+  if (!checkLogin("student")) return;
 
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1] as any
-  const options = currentPage.options || {}
-  cardId.value = parseInt(options.cardId) || 0
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1] as any;
+  const options = currentPage.options || {};
+  cardId.value = parseInt(options.cardId) || 0;
 
   if (cardId.value) {
-    loadCardDetail()
+    loadCardDetail();
+    loadAllCards();
   }
-})
+});
+
+const loadAllCards = async () => {
+  try {
+    const res = await membershipApi.getMyCards();
+    const responseData = res?.data as any;
+    if (responseData?.items && Array.isArray(responseData.items)) {
+      allCards.value = responseData.items;
+    } else if (Array.isArray(responseData)) {
+      allCards.value = responseData;
+    } else if (responseData) {
+      allCards.value = [responseData];
+    }
+  } catch (error) {
+    console.error("加载会员卡列表失败:", error);
+  }
+};
 
 const loadCardDetail = async () => {
   try {
-    loading.value = true
-    const res = await membershipApi.getCardDetail(cardId.value)
-    card.value = res?.data as any
+    loading.value = true;
+    const res = await membershipApi.getCardDetail(cardId.value);
+    card.value = res?.data as any;
   } catch (error) {
-    console.error('加载会员卡详情失败:', error)
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    console.error("加载会员卡详情失败:", error);
+    uni.showToast({ title: "加载失败", icon: "none" });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 获取期卡有效天数（从生效到过期之间的总天数）
 const getValidDays = (card: MembershipCard) => {
-  if (!card?.valid_from || !card?.expire_at) return 0
-  const validFrom = new Date(card.valid_from)
-  const expireAt = new Date(card.expire_at)
+  if (!card?.valid_from || !card?.expire_at) return 0;
+  const validFrom = new Date(card.valid_from);
+  const expireAt = new Date(card.expire_at);
   // 只比较日期部分，忽略时间
-  const fromDay = new Date(validFrom.getFullYear(), validFrom.getMonth(), validFrom.getDate())
-  const toDay = new Date(expireAt.getFullYear(), expireAt.getMonth(), expireAt.getDate())
-  const diffMs = toDay.getTime() - fromDay.getTime()
-  if (diffMs <= 0) return 0
-  return Math.round(diffMs / (1000 * 60 * 60 * 24))
-}
+  const fromDay = new Date(
+    validFrom.getFullYear(),
+    validFrom.getMonth(),
+    validFrom.getDate(),
+  );
+  const toDay = new Date(
+    expireAt.getFullYear(),
+    expireAt.getMonth(),
+    expireAt.getDate(),
+  );
+  const diffMs = toDay.getTime() - fromDay.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+};
 
 const getCardBgClass = (status: number) => {
   const map: Record<number, string> = {
-    0: 'card-inactive',
-    1: 'card-active',
-    2: 'card-expired',
-    3: 'card-frozen'
-  }
-  return map[status] || 'card-inactive'
-}
+    0: "card-inactive",
+    1: "card-active",
+    2: "card-expired",
+    3: "card-frozen",
+  };
+  return map[status] || "card-inactive";
+};
 
 const getStatusText = (status: number) => {
   const map: Record<number, string> = {
-    0: '未激活',
-    1: '使用中',
-    2: '已过期',
-    3: '已冻结'
-  }
-  return map[status] || '未知'
-}
+    0: "未激活",
+    1: "使用中",
+    2: "已过期",
+    3: "已冻结",
+  };
+  return map[status] || "未知";
+};
 
 const getCardTypeText = (type: string) => {
   const map: Record<string, string> = {
-    count: '次卡',
-    period: '时效卡',
-    unlimited: '无限卡'
-  }
-  return map[type] || type
-}
+    count: "次卡",
+    period: "时效卡",
+    unlimited: "无限卡",
+  };
+  return map[type] || type;
+};
 
 const isExpiringSoon = computed(() => {
-  if (!card.value?.expire_at) return false
-  const now = new Date()
-  const expireAt = new Date(card.value.expire_at)
-  const diffMs = expireAt.getTime() - now.getTime()
-  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  return days > 0 && days <= 7
-})
+  if (!card.value?.expire_at) return false;
+  const now = new Date();
+  const expireAt = new Date(card.value.expire_at);
+  const diffMs = expireAt.getTime() - now.getTime();
+  const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return days > 0 && days <= 7;
+});
 
 const canStudentUnfreeze = computed(() => {
-  if (!card.value?.frozen_until) return false
-  const now = new Date()
-  const frozenUntil = new Date(card.value.frozen_until)
-  return frozenUntil <= now
-})
+  if (!card.value?.frozen_until) return false;
+  const now = new Date();
+  const frozenUntil = new Date(card.value.frozen_until);
+  return frozenUntil <= now;
+});
 
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
 
 const formatDateShort = (dateStr: string | null) => {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const getFrozenDuration = (card: MembershipCard) => {
-  if (!card.frozen_at) return '-'
-  const frozenAt = new Date(card.frozen_at)
-  const now = new Date()
-  const diffMs = now.getTime() - frozenAt.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return '不足1天'
-  return `${diffDays} 天`
-}
+  if (!card.frozen_at) return "-";
+  const frozenAt = new Date(card.frozen_at);
+  const now = new Date();
+  const diffMs = now.getTime() - frozenAt.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "不足1天";
+  return `${diffDays} 天`;
+};
 
 const getFrozenRemainingDays = (card: MembershipCard) => {
-  if (!card.frozen_until) return 0
-  const now = new Date()
-  const frozenUntil = new Date(card.frozen_until)
-  const diffMs = frozenUntil.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  return Math.max(0, diffDays)
-}
+  if (!card.frozen_until) return 0;
+  const now = new Date();
+  const frozenUntil = new Date(card.frozen_until);
+  const diffMs = frozenUntil.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+};
+
+// 检查卡片是否因课程类型冲突而无法激活
+const getActivationBlockReason = (): string | null => {
+  if (!card.value?.applicable_course_type_code) return null;
+
+  const activeCardsList = allCards.value.filter((c) => c.status === 1);
+
+  for (const activeCard of activeCardsList) {
+    if (
+      activeCard.applicable_course_type_code ===
+      card.value!.applicable_course_type_code
+    ) {
+      const typeName = getCourseTypeName(
+        card.value!.applicable_course_type_code,
+      );
+      return `已有${typeName}在使用中，无法激活`;
+    }
+  }
+
+  return null;
+};
+
+const getCourseTypeName = (code: string): string => {
+  const nameMap: Record<string, string> = {
+    regular: "常规课",
+    special: "特色课",
+    private: "私教课",
+  };
+  return nameMap[code] || code;
+};
 
 const handleActivate = () => {
   uni.showModal({
-    title: '激活确认',
-    content: `确定要激活「${card.value?.product_name || '会员卡'}」吗？激活后有效期开始计算。`,
+    title: "激活确认",
+    content: `确定要激活「${card.value?.product_name || "会员卡"}」吗？激活后有效期开始计算。`,
     success: async (res) => {
-      if (!res.confirm) return
+      if (!res.confirm) return;
       try {
-        uni.showLoading({ title: '激活中...' })
-        await membershipApi.activateCard(card.value!.id)
-        uni.hideLoading()
-        uni.showToast({ title: '激活成功', icon: 'success' })
-        loadCardDetail()
+        uni.showLoading({ title: "激活中..." });
+        await membershipApi.activateCard(card.value!.id);
+        uni.hideLoading();
+        uni.showToast({ title: "激活成功", icon: "success" });
+        loadCardDetail();
       } catch (error: any) {
-        uni.hideLoading()
-        uni.showToast({ title: error?.response?.data?.msg || '激活失败', icon: 'none' })
+        uni.hideLoading();
+        // API层已显示错误提示，此处无需重复显示
       }
-    }
-  })
-}
+    },
+  });
+};
 
 const handleUnfreeze = () => {
   uni.showModal({
-    title: '提前激活',
+    title: "提前激活",
     content: `确定要提前激活会员卡吗？激活后冻结状态将清除，有效期不再顺延。`,
     success: async (res) => {
-      if (!res.confirm) return
+      if (!res.confirm) return;
       try {
-        uni.showLoading({ title: '激活中...' })
-        await membershipApi.activateCard(card.value!.id)
-        uni.hideLoading()
-        uni.showToast({ title: '激活成功', icon: 'success' })
-        loadCardDetail()
+        uni.showLoading({ title: "激活中..." });
+        await membershipApi.activateCard(card.value!.id);
+        uni.hideLoading();
+        uni.showToast({ title: "激活成功", icon: "success" });
+        loadCardDetail();
       } catch (error: any) {
-        uni.hideLoading()
-        uni.showToast({ title: error?.response?.data?.msg || '激活失败', icon: 'none' })
+        uni.hideLoading();
+        // API层已显示错误提示，此处无需重复显示
       }
-    }
-  })
-}
+    },
+  });
+};
 
 const goToTransactions = () => {
   navigateTo({
-    url: `/pages/student/membership/transactions?cardId=${card.value!.id}&cardName=${encodeURIComponent(card.value?.product_name || '会员卡')}`
-  })
-}
+    url: `/pages/student/membership/transactions?cardId=${card.value!.id}&cardName=${encodeURIComponent(card.value?.product_name || "会员卡")}`,
+  });
+};
 </script>
 
 <style lang="scss">
@@ -381,19 +491,19 @@ const goToTransactions = () => {
 }
 
 .card-active {
-  background: linear-gradient(135deg, #2C2C2C 0%, #3D3D3D 50%, #4A4A4A 100%);
+  background: linear-gradient(135deg, #2c2c2c 0%, #3d3d3d 50%, #4a4a4a 100%);
 }
 
 .card-frozen {
-  background: linear-gradient(135deg, #4A3F35 0%, #5C4D3C 100%);
+  background: linear-gradient(135deg, #4a3f35 0%, #5c4d3c 100%);
 }
 
 .card-expired {
-  background: linear-gradient(135deg, #6B6B6B 0%, #8A8A8A 100%);
+  background: linear-gradient(135deg, #6b6b6b 0%, #8a8a8a 100%);
 }
 
 .card-inactive {
-  background: linear-gradient(135deg, #8A8A8A 0%, #A5A5A5 100%);
+  background: linear-gradient(135deg, #8a8a8a 0%, #a5a5a5 100%);
 }
 
 .card-header {
@@ -575,21 +685,47 @@ const goToTransactions = () => {
   padding: 0 $space-xs;
 }
 
+.action-area {
+  margin-bottom: $space-md;
+}
+
 .action-btn {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 88rpx;
   border-radius: $radius-md;
-  margin-bottom: $space-md;
 
   &:active {
     opacity: 0.8;
   }
 }
 
+.action-btn-disabled {
+  background: $bg-secondary !important;
+  opacity: 0.6;
+
+  .btn-text {
+    color: $text-muted !important;
+  }
+
+  &:active {
+    opacity: 0.6;
+  }
+}
+
+.block-hint {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: $text-muted;
+  margin-top: 8rpx;
+  line-height: 1.4;
+}
+
 .primary-btn {
   background: linear-gradient(135deg, #d4a96a 0%, #e8c99b 100%);
+  margin-bottom: $space-md;
 
   .btn-text {
     font-size: $font-size-body;
@@ -601,6 +737,7 @@ const goToTransactions = () => {
 .secondary-btn {
   background: #fff;
   border: 1rpx solid $border-normal;
+  margin-bottom: $space-md;
 
   .btn-text {
     font-size: $font-size-body;

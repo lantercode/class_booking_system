@@ -76,9 +76,21 @@ class ScheduleService:
             start_at=data.start_at,
             end_at=data.end_at,
         )
-        if conflicts:
-            conflict_info = ", ".join(f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts)
-            raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
+        if conflicts["has_conflict"]:
+            error_messages = []
+            if conflicts["classroom_conflicts"]:
+                classroom_names = []
+                for c in conflicts["classroom_conflicts"]:
+                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    classroom_names.append(time_range)
+                error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
+            if conflicts["teacher_conflicts"]:
+                teacher_names = []
+                for c in conflicts["teacher_conflicts"]:
+                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    teacher_names.append(time_range)
+                error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
+            raise BusinessException("；".join(error_messages), code=400)
 
         schedule_data: dict[str, Any] = {
             "course_id": data.course_id,
@@ -98,6 +110,9 @@ class ScheduleService:
             schedule_data["cancel_deadline"] = data.cancel_deadline
         if data.notes is not None:
             schedule_data["notes"] = data.notes
+        if data.preview_content is not None:
+            schedule_data["preview_content"] = data.preview_content
+            schedule_data["preview_updated_at"] = datetime.now(UTC)
 
         schedule = await self.repo.create(db, schedule_data)
         await db.commit()
@@ -145,6 +160,9 @@ class ScheduleService:
             update_data["status"] = data.status
         if data.notes is not None:
             update_data["notes"] = data.notes
+        if data.preview_content is not None:
+            update_data["preview_content"] = data.preview_content
+            update_data["preview_updated_at"] = datetime.now(UTC)
 
         start_at = data.start_at if data.start_at is not None else schedule.start_at
         end_at = data.end_at if data.end_at is not None else schedule.end_at
@@ -176,9 +194,21 @@ class ScheduleService:
             end_at=end_at,
             exclude_id=schedule_id,
         )
-        if conflicts:
-            conflict_info = ", ".join(f"排期#{c.id}({c.start_at}~{c.end_at})" for c in conflicts)
-            raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
+        if conflicts["has_conflict"]:
+            error_messages = []
+            if conflicts["classroom_conflicts"]:
+                classroom_names = []
+                for c in conflicts["classroom_conflicts"]:
+                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    classroom_names.append(time_range)
+                error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
+            if conflicts["teacher_conflicts"]:
+                teacher_names = []
+                for c in conflicts["teacher_conflicts"]:
+                    time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                    teacher_names.append(time_range)
+                error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
+            raise BusinessException("；".join(error_messages), code=400)
 
         if update_data:
             schedule = await self.repo.update(db, schedule_id, update_data)
@@ -578,7 +608,7 @@ class ScheduleService:
                 classroom_ids.add(data.classroom_id)
 
         # 检查时间冲突
-        for item in time_ranges:
+        for idx, item in enumerate(time_ranges):
             conflicts = await self.repo.find_conflicts(
                 db,
                 classroom_id=item["classroom_id"],
@@ -586,9 +616,21 @@ class ScheduleService:
                 start_at=item["start_at"],
                 end_at=item["end_at"],
             )
-            if conflicts:
-                conflict_info = f"{item['start_at']}~{item['end_at']}"
-                raise BusinessException(f"存在时间冲突: {conflict_info}", code=400)
+            if conflicts["has_conflict"]:
+                error_messages = []
+                if conflicts["classroom_conflicts"]:
+                    classroom_names = []
+                    for c in conflicts["classroom_conflicts"]:
+                        time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        classroom_names.append(time_range)
+                    error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
+                if conflicts["teacher_conflicts"]:
+                    teacher_names = []
+                    for c in conflicts["teacher_conflicts"]:
+                        time_range = f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                        teacher_names.append(time_range)
+                    error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
+                raise BusinessException(f"第 {idx + 1} 个排期：{'；'.join(error_messages)}", code=400)
 
         # 批量创建
         results = []

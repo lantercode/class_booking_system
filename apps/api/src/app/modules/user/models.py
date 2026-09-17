@@ -30,6 +30,7 @@ class User(Base, TimestampMixin, TenantMixin):
     tenant_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    user_code: Mapped[str | None] = mapped_column(String(20), unique=True, index=True)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     email: Mapped[str | None] = mapped_column(String(100))
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

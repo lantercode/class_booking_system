@@ -83,7 +83,7 @@
           </div>
         </div>
         <div class="menu-right">
-          <span class="menu-hint">暂无</span>
+          <span class="menu-hint">--</span>
           <el-icon><ArrowRight /></el-icon>
         </div>
       </div>

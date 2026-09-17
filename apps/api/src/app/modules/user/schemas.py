@@ -51,6 +51,8 @@ class UserResponse(BaseModel):
     id: int
     public_id: str
     tenant_id: int
+    teacher_code: str | None = Field(None, description="教师编号（仅教师角色有值）")
+    student_code: str | None = Field(None, description="学员编号（仅学员角色有值）")
     phone: str
     email: str | None = None
     nickname: str | None = None
@@ -63,6 +65,8 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     roles: list[str] = Field(default=[], description="角色代码列表")
+    bio: str | None = Field(None, description="教师简介（仅教师角色有值）")
+    wechat_bound: bool = Field(default=False, description="是否绑定微信")
 
     model_config = {"from_attributes": True}
 

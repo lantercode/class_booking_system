@@ -90,6 +90,13 @@
       }
     },
     {
+      "path": "pages/student/courses/list",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
       "path": "pages/student/schedule/index",
       "style": {
         "navigationStyle": "custom",
@@ -145,6 +152,14 @@
       "style": {
         "navigationStyle": "custom",
         "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/student/videos/player",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true,
+        "backgroundColor": "#000000"
       }
     },
     {

@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     AUTO_FINISH_ENABLED: bool = True
     AUTO_FINISH_GRACE_MINUTES: int = 30
 
+    # 自动取消人数不足课程
+    AUTO_CANCEL_UNDERBOOKED_ENABLED: bool = True
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

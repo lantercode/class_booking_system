@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # ⚠️ 临时开关：True = 跳过所有权限检查，所有用户拥有全部权限
 # 正式环境请改回 False
-PERMISSION_CHECK_BYPASS = False
+PERMISSION_CHECK_BYPASS = True
 
 
 async def query_permissions_from_db(

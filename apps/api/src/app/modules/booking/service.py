@@ -180,9 +180,19 @@ class BookingService:
             if schedule.cancel_deadline and datetime.now(UTC) > schedule.cancel_deadline:
                 raise BusinessException("已超过取消截止时间", code=400)
 
+            # 从租户配置获取取消时间限制（默认90分钟）
+            cancel_minutes = 90
+            try:
+                from app.modules.tenant.service import TenantService
+                tenant_service = TenantService()
+                settings = await tenant_service.get_settings(db, booking.tenant_id)
+                cancel_minutes = settings.get("booking_cancel_minutes", 90)
+            except Exception as e:
+                logger.warning(f"[BookingService] 获取租户配置失败，使用默认值90分钟: {e}")
+
             time_diff = schedule.start_at - datetime.now(UTC)
-            if time_diff.total_seconds() < 90 * 60:
-                raise BusinessException("开课前90分钟内不可取消预约", code=400)
+            if time_diff.total_seconds() < cancel_minutes * 60:
+                raise BusinessException(f"开课前{cancel_minutes}分钟内不可取消预约", code=400)
 
         booking.status = BookingStatus.CANCELLED.value
         booking.cancelled_at = datetime.now(UTC)

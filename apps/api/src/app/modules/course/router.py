@@ -8,15 +8,18 @@ from app.core.rbac import require_permissions
 from app.core.response import success
 from app.deps.auth import get_current_user
 from app.modules.course.schemas import (
+    CourseCategoryCreate,
+    CourseCategoryUpdate,
     CourseCreate,
     CourseTypeCreate,
     CourseTypeUpdate,
     CourseUpdate,
 )
-from app.modules.course.service import CourseService, course_type_service
+from app.modules.course.service import CourseCategoryService, CourseService, course_type_service
 
 router = APIRouter(prefix="/courses", tags=["课程管理"])
 course_service = CourseService()
+course_category_service = CourseCategoryService()
 
 
 # ============================================================
@@ -115,6 +118,104 @@ async def delete_course_type(
     await course_type_service.delete_type(db, type_id, tenant_id)
     await db.commit()
     return success(msg="课程类型删除成功")
+
+
+# ============================================================
+# 舞蹈分类 CRUD
+# ============================================================
+
+
+@router.post(
+    "/categories",
+    response_model=dict,
+    status_code=201,
+    summary="创建舞蹈分类",
+    description="创建新舞蹈分类（需 course:create 权限）",
+)
+@require_permissions("course:create")
+async def create_course_category(
+    data: CourseCategoryCreate = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """创建舞蹈分类"""
+    tenant_id = current_user.get("tenant_id")
+    result = await course_category_service.create_category(db, data, tenant_id)
+    await db.commit()
+    await db.refresh(result)
+    return success(data=course_category_service._to_response(result), msg="舞蹈分类创建成功")
+
+
+@router.get(
+    "/categories",
+    response_model=dict,
+    summary="获取舞蹈分类列表",
+    description="获取舞蹈分类列表（支持状态筛选）",
+)
+async def list_course_categories(
+    status: int = Query(None, ge=0, le=1, description="状态筛选"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取舞蹈分类列表"""
+    tenant_id = current_user.get("tenant_id")
+    result = await course_category_service.list_categories(db, tenant_id, status=status)
+    return success(data=result)
+
+
+@router.get(
+    "/categories/{category_id}",
+    response_model=dict,
+    summary="获取舞蹈分类详情",
+)
+async def get_course_category(
+    category_id: int = Path(..., description="舞蹈分类ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """获取舞蹈分类详情"""
+    tenant_id = current_user.get("tenant_id")
+    result = await course_category_service.get_category_by_id(db, category_id, tenant_id)
+    return success(data=course_category_service._to_response(result))
+
+
+@router.patch(
+    "/categories/{category_id}",
+    response_model=dict,
+    summary="更新舞蹈分类",
+    description="更新舞蹈分类信息（需 course:update 权限）",
+)
+@require_permissions("course:update")
+async def update_course_category(
+    category_id: int = Path(..., description="舞蹈分类ID"),
+    data: CourseCategoryUpdate = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """更新舞蹈分类"""
+    tenant_id = current_user.get("tenant_id")
+    result = await course_category_service.update_category(db, category_id, data, tenant_id)
+    await db.commit()
+    return success(data=course_category_service._to_response(result), msg="舞蹈分类更新成功")
+
+
+@router.delete(
+    "/categories/{category_id}",
+    response_model=dict,
+    summary="删除舞蹈分类",
+    description="删除舞蹈分类（需 course:delete 权限，有课程使用时不可删除）",
+)
+@require_permissions("course:delete")
+async def delete_course_category(
+    category_id: int = Path(..., description="舞蹈分类ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """删除舞蹈分类"""
+    tenant_id = current_user.get("tenant_id")
+    await course_category_service.delete_category(db, category_id, tenant_id)
+    await db.commit()
+    return success(msg="舞蹈分类删除成功")
 
 
 # ============================================================

@@ -176,6 +176,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
             card_dict = {
                 "id": card.id,
                 "public_id": card.public_id,
+                "card_no": card.card_no,
                 "student_id": card.student_id,
                 "product_id": card.product_id,
                 "card_type": card.card_type,
@@ -187,7 +188,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
                 "valid_from": card.valid_from,
                 "expire_at": card.expire_at,
                 "applicable_course_ids": card.applicable_course_ids,
-                "applicable_course_type_codes": card.applicable_course_type_codes,
+                "applicable_course_type_code": card.applicable_course_type_code,
                 "max_weekly_usage": card.max_weekly_usage,
                 "status": card.status,
                 "frozen_at": card.frozen_at,
@@ -221,7 +222,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
                 - True：用于激活时检查，排除 PENDING（因为 PENDING 卡还没生效）
 
         有效状态包括：ACTIVE、FROZEN、PENDING（待激活但已发放）
-        无效状态包括：EXPIRED、DEPLETED、CANCELLED、REFUNDED
+        无效状态包括：EXPIRED、CANCELLED
         """
         from sqlalchemy import select
 
@@ -249,7 +250,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         student_id: int | None = None,
         product_id: int | None = None,
         card_type: str | None = None,
-        status: int | None = None,
+        status: list[int] | None = None,
         keyword: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -285,8 +286,12 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
             count_query = count_query.where(MembershipCard.card_type == card_type)
 
         if status is not None:
-            base_query = base_query.where(MembershipCard.status == status)
-            count_query = count_query.where(MembershipCard.status == status)
+            if len(status) == 1:
+                base_query = base_query.where(MembershipCard.status == status[0])
+                count_query = count_query.where(MembershipCard.status == status[0])
+            else:
+                base_query = base_query.where(MembershipCard.status.in_(status))
+                count_query = count_query.where(MembershipCard.status.in_(status))
 
         if keyword:
             like_pattern = f"%{keyword}%"
@@ -313,12 +318,6 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         if tenant_id:
             base_query = base_query.where(MembershipCard.tenant_id == tenant_id)
             count_query = count_query.where(MembershipCard.tenant_id == tenant_id)
-
-        # 默认过滤已作废的卡
-        from app.modules.membership.models import CardStatus
-
-        base_query = base_query.where(MembershipCard.status != CardStatus.CANCELLED.value)
-        count_query = count_query.where(MembershipCard.status != CardStatus.CANCELLED.value)
 
         base_query = base_query.order_by(MembershipCard.created_at.desc())
 

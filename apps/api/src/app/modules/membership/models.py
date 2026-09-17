@@ -8,9 +8,10 @@ Membership Card Models - 会员卡模型
 - MembershipCardFreeze: 冻结记录
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
+from random import randint
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -48,13 +49,11 @@ class CardType(Enum):
 class CardStatus(Enum):
     """会员卡状态"""
 
-    PENDING = 0  # 待激活
+    PENDING = 0  # 未激活
     ACTIVE = 1  # 正常可用
     EXPIRED = 2  # 已过期
     FROZEN = 3  # 已冻结
-    DEPLETED = 4  # 已用完（次卡）
-    REFUNDED = 5  # 已退款
-    CANCELLED = 6  # 已取消
+    CANCELLED = 6  # 已作废
 
 
 class TransactionType(Enum):
@@ -113,10 +112,10 @@ class MembershipCardProduct(Base, TenantMixin, TimestampMixin):
         nullable=True,
         comment="适用课程ID列表，NULL表示不限",
     )
-    applicable_course_type_codes: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String(50)),
+    applicable_course_type_code: Mapped[str | None] = mapped_column(
+        String(50),
         nullable=True,
-        comment="适用的课程类型代码列表，NULL表示不限",
+        comment="适用的课程类型代码（单选），NULL表示不限",
     )
     max_weekly_usage: Mapped[int | None] = mapped_column(
         Integer,
@@ -165,6 +164,12 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         nullable=False,
         default=uuid4,
     )
+    card_no: Mapped[str | None] = mapped_column(
+        String(17),
+        unique=True,
+        nullable=True,
+        comment="会员卡号（yyyyMMdd + 9位随机数）",
+    )
     student_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.id", ondelete="RESTRICT"),
@@ -189,10 +194,10 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         nullable=True,
         comment="适用课程ID列表（从产品继承）",
     )
-    applicable_course_type_codes: Mapped[list[str] | None] = mapped_column(
-        ARRAY(String(50)),
+    applicable_course_type_code: Mapped[str | None] = mapped_column(
+        String(50),
         nullable=True,
-        comment="适用的课程类型代码列表（从产品继承）",
+        comment="适用的课程类型代码（从产品继承，单选）",
     )
     max_weekly_usage: Mapped[int | None] = mapped_column(
         Integer,
@@ -225,6 +230,14 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
             name="chk_credits_range",
         ),
     )
+
+    @staticmethod
+    def generate_card_no() -> str:
+        """生成会员卡号：yyyyMMdd + 9位随机数"""
+        now = datetime.now(UTC)
+        date_part = now.strftime("%Y%m%d")
+        random_part = f"{randint(0, 999999999):09d}"
+        return f"{date_part}{random_part}"
 
     @property
     def remaining_credits(self) -> int | None:
