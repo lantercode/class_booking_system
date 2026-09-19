@@ -400,6 +400,7 @@ class CourseService:
     def __init__(self):
         self.repo = CourseRepository()
         self.type_repo = CourseTypeRepository()
+        self.category_repo = CourseCategoryRepository()
 
     async def create_course(
         self,
@@ -441,7 +442,7 @@ class CourseService:
         await db.refresh(course)
 
         logger.info(f"[CourseService] ✅ 课程创建成功: id={course.id}")
-        return self._to_response(course)
+        return await self._to_response(db, course)
 
     async def update_course(
         self,
@@ -493,7 +494,7 @@ class CourseService:
         await db.refresh(course)
 
         logger.info(f"[CourseService] ✅ 课程更新成功: id={course_id}")
-        return self._to_response(course)
+        return await self._to_response(db, course)
 
     async def delete_course(
         self,
@@ -519,7 +520,7 @@ class CourseService:
         course = await self.repo.get_by_id(db, course_id)
         if not course:
             raise NotFoundException("课程不存在")
-        return self._to_response(course)
+        return await self._to_response(db, course)
 
     async def list_courses(
         self,
@@ -549,17 +550,25 @@ class CourseService:
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(c) for c in items],
+            items=[await self._to_response(db, c) for c in items],
         )
 
-    def _to_response(self, course: Course) -> CourseResponse:
+    async def _to_response(self, db: AsyncSession, course: Course) -> CourseResponse:
         """将 ORM 模型转换为响应对象"""
+        # 获取舞蹈分类名称
+        category_name = None
+        if course.category:
+            category = await self.category_repo.get_by_code(db, course.category)
+            if category:
+                category_name = category.name
+
         return CourseResponse(
             id=course.id,
             public_id=str(course.public_id),
             tenant_id=course.tenant_id,
             name=course.name,
             category=course.category,
+            category_name=category_name,
             course_type_code=course.course_type_code,
             level=course.level,
             cover_url=course.cover_url,

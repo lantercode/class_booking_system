@@ -168,6 +168,7 @@ class CourseResponse(BaseModel):
     tenant_id: int
     name: str
     category: str | None = None
+    category_name: str | None = None
     course_type_code: str | None = None
     level: str | None = None
     cover_url: str | None = None

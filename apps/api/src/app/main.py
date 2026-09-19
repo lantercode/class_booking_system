@@ -64,71 +64,81 @@ async def lifespan(app: FastAPI):
 
     # 3. 启动 APScheduler 定时任务
     scheduler = AsyncIOScheduler(timezone="UTC")
+
+    # 添加所有定时任务
+    # ⚠️ 重要：任务执行顺序影响业务逻辑
+    # 优先级：过期处理 > 激活 > 其他
+
     if settings.AUTO_FINISH_ENABLED:
         scheduler.add_job(
             auto_finish_expired_schedules,
             "interval",
-            minutes=60,
+            minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回60）
             id="auto_finish_expired_schedules",
             replace_existing=True,
         )
-        scheduler.start()
         print(
-            f"✅ 定时任务已启动: auto_finish_expired_schedules "
-            f"(每 60min 运行, grace={settings.AUTO_FINISH_GRACE_MINUTES}min)"
+            f"✅ 定时任务已注册: auto_finish_expired_schedules "
+            f"(每 5min 运行 - 测试模式, grace={settings.AUTO_FINISH_GRACE_MINUTES}min)"
         )
     else:
         print("⚠️  AUTO_FINISH_ENABLED=false, 跳过定时任务注册")
 
-    # 4. 启动会员卡自动激活定时任务
-    scheduler.add_job(
-        auto_activate_membership_cards,
-        "interval",
-        minutes=30,
-        id="auto_activate_membership_cards",
-        replace_existing=True,
-    )
-    print("✅ 定时任务已启动: auto_activate_membership_cards (每 30min 运行)")
-
-    # 5. 启动会员卡自动过期定时任务
+    # 4. 【优先级1】启动会员卡自动过期定时任务（必须先执行）
+    # 原因：其他任务依赖正确的卡状态，过期卡必须先被标记
     scheduler.add_job(
         auto_expire_membership_cards,
         "interval",
-        hours=1,
+        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回60）
         id="auto_expire_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已启动: auto_expire_membership_cards (每 1h 运行)")
+    print("✅ 定时任务已注册: auto_expire_membership_cards (每 5min 运行 - 测试模式)")
+
+    # 5. 【优先级2】启动会员卡自动激活定时任务
+    # 依赖：auto_expire 已正确标记过期卡状态
+    scheduler.add_job(
+        auto_activate_membership_cards,
+        "interval",
+        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回30）
+        id="auto_activate_membership_cards",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已注册: auto_activate_membership_cards (每 5min 运行 - 测试模式)")
 
     # 6. 启动会员卡到期提醒定时任务
     scheduler.add_job(
         notify_expiring_membership_cards,
         "interval",
-        hours=1,
+        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回60）
         id="notify_expiring_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已启动: notify_expiring_membership_cards (每 1h 运行)")
+    print("✅ 定时任务已注册: notify_expiring_membership_cards (每 5min 运行 - 测试模式)")
 
     # 7. 启动会员卡自动解冻定时任务
     scheduler.add_job(
         auto_unfreeze_membership_cards,
         "interval",
-        minutes=30,
+        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回30）
         id="auto_unfreeze_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已启动: auto_unfreeze_membership_cards (每 30min 运行)")
+    print("✅ 定时任务已注册: auto_unfreeze_membership_cards (每 5min 运行 - 测试模式)")
 
     # 8. 启动自动取消人数不足课程定时任务
     scheduler.add_job(
         auto_cancel_underbooked_schedules,
         "interval",
-        minutes=15,
+        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回15）
         id="auto_cancel_underbooked_schedules",
         replace_existing=True,
     )
-    print("✅ 定时任务已启动: auto_cancel_underbooked_schedules (每 15min 运行)")
+    print("✅ 定时任务已注册: auto_cancel_underbooked_schedules (每 5min 运行 - 测试模式)")
+
+    # 9. 启动scheduler（在所有job添加完毕后）
+    scheduler.start()
+    print("✅ APScheduler 定时任务调度器已启动")
 
     yield
 

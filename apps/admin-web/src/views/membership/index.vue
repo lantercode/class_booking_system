@@ -18,7 +18,7 @@
       <el-input
         v-model="search"
         placeholder="搜索学员或手机号"
-        style="width: 200px"
+        style="width: 240px"
         clearable
         @keyup.enter="handleSearch"
         @clear="handleSearch"
@@ -54,7 +54,7 @@
       style="width: 100%"
       @selection-change="handleSelectionChange"
     >
-      <el-table-column type="selection" width="55" />
+      <el-table-column type="selection" width="55" :selectable="checkSelectable" />
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="card_no" label="会员卡号" width="170">
         <template #default="{ row }">
@@ -154,7 +154,7 @@
             提前解冻
           </el-button>
           <el-button
-            v-if="row.status !== 6"
+            v-if="row.status !== 6 && row.status !== 2"
             type="danger"
             size="small"
             link
@@ -179,7 +179,7 @@
 
     <el-dialog
       v-model="dialogVisible"
-      title="发放会员卡"
+      title="发放"
       width="560px"
       :close-on-click-modal="false"
       @close="handleDialogClose"
@@ -269,7 +269,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailDialogVisible" title="会员卡详情" width="600px">
+    <el-dialog v-model="detailDialogVisible" title="详情" width="600px">
       <el-descriptions v-if="detailCard" :column="2" border>
         <el-descriptions-item label="会员卡号" :span="2">
           {{ detailCard.card_no || '-' }}
@@ -341,7 +341,7 @@
 
     <el-dialog
       v-model="freezeDialogVisible"
-      title="冻结会员卡"
+      title="冻结"
       width="460px"
       :close-on-click-modal="false"
     >
@@ -388,14 +388,14 @@
       </el-form>
       <template #footer>
         <el-button @click="cancelDialogVisible = false"> 取消 </el-button>
-        <el-button type="danger" :loading="submitting" @click="handleCancel"> 确定作废 </el-button>
+        <el-button type="primary" :loading="submitting" @click="handleCancel"> 确定 </el-button>
       </template>
     </el-dialog>
 
     <!-- 批量作废对话框 -->
     <el-dialog
       v-model="batchCancelDialogVisible"
-      title="批量作废"
+      title="批量"
       width="500px"
       :close-on-click-modal="false"
     >
@@ -862,6 +862,11 @@ async function handleCancel() {
   } finally {
     submitting.value = false
   }
+}
+
+function checkSelectable(row: MembershipCard) {
+  // 已过期(status=2)和已作废(status=6)的卡不可选择进行批量作废
+  return row.status !== 2 && row.status !== 6
 }
 
 function handleSelectionChange(selection: MembershipCard[]) {

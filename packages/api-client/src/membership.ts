@@ -185,8 +185,7 @@ export const membershipCardApi = {
       ...data,
     }),
 
-  delete: (id: number) =>
-    apiClient.delete(`/membership/cards/${id}`),
+  delete: (id: number) => apiClient.delete(`/membership/cards/${id}`),
 
   batchDelete: (ids: number[]) =>
     apiClient.post("/membership/cards/batch-delete", {
@@ -195,6 +194,9 @@ export const membershipCardApi = {
 
   unfreeze: (id: number) =>
     apiClient.post<MembershipCard>(`/membership/cards/${id}/unfreeze`),
+
+  studentUnfreeze: (id: number) =>
+    apiClient.post<MembershipCard>(`/membership/cards/${id}/student-unfreeze`),
 
   activate: (id: number) =>
     apiClient.post<MembershipCard>(`/membership/cards/${id}/activate`),

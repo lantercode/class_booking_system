@@ -521,6 +521,10 @@ export const membershipApi = {
     return request(`/membership/cards/${cardId}/activate`, "POST");
   },
 
+  studentUnfreeze(cardId: number) {
+    return request(`/membership/cards/${cardId}/student-unfreeze`, "POST");
+  },
+
   getTransactions(params?: {
     card_id?: number;
     page?: number;

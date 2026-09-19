@@ -18,7 +18,7 @@ const router = createRouter({
     {
       path: '/',
       component: () => import('@/layout/AdminLayout.vue'),
-      redirect: '/dashboard',
+      redirect: '/users',
       children: [
         {
           path: 'dashboard',
@@ -96,7 +96,7 @@ router.beforeEach((to, _from, next) => {
   if (to.path !== '/login' && to.path !== '/register' && !token) {
     next('/login')
   } else if (to.path === '/login' && token) {
-    next('/dashboard')
+    next('/users')
   } else {
     next()
   }

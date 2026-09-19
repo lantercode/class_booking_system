@@ -1787,6 +1787,181 @@ user_id=1 的用户可以有多个独立会话:
 - **会话管理的三要素**：唯一标识（session_id）、归属认证（user_id 绑定）、过期清理（TTL）
 - **分布式锁的隔离**：锁 key 不带 user_id → 不同用户可能互相挡住（用户 A 处理请求时，用户 B 拿不到同一个锁）
 - **前后端职责划分**：前端负责"让用户方便"（生成友好的 session_id），后端负责"让系统安全"（强制拼 user_id）
-- **排查越权漏洞的 checklist**：所有"根据 ID 查数据"的接口，都要验证"这个 ID 属于当前用户吗？"
+- **排查越权漏洞的 checklist**：所有"根据 ID 查数据"的接口,都要验证"这个 ID 属于当前用户吗?"
 
 ---
+
+## 十三 🎤 定时任务实战排查 — 会员卡自动激活失败的 4 层陷阱
+
+### 现象
+
+会员卡 id=8 的 `valid_from=2026-09-19 00:00:00` 已到期,但定时任务 `auto_activate_membership_cards` 每 5 分钟执行一次,始终跳过激活,日志显示:
+```
+[定时任务] 跳过激活会员卡 8:学员 23 已有同课程类型的有效卡
+```
+
+### 排查过程(4 个问题层层递进)
+
+#### 问题 1: Docker 容器网络配置错误
+
+**现象**: 定时任务无法连接数据库,日志报 `ConnectionRefusedError`
+
+**根因**: `docker-compose.yml` 中 `DATABASE_URL` 使用了 `localhost` 而非容器名 `postgres`
+
+**解决**:
+```yaml
+environment:
+  - DATABASE_URL=postgresql+asyncpg://dance:dance_dev_pass@postgres:5432/dance_saas
+```
+
+**教训**: Docker 容器间通信必须使用容器名,不能使用 localhost
+
+---
+
+#### 问题 2: 事务内状态变更未 flush
+
+**现象**: `_expire_cards_in_transaction` 修改了过期卡(id=6)的状态为 EXPIRED,但后续查询仍然读到旧状态 ACTIVE
+
+**根因**: SQLAlchemy Session 的一级缓存(Identity Map)机制,修改对象属性后如果不 `flush()`,后续查询可能从缓存读取旧数据
+
+**解决**:
+```python
+# 在修改状态后显式刷新
+await db.flush()
+logger.info(f"[激活任务] 预处理: 标记 {len(expired_cards)} 个会员卡为已过期")
+```
+
+**教训**: 同一事务内,修改数据后如需立即对后续查询可见,必须调用 `flush()`
+
+---
+
+#### 问题 3: 冲突检测逻辑缺陷(自己与自己冲突)
+
+**现象**: 定时任务仍然跳过激活,日志显示"学员 23 已有同课程类型的有效卡"
+
+**根因**: `get_active_cards_by_student` 返回的有效卡列表中**包含了当前正在处理的卡本身(id=8)**,导致冲突检测时卡与自己比较,永远判定为冲突
+
+**冲突检测代码**:
+```python
+for existing_card_dict in all_existing_cards:
+    existing_course_type = existing_card_dict.get("applicable_course_type_code")
+    if existing_course_type == new_card_course_type:  # 都是 'regular'
+        # 时间重叠检查(同一张卡必然重叠)
+        if card.valid_from <= existing_expire_at and existing_valid_from <= card.expire_at:
+            has_conflict = True  # 误判!
+            break
+```
+
+**解决**:
+```python
+for existing_card_dict in all_existing_cards:
+    # 跳过当前正在处理的卡本身
+    if existing_card_dict.get("id") == card.id:
+        continue
+    # ... 后续冲突检测逻辑
+```
+
+**教训**: 遍历集合进行自比较时,必须排除自身(经典边界条件 Bug)
+
+---
+
+#### 问题 4: 定时任务缺少多租户上下文
+
+**现象**: 修复问题 3 后,定时任务报错:
+```
+ValueError: 未找到当前租户 ID,请确保多租户中间件正常工作
+```
+
+**根因**: 调用 `product_repo.get_by_id()` 时依赖多租户中间件从 HTTP 请求中获取 `tenant_id`,但定时任务是后台任务,没有 HTTP 请求上下文
+
+**错误代码**:
+```python
+product_repo = MembershipCardProductRepository()
+product = await product_repo.get_by_id(db, card.product_id)  # 内部调用 get_tenant_id() 失败
+```
+
+**解决**: 直接使用 SQLAlchemy 查询,显式传递 tenant_id
+```python
+from app.modules.membership.models import MembershipCardProduct
+
+product_result = await db.execute(
+    select(MembershipCardProduct).where(
+        MembershipCardProduct.id == card.product_id,
+        MembershipCardProduct.tenant_id == card.tenant_id,  # 显式指定租户ID
+    )
+)
+product = product_result.scalars().first()
+```
+
+**教训**: 后台任务/定时任务不能依赖 HTTP 中间件,必须从业务对象中显式获取租户 ID
+
+---
+
+### 最终结果
+
+修复后定时任务成功执行,会员卡 id=8 状态从 `0(PENDING)` 变为 `1(ACTIVE)`:
+```sql
+SELECT id, status, expire_at FROM membership_cards WHERE id = 8;
+-- 修复前: 8 | 0 | 2026-11-18 23:59:59
+-- 修复后: 8 | 1 | 2026-11-18 00:00:00
+```
+
+### 生产级架构优化
+
+#### 1. 定时任务执行顺序设计
+
+**问题**: `auto_expire`(过期处理)和 `auto_activate`(激活处理)有依赖关系,如果激活任务先执行,可能误判已过期但未更新状态的卡为有效卡
+
+**方案**: 在激活任务内部先执行过期预处理,不依赖外部调度顺序
+```python
+async def auto_activate_membership_cards():
+    async with SessionLocal() as db:
+        now = datetime.now(UTC)
+        # 先处理过期卡(防御性编程)
+        await _expire_cards_in_transaction(db, now)
+        # 再执行激活逻辑
+        await _activate_pending_cards(db, now)
+```
+
+#### 2. 定时任务开发环境测试
+
+**问题**: 生产环境定时任务间隔较长(30min/1h),不方便开发测试
+
+**方案**: 通过环境变量控制间隔时间
+```python
+# docker-compose.yml
+environment:
+  - SCHEDULER_INTERVAL_MINUTES=5  # 开发环境 5 分钟
+
+# scheduler.py
+scheduler.add_job(
+    auto_activate_membership_cards,
+    "interval",
+    minutes=getattr(settings, "SCHEDULER_ACTIVATE_INTERVAL", 30),
+    id="auto_activate_membership_cards",
+)
+```
+
+#### 3. 定时任务幂等性保证
+
+**关键设计**: 使用状态过滤保证幂等性
+```python
+# 只查询 PENDING 状态的卡,已激活的卡不会被重复处理
+cards = await db.execute(
+    select(MembershipCard).where(
+        MembershipCard.status == CardStatus.PENDING.value,
+        MembershipCard.valid_from <= now,
+    )
+)
+```
+
+### 面试要点
+
+- **Docker 网络隔离**: 容器间通信使用容器名,不能使用 localhost;数据库连接串必须使用 Docker 内部网络地址
+- **SQLAlchemy 事务管理**: `flush()` 同步变更到数据库但不结束事务,`commit()` 提交并结束事务;同一事务内后续查询依赖前面修改结果时必须 `flush()`
+- **边界条件 Bug**: 遍历集合进行自比较时排除自身;这是经典陷阱,单元测试必须覆盖
+- **后台任务与 HTTP 请求的差异**: 定时任务没有 HTTP 上下文,不能依赖多租户中间件;必须显式传递 tenant_id
+- **定时任务幂等性设计**: 通过状态过滤保证重复执行不会产生副作用;使用唯一幂等键记录执行历史
+- **防御性编程**: 不依赖外部调度顺序,在任务内部先执行前置条件检查(如激活前先处理过期)
+- **分布式任务高可用**: 使用 Redis 分布式锁保证同一任务同一时刻只有一个实例执行;设置合理的超时和重试策略
+- **排查方法论**: 从外到内(容器→应用→数据库),从粗到细(日志→代码→数据状态),手动触发验证

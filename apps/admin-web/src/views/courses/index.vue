@@ -139,8 +139,8 @@
         <div class="filter-bar">
           <el-input
             v-model="search"
-            placeholder="请输入课程名称"
-            style="width: 260px"
+            placeholder="搜索课程名称"
+            style="width: 240px"
             clearable
             @keyup.enter="handleSearch"
             @clear="handleSearch"

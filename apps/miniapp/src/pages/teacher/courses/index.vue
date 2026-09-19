@@ -62,7 +62,7 @@
             <text class="meta-item">👥 {{ course.max_capacity }}人</text>
           </view>
           <view class="course-meta">
-            <text class="meta-item" v-if="course.category">{{ course.category }}</text>
+            <text class="meta-item" v-if="course.category_name || course.category">{{ course.category_name || course.category }}</text>
             <text class="meta-item" v-if="course.level">{{ course.level }}</text>
           </view>
           <!-- <view class="course-price" v-if="false">

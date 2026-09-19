@@ -530,6 +530,15 @@ class MembershipCardService:
         # items 已经是 dict 格式（包含关联字段），直接返回
         return {"total": total, "page": page, "page_size": page_size, "items": items}
 
+    async def get_student_all_cards(
+        self,
+        db: AsyncSession,
+        student_id: int,
+        tenant_id: int,
+    ) -> list[dict]:
+        """获取学员的所有会员卡（包含已过期、已作废）"""
+        return await self.card_repo.get_all_cards_by_student(db, student_id, tenant_id)
+
     async def get_student_active_cards(
         self,
         db: AsyncSession,
@@ -626,6 +635,44 @@ class MembershipCardService:
             raise HTTPException(status_code=400, detail="会员卡未处于冻结状态")
 
         now = datetime.now(UTC)
+        card.status = CardStatus.ACTIVE.value
+        card.frozen_reason = None
+        card.frozen_at = None
+        card.frozen_until = None
+
+        freezes, _ = await self.freeze_repo.list_freezes(db, card_id=card_id, page=1, page_size=1)
+        if freezes and freezes[0].unfrozen_at is None:
+            freezes[0].unfrozen_at = now
+
+        await db.flush()
+        return card
+
+    async def student_unfreeze_card(
+        self,
+        db: AsyncSession,
+        card_id: int,
+        tenant_id: int,
+        student_id: int,
+    ) -> MembershipCard:
+        """学员提前解冻会员卡"""
+        card = await self.get_card(db, card_id, tenant_id)
+        if card.student_id != student_id:
+            raise HTTPException(status_code=403, detail="无权操作此会员卡")
+        if card.status != CardStatus.FROZEN.value:
+            raise HTTPException(status_code=400, detail="会员卡未处于冻结状态")
+
+        # 检查是否有冻结到期时间
+        if card.frozen_until is None:
+            raise HTTPException(status_code=400, detail="无限期冻结，请联系管理员处理")
+
+        now = datetime.now(UTC)
+        # 如果冻结还未到期，不允许学员提前解冻（需要管理员操作）
+        if card.frozen_until > now:
+            raise HTTPException(
+                status_code=400,
+                detail=f"会员卡冻结中，到期时间：{card.frozen_until.strftime('%Y-%m-%d %H:%M')}，请联系管理员提前解冻",
+            )
+
         card.status = CardStatus.ACTIVE.value
         card.frozen_reason = None
         card.frozen_at = None
@@ -961,8 +1008,16 @@ class MembershipCardService:
 
     @staticmethod
     def _calc_expire_at(start_at: datetime, days: int) -> datetime:
-        """计算到期时间，时分秒统一设置为23:59:59"""
-        expire_date = start_at.date() + timedelta(days=days)
+        """计算到期时间，时分秒统一设置为23:59:59
+
+        注意：起始日期算作第1天，所以实际加的天数是 days-1
+        例如：valid_from=2026-09-19, validity_days=3
+        - 第1天：2026-09-19
+        - 第2天：2026-09-20
+        - 第3天：2026-09-21
+        - expire_at = 2026-09-21 23:59:59
+        """
+        expire_date = start_at.date() + timedelta(days=days - 1)
         return datetime(
             year=expire_date.year,
             month=expire_date.month,

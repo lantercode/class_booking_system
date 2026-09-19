@@ -3,6 +3,10 @@
 // 使用 currentColor 作为 stroke 颜色，通过 CSS 控制
 
 export const iconSvgMap: Record<string, string> = {
+  book: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  alert: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M12 8V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16H12.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
   crown: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L4 8L6 17H18L20 8L12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 17H18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
 
   calendar: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 14H8.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 14H12.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 14H16.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 18H8.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 18H12.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
@@ -44,6 +48,14 @@ export const iconSvgMap: Record<string, string> = {
   "card-invalid": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2 10H22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 15H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M4 4L20 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
 
   tag: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.59 13.41L13.42 20.58C13.05 20.95 12.55 21.16 12.02 21.16H4C3.47 21.16 2.96 20.95 2.59 20.58C2.22 20.21 2.01 19.71 2.01 19.18V11.15C2.01 10.62 2.22 10.12 2.59 9.75L9.76 2.58C10.13 2.21 10.63 2 11.16 2H19.19C19.72 2 20.22 2.21 20.59 2.58C20.96 2.95 21.17 3.45 21.17 3.98V12.01C21.17 12.54 20.96 13.04 20.59 13.41Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>`,
+
+  grid: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>`,
+
+  play: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  "check-circle": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M8 12L11 15L16 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  "calendar-empty": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="currentColor" stroke-width="1.5"/><path d="M8 14H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 18H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
 
   "calendar-check": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="currentColor" stroke-width="1.5"/><path d="M9 16L11 18L15 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 
@@ -102,6 +114,29 @@ export const iconSvgMap: Record<string, string> = {
     <path d="M215 85L217 89L221 91L217 93L215 97L213 93L209 91L213 89Z" fill="#c9a66b" opacity="0.5"/>
     <path d="M75 100L76 103L79 104L76 105L75 108L74 105L71 104L74 103Z" fill="#c9a66b" opacity="0.4"/>
   </svg>`,
+
+  // 会员卡相关图标
+  "membership-card": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 9H22" stroke="currentColor" stroke-width="1.5"/><path d="M6 14H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14 14H18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
+  "vip-card": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 9H22" stroke="currentColor" stroke-width="1.5"/><path d="M6 14H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 3L10 7H14L12 3Z" fill="currentColor" opacity="0.3"/><path d="M12 3L10 7H14L12 3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+
+  dancer: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M12 6V14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 10L8 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 10L16 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 14L9 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 14L15 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M10 12C10 12 11 13 12 13C13 13 14 12 14 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
+  ballet: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M12 6V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 8L7 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 8L17 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 12L8 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 12L16 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9 10C9 10 10.5 11 12 11C13.5 11 15 10 15 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 20C8 20 10 19 12 19C14 19 16 20 16 20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
+  cancel: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M9 9L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M15 9L9 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
+  expired: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 7V12L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/></svg>`,
+
+  pending: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 8V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+
+  infinity: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 12C12 12 8 8 5 8C2 8 2 16 5 16C8 16 12 12 12 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12C12 12 16 8 19 8C22 8 22 16 19 16C16 16 12 12 12 12Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+
+  copy: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+
+  warning: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 22H22L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+
+  "arrow-right": `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
 
 export type IconName = keyof typeof iconSvgMap;

@@ -7,24 +7,14 @@
         :class="{ 'tab-active': selectedTab === 'valid' }"
         @tap="selectedTab = 'valid'"
       >
-        <AppIcon
-          name="card-valid"
-          :size="32"
-          :color="selectedTab === 'valid' ? '#fff' : '#b8a088'"
-        />
-        <text class="tab-text">有效卡</text>
+        <text class="tab-text">有效课卡 {{ validCards.length }}</text>
       </view>
       <view
         class="filter-tab"
         :class="{ 'tab-active': selectedTab === 'invalid' }"
         @tap="selectedTab = 'invalid'"
       >
-        <AppIcon
-          name="card-invalid"
-          :size="32"
-          :color="selectedTab === 'invalid' ? '#fff' : '#b8a088'"
-        />
-        <text class="tab-text">无效卡</text>
+        <text class="tab-text">无效课卡 {{ invalidCards.length }}</text>
       </view>
     </view>
 
@@ -44,7 +34,7 @@
             <view class="sparkles">
               <view class="sparkle sparkle-1">✦</view>
               <view class="sparkle sparkle-2">✦</view>
-              <view class="sparkle sparkle-3">✦</view>
+              <view class="sparkle sparkle-3"></view>
             </view>
           </view>
           <text class="empty-title">暂无有效会员卡</text>
@@ -79,241 +69,445 @@
           </view>
         </view>
         <template v-else>
-          <!-- 使用中的卡 -->
-          <view v-if="activeCards.length > 0" class="active-cards-section">
-            <view
-              v-for="card in activeCards"
-              :key="card.id"
-              class="active-card-banner"
-              @tap="goToDetail(card)"
-            >
-              <view class="banner-bg"></view>
-              <view class="banner-content">
+          <!-- 使用中的卡（金色渐变背景） -->
+          <view
+            v-for="card in activeCards"
+            :key="card.id"
+            class="card-item card-active"
+          >
+            <view class="card-content">
+              <!-- 中间内容 -->
+              <view class="card-main">
                 <!-- 头部 -->
-                <view class="banner-header">
-                  <view class="banner-title-row">
-                    <text class="banner-icon"></text>
-                    <text class="banner-name">{{
-                      card.product_name || "会员卡"
-                    }}</text>
-                    <view class="banner-status-badge">
-                      <text class="badge-dot"></text>
-                      <text class="badge-text">使用中</text>
-                    </view>
+                <view class="card-header">
+                  <text class="card-name">{{
+                    card.product_name || "会员卡"
+                  }}</text>
+                  <view class="card-status-badge status-active">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">使用中</text>
                   </view>
-                  <text class="banner-card-no"
-                    >会员卡号：{{ card.card_no || "-" }}</text
-                  >
                 </view>
 
-                <!-- 次卡：剩余次数 -->
-                <view v-if="card.card_type === 'count'" class="banner-usage">
-                  <view class="usage-left">
-                    <text class="usage-value">{{
-                      card.remaining_credits ?? 0
-                    }}</text>
-                    <text class="usage-total"
-                      >/{{ card.total_credits }} 次</text
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(90, 74, 42, 0.5)"
+                    />
+                  </view>
+                </view>
+
+                <!-- 次卡：剩余次数 / 总次数 + 有效期 -->
+                <view v-if="card.card_type === 'count'" class="card-usage">
+                  <view class="usage-main">
+                    <view class="credits-display">
+                      <text class="credits-remaining">{{
+                        card.remaining_credits ?? 0
+                      }}</text>
+                      <text class="credits-separator">/</text>
+                      <text class="credits-total">{{
+                        card.total_credits ?? 0
+                      }}</text>
+                      <text class="credits-unit">次</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
                     >
                   </view>
-                  <view class="usage-right">
-                    <text class="expiry-label">有效期至</text>
-                    <text class="expiry-date">{{
-                      formatDateShort(card.expire_at)
-                    }}</text>
-                  </view>
                 </view>
 
-                <!-- 期卡：有效天数 -->
-                <view v-if="card.card_type === 'period'" class="banner-usage">
-                  <view class="usage-left">
-                    <text class="usage-value">{{ getValidDays(card) }}</text>
-                    <text class="usage-total">天</text>
-                  </view>
-                  <view class="usage-right">
-                    <text class="expiry-label">有效期至</text>
-                    <text class="expiry-date">{{
-                      formatDateShort(card.expire_at)
-                    }}</text>
+                <!-- 期卡：剩余天数 + 有效期 -->
+                <view v-if="card.card_type === 'period'" class="card-usage">
+                  <view class="usage-main">
+                    <view class="credits-display">
+                      <text class="credits-label">剩余</text>
+                      <text class="credits-remaining">{{
+                        getValidDays(card)
+                      }}</text>
+                      <text class="credits-unit">天</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
+                    >
                   </view>
                 </view>
 
                 <!-- 无限卡 -->
-                <view
-                  v-if="card.card_type === 'unlimited'"
-                  class="banner-usage"
-                >
-                  <view class="usage-left">
-                    <text class="usage-value">不限次</text>
-                  </view>
-                  <view class="usage-right">
-                    <text class="expiry-label">永久有效</text>
+                <view v-if="card.card_type === 'unlimited'" class="card-usage">
+                  <view class="usage-main">
+                    <AppIcon
+                      name="infinity"
+                      :size="32"
+                      color="rgba(90, 74, 42, 0.6)"
+                    />
+                    <text class="usage-unlimited-text">不限次</text>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
+                    >
                   </view>
                 </view>
-              </view>
-              <!-- 装饰图标 -->
-              <view class="banner-decoration">
-                <text class="deco-icon">💃</text>
               </view>
             </view>
           </view>
 
-          <!-- 未激活/冻结的卡 -->
-          <view class="inactive-cards-section">
-            <view
-              v-for="card in pendingCards"
-              :key="card.id"
-              class="card-item"
-              :class="getCardStatusClass(card.status)"
-              @tap="goToDetail(card)"
-            >
-              <!-- 左侧图标 -->
-              <view class="card-icon-wrapper" :class="getCardIconClass(card)">
-                <text class="card-icon">{{ getCardIcon(card) }}</text>
-              </view>
-
-              <!-- 卡片内容 -->
-              <view class="card-content">
+          <!-- 已用完的卡（白色背景） -->
+          <view
+            v-for="card in usedUpCards"
+            :key="card.id"
+            class="card-item card-used-up"
+          >
+            <view class="card-content">
+              <!-- 中间内容 -->
+              <view class="card-main">
                 <!-- 头部 -->
                 <view class="card-header">
-                  <view class="card-title-row">
-                    <text class="card-name">{{
-                      card.product_name || "会员卡"
-                    }}</text>
-                    <view
-                      class="card-type-badge"
-                      :class="getCardTypeBadgeClass(card)"
-                    >
-                      <text class="type-text">{{
-                        getCardTypeLabel(card)
+                  <text class="card-name">{{
+                    card.product_name || "会员卡"
+                  }}</text>
+                  <view class="card-status-badge status-used-up">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">已用完</text>
+                  </view>
+                </view>
+
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                  </view>
+                </view>
+
+                <!-- 次卡：剩余次数 / 总次数 + 有效期 -->
+                <view v-if="card.card_type === 'count'" class="card-usage">
+                  <view class="usage-main">
+                    <view class="credits-display">
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-separator">/</text>
+                      <text class="credits-total">{{
+                        card.total_credits ?? 0
                       }}</text>
+                      <text class="credits-unit">次</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
+                </view>
+
+                <!-- 期卡：剩余天数 + 有效期 -->
+                <view v-if="card.card_type === 'period'" class="card-usage">
+                  <view class="usage-main">
+                    <view class="credits-display">
+                      <text class="credits-label">剩余</text>
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-unit">天</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
+                </view>
+
+                <!-- 无限卡 -->
+                <view v-if="card.card_type === 'unlimited'" class="card-usage">
+                  <view class="usage-main">
+                    <AppIcon
+                      name="infinity"
+                      :size="32"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                    <text class="usage-unlimited-text">不限次</text>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >有效期至 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <!-- 未激活的卡（白色背景） -->
+          <view
+            v-for="card in pendingCards"
+            :key="card.id"
+            class="card-item card-pending"
+          >
+            <view class="card-content">
+              <!-- 中间内容 -->
+              <view class="card-main">
+                <!-- 头部 -->
+                <view class="card-header">
+                  <text class="card-name">{{
+                    card.product_name || "会员卡"
+                  }}</text>
+                  <view class="card-status-badge status-pending">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">未激活</text>
+                  </view>
+                </view>
+
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                  </view>
+                </view>
+
+                <!-- 可激活的卡：使用信息 + 立即激活按钮同行 -->
+                <view
+                  v-if="!getActivationBlockReason(card)"
+                  class="usage-with-activate"
+                >
+                  <!-- 无限卡：显示不限次 + 有效期 -->
+                  <view
+                    v-if="card.card_type === 'unlimited'"
+                    class="card-usage usage-inline"
+                  >
+                    <view class="usage-main">
+                      <AppIcon
+                        name="infinity"
+                        :size="32"
+                        color="rgba(158, 158, 158, 0.5)"
+                      />
+                      <text class="usage-unlimited-text">不限次</text>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
+                        {{ formatDateShort(card.expire_at) }}</text
+                      >
                     </view>
                   </view>
-                  <text class="card-arrow">›</text>
-                </view>
-                <text class="card-no-text"
-                  >卡号：{{ card.card_no || "-" }}</text
-                >
 
-                <!-- 使用信息 -->
-                <view class="card-info">
-                  <!-- 次卡 -->
+                  <!-- 次卡：剩余次数 / 总次数 + 有效期 -->
                   <view
                     v-if="card.card_type === 'count'"
-                    class="info-row info-row-single"
+                    class="card-usage usage-inline"
                   >
-                    <view class="info-main">
-                      <text class="info-value">{{
-                        card.remaining_credits ?? 0
-                      }}</text>
-                      <text class="info-total"
-                        >/{{ card.total_credits }} 次</text
-                      >
-                    </view>
-                    <view class="info-sub-inline">
-                      <text class="info-sub-value"
-                        >{{ formatDateShort(card.valid_from) }} -
+                    <view class="usage-main">
+                      <view class="credits-display">
+                        <text class="credits-remaining">{{
+                          card.remaining_credits ?? 0
+                        }}</text>
+                        <text class="credits-separator">/</text>
+                        <text class="credits-total">{{
+                          card.total_credits ?? 0
+                        }}</text>
+                        <text class="credits-unit">次</text>
+                      </view>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
                         {{ formatDateShort(card.expire_at) }}</text
                       >
                     </view>
                   </view>
-                  <!-- 期卡 -->
+
+                  <!-- 期卡：剩余天数 + 有效期 -->
                   <view
                     v-if="card.card_type === 'period'"
-                    class="info-row info-row-single"
+                    class="card-usage usage-inline"
                   >
-                    <view class="info-main">
-                      <text class="info-value">{{ getValidDays(card) }}</text>
-                      <text class="info-label">天</text>
-                    </view>
-                    <view class="info-sub-inline">
-                      <text class="info-sub-value"
-                        >{{ formatDateShort(card.valid_from) }} -
+                    <view class="usage-main">
+                      <view class="credits-display">
+                        <text class="credits-label">剩余</text>
+                        <text class="credits-remaining">{{
+                          getValidDays(card)
+                        }}</text>
+                        <text class="credits-unit">天</text>
+                      </view>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
                         {{ formatDateShort(card.expire_at) }}</text
                       >
                     </view>
                   </view>
+
+                  <!-- 立即激活按钮 -->
+                  <view
+                    class="activate-btn-inline"
+                    @tap.stop="handleActivate(card)"
+                  >
+                    <text class="activate-btn-text">立即激活</text>
+                  </view>
+                </view>
+
+                <!-- 无法激活的卡：仅显示使用信息 -->
+                <template v-else>
                   <!-- 无限卡 -->
                   <view
                     v-if="card.card_type === 'unlimited'"
-                    class="info-row info-row-single"
+                    class="card-usage"
                   >
-                    <text class="info-unlimited">不限次使用</text>
+                    <view class="usage-main">
+                      <AppIcon
+                        name="infinity"
+                        :size="32"
+                        color="rgba(158, 158, 158, 0.5)"
+                      />
+                      <text class="usage-unlimited-text">不限次</text>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
+                        {{ formatDateShort(card.expire_at) }}</text
+                      >
+                    </view>
+                  </view>
+
+                  <!-- 次卡：剩余次数 / 总次数 + 有效期 -->
+                  <view v-if="card.card_type === 'count'" class="card-usage">
+                    <view class="usage-main">
+                      <view class="credits-display">
+                        <text class="credits-remaining">{{
+                          card.remaining_credits ?? 0
+                        }}</text>
+                        <text class="credits-separator">/</text>
+                        <text class="credits-total">{{
+                          card.total_credits ?? 0
+                        }}</text>
+                        <text class="credits-unit">次</text>
+                      </view>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
+                        {{ formatDateShort(card.expire_at) }}</text
+                      >
+                    </view>
+                  </view>
+
+                  <!-- 期卡：剩余天数 + 有效期 -->
+                  <view v-if="card.card_type === 'period'" class="card-usage">
+                    <view class="usage-main">
+                      <view class="credits-display">
+                        <text class="credits-label">剩余</text>
+                        <text class="credits-remaining">{{
+                          getValidDays(card)
+                        }}</text>
+                        <text class="credits-unit">天</text>
+                      </view>
+                      <view class="usage-divider-line"></view>
+                      <text class="usage-valid-range"
+                        >{{ formatDateShort(card.valid_from) }} ~
+                        {{ formatDateShort(card.expire_at) }}</text
+                      >
+                    </view>
+                  </view>
+                </template>
+              </view>
+            </view>
+
+            <!-- 未激活警告框（仅无法激活时显示） -->
+            <view
+              v-if="getActivationBlockReason(card)"
+              class="activation-warning-box"
+            >
+              <view class="warning-left">
+                <AppIcon name="warning" :size="32" color="#c9a66b" />
+                <view class="warning-text-content">
+                  <text class="warning-title">当前无法激活</text>
+                  <text class="warning-desc">{{
+                    getActivationBlockReason(card)
+                  }}</text>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <!-- 冻结中的卡（白色背景） -->
+          <view
+            v-for="card in frozenCards"
+            :key="card.id"
+            class="card-item card-frozen"
+          >
+            <view class="card-content">
+              <!-- 中间内容 -->
+              <view class="card-main">
+                <!-- 头部 -->
+                <view class="card-header">
+                  <text class="card-name">{{
+                    card.product_name || "会员卡"
+                  }}</text>
+                  <view class="card-status-badge status-frozen">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">冻结中</text>
                   </view>
                 </view>
 
-                <!-- 虚线分隔 -->
-                <view class="card-divider"></view>
-
-                <!-- 底部状态栏 -->
-                <view class="card-footer">
-                  <view class="footer-left">
-                    <text
-                      class="status-text"
-                      :class="getStatusTextColor(card.status)"
-                    >
-                      {{ getStatusText(card.status) }}
-                    </text>
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
                   </view>
-                  <view class="footer-right">
-                    <!-- 未激活：显示激活按钮 -->
-                    <view v-if="card.status === 0" class="activate-area">
-                      <button
-                        class="activate-btn"
-                        :class="{
-                          'activate-btn-disabled':
-                            getActivationBlockReason(card),
-                        }"
-                        :disabled="!!getActivationBlockReason(card)"
-                        @tap.stop="handleActivate(card)"
-                      >
-                        {{
-                          getActivationBlockReason(card)
-                            ? "无法激活"
-                            : "立即激活"
-                        }}
-                      </button>
-                      <text
-                        v-if="getActivationBlockReason(card)"
-                        class="block-hint"
-                      >
-                        {{ getActivationBlockReason(card) }}
-                      </text>
+                </view>
+
+                <!-- 冻结信息 -->
+                <view class="card-usage">
+                  <view class="usage-main">
+                    <text class="usage-frozen-text">冻结中</text>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-frozen-reason">{{
+                      card.frozen_reason || "无"
+                    }}</text>
+                  </view>
+                </view>
+
+                <!-- 冻结到期时间 + 提前解冻按钮 -->
+                <view v-if="card.frozen_until" class="usage-with-unfreeze">
+                  <view class="card-usage">
+                    <view class="usage-main">
+                      <text class="usage-frozen-until-label">预计解冻</text>
+                      <text class="usage-frozen-until">{{
+                        formatDateShort(card.frozen_until)
+                      }}</text>
                     </view>
-                    <!-- 冻结到期可激活 -->
-                    <view
-                      v-else-if="card.status === 3 && canStudentUnfreeze(card)"
-                      class="activate-area"
-                    >
-                      <button
-                        class="activate-btn"
-                        :class="{
-                          'activate-btn-disabled':
-                            getActivationBlockReason(card),
-                        }"
-                        :disabled="!!getActivationBlockReason(card)"
-                        @tap.stop="handleUnfreeze(card)"
-                      >
-                        {{
-                          getActivationBlockReason(card)
-                            ? "无法激活"
-                            : "提前激活"
-                        }}
-                      </button>
-                      <text
-                        v-if="getActivationBlockReason(card)"
-                        class="block-hint"
-                      >
-                        {{ getActivationBlockReason(card) }}
-                      </text>
-                    </view>
-                    <!-- 冻结中 -->
-                    <text
-                      v-else-if="card.status === 3 && !canStudentUnfreeze(card)"
-                      class="frozen-text"
-                    >
-                      冻结至 {{ formatDateShort(card.frozen_until) }}
-                    </text>
+                  </view>
+                  <!-- 提前解冻按钮 -->
+                  <view
+                    class="unfreeze-btn-inline"
+                    @tap.stop="handleUnfreeze(card)"
+                  >
+                    <text class="unfreeze-btn-text">提前解冻</text>
                   </view>
                 </view>
               </view>
@@ -338,85 +532,177 @@
           <text class="empty-desc">所有会员卡均在有效期内</text>
         </view>
         <template v-else>
+          <!-- 已过期的卡 -->
           <view
-            v-for="card in invalidCards"
+            v-for="card in expiredCards"
             :key="card.id"
             class="card-item card-expired"
-            @tap="goToDetail(card)"
           >
-            <!-- 左侧图标 -->
-            <view class="card-icon-wrapper" :class="getCardIconClass(card)">
-              <text class="card-icon">{{ getCardIcon(card) }}</text>
-            </view>
-
-            <!-- 卡片内容 -->
             <view class="card-content">
-              <!-- 头部 -->
-              <view class="card-header">
-                <view class="card-title-row">
+              <!-- 中间内容 -->
+              <view class="card-main">
+                <!-- 头部 -->
+                <view class="card-header">
                   <text class="card-name">{{
                     card.product_name || "会员卡"
                   }}</text>
-                  <!-- <view class="card-type-badge" :class="getCardTypeBadgeClass(card)">
-                  <text class="type-text">{{ getCardTypeLabel(card) }}</text>
-                </view> -->
+                  <view class="card-status-badge status-expired">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">已过期</text>
+                  </view>
                 </view>
-                <text class="card-arrow">›</text>
-              </view>
-              <text class="card-no-text">卡号：{{ card.card_no || "-" }}</text>
 
-              <!-- 使用信息 -->
-              <view class="card-info">
-                <!-- 次卡 -->
-                <view
-                  v-if="card.card_type === 'count'"
-                  class="info-row info-row-single"
-                >
-                  <view class="info-main">
-                    <text class="info-value">{{
-                      card.remaining_credits ?? 0
-                    }}</text>
-                    <text class="info-total">/{{ card.total_credits }} 次</text>
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
                   </view>
-                  <view class="info-sub-inline">
-                    <text class="info-sub-value"
-                      >{{ formatDateShort(card.valid_from) }} -
-                      {{ formatDateShort(card.expire_at) }}</text
+                </view>
+
+                <!-- 次卡：剩余次数 / 总次数 + 过期时间 -->
+                <view v-if="card.card_type === 'count'" class="card-usage">
+                  <view class="usage-main usage-main-expired">
+                    <view class="credits-display">
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-separator">/</text>
+                      <text class="credits-total">{{
+                        card.total_credits ?? 0
+                      }}</text>
+                      <text class="credits-unit">次</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >过期时间 {{ formatDateShort(card.expire_at) }}</text
                     >
                   </view>
                 </view>
-                <!-- 期卡 -->
-                <view
-                  v-if="card.card_type === 'period'"
-                  class="info-row info-row-single"
-                >
-                  <view class="info-main">
-                    <text class="info-value">{{ getValidDays(card) }}</text>
-                    <text class="info-label">天</text>
-                  </view>
-                  <view class="info-sub-inline">
-                    <text class="info-sub-value"
-                      >{{ formatDateShort(card.valid_from) }} -
-                      {{ formatDateShort(card.expire_at) }}</text
+
+                <!-- 期卡：剩余天数 + 过期时间 -->
+                <view v-if="card.card_type === 'period'" class="card-usage">
+                  <view class="usage-main usage-main-expired">
+                    <view class="credits-display">
+                      <text class="credits-label">剩余</text>
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-unit">天</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >过期时间 {{ formatDateShort(card.expire_at) }}</text
                     >
                   </view>
                 </view>
+
                 <!-- 无限卡 -->
-                <view
-                  v-if="card.card_type === 'unlimited'"
-                  class="info-row info-row-single"
-                >
-                  <text class="info-unlimited">不限次使用</text>
+                <view v-if="card.card_type === 'unlimited'" class="card-usage">
+                  <view class="usage-main">
+                    <AppIcon
+                      name="infinity"
+                      :size="32"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                    <text class="usage-unlimited-text">不限次</text>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >过期时间 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
                 </view>
               </view>
+            </view>
+          </view>
 
-              <!-- 虚线分隔 -->
-              <view class="card-divider"></view>
+          <!-- 已作废的卡 -->
+          <view
+            v-for="card in voidedCards"
+            :key="card.id"
+            class="card-item card-voided"
+          >
+            <view class="card-content">
+              <!-- 中间内容 -->
+              <view class="card-main">
+                <!-- 头部 -->
+                <view class="card-header">
+                  <text class="card-name">{{
+                    card.product_name || "会员卡"
+                  }}</text>
+                  <view class="card-status-badge status-voided">
+                    <view class="badge-dot"></view>
+                    <text class="badge-text">已作废</text>
+                  </view>
+                </view>
 
-              <!-- 底部状态栏 -->
-              <view class="card-footer">
-                <view class="footer-left">
-                  <text class="status-text text-expired"> 已过期 </text>
+                <!-- 卡号 -->
+                <view class="card-no-row">
+                  <text class="card-no-label">卡号</text>
+                  <text class="card-no-text">{{ card.card_no || "-" }}</text>
+                  <view
+                    class="copy-icon-btn"
+                    @tap.stop="copyCardNo(card.card_no)"
+                  >
+                    <AppIcon
+                      name="copy"
+                      :size="28"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                  </view>
+                </view>
+
+                <!-- 次卡：剩余次数 / 总次数 + 作废时间 -->
+                <view v-if="card.card_type === 'count'" class="card-usage">
+                  <view class="usage-main usage-main-expired">
+                    <view class="credits-display">
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-separator">/</text>
+                      <text class="credits-total">{{
+                        card.total_credits ?? 0
+                      }}</text>
+                      <text class="credits-unit">次</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >作废时间 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
+                </view>
+
+                <!-- 期卡：剩余天数 + 作废时间 -->
+                <view v-if="card.card_type === 'period'" class="card-usage">
+                  <view class="usage-main usage-main-expired">
+                    <view class="credits-display">
+                      <text class="credits-label">剩余</text>
+                      <text class="credits-remaining usage-value-zero">0</text>
+                      <text class="credits-unit">天</text>
+                    </view>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >作废时间 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
+                </view>
+
+                <!-- 无限卡 -->
+                <view v-if="card.card_type === 'unlimited'" class="card-usage">
+                  <view class="usage-main">
+                    <AppIcon
+                      name="infinity"
+                      :size="32"
+                      color="rgba(158, 158, 158, 0.5)"
+                    />
+                    <text class="usage-unlimited-text">不限次</text>
+                    <view class="usage-divider-line"></view>
+                    <text class="usage-valid-range"
+                      >作废时间 {{ formatDateShort(card.expire_at) }}</text
+                    >
+                  </view>
                 </view>
               </view>
             </view>
@@ -429,17 +715,15 @@
 
 <script setup lang="ts">
 import { membershipApi } from "@/api";
-import AppIcon from "@/components/AppIcon.vue";
 import { checkLogin } from "@/utils/auth";
-import { navigateTo } from "@/utils/navigation";
 import { computed, onMounted, ref } from "vue";
 
 interface MembershipCard {
   id: number;
+  card_no?: string;
+  card_type?: string;
   product_name?: string;
-  card_type: string;
-  applicable_course_type_code?: string | null;
-  total_credits: number | null;
+  total_credits?: number;
   used_credits: number;
   remaining_credits: number | null;
   status: number;
@@ -448,71 +732,102 @@ interface MembershipCard {
   frozen_at: string | null;
   frozen_until: string | null;
   frozen_reason: string | null;
+  applicable_course_type_code?: string;
 }
 
 const cards = ref<MembershipCard[]>([]);
 const loading = ref(true);
 const selectedTab = ref("valid");
 
-// 使用中的卡列表
+// 使用中的卡列表（status === 1）
+// 次卡：remaining_credits > 0
+// 期卡/无限卡：只看 status === 1
 const activeCards = computed(() => {
-  return cards.value.filter((c) => c.status === 1);
+  return cards.value.filter((c) => {
+    if (c.status !== 1) return false;
+    // 次卡需要检查剩余次数
+    if (c.card_type === "count") {
+      return (c.remaining_credits ?? 0) > 0;
+    }
+    // 期卡/无限卡只看状态
+    return true;
+  });
 });
 
-// 待激活/冻结的卡（有效但未使用）
+// 已用完的卡（仅次卡，status === 1 但 remaining_credits === 0）
+// 期卡不会"用完"，只会"过期"
+const usedUpCards = computed(() => {
+  return cards.value.filter(
+    (c) =>
+      c.status === 1 &&
+      c.card_type === "count" &&
+      (c.remaining_credits ?? 0) === 0,
+  );
+});
+
+// 待激活的卡（status === 0）
 const pendingCards = computed(() => {
-  return cards.value.filter((c) => c.status === 0 || c.status === 3);
+  return cards.value.filter((c) => c.status === 0);
 });
 
-// 有效卡（未过期的所有卡）
-const validCards = computed(() => {
-  return cards.value.filter((c) => c.status !== 2);
-});
-
-// 无效卡（过期卡）
-const invalidCards = computed(() => {
+// 已过期的卡（status === 2）
+const expiredCards = computed(() => {
   return cards.value.filter((c) => c.status === 2);
 });
 
-// 获取期卡有效天数（从生效到过期之间的总天数）
+// 已作废的卡（status === 6）
+const voidedCards = computed(() => {
+  return cards.value.filter((c) => c.status === 6);
+});
+
+// 冻结中的卡（status === 3）
+const frozenCards = computed(() => {
+  return cards.value.filter((c) => c.status === 3);
+});
+
+// 有效卡（使用中的卡 + 已用完的卡 + 待激活的卡 + 冻结中的卡）
+const validCards = computed(() => {
+  return [
+    ...activeCards.value,
+    ...usedUpCards.value,
+    ...pendingCards.value,
+    ...frozenCards.value,
+  ];
+});
+
+// 无效卡（过期或作废的卡）
+const invalidCards = computed(() => {
+  return [...expiredCards.value, ...voidedCards.value];
+});
+
+// 获取期卡剩余天数
+// 对于未激活的卡：从 valid_from 到 expire_at 的天数（总有效期）
+// 对于已激活的卡：从今天到 expire_at 的天数（剩余有效期）
 const getValidDays = (card: MembershipCard) => {
-  if (!card?.valid_from || !card?.expire_at) return 0;
-  const validFrom = new Date(card.valid_from);
-  const expireAt = new Date(card.expire_at);
-  // 只比较日期部分，忽略时间
-  const fromDay = new Date(
-    validFrom.getFullYear(),
-    validFrom.getMonth(),
-    validFrom.getDate(),
-  );
-  const toDay = new Date(
-    expireAt.getFullYear(),
-    expireAt.getMonth(),
-    expireAt.getDate(),
-  );
-  const diffMs = toDay.getTime() - fromDay.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.round(diffMs / (1000 * 60 * 60 * 24));
-};
+  if (!card?.expire_at) return 0;
 
-// 获取卡片图标
-const getCardIcon = (card: MembershipCard) => {
-  const iconMap: Record<string, string> = {
-    count: "🎫",
-    period: "📅",
-    unlimited: "♾️",
-  };
-  return iconMap[card.card_type] || "💳";
-};
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const expireDay = new Date(
+    new Date(card.expire_at).getFullYear(),
+    new Date(card.expire_at).getMonth(),
+    new Date(card.expire_at).getDate(),
+  );
 
-// 获取卡片图标样式类
-const getCardIconClass = (card: MembershipCard) => {
-  const classMap: Record<string, string> = {
-    count: "icon-count",
-    period: "icon-period",
-    unlimited: "icon-unlimited",
-  };
-  return classMap[card.card_type] || "icon-default";
+  // 未激活的卡：从 valid_from 开始计算总有效期
+  let startDay = today;
+  if (card.status === 0 && card.valid_from) {
+    startDay = new Date(
+      new Date(card.valid_from).getFullYear(),
+      new Date(card.valid_from).getMonth(),
+      new Date(card.valid_from).getDate(),
+    );
+  }
+
+  const diffMs = expireDay.getTime() - startDay.getTime();
+  if (diffMs < 0) return 0;
+  // +1 是因为需要包含起始日和结束日（闭区间计算）
+  return Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
 };
 
 // 检查卡片是否因课程类型冲突而无法激活
@@ -548,14 +863,66 @@ const getCourseTypeName = (code: string): string => {
   return nameMap[code] || code;
 };
 
-// 获取卡类型标签样式类
-const getCardTypeBadgeClass = (card: MembershipCard) => {
-  const classMap: Record<string, string> = {
-    count: "badge-count",
-    period: "badge-period",
-    unlimited: "badge-unlimited",
-  };
-  return classMap[card.card_type] || "badge-default";
+// 激活卡片
+const handleActivate = async (card: MembershipCard) => {
+  uni.showModal({
+    title: "确认激活",
+    content: `确定要激活「${card.product_name || "会员卡"}」吗？`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          uni.showLoading({ title: "激活中..." });
+          await membershipApi.activateCard(card.id);
+          uni.hideLoading();
+          uni.showToast({ title: "激活成功", icon: "success" });
+          // 重新加载卡片列表
+          await loadCards();
+        } catch (error) {
+          uni.hideLoading();
+          console.error("激活失败:", error);
+        }
+      }
+    },
+  });
+};
+
+// 提前解冻卡片
+const handleUnfreeze = async (card: MembershipCard) => {
+  uni.showModal({
+    title: "确认解冻",
+    content: `确定要提前解冻「${card.product_name || "会员卡"}」吗？解冻后卡片将恢复正常使用。`,
+    success: async (res) => {
+      if (res.confirm) {
+        try {
+          uni.showLoading({ title: "解冻中..." });
+          await membershipApi.studentUnfreeze(card.id);
+          uni.hideLoading();
+          uni.showToast({ title: "解冻成功", icon: "success" });
+          // 重新加载卡片列表
+          await loadCards();
+        } catch (error: any) {
+          uni.hideLoading();
+          const errorMsg =
+            error?.response?.data?.detail ||
+            error?.response?.data?.msg ||
+            "解冻失败";
+          uni.showToast({ title: errorMsg, icon: "none" });
+          console.error("解冻失败:", error);
+        }
+      }
+    },
+  });
+};
+
+// 复制卡号
+const copyCardNo = (cardNo: string | undefined) => {
+  if (!cardNo) return;
+  uni.setClipboardData({
+    data: cardNo,
+    success: () => {
+      uni.showToast({ title: "卡号已复制", icon: "success" });
+    },
+  });
 };
 
 onMounted(() => {
@@ -583,45 +950,6 @@ const loadCards = async () => {
   }
 };
 
-const getCardStatusClass = (status: number) => {
-  const map: Record<number, string> = {
-    0: "card-inactive",
-    1: "card-active",
-    2: "card-expired",
-    3: "card-frozen",
-  };
-  return map[status] || "card-inactive";
-};
-
-const getStatusText = (status: number) => {
-  const map: Record<number, string> = {
-    0: "未激活",
-    1: "使用中",
-    2: "已过期",
-    3: "已冻结",
-  };
-  return map[status] || "未知";
-};
-
-const getStatusTextColor = (status: number) => {
-  const map: Record<number, string> = {
-    0: "text-inactive",
-    1: "text-active",
-    2: "text-expired",
-    3: "text-frozen",
-  };
-  return map[status] || "text-inactive";
-};
-
-const getCardTypeLabel = (card: MembershipCard) => {
-  const typeMap: Record<string, string> = {
-    count: "次卡",
-    period: "时效卡",
-    unlimited: "无限卡",
-  };
-  return typeMap[card.card_type] || card.card_type;
-};
-
 const formatDateShort = (dateStr: string | null) => {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -629,79 +957,6 @@ const formatDateShort = (dateStr: string | null) => {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const getFrozenRemainingDays = (card: MembershipCard) => {
-  if (!card.frozen_until) return 0;
-  const now = new Date();
-  const frozenUntil = new Date(card.frozen_until);
-  const diffMs = frozenUntil.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays);
-};
-
-const canStudentUnfreeze = (card: MembershipCard) => {
-  if (!card.frozen_until) return false;
-  const now = new Date();
-  const frozenUntil = new Date(card.frozen_until);
-  return frozenUntil <= now;
-};
-
-const goToDetail = (card: MembershipCard) => {
-  navigateTo({
-    url: `/pages/student/membership/detail?cardId=${card.id}`,
-  });
-};
-
-const goToTransactions = (card: MembershipCard) => {
-  navigateTo({
-    url: `/pages/student/membership/transactions?cardId=${card.id}&cardName=${encodeURIComponent(card.product_name || "会员卡")}`,
-  });
-};
-
-const handleActivate = async (card: MembershipCard) => {
-  uni.showModal({
-    title: "激活确认",
-    content: `确定要激活「${card.product_name || "会员卡"}」吗？激活后有效期开始计算。`,
-    success: async (res) => {
-      if (!res.confirm) return;
-      try {
-        uni.showLoading({ title: "激活中..." });
-        await membershipApi.activateCard(card.id);
-        uni.hideLoading();
-        uni.showToast({ title: "激活成功", icon: "success" });
-        loadCards();
-      } catch (error: any) {
-        uni.hideLoading();
-        // API层已显示错误提示，此处无需重复显示
-      }
-    },
-  });
-};
-
-const handleUnfreeze = async (card: MembershipCard) => {
-  uni.showModal({
-    title: "提前激活",
-    content: `确定要提前激活会员卡吗？激活后冻结状态将清除，有效期不再顺延。`,
-    success: async (res) => {
-      if (!res.confirm) return;
-      try {
-        uni.showLoading({ title: "激活中..." });
-        await membershipApi.activateCard(card.id);
-        uni.hideLoading();
-        uni.showToast({ title: "激活成功", icon: "success" });
-        loadCards();
-      } catch (error: any) {
-        uni.hideLoading();
-        const errorMsg =
-          error?.message ||
-          error?.msg ||
-          error?.data?.msg ||
-          (typeof error === "string" ? error : "激活失败");
-        uni.showToast({ title: errorMsg, icon: "none", duration: 3000 });
-      }
-    },
-  });
 };
 
 const goToHandle = () => {
@@ -736,8 +991,7 @@ const goToHandle = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8rpx;
-  padding: 16rpx 0;
+  padding: 20rpx 0;
   background: rgba(255, 255, 255, 0.7);
   border-radius: 50rpx;
   border: 1rpx solid rgba(201, 166, 107, 0.15);
@@ -771,196 +1025,630 @@ const goToHandle = () => {
   box-sizing: border-box;
 }
 
-.loading-wrapper,
-.empty-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 60vh;
-}
-
-.empty-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: $space-md;
-
-  .empty-icon {
-    font-size: 120rpx;
-    opacity: 0.3;
-  }
-
-  .empty-text {
-    font-size: $font-size-body;
-    color: $text-secondary;
-  }
-
-  .empty-hint {
-    font-size: $font-size-body_sm;
-    color: $text-tertiary;
-  }
-}
-
-// ===== 顶部使用中的会员卡 =====
-.active-cards-section {
-  display: flex;
-  flex-direction: column;
-  gap: $space-sm;
-}
-
-.active-card-banner {
-  position: relative;
-  border-radius: $radius-lg;
-  overflow: hidden;
-  background: linear-gradient(135deg, #f5e6c8 0%, #f0d9a8 50%, #e8cc90 100%);
-  box-shadow: 0 4rpx 16rpx rgba(180, 140, 60, 0.15);
-
-  .banner-bg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background:
-      radial-gradient(
-        circle at 80% 20%,
-        rgba(255, 255, 255, 0.3) 0%,
-        transparent 50%
-      ),
-      radial-gradient(
-        circle at 20% 80%,
-        rgba(255, 255, 255, 0.15) 0%,
-        transparent 40%
-      );
-  }
-
-  .banner-content {
-    position: relative;
-    z-index: 1;
-    padding: $space-sm $space-md;
-  }
-
-  .banner-header {
-    margin-bottom: $space-xs;
-  }
-
-  .banner-title-row {
-    display: flex;
-    align-items: center;
-    gap: $space-xs;
-    margin-bottom: 4rpx;
-  }
-
-  .banner-icon {
-    font-size: $font-size-caption;
-  }
-
-  .banner-name {
-    font-size: $font-size-body;
-    font-weight: $font-weight-bold;
-    color: #5a4a2a;
-  }
-
-  .banner-status-badge {
-    display: flex;
-    align-items: center;
-    gap: 2rpx;
-    padding: 2rpx $space-xs;
-    background: rgba(76, 175, 80, 0.15);
-    border-radius: $radius-sm;
-
-    .badge-dot {
-      width: 6rpx;
-      height: 6rpx;
-      border-radius: 50%;
-      background: #4caf50;
-    }
-
-    .badge-text {
-      font-size: $font-size-caption;
-      color: #4caf50;
-      font-weight: $font-weight-medium;
-    }
-  }
-
-  .banner-card-no {
-    font-size: $font-size-caption;
-    color: rgba(90, 74, 42, 0.6);
-    margin-top: 4rpx;
-  }
-
-  .banner-type {
-    font-size: $font-size-caption;
-    color: rgba(90, 74, 42, 0.6);
-  }
-
-  .banner-usage {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-  }
-
-  .usage-left {
-    display: flex;
-    align-items: baseline;
-    gap: 2rpx;
-
-    .usage-label {
-      font-size: $font-size-caption;
-      color: rgba(90, 74, 42, 0.6);
-    }
-
-    .usage-value {
-      font-size: $font-size-h3;
-      font-weight: $font-weight-bold;
-      color: #5a4a2a;
-    }
-
-    .usage-total {
-      font-size: $font-size-body_sm;
-      color: rgba(90, 74, 42, 0.6);
-    }
-  }
-
-  .usage-right {
-    text-align: right;
-
-    .expiry-label {
-      display: block;
-      font-size: $font-size-caption;
-      color: rgba(90, 74, 42, 0.5);
-      margin-bottom: 2rpx;
-    }
-
-    .expiry-date {
-      font-size: $font-size-caption;
-      color: rgba(90, 74, 42, 0.7);
-    }
-  }
-
-  // 装饰
-  .banner-decoration {
-    position: absolute;
-    top: $space-sm;
-    right: $space-sm;
-    width: 80rpx;
-    height: 80rpx;
-    opacity: 0.12;
-
-    .deco-icon {
-      font-size: 80rpx;
-    }
-  }
-}
-
-// ===== 卡片区域 =====
+// ===== 卡片通用样式 =====
 .cards-section {
   display: flex;
   flex-direction: column;
   gap: $space-sm;
 }
 
-// 空状态
+.card-item {
+  border-radius: $radius-lg;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &.card-active {
+    background: linear-gradient(
+      135deg,
+      #fdf6e9 0%,
+      #f9edda 30%,
+      #f5e6c8 60%,
+      #f0d9a8 100%
+    );
+    box-shadow: 0 4rpx 20rpx rgba(201, 166, 107, 0.2);
+    position: relative;
+    border: 1rpx solid rgba(201, 166, 107, 0.2);
+  }
+
+  &.card-used-up {
+    background: linear-gradient(135deg, #faf8f5 0%, #f7f3ed 100%);
+    border: 1rpx solid rgba(201, 166, 107, 0.1);
+  }
+
+  &.card-pending {
+    background: linear-gradient(135deg, #faf8f5 0%, #f7f3ed 100%);
+    border: 1rpx solid rgba(201, 166, 107, 0.1);
+  }
+
+  &.card-frozen {
+    background: linear-gradient(135deg, #f5f7fa 0%, #eef1f5 100%);
+    border: 1rpx solid rgba(100, 149, 237, 0.15);
+  }
+
+  &.card-expired {
+    background: linear-gradient(135deg, #f8f6f3 0%, #f3f0eb 100%);
+    opacity: 0.65;
+    border: 1rpx solid rgba(200, 200, 200, 0.15);
+  }
+}
+
+.card-content {
+  display: flex;
+  padding: $space-md;
+  gap: $space-sm;
+  position: relative;
+}
+
+// 中间内容
+.card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-name {
+  font-size: $font-size-body;
+  font-weight: $font-weight-bold;
+  color: #333;
+  flex: 1;
+
+  .card-active & {
+    color: #333;
+  }
+}
+
+.card-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  font-size: $font-size-caption;
+  min-width: 100rpx;
+  justify-content: center;
+
+  .badge-dot {
+    width: 8rpx;
+    height: 8rpx;
+    border-radius: 50%;
+  }
+
+  .badge-text {
+    font-weight: $font-weight-medium;
+  }
+
+  &.status-active {
+    background: rgba(76, 175, 80, 0.12);
+
+    .badge-dot {
+      background: #4caf50;
+    }
+
+    .badge-text {
+      color: #2e7d32;
+    }
+  }
+
+  &.status-used-up {
+    background: rgba(158, 158, 158, 0.1);
+
+    .badge-dot {
+      background: #9e9e9e;
+    }
+
+    .badge-text {
+      color: #757575;
+    }
+  }
+
+  &.status-pending {
+    background: rgba(255, 183, 77, 0.15);
+
+    .badge-dot {
+      background: #ffb74d;
+    }
+
+    .badge-text {
+      color: #e65100;
+    }
+  }
+
+  &.status-expired {
+    background: rgba(244, 67, 54, 0.1);
+
+    .badge-dot {
+      background: #ef5350;
+    }
+
+    .badge-text {
+      color: #c62828;
+    }
+  }
+
+  &.status-voided {
+    background: rgba(158, 158, 158, 0.1);
+
+    .badge-dot {
+      background: #bdbdbd;
+    }
+
+    .badge-text {
+      color: #757575;
+    }
+  }
+
+  &.status-frozen {
+    background: rgba(100, 149, 237, 0.12);
+
+    .badge-dot {
+      background: #6495ed;
+    }
+
+    .badge-text {
+      color: #4a7bd4;
+    }
+  }
+}
+
+.card-no-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+
+  .card-no-label {
+    font-size: $font-size-caption;
+    color: #999;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.6);
+    }
+  }
+
+  .card-no-text {
+    font-size: $font-size-caption;
+    color: #999;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.6);
+    }
+  }
+
+  .copy-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rpx;
+    cursor: pointer;
+  }
+}
+
+// 使用信息
+.card-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.usage-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8rpx;
+
+  &.usage-main-expired {
+    gap: 12rpx;
+  }
+
+  .usage-label {
+    font-size: $font-size-caption;
+    color: #999;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.7);
+    }
+  }
+
+  .usage-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4rpx;
+
+    .usage-value {
+      font-size: $font-size-h3;
+      font-weight: $font-weight-bold;
+      color: #333;
+
+      .card-active & {
+        color: #333;
+      }
+
+      &.usage-value-zero {
+        color: #333;
+      }
+    }
+
+    .usage-unit {
+      font-size: $font-size-caption;
+      color: #999;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+  }
+
+  .usage-divider-line {
+    width: 1rpx;
+    height: 24rpx;
+    background: #ddd;
+
+    .card-active & {
+      background: rgba(90, 74, 42, 0.3);
+    }
+  }
+
+  // 剩余次数 / 总次数 高级展示样式
+  .credits-display {
+    display: flex;
+    align-items: baseline;
+    gap: 6rpx;
+
+    .credits-label {
+      font-size: $font-size-caption;
+      color: #999;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+
+    .credits-remaining {
+      font-size: 56rpx;
+      font-weight: 700;
+      color: #c9a66b;
+      line-height: 1;
+      font-family: "DIN Alternate", "Helvetica Neue", sans-serif;
+
+      .card-active & {
+        color: #c9a66b;
+      }
+
+      &.usage-value-zero {
+        color: #ef5350;
+      }
+    }
+
+    .credits-separator {
+      font-size: 36rpx;
+      font-weight: 300;
+      color: #bbb;
+      margin: 0 2rpx;
+    }
+
+    .credits-total {
+      font-size: 36rpx;
+      font-weight: 600;
+      color: #999;
+      line-height: 1;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+
+    .credits-unit {
+      font-size: $font-size-caption;
+      color: #999;
+      margin-left: 2rpx;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+  }
+
+  .usage-total-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4rpx;
+
+    .usage-total-label {
+      font-size: $font-size-caption;
+      color: #999;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+
+    .usage-total-value {
+      font-size: $font-size-body;
+      font-weight: $font-weight-bold;
+      color: #333;
+
+      .card-active & {
+        color: #333;
+      }
+    }
+
+    .usage-total-unit {
+      font-size: $font-size-caption;
+      color: #999;
+
+      .card-active & {
+        color: rgba(90, 74, 42, 0.6);
+      }
+    }
+  }
+
+  .usage-total-inline {
+    font-size: $font-size-caption;
+    color: #999;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.6);
+    }
+  }
+
+  .usage-infinity {
+    font-size: $font-size-h3;
+    color: #c9a66b;
+    font-weight: bold;
+  }
+
+  .usage-unlimited-text {
+    font-size: $font-size-body;
+    color: #666;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.8);
+    }
+  }
+
+  .usage-valid-range {
+    font-size: $font-size-caption;
+    color: #999;
+    flex-shrink: 0;
+
+    .card-active & {
+      color: rgba(90, 74, 42, 0.6);
+    }
+  }
+
+  .usage-frozen-text {
+    font-size: $font-size-body;
+    color: #6495ed;
+    font-weight: $font-weight-medium;
+  }
+
+  .usage-frozen-reason {
+    font-size: $font-size-caption;
+    color: #999;
+  }
+
+  .usage-frozen-until-label {
+    font-size: $font-size-caption;
+    color: #999;
+  }
+
+  .usage-frozen-until {
+    font-size: $font-size-caption;
+    color: #6495ed;
+    font-weight: $font-weight-medium;
+  }
+}
+
+// 进度条
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8rpx;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4rpx;
+  overflow: hidden;
+
+  .card-active & {
+    background: rgba(90, 74, 42, 0.1);
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4rpx;
+    transition: width 0.3s ease;
+
+    &.progress-fill-active {
+      background: linear-gradient(90deg, #c9a66b 0%, #d4b896 50%, #e0c9a0 100%);
+    }
+
+    &.progress-fill-empty {
+      background: #e8e4de;
+    }
+  }
+}
+
+.progress-text {
+  font-size: $font-size-caption;
+  color: #999;
+  flex-shrink: 0;
+
+  .card-active & {
+    color: rgba(90, 74, 42, 0.7);
+  }
+}
+
+// 未激活警告框
+.activation-warning-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx $space-md;
+  background: rgba(255, 152, 0, 0.08);
+  margin: 0 $space-md $space-md;
+  border-radius: $radius-sm;
+
+  .warning-left {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    flex: 1;
+
+    .warning-icon-circle {
+      width: 32rpx;
+      height: 32rpx;
+      border-radius: 50%;
+      background: #c9a66b;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20rpx;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .warning-text-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4rpx;
+
+      .warning-title {
+        font-size: $font-size-caption;
+        color: #c9a66b;
+        font-weight: $font-weight-medium;
+      }
+
+      .warning-desc {
+        font-size: 20rpx;
+        color: rgba(201, 166, 107, 0.7);
+      }
+    }
+  }
+
+  .warning-link {
+    font-size: $font-size-caption;
+    color: #c9a66b;
+    flex-shrink: 0;
+  }
+}
+
+// 可激活卡：使用信息 + 激活按钮同行
+.usage-with-activate {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.usage-inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.activate-btn-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 24rpx;
+  background: linear-gradient(135deg, #d4b896 0%, #c9a66b 100%);
+  border-radius: 32rpx;
+  box-shadow: 0 2rpx 12rpx rgba(201, 166, 107, 0.3);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+
+  .activate-btn-text {
+    font-size: $font-size-caption;
+    color: #fff;
+    font-weight: $font-weight-medium;
+  }
+}
+
+// 冻结卡：使用信息 + 提前解冻按钮同行
+.usage-with-unfreeze {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  min-width: 0;
+
+  .card-usage {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.unfreeze-btn-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 24rpx;
+  background: linear-gradient(135deg, #6495ed 0%, #4a7bd4 100%);
+  border-radius: 32rpx;
+  box-shadow: 0 2rpx 12rpx rgba(100, 149, 237, 0.3);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+
+  .unfreeze-btn-text {
+    font-size: $font-size-caption;
+    color: #fff;
+    font-weight: $font-weight-medium;
+  }
+}
+
+// ===== 无效卡标题 =====
+.invalid-section-title {
+  display: flex;
+  align-items: center;
+  gap: $space-xs;
+  padding: $space-sm 0;
+  margin-bottom: $space-xs;
+
+  .title-bar {
+    width: 6rpx;
+    height: 28rpx;
+    background: #c9a66b;
+    border-radius: 3rpx;
+  }
+
+  .title-text {
+    font-size: $font-size-body;
+    font-weight: $font-weight-bold;
+    color: #333;
+  }
+
+  .title-count {
+    font-size: $font-size-body_sm;
+    color: #999;
+  }
+
+  .title-line {
+    flex: 1;
+    height: 1rpx;
+    background: linear-gradient(90deg, rgba(201, 166, 107, 0.3), transparent);
+  }
+}
+
+// ===== 空状态 =====
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -1062,445 +1750,76 @@ const goToHandle = () => {
   }
 
   .empty-title {
-    font-size: 32rpx;
-    font-weight: 600;
-    color: #5c4a32;
+    font-size: $font-size-h3;
+    font-weight: $font-weight-bold;
+    color: #333;
   }
 
   .empty-desc {
-    font-size: 26rpx;
-    color: #b8a088;
+    font-size: $font-size-body_sm;
+    color: #999;
+  }
+
+  .go-handle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+    padding: 20rpx 40rpx;
+    background: linear-gradient(135deg, #d4b896 0%, #c9a66b 100%);
+    border-radius: 50rpx;
+    border: none;
+    font-size: $font-size-body;
+    color: #fff;
+    font-weight: $font-weight-medium;
+    box-shadow: 0 4rpx 16rpx rgba(201, 166, 107, 0.3);
+
+    .btn-arrow {
+      font-size: 32rpx;
+    }
+  }
+
+  .benefits-section {
+    width: 100%;
+    margin-top: 40rpx;
+
+    .benefits-title {
+      display: block;
+      font-size: $font-size-body;
+      color: #666;
+      text-align: center;
+      margin-bottom: $space-md;
+    }
+
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: $space-md;
+
+      .benefit-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12rpx;
+
+        .benefit-text {
+          font-size: $font-size-caption;
+          color: #666;
+          text-align: center;
+        }
+      }
+    }
   }
 }
 
 @keyframes sparkle-float {
   0%,
   100% {
-    opacity: 0.4;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.2);
-  }
-}
-
-// 前往办理按钮
-.go-handle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 20rpx 48rpx;
-  background: linear-gradient(135deg, #d4b896 0%, #c9a66b 100%);
-  border-radius: 50rpx;
-  border: none;
-  box-shadow: 0 4rpx 20rpx rgba(201, 166, 107, 0.35);
-  margin-top: 8rpx;
-
-  text {
-    font-size: 28rpx;
-    color: #fff;
-    font-weight: 500;
-  }
-
-  .btn-arrow {
-    font-size: 32rpx;
-    color: #fff;
-    margin-left: 4rpx;
-  }
-
-  &::after {
-    border: none;
-  }
-
-  &:active {
-    transform: scale(0.96);
-    box-shadow: 0 2rpx 12rpx rgba(201, 166, 107, 0.4);
-  }
-}
-
-// 会员卡权益区域
-.benefits-section {
-  width: 100%;
-  margin-top: 48rpx;
-  padding: 32rpx 24rpx;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 24rpx;
-  border: 1rpx solid rgba(201, 166, 107, 0.12);
-
-  .benefits-title {
-    font-size: 28rpx;
-    font-weight: 600;
-    color: #5c4a32;
-    display: block;
-    margin-bottom: 24rpx;
-  }
-
-  .benefits-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16rpx;
-
-    .benefit-item {
-      flex: 1;
-      min-width: 140rpx;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12rpx;
-      padding: 20rpx 12rpx;
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 16rpx;
-      border: 1rpx solid rgba(201, 166, 107, 0.08);
-
-      .benefit-text {
-        font-size: 22rpx;
-        color: #8b7355;
-        text-align: center;
-        line-height: 1.3;
-      }
-    }
-  }
-}
-
-// ===== 顶部使用中的会员卡 =====
-.active-cards-section {
-  display: flex;
-  flex-direction: column;
-  gap: $space-md;
-}
-
-.active-card-banner {
-  position: relative;
-  border-radius: $radius-lg;
-  overflow: hidden;
-  background: linear-gradient(135deg, #f5e6c8 0%, #f0d9a8 50%, #e8cc90 100%);
-  box-shadow: 0 8rpx 32rpx rgba(180, 140, 60, 0.2);
-}
-
-// ===== 未激活/冻结卡区域 =====
-.inactive-cards-section {
-  display: flex;
-  flex-direction: column;
-  gap: $space-sm;
-}
-
-.card-item {
-  display: flex;
-  align-items: flex-start;
-  gap: $space-sm;
-  padding: $space-md;
-  background: #fff;
-  border-radius: $radius-lg;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
-
-  &:active {
-    transform: scale(0.98);
-  }
-
-  // 未激活
-  &.card-inactive {
-    opacity: 0.75;
-  }
-
-  // 已过期
-  &.card-expired {
-    opacity: 0.5;
-  }
-
-  // 已冻结
-  &.card-frozen {
+    transform: translateY(0) scale(1);
     opacity: 0.6;
   }
-}
-
-// 卡片图标
-.card-icon-wrapper {
-  flex-shrink: 0;
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  .card-icon {
-    font-size: 36rpx;
+  50% {
+    transform: translateY(-10rpx) scale(1.2);
+    opacity: 1;
   }
-
-  &.icon-count {
-    background: rgba(156, 39, 176, 0.1);
-  }
-
-  &.icon-period {
-    background: rgba(33, 150, 243, 0.1);
-  }
-
-  &.icon-unlimited {
-    background: rgba(76, 175, 80, 0.1);
-  }
-
-  &.icon-default {
-    background: $bg-secondary;
-  }
-}
-
-// 卡片内容
-.card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-// 卡片头部
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: $space-xs;
-}
-
-.card-no-text {
-  display: block;
-  font-size: $font-size-caption;
-  color: $text-hint;
-  margin-bottom: $space-xs;
-}
-
-.card-title-row {
-  display: flex;
-  align-items: center;
-  gap: $space-xs;
-  flex: 1;
-  min-width: 0;
-}
-
-.card-name {
-  font-size: $font-size-h4;
-  font-weight: $font-weight-bold;
-  color: $text-primary;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-type-badge {
-  flex-shrink: 0;
-  padding: 2rpx $space-xs;
-  border-radius: $radius-sm;
-
-  .type-text {
-    font-size: $font-size-caption;
-  }
-
-  &.badge-count {
-    background: rgba(156, 39, 176, 0.1);
-    .type-text {
-      color: #9c27b0;
-    }
-  }
-
-  &.badge-period {
-    background: rgba(33, 150, 243, 0.1);
-    .type-text {
-      color: #2196f3;
-    }
-  }
-
-  &.badge-unlimited {
-    background: rgba(76, 175, 80, 0.1);
-    .type-text {
-      color: #4caf50;
-    }
-  }
-
-  &.badge-default {
-    background: $bg-secondary;
-    .type-text {
-      color: $text-secondary;
-    }
-  }
-}
-
-.card-arrow {
-  flex-shrink: 0;
-  font-size: $font-size-h3;
-  color: $text-tertiary;
-  margin-left: $space-xs;
-}
-
-// 使用信息
-.card-info {
-  margin-bottom: $space-sm;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 48rpx;
-}
-
-// 单行展示（对齐）
-.info-row-single {
-  align-items: center;
-}
-
-.info-main {
-  display: flex;
-  align-items: baseline;
-  gap: 4rpx;
-
-  .info-label {
-    font-size: $font-size-body_sm;
-    color: $text-secondary;
-  }
-
-  .info-value {
-    font-size: $font-size-h3;
-    font-weight: $font-weight-bold;
-    color: #c0392b;
-  }
-
-  .info-total {
-    font-size: $font-size-body_sm;
-    color: $text-secondary;
-  }
-}
-
-.info-sub {
-  text-align: right;
-  flex-shrink: 0;
-
-  .info-sub-label {
-    display: block;
-    font-size: $font-size-caption;
-    color: $text-tertiary;
-    margin-bottom: 2rpx;
-  }
-
-  .info-sub-value {
-    font-size: $font-size-caption;
-    color: $text-secondary;
-  }
-}
-
-// 单行内联展示
-.info-sub-inline {
-  display: flex;
-  align-items: center;
-  gap: $space-xs;
-  flex-shrink: 0;
-
-  .info-sub-label {
-    font-size: $font-size-caption;
-    color: $text-tertiary;
-  }
-
-  .info-sub-value {
-    font-size: $font-size-caption;
-    color: $text-secondary;
-  }
-}
-
-// 虚线分隔
-.card-divider {
-  height: 1rpx;
-  background: repeating-linear-gradient(
-    to right,
-    $border-light 0,
-    $border-light 6rpx,
-    transparent 6rpx,
-    transparent 12rpx
-  );
-  margin: $space-sm 0;
-}
-
-.info-unlimited {
-  font-size: $font-size-body_sm;
-  color: #4caf50;
-  font-weight: $font-weight-medium;
-}
-
-// 底部状态栏
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.footer-left {
-  .status-text {
-    font-size: $font-size-body_sm;
-    font-weight: $font-weight-medium;
-  }
-
-  .text-active {
-    color: $primary-solid;
-  }
-
-  .text-inactive {
-    color: $text-secondary;
-  }
-
-  .text-expired {
-    color: $text-disabled;
-  }
-
-  .text-frozen {
-    color: $accent-solid;
-  }
-}
-
-.footer-right {
-  display: flex;
-  align-items: center;
-}
-
-.activate-area {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4rpx;
-}
-
-.activate-btn {
-  padding: 8rpx $space-md;
-  font-size: $font-size-caption;
-  color: $primary-solid;
-  background: transparent;
-  border: 1rpx solid $primary-solid;
-  border-radius: $radius-sm;
-  line-height: 1.5;
-
-  &::after {
-    border: none;
-  }
-
-  &:active {
-    background: rgba($primary-solid, 0.05);
-  }
-}
-
-.activate-btn-disabled {
-  color: $text-muted;
-  border-color: rgba(184, 160, 136, 0.2);
-  background: rgba($text-muted, 0.05);
-
-  &:active {
-    background: rgba($text-muted, 0.05);
-  }
-}
-
-.block-hint {
-  font-size: 20rpx;
-  color: $text-muted;
-  line-height: 1.4;
-}
-
-.frozen-text {
-  font-size: $font-size-caption;
-  color: $text-secondary;
 }
 </style>

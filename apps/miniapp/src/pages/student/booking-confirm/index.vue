@@ -17,70 +17,76 @@
         <!-- 课程信息卡片 -->
         <view class="info-card">
           <view class="card-header">
-            <text class="card-label">课程信息</text>
+            <view class="header-left">
+              <view class="header-icon">
+                <AppIcon name="book" :size="32" color="#fff" />
+              </view>
+              <text class="card-label">课程信息</text>
+              <view class="header-line"></view>
+            </view>
           </view>
           <view class="card-body">
-            <text class="course-name">{{
-              schedule.course_name || "未知课程"
-            }}</text>
-            <view class="info-row">
-              <text class="info-icon">📅</text>
-              <text class="info-text">{{ formatDate(schedule.start_at) }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-icon">⏰</text>
-              <text class="info-text"
-                >{{ formatTime(schedule.start_at) }} -
-                {{ formatTime(schedule.end_at) }}</text
-              >
-            </view>
-            <view class="info-row">
-              <text class="info-icon">📍</text>
-              <text class="info-text">{{
-                schedule.classroom_name || "未安排教室"
-              }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-icon">👨‍🏫</text>
-              <text class="info-text">{{
-                schedule.teacher_name || "未知"
-              }}</text>
-            </view>
-            <view class="info-row">
-              <text class="info-icon">👥</text>
-              <text class="info-text"
-                >剩余 {{ schedule.capacity - schedule.booked_count }}/{{
-                  schedule.capacity
-                }}
-                人</text
-              >
+            <view class="course-info-main">
+              <view class="course-left">
+                <text class="course-name">{{
+                  schedule.course_name || "未知课程"
+                }}</text>
+                <view class="info-row">
+                  <AppIcon name="calendar" :size="32" color="#b8956a" />
+                  <text class="info-text">{{
+                    formatDate(schedule.start_at)
+                  }}</text>
+                </view>
+                <view class="info-row">
+                  <AppIcon name="clock" :size="32" color="#b8956a" />
+                  <text class="info-text"
+                    >{{ formatTime(schedule.start_at) }} -
+                    {{ formatTime(schedule.end_at) }}</text
+                  >
+                </view>
+                <view class="info-row">
+                  <AppIcon name="location" :size="32" color="#b8956a" />
+                  <text class="info-text">{{
+                    schedule.classroom_name || "未安排教室"
+                  }}</text>
+                </view>
+                <view class="info-row">
+                  <AppIcon name="user" :size="32" color="#b8956a" />
+                  <text class="info-text">{{
+                    schedule.teacher_name || "未知"
+                  }}</text>
+                </view>
+                <view class="info-row">
+                  <AppIcon name="people" :size="32" color="#b8956a" />
+                  <text class="info-text"
+                    >剩余 {{ schedule.capacity - schedule.booked_count }}/{{
+                      schedule.capacity
+                    }}
+                    人</text
+                  >
+                </view>
+              </view>
             </view>
           </view>
         </view>
 
-        <!-- 会员卡信息卡片 -->
-        <view class="card-card">
+        <!-- 使用会员卡 -->
+        <view class="use-card-card">
           <view class="card-header">
-            <text class="card-label">使用会员卡</text>
-            <view
-              v-if="availableCards.length > 1"
-              class="switch-btn"
-              @tap="showCardSelector = true"
-            >
-              <text class="switch-text">切换</text>
-              <text class="switch-icon">›</text>
+            <view class="header-left">
+              <view class="header-icon">
+                <AppIcon name="card" :size="32" color="#fff" />
+              </view>
+              <text class="card-label">使用会员卡</text>
+              <view class="header-line"></view>
             </view>
           </view>
           <view class="card-body">
-            <view class="selected-card-info">
-              <view
-                class="card-icon-wrapper"
-                :class="'card-type-' + selectedCard?.card_type"
-              >
-                <text class="card-icon">{{
-                  getCardIcon(selectedCard?.card_type)
-                }}</text>
-              </view>
+            <view
+              v-if="selectedCard"
+              class="selected-card-info"
+              @tap="handleOpenCardSelector"
+            >
               <view class="card-details">
                 <text class="card-name">{{
                   selectedCard?.product_name ||
@@ -93,11 +99,14 @@
                   getCardApplicableText(selectedCard)
                 }}</text>
               </view>
-              <view
-                class="card-type-badge"
-                :class="'type-' + selectedCard?.card_type"
-              >
-                <text>{{ getCardTypeText(selectedCard?.card_type) }}</text>
+              <view class="card-right">
+                <view
+                  class="card-type-badge"
+                  :class="'type-' + selectedCard?.card_type"
+                >
+                  <text>{{ getCardTypeText(selectedCard?.card_type) }}</text>
+                </view>
+                <AppIcon name="arrow-right" :size="24" color="#b8956a" />
               </view>
             </view>
           </view>
@@ -105,22 +114,28 @@
 
         <!-- 注意事项 -->
         <view class="notice-card">
-          <view class="notice-header">
-            <text class="notice-title">注意事项</text>
+          <view class="card-header">
+            <view class="header-left">
+              <view class="header-icon">
+                <AppIcon name="alert" :size="32" color="#fff" />
+              </view>
+              <text class="card-label">注意事项</text>
+              <view class="header-line"></view>
+            </view>
           </view>
           <view class="notice-list">
             <view class="notice-item">
-              <text class="notice-dot">•</text>
+              <text class="notice-diamond">◆</text>
               <text class="notice-text"
                 >开课前{{ cancelMinutes }}分钟内不可取消预约</text
               >
             </view>
             <view class="notice-item">
-              <text class="notice-dot">•</text>
+              <text class="notice-diamond">◆</text>
               <text class="notice-text">请准时到达教室，迟到可能影响上课</text>
             </view>
             <view class="notice-item">
-              <text class="notice-dot">•</text>
+              <text class="notice-diamond">◆</text>
               <text class="notice-text">如需取消请提前在"我的预约"中操作</text>
             </view>
           </view>
@@ -219,10 +234,16 @@
 </template>
 
 <script setup lang="ts">
-import { bookingApi, courseTypeApi, membershipApi, scheduleApi } from "@/api";
+import {
+  bookingApi,
+  courseTypeApi,
+  membershipApi,
+  scheduleApi,
+  tenantApi,
+} from "@/api";
+import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import { checkLogin } from "@/utils/auth";
-import { formatTime } from "@/utils/date";
 import { computed, onMounted, ref } from "vue";
 
 const scheduleId = ref<number>(0);
@@ -327,6 +348,25 @@ const formatDate = (dateStr: string) => {
   return `${month}-${day} ${weekDay}`;
 };
 
+// 格式化时间
+const formatTime = (dateStr: string) => {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+// 格式化完整日期
+const formatDateFull = (dateStr: string) => {
+  if (!dateStr) return "-";
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // 获取会员卡类型文本
 const getCardTypeText = (cardType: string) => {
   const typeMap: Record<string, string> = {
@@ -414,6 +454,11 @@ const handleCardSelect = (card: any) => {
     return;
   }
   selectedCardId.value = card.id;
+};
+
+// 打开会员卡选择器
+const handleOpenCardSelector = () => {
+  showCardSelector.value = true;
 };
 
 // 智能匹配默认选中的会员卡
@@ -609,7 +654,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: $bg-primary;
+  background: linear-gradient(180deg, #faf6f0 0%, #f5efe6 100%);
 }
 
 .confirm-scroll {
@@ -634,165 +679,143 @@ onMounted(async () => {
   padding-bottom: calc($space-xl + 120rpx);
 }
 
-// 信息卡片
+// 卡片通用样式
 .info-card,
-.card-card,
-.deduction-card,
+.use-card-card,
 .notice-card {
-  background: $bg-elevated;
-  border-radius: $radius-lg;
+  background: #fff;
+  border-radius: 24rpx;
   margin-bottom: $space-md;
-  box-shadow: $shadow-card;
+  box-shadow: 0 4rpx 20rpx rgba(201, 166, 107, 0.08);
   overflow: hidden;
+  position: relative;
 }
 
+// 卡片头部
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $space-sm $space-md;
-  border-bottom: 1rpx solid $divider-color;
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid rgba(201, 166, 107, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.header-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4b896, #c9a66b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-label {
-  font-size: $font-size-body;
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #5a4a3a;
+}
+
+.header-line {
+  width: 40rpx;
+  height: 2rpx;
+  background: linear-gradient(90deg, #c9a66b, transparent);
+  margin-left: 8rpx;
 }
 
 .card-body {
-  padding: $space-md;
+  padding: 24rpx 28rpx;
 }
 
-// 课程信息
+// 课程信息卡片
+.course-info-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.course-left {
+  width: 100%;
+}
+
 .course-name {
-  font-size: $font-size-h4;
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #5a4a3a;
   display: block;
-  margin-bottom: $space-sm;
+  margin-bottom: 20rpx;
 }
 
 .info-row {
   display: flex;
   align-items: center;
-  gap: $space-xs;
-  margin-bottom: $space-xs;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
 
   &:last-child {
     margin-bottom: 0;
   }
 }
 
-.info-icon {
-  font-size: $font-size-body;
-  width: 32rpx;
-  text-align: center;
-}
-
 .info-text {
-  font-size: $font-size-body_sm;
-  color: $text-secondary;
+  font-size: 26rpx;
+  color: #8a7a6a;
 }
 
-// 切换按钮
-.switch-btn {
-  display: flex;
-  align-items: center;
-  gap: 4rpx;
-  padding: 8rpx 16rpx;
-  border-radius: $radius-full;
-  background: $primary-bg;
-
-  &:active {
-    opacity: 0.8;
+// 使用会员卡卡片
+.use-card-card {
+  .card-body {
+    padding: 20rpx 28rpx;
   }
 }
 
-.switch-text {
-  font-size: $font-size-caption;
-  color: $primary-solid;
-  font-weight: $font-weight-medium;
-}
-
-.switch-icon {
-  font-size: $font-size-caption;
-  color: $primary-solid;
-}
-
-// 选中卡片信息
 .selected-card-info {
   display: flex;
   align-items: center;
-  gap: $space-sm;
-}
-
-.card-icon-wrapper {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: $radius-md;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  &.card-type-count {
-    background: linear-gradient(
-      135deg,
-      rgba(255, 236, 210, 0.4),
-      rgba(252, 182, 159, 0.4)
-    );
-  }
-
-  &.card-type-period {
-    background: linear-gradient(
-      135deg,
-      rgba(168, 237, 234, 0.4),
-      rgba(254, 214, 227, 0.4)
-    );
-  }
-
-  &.card-type-unlimited {
-    background: linear-gradient(
-      135deg,
-      rgba(210, 153, 194, 0.4),
-      rgba(254, 249, 215, 0.4)
-    );
-  }
-}
-
-.card-icon {
-  font-size: 40rpx;
+  gap: 16rpx;
 }
 
 .card-details {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
 }
 
 .card-name {
-  font-size: $font-size-body;
-  font-weight: $font-weight-medium;
-  color: $text-primary;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #5a4a3a;
 }
 
 .card-remaining {
-  font-size: $font-size-caption;
-  color: $text-secondary;
+  font-size: 24rpx;
+  color: #8a7a6a;
 }
 
 .card-applicable {
-  font-size: $font-size-tiny;
-  color: $text-tertiary;
+  font-size: 22rpx;
+  color: #a09080;
+}
+
+.card-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
 }
 
 .card-type-badge {
-  padding: 6rpx 20rpx;
-  border-radius: $radius-full;
-  font-size: $font-size-tiny;
-  font-weight: $font-weight-medium;
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 500;
   flex-shrink: 0;
 
   &.type-count {
@@ -823,81 +846,33 @@ onMounted(async () => {
   }
 }
 
-// 扣次提示
-.deduction-card {
-  display: flex;
-  align-items: flex-start;
-  gap: $space-sm;
-  padding: $space-md;
-  background: $warning-bg;
-  border: 1rpx solid $warning-border;
-}
-
-.deduction-icon {
-  font-size: 36rpx;
-  flex-shrink: 0;
-  margin-top: 2rpx;
-}
-
-.deduction-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.deduction-text {
-  font-size: $font-size-body_sm;
-  color: $warning-color;
-}
-
-.deduction-highlight {
-  font-weight: $font-weight-semibold;
-  font-size: $font-size-body;
-}
-
-.deduction-remaining {
-  font-size: $font-size-caption;
-  color: $text-secondary;
-}
-
 // 注意事项
-.notice-header {
-  padding: $space-sm $space-md;
-  border-bottom: 1rpx solid $divider-color;
-}
-
-.notice-title {
-  font-size: $font-size-body;
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
-}
-
 .notice-list {
-  padding: $space-md;
+  padding: 20rpx 28rpx;
 }
 
 .notice-item {
   display: flex;
   align-items: flex-start;
-  gap: $space-xs;
-  margin-bottom: $space-xs;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
 
   &:last-child {
     margin-bottom: 0;
   }
 }
 
-.notice-dot {
-  font-size: $font-size-body;
-  color: $text-tertiary;
-  line-height: 1.5;
+.notice-diamond {
+  font-size: 20rpx;
+  color: #c9a66b;
+  line-height: 1.6;
+  flex-shrink: 0;
 }
 
 .notice-text {
-  font-size: $font-size-caption;
-  color: $text-secondary;
-  line-height: 1.5;
+  font-size: 24rpx;
+  color: #8a7a6a;
+  line-height: 1.6;
 }
 
 // 底部操作栏
@@ -909,22 +884,22 @@ onMounted(async () => {
   display: flex;
   gap: $space-sm;
   padding: $space-sm $space-md;
-  background: $bg-elevated;
-  border-top: 1rpx solid $divider-color;
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+  background: #fff;
+  border-top: 1rpx solid rgba(201, 166, 107, 0.1);
+  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.05);
 }
 
 .action-btn {
   flex: 1;
   height: 88rpx;
-  border-radius: $radius-2xl;
+  border-radius: 44rpx;
   border: none;
-  font-size: $font-size-body;
-  font-weight: $font-weight-medium;
+  font-size: 30rpx;
+  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all $duration-fast $ease-standard;
+  transition: all 0.2s ease;
 
   &::after {
     border: none;
@@ -936,18 +911,18 @@ onMounted(async () => {
 }
 
 .cancel-btn {
-  background: $bg-tertiary;
-  color: $text-secondary;
+  background: #f5efe6;
+  color: #8a7a6a;
 }
 
 .confirm-btn {
-  background: $primary-gradient;
+  background: linear-gradient(180deg, #d4b896, #c9a66b);
   color: #fff;
-  box-shadow: $shadow-button;
+  box-shadow: 0 4rpx 16rpx rgba(201, 166, 107, 0.3);
 
   &[disabled] {
-    background: $bg-tertiary;
-    color: $text-disabled;
+    background: #f5efe6;
+    color: #c0b0a0;
     box-shadow: none;
   }
 }
@@ -959,7 +934,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: $bg-overlay;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
   display: flex;
   align-items: flex-end;
@@ -970,10 +945,10 @@ onMounted(async () => {
 .card-selector-popup {
   width: 100%;
   max-height: 70vh;
-  background: $bg-elevated;
-  border-radius: $radius-3xl $radius-3xl 0 0;
-  padding: $space-lg $space-md;
-  padding-bottom: calc($space-lg + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx 28rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
   animation: slideUp 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
   display: flex;
   flex-direction: column;
@@ -983,13 +958,13 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $space-md;
+  margin-bottom: 24rpx;
 }
 
 .selector-title {
-  font-size: $font-size-h4;
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #5a4a3a;
 }
 
 .selector-close {
@@ -998,50 +973,50 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: $radius-full;
-  background: $bg-tertiary;
+  border-radius: 50%;
+  background: #f5efe6;
 
   &:active {
-    background: $bg-secondary;
+    background: #ebe5da;
   }
 }
 
 .close-icon {
   font-size: 40rpx;
-  color: $text-secondary;
+  color: #8a7a6a;
   line-height: 1;
 }
 
 .card-list-scroll {
   flex: 1;
   max-height: 500rpx;
-  margin-bottom: $space-md;
+  margin-bottom: 24rpx;
 }
 
 .card-option {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $space-sm $space-md;
-  margin-bottom: $space-xs;
-  border-radius: $radius-md;
-  border: 2rpx solid $border-subtle;
-  background: $bg-elevated;
-  transition: all $duration-fast $ease-standard;
+  padding: 20rpx 24rpx;
+  margin-bottom: 16rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid #ebe5da;
+  background: #fff;
+  transition: all 0.2s ease;
 
   &:active {
     transform: scale(0.98);
   }
 
   &.card-selected {
-    border-color: $primary-solid;
-    background: $primary-bg;
+    border-color: #c9a66b;
+    background: rgba(201, 166, 107, 0.08);
   }
 
   &.card-disabled {
     opacity: 0.5;
-    background: $bg-tertiary;
-    border-color: $border-light;
+    background: #f5efe6;
+    border-color: #ebe5da;
 
     &:active {
       transform: none;
@@ -1052,65 +1027,65 @@ onMounted(async () => {
 .card-option-left {
   display: flex;
   align-items: center;
-  gap: $space-sm;
+  gap: 16rpx;
   flex: 1;
 }
 
 .card-radio {
   width: 36rpx;
   height: 36rpx;
-  border-radius: $radius-full;
-  border: 2rpx solid $border-normal;
+  border-radius: 50%;
+  border: 2rpx solid #d0c0b0;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all $duration-fast $ease-standard;
+  transition: all 0.2s ease;
 
   &.radio-checked {
-    border-color: $primary-solid;
-    background: $primary-solid;
+    border-color: #c9a66b;
+    background: #c9a66b;
   }
 
   &.radio-disabled {
-    border-color: $border-light;
-    background: $bg-tertiary;
+    border-color: #e0d5c5;
+    background: #f5efe6;
   }
 }
 
 .radio-dot {
   width: 16rpx;
   height: 16rpx;
-  border-radius: $radius-full;
+  border-radius: 50%;
   background: #fff;
 }
 
 .card-option-info {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
 }
 
 .card-option-name {
-  font-size: $font-size-body;
-  font-weight: $font-weight-medium;
-  color: $text-primary;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #5a4a3a;
 }
 
 .card-option-remaining {
-  font-size: $font-size-caption;
-  color: $text-secondary;
+  font-size: 24rpx;
+  color: #8a7a6a;
 }
 
 .card-option-applicable {
-  font-size: $font-size-tiny;
-  color: $text-tertiary;
+  font-size: 22rpx;
+  color: #a09080;
 }
 
 .card-option-reason {
-  font-size: $font-size-tiny;
-  color: $error-color;
-  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #e74c3c;
+  margin-top: 6rpx;
 }
 
 .card-option-type {
@@ -1118,10 +1093,10 @@ onMounted(async () => {
 }
 
 .type-badge {
-  padding: 4rpx 16rpx;
-  border-radius: $radius-full;
-  font-size: $font-size-tiny;
-  font-weight: $font-weight-medium;
+  padding: 6rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 500;
 
   &.type-count {
     background: linear-gradient(
@@ -1152,20 +1127,20 @@ onMounted(async () => {
 }
 
 .selector-footer {
-  padding-top: $space-sm;
-  border-top: 1rpx solid $divider-color;
+  padding-top: 16rpx;
+  border-top: 1rpx solid rgba(201, 166, 107, 0.1);
 }
 
 .confirm-btn-small {
   width: 100%;
   height: 88rpx;
-  border-radius: $radius-2xl;
+  border-radius: 44rpx;
   border: none;
-  background: $primary-gradient;
+  background: linear-gradient(180deg, #d4b896, #c9a66b);
   color: #fff;
-  font-size: $font-size-body;
-  font-weight: $font-weight-medium;
-  box-shadow: $shadow-button;
+  font-size: 30rpx;
+  font-weight: 500;
+  box-shadow: 0 4rpx 16rpx rgba(201, 166, 107, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1177,8 +1152,8 @@ onMounted(async () => {
   }
 
   &[disabled] {
-    background: $bg-tertiary;
-    color: $text-disabled;
+    background: #f5efe6;
+    color: #c0b0a0;
     box-shadow: none;
   }
 

@@ -109,8 +109,13 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         start_at: datetime,
         end_at: datetime,
         exclude_id: int | None = None,
+        use_lock: bool = False,
     ) -> dict:
         """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）
+
+        Args:
+            use_lock: 是否使用行级锁(SELECT FOR UPDATE)防止并发冲突
+                     创建排期时应设置为True,确保事务隔离
 
         Returns:
             dict: {
@@ -141,6 +146,8 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
             classroom_query = select(CourseSchedule).where(
                 and_(*conditions, CourseSchedule.classroom_id == classroom_id)
             )
+            if use_lock:
+                classroom_query = classroom_query.with_for_update(skip_locked=True)
             result = await db.execute(classroom_query)
             classroom_conflicts = list(result.scalars().all())
 
@@ -148,6 +155,8 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
             teacher_query = select(CourseSchedule).where(
                 and_(*conditions, CourseSchedule.teacher_id == teacher_id)
             )
+            if use_lock:
+                teacher_query = teacher_query.with_for_update(skip_locked=True)
             result = await db.execute(teacher_query)
             teacher_conflicts = list(result.scalars().all())
 

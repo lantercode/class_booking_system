@@ -56,7 +56,7 @@
       <div class="category-section" v-if="course.category || course.level">
         <h3>课程信息</h3>
         <div class="category-tags">
-          <el-tag v-if="course.category" type="primary" effect="plain">{{ course.category }}</el-tag>
+          <el-tag v-if="course.category_name || course.category" type="primary" effect="plain">{{ course.category_name || course.category }}</el-tag>
           <el-tag v-if="course.level" type="success" effect="plain">{{ course.level }}</el-tag>
         </div>
       </div>
@@ -99,6 +99,7 @@ interface CourseView {
   cover: string
   description: string
   category: string
+  category_name: string
   level: string
   difficulty: string
   duration: number
@@ -142,6 +143,7 @@ onMounted(async () => {
       cover: c.cover_url || COVER_PLACEHOLDER,
       description: c.description || '',
       category: c.category || '',
+      category_name: (c as any).category_name || '',
       level: c.level || '',
       difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
       duration: c.duration_minutes,

@@ -25,20 +25,83 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+async def _expire_cards_in_transaction(db, now: datetime):
+    """
+    内部辅助函数：在事务中处理过期卡
+
+    用于在激活任务执行前先标记过期卡，确保状态正确。
+    这是生产级的防御性编程，避免依赖外部定时任务的执行顺序。
+    """
+    from app.modules.membership.models import CardType
+
+    result = await db.execute(
+        select(MembershipCard).where(
+            MembershipCard.expire_at < now,
+            MembershipCard.status == CardStatus.ACTIVE.value,
+            MembershipCard.expire_at.isnot(None),
+        )
+    )
+    expired_cards = result.scalars().all()
+
+    if not expired_cards:
+        return
+
+    for card in expired_cards:
+        remaining = (card.total_credits or 0) - card.used_credits
+
+        # 对于次卡，如果有剩余次数，先清零
+        if card.card_type == CardType.COUNT.value and remaining > 0:
+            clear_txn = MembershipCardTransaction(
+                tenant_id=card.tenant_id,
+                card_id=card.id,
+                operation_type=TransactionType.EXPIRE.value,
+                change_amount=-remaining,
+                balance_after=0,
+                remark=f"会员卡到期，剩余{remaining}次自动清零",
+            )
+            db.add(clear_txn)
+            card.used_credits = card.total_credits
+
+        # 更新状态为已过期
+        card.status = CardStatus.EXPIRED.value
+
+        # 记录过期流水
+        if remaining == 0:
+            txn = MembershipCardTransaction(
+                tenant_id=card.tenant_id,
+                card_id=card.id,
+                operation_type=TransactionType.EXPIRE.value,
+                change_amount=0,
+                balance_after=0,
+                remark="会员卡自动过期",
+            )
+            db.add(txn)
+
+    # 【关键】刷新到数据库，确保后续查询能看到最新状态
+    await db.flush()
+    logger.info(f"[激活任务] 预处理: 标记 {len(expired_cards)} 个会员卡为已过期")
+
+
 async def auto_activate_membership_cards():
     """
     自动激活已到生效时间但未激活的会员卡
 
     执行逻辑:
-    1. 找到 valid_from <= now 且 status=PENDING 的会员卡
-    2. 将状态改为 ACTIVE
-    3. 计算 expire_at（如果有有效天数）
-    4. 记录激活流水
+    1. 【关键】先执行过期处理，确保卡状态正确（防止误判冲突）
+    2. 找到 valid_from <= now 且 status=PENDING 的会员卡
+    3. 检查是否有同课程类型且时间重叠的有效卡
+    4. 将状态改为 ACTIVE
+    5. 计算 expire_at（如果有有效天数）
+    6. 记录激活流水
     """
     from datetime import timedelta
 
     async with SessionLocal() as db:
         now = datetime.now(UTC)
+
+        # 【生产级优化】先执行过期处理，确保状态正确
+        # 这样可以避免已过期但状态仍为ACTIVE的卡被误判为冲突
+        await _expire_cards_in_transaction(db, now)
 
         result = await db.execute(
             select(MembershipCard).where(
@@ -70,6 +133,10 @@ async def auto_activate_membership_cards():
 
             if new_card_course_type:
                 for existing_card_dict in all_existing_cards:
+                    # 【关键】跳过当前正在处理的卡本身,避免"自己与自己冲突"
+                    if existing_card_dict.get("id") == card.id:
+                        continue
+
                     existing_course_type = existing_card_dict.get("applicable_course_type_code")
                     # 如果课程类型相同
                     if existing_course_type == new_card_course_type:
@@ -100,12 +167,27 @@ async def auto_activate_membership_cards():
 
             # 如果有有效天数，计算到期时间
             if card.product_id:
-                from app.modules.membership.repository import MembershipCardProductRepository
+                from app.modules.membership.models import MembershipCardProduct
 
-                product_repo = MembershipCardProductRepository()
-                product = await product_repo.get_by_id(db, card.product_id)
+                product_result = await db.execute(
+                    select(MembershipCardProduct).where(
+                        MembershipCardProduct.id == card.product_id,
+                        MembershipCardProduct.tenant_id == card.tenant_id,
+                    )
+                )
+                product = product_result.scalars().first()
                 if product and product.validity_days:
-                    card.expire_at = card.valid_from + timedelta(days=product.validity_days)
+                    # 使用与 service.py 相同的计算逻辑：起始日期算作第1天
+                    expire_date = card.valid_from.date() + timedelta(days=product.validity_days - 1)
+                    card.expire_at = datetime(
+                        year=expire_date.year,
+                        month=expire_date.month,
+                        day=expire_date.day,
+                        hour=23,
+                        minute=59,
+                        second=59,
+                        tzinfo=card.valid_from.tzinfo or UTC,
+                    )
 
             txn = MembershipCardTransaction(
                 tenant_id=card.tenant_id,

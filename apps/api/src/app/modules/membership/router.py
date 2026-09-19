@@ -249,10 +249,10 @@ async def get_my_cards(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """获取当前学员的有效会员卡（学员端专用）"""
+    """获取当前学员的所有会员卡（学员端专用，包含已过期、已作废）"""
     tenant_id = current_user.get("tenant_id")
     student_id = current_user.get("user_id")
-    result = await membership_card_service.get_student_active_cards(db, student_id, tenant_id)
+    result = await membership_card_service.get_student_all_cards(db, student_id, tenant_id)
     items = [MembershipCardResponse.model_validate(c) for c in result]
     return success(data=items)
 
@@ -336,6 +336,21 @@ async def activate_card(
     await db.commit()
     await db.refresh(result)
     return success(data=MembershipCardResponse.model_validate(result), msg="会员卡已激活")
+
+
+@router.post("/cards/{card_id}/student-unfreeze", response_model=dict, summary="学员提前解冻会员卡")
+async def student_unfreeze_card(
+    card_id: int = Path(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """学员提前解冻已到期的冻结会员卡"""
+    tenant_id = current_user.get("tenant_id")
+    student_id = current_user.get("user_id")
+    result = await membership_card_service.student_unfreeze_card(db, card_id, tenant_id, student_id)
+    await db.commit()
+    await db.refresh(result)
+    return success(data=MembershipCardResponse.model_validate(result), msg="会员卡已解冻")
 
 
 @router.post("/cards/{card_id}/admin-activate", response_model=dict, summary="管理员激活会员卡")

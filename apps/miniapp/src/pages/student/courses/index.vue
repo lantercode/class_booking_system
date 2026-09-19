@@ -45,7 +45,10 @@
       </view>
 
       <!-- 师资团队 -->
-      <view class="teachers-section">
+      <view
+        v-if="teachers.length > 0 && !teachersLoading"
+        class="teachers-section"
+      >
         <view class="section-header">
           <view class="section-title">
             <text class="title-icon"></text>
@@ -53,18 +56,8 @@
           </view>
         </view>
 
-        <!-- 加载状态 -->
-        <view v-if="teachersLoading" class="teachers-loading">
-          <AppLoading type="skeleton" />
-        </view>
-
         <!-- 教师列表 - 横向滚动 -->
-        <scroll-view
-          v-else-if="teachers.length > 0"
-          class="teachers-scroll"
-          scroll-x
-          :show-scrollbar="false"
-        >
+        <scroll-view class="teachers-scroll" scroll-x :show-scrollbar="false">
           <view class="teachers-list">
             <view
               v-for="teacher in teachers"
@@ -99,7 +92,10 @@
       </view>
 
       <!-- 推荐课程 -->
-      <view class="courses-section">
+      <view
+        v-if="courses.length > 0 || (loading && courses.length === 0)"
+        class="courses-section"
+      >
         <view class="section-header">
           <view class="section-title">
             <text class="title-icon"></text>
@@ -160,7 +156,7 @@
         </view>
 
         <!-- 舞蹈视频区域 -->
-        <view class="videos-section">
+        <view v-if="videos.length > 0" class="videos-section">
           <view class="section-header">
             <view class="section-title">
               <text class="title-icon"></text>

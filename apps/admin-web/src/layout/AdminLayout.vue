@@ -120,7 +120,6 @@ import {
   Fold,
   Key,
   Management,
-  Odometer,
   OfficeBuilding,
   Reading,
   Setting,
@@ -144,7 +143,7 @@ const authStore = useAuthStore()
 const isCollapse = ref(false)
 
 const menuItems: MenuItem[] = [
-  { path: '/dashboard', title: '控制台', icon: Odometer },
+  // { path: '/dashboard', title: '控制台', icon: Odometer },
   { path: '/users', title: '用户管理', icon: User },
   { path: '/roles', title: '角色权限', icon: Key },
   { path: '/teachers', title: '教师管理', icon: Avatar },

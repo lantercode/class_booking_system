@@ -75,6 +75,7 @@ class ScheduleService:
             teacher_id=data.teacher_id,
             start_at=data.start_at,
             end_at=data.end_at,
+            use_lock=True,  # 使用行级锁防止并发冲突
         )
         if conflicts["has_conflict"]:
             error_messages = []
@@ -615,7 +616,37 @@ class ScheduleService:
             if data.classroom_id:
                 classroom_ids.add(data.classroom_id)
 
-        # 检查时间冲突
+        # 【新增】检查批量列表内部的排期之间是否有冲突
+        for i in range(len(time_ranges)):
+            for j in range(i + 1, len(time_ranges)):
+                item_i = time_ranges[i]
+                item_j = time_ranges[j]
+
+                # 检查时间是否重叠
+                if item_i["start_at"] < item_j["end_at"] and item_i["end_at"] > item_j["start_at"]:
+                    # 检查教师冲突
+                    if item_i["teacher_id"] == item_j["teacher_id"]:
+                        raise BusinessException(
+                            f"第 {i + 1} 个排期与第 {j + 1} 个排期教师时间冲突 "
+                            f"({item_i['start_at'].strftime('%Y-%m-%d %H:%M')}~"
+                            f"{item_i['end_at'].strftime('%H:%M')})",
+                            code=400,
+                        )
+
+                    # 检查教室冲突
+                    if (
+                        item_i["classroom_id"]
+                        and item_j["classroom_id"]
+                        and item_i["classroom_id"] == item_j["classroom_id"]
+                    ):
+                        raise BusinessException(
+                            f"第 {i + 1} 个排期与第 {j + 1} 个排期教室时间冲突 "
+                            f"({item_i['start_at'].strftime('%Y-%m-%d %H:%M')}~"
+                            f"{item_i['end_at'].strftime('%H:%M')})",
+                            code=400,
+                        )
+
+        # 检查与已有排期的冲突
         for idx, item in enumerate(time_ranges):
             conflicts = await self.repo.find_conflicts(
                 db,
@@ -623,6 +654,7 @@ class ScheduleService:
                 teacher_id=item["teacher_id"],
                 start_at=item["start_at"],
                 end_at=item["end_at"],
+                use_lock=True,  # 使用行级锁防止并发冲突
             )
             if conflicts["has_conflict"]:
                 error_messages = []

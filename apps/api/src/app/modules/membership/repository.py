@@ -4,7 +4,7 @@ Membership Card Repository - 会员卡数据访问层
 提供会员卡相关的数据库操作，继承 TenantAwareRepository 实现自动多租户隔离。
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -134,6 +134,71 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
 
     model_class = MembershipCard
 
+    async def get_all_cards_by_student(
+        self,
+        db: AsyncSession,
+        student_id: int,
+        tenant_id: int,
+    ) -> list[dict]:
+        """获取学员的所有会员卡（包含已过期、已作废）"""
+        from app.modules.membership.models import MembershipCardProduct
+        from app.modules.user.models import User
+
+        query = (
+            select(
+                MembershipCard,
+                User.nickname.label("student_nickname"),
+                User.phone.label("student_phone"),
+                MembershipCardProduct.name.label("product_name"),
+            )
+            .outerjoin(User, MembershipCard.student_id == User.id)
+            .outerjoin(MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id)
+            .where(
+                MembershipCard.student_id == student_id,
+                MembershipCard.tenant_id == tenant_id,
+            )
+            .order_by(MembershipCard.status.asc(), MembershipCard.expire_at.asc())
+        )
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        cards = []
+        for row in rows:
+            card = row[0]
+            card_dict = {
+                "id": card.id,
+                "public_id": card.public_id,
+                "card_no": card.card_no,
+                "student_id": card.student_id,
+                "product_id": card.product_id,
+                "card_type": card.card_type,
+                "total_credits": card.total_credits,
+                "used_credits": card.used_credits,
+                "remaining_credits": (card.total_credits or 0) - card.used_credits
+                if card.total_credits is not None
+                else None,
+                "valid_from": card.valid_from,
+                "expire_at": card.expire_at,
+                "applicable_course_ids": card.applicable_course_ids,
+                "applicable_course_type_code": card.applicable_course_type_code,
+                "max_weekly_usage": card.max_weekly_usage,
+                "status": card.status,
+                "frozen_at": card.frozen_at,
+                "frozen_until": card.frozen_until,
+                "frozen_reason": card.frozen_reason,
+                "cancelled_at": card.cancelled_at,
+                "cancelled_reason": card.cancelled_reason,
+                "created_at": card.created_at,
+                "updated_at": card.updated_at,
+                "student_nickname": row.student_nickname,
+                "student_phone": row.student_phone,
+                "product_name": row.product_name,
+            }
+            cards.append(card_dict)
+
+        return cards
+
     async def get_active_cards_by_student(
         self,
         db: AsyncSession,
@@ -162,6 +227,9 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
                         CardStatus.PENDING.value,  # 待激活
                     ]
                 ),
+                # 排除已过期的卡（expire_at < now 的卡不应被视为有效卡）
+                MembershipCard.expire_at.is_(None)
+                | (MembershipCard.expire_at >= datetime.now(UTC)),
             )
             .order_by(MembershipCard.expire_at.asc())
         )

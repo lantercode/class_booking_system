@@ -14,7 +14,7 @@
       <el-input
         v-model="courseNameFilter"
         placeholder="搜索课程名称"
-        style="width: 180px"
+        style="width: 240px"
         clearable
         @change="handleSearch"
         @clear="handleSearch"
@@ -46,15 +46,17 @@
         <el-option label="已取消" value="cancelled" />
         <el-option label="已完成" value="finished" />
       </el-select>
-      <el-date-picker
-        v-model="dateRange"
-        type="daterange"
-        range-separator="至"
-        start-placeholder="开始日期"
-        end-placeholder="结束日期"
-        class="date-range-picker"
-        @change="handleSearch"
-      />
+      <div style="width: 240px">
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          style="width: 100%"
+          @change="handleSearch"
+        />
+      </div>
     </div>
 
     <el-table
@@ -383,7 +385,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="studentDialogVisible" title="学员列表" width="500px" destroy-on-close>
+    <el-dialog v-model="studentDialogVisible" title="学员" width="500px" destroy-on-close>
       <el-table
         v-loading="studentLoading"
         :data="studentList"
@@ -416,7 +418,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="cancelVisible" title="取消排期" width="500px" destroy-on-close>
+    <el-dialog v-model="cancelVisible" title="取消" width="500px" destroy-on-close>
       <el-alert
         v-if="cancelTarget && cancelTarget.booked_count > 0"
         type="warning"
@@ -457,9 +459,7 @@
 
       <template #footer>
         <el-button @click="cancelVisible = false"> 取消 </el-button>
-        <el-button type="warning" :loading="cancelling" @click="confirmCancel">
-          确认取消
-        </el-button>
+        <el-button type="primary" :loading="cancelling" @click="confirmCancel"> 确认 </el-button>
       </template>
     </el-dialog>
   </div>
@@ -1113,18 +1113,18 @@ onMounted(() => {
   color: #409eff;
 }
 
-.date-range-picker {
-  width: 220px !important;
-  max-width: 220px !important;
+.filter-bar :deep(.el-date-editor--daterange) {
+  width: 240px !important;
+  max-width: 240px !important;
 }
 
-.date-range-picker :deep(.el-range-input) {
-  width: 70px !important;
-  min-width: 70px !important;
+.filter-bar :deep(.el-date-editor--daterange .el-range-input) {
+  width: 60px !important;
+  min-width: 60px !important;
 }
 
-.date-range-picker :deep(.el-range-separator) {
-  width: 20px !important;
+.filter-bar :deep(.el-date-editor--daterange .el-range-separator) {
+  width: 16px !important;
   padding: 0 2px !important;
 }
 </style>

@@ -88,7 +88,7 @@
           </div>
           <div class="card-body">
             <div class="card-tags">
-              <span v-if="course.category" class="tag-chip">{{ course.category }}</span>
+              <span v-if="course.category_name || course.category" class="tag-chip">{{ course.category_name || course.category }}</span>
               <span v-if="course.level" class="tag-chip">{{ course.level }}</span>
             </div>
             <h3 class="card-title">{{ course.name }}</h3>
@@ -136,6 +136,7 @@ interface CourseView {
   cover: string
   description: string
   category: string
+  category_name: string
   level: string
   difficulty: string
   duration: number
@@ -158,6 +159,7 @@ function mapCourse(c: Course): CourseView {
     cover: c.cover_url || COVER_PLACEHOLDER,
     description: c.description || '',
     category: c.category || '',
+    category_name: (c as any).category_name || '',
     level: c.level || '',
     difficulty: LEVEL_MAP[c.level || ''] || 'beginner',
     duration: c.duration_minutes,

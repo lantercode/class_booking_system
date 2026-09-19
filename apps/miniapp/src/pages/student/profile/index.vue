@@ -27,7 +27,7 @@
           <view class="user-role-row">
             <text class="user-role">学员</text>
             <text class="role-divider">·</text>
-            <text class="membership-level">{{ getMembershipLevel() }}</text>
+            <text class="membership-level">{{ getUserPhone() }}</text>
           </view>
           <view class="membership-badge">
             <AppIcon name="crown" :size="28" color="#c9a66b" />
@@ -167,6 +167,12 @@ const getMembershipLevel = () => {
 const getUserInitial = () => {
   const nickname = userInfo.value?.nickname || "学员";
   return nickname.charAt(0).toUpperCase();
+};
+
+const getUserPhone = () => {
+  const phone = userInfo.value?.phone || "";
+  if (!phone || phone.length !== 11) return phone || "未绑定手机";
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
 };
 
 const handleLogout = () => {

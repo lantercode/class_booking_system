@@ -25,6 +25,7 @@ services:
       redis:
         condition: service_healthy  # ✅ 等 Redis 就绪再启动 API
     environment:
+      - DATABASE_URL=postgresql+asyncpg://dance:dance_dev_pass@postgres:5432/dance_saas
       - REDIS_URL=redis://redis:6379/0  # 使用 Docker 内部网络
 
   redis:
