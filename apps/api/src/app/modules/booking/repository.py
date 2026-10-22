@@ -418,6 +418,56 @@ class BookingRepository(TenantAwareRepository[Booking]):
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
+    async def list_affected_by_card(
+        self,
+        db: AsyncSession,
+        card_id: int,
+        tenant_id: int,
+        *,
+        now: datetime,
+        page: int,
+        page_size: int,
+    ) -> tuple[int, list[Booking]]:
+        """按卡查询「受影响预约」总数与明细分页（F6.7，只读）
+
+        口径（K1 / R-1）：``membership_card_id = card_id``
+        AND ``status IN (BOOKED, CHECKED_IN)``
+        AND 排期 ``start_at > now``（严格大于，已开始即排除）。
+        排序（R-10）：``start_at ASC, booking.id ASC``（稳定次序）。
+        JOIN 场景下显式叠加 tenant_id 谓词（与 find_overlapping_active_booking
+        同风格，不依赖 ORM 自动注入）。
+        """
+        conditions = [
+            Booking.membership_card_id == card_id,
+            Booking.tenant_id == tenant_id,
+            Booking.status.in_(
+                [BookingStatus.BOOKED.value, BookingStatus.CHECKED_IN.value]
+            ),
+            CourseSchedule.start_at > now,
+        ]
+
+        count_query = (
+            select(func.count())
+            .select_from(Booking)
+            .join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
+            .where(and_(*conditions))
+        )
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+
+        query = (
+            select(Booking)
+            .join(CourseSchedule, Booking.schedule_id == CourseSchedule.id)
+            .where(and_(*conditions))
+            .order_by(CourseSchedule.start_at.asc(), Booking.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        result = await db.execute(query)
+        items = list(result.scalars().all())
+
+        return total, items
+
 
 class BookingRescheduleRepository(TenantAwareRepository[BookingReschedule]):
     """改期 / 改派审计与幂等记录的数据访问层。

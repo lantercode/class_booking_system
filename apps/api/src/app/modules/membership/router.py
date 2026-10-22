@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.rbac import require_roles
 from app.core.response import success
-from app.deps.auth import get_current_user
+from app.deps.auth import get_current_user, get_redis_client
+from app.modules.booking.router import booking_service
 from app.modules.membership.schemas import (
     MembershipCardBatchCancelRequest,
     MembershipCardCancelRequest,
@@ -286,6 +287,36 @@ async def get_card(
     tenant_id = current_user.get("tenant_id")
     result = await membership_card_service.get_card(db, card_id, tenant_id)
     return success(data=MembershipCardResponse.model_validate(result))
+
+
+@router.get(
+    "/cards/{card_id}/affected-bookings",
+    response_model=dict,
+    summary="查询会员卡的受影响预约（F6.7）",
+)
+async def get_card_affected_bookings(
+    card_id: int = Path(..., ge=1),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量（上限100）"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+    redis_client=Depends(get_redis_client),
+):
+    """查询会员卡失效时的受影响预约（admin 查本租户任意卡；学员仅本人卡）。
+
+    混合角色端点：不挂角色装饰器，归属校验在 Service 层强制
+    （BookingService.get_affected_bookings_by_card）。只读，不开事务。
+    """
+    result = await booking_service.get_affected_bookings_by_card(
+        db,
+        card_id=card_id,
+        tenant_id=current_user.get("tenant_id"),
+        requester_user_id=current_user.get("user_id"),
+        redis_client=redis_client,
+        page=page,
+        page_size=page_size,
+    )
+    return success(data=result)
 
 
 @router.post("/cards/{card_id}/freeze", response_model=dict, summary="冻结会员卡")

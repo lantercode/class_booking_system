@@ -47,11 +47,21 @@
       </el-select>
     </div>
 
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载会员卡列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchCards">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
     <el-table
+      v-else
       v-loading="loading"
       :data="cards"
       stripe
       style="width: 100%"
+      empty-text="暂无数据"
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" :selectable="checkSelectable" />
@@ -94,30 +104,47 @@
           {{ row.card_type === 'count' ? row.remaining_credits : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="80">
+      <el-table-column prop="status" label="状态" width="120">
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)" size="small">
             {{ getStatusText(row.status) }}
           </el-tag>
+          <!-- 冻结到期但因冲突无法解冻的特殊标记 -->
+          <el-tooltip
+            v-if="isConflictFrozen(row)"
+            content="冻结已到期，但因与同课程类型的其他卡时间冲突，无法自动解冻"
+            placement="top"
+          >
+            <el-icon style="margin-left: 4px; color: #e6a23c; cursor: pointer">
+              <WarningFilled />
+            </el-icon>
+          </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column prop="valid_from" label="生效时间" width="160">
+      <el-table-column label="有效期" width="360">
         <template #default="{ row }">
-          {{ row.valid_from ? formatDate(row.valid_from) : '-' }}
+          {{ formatValidityPeriod(row.valid_from, row.expire_at) }}
         </template>
       </el-table-column>
-      <el-table-column prop="expire_at" label="过期时间" width="160">
-        <template #default="{ row }">
-          {{ row.expire_at ? formatDate(row.expire_at) : '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column v-if="hasFrozenCard" label="冻结信息" width="200">
+      <el-table-column v-if="hasFrozenCard" label="冻结信息" width="140">
         <template #default="{ row }">
           <template v-if="row.status === 3">
             <div style="line-height: 1.6">
-              <div>已冻结 {{ getFrozenDuration(row) }}</div>
-              <div style="color: #e6a23c; font-size: 12px">
-                剩余 {{ getFrozenRemainingDays(row) }} 天
+              <div
+                :style="{
+                  color: getFrozenRemainingDaysNum(row) <= 0 ? '#e6a23c' : '#67c23a',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                }"
+              >
+                剩余 {{ getFrozenRemainingDays(row) }} 天解冻
+              </div>
+              <!-- 冻结到期但因冲突无法解冻的提示 -->
+              <div v-if="isConflictFrozen(row)" style="margin-top: 4px">
+                <el-tag type="warning" size="small" effect="plain">
+                  <el-icon style="margin-right: 4px"><WarningFilled /></el-icon>
+                  冻结到期-课程冲突
+                </el-tag>
               </div>
             </div>
           </template>
@@ -149,9 +176,9 @@
             type="success"
             size="small"
             link
-            @click="handleUnfreeze(row)"
+            @click="handleAdminUnfreeze(row)"
           >
-            提前解冻
+            {{ isConflictFrozen(row) ? '强制解冻' : '提前解冻' }}
           </el-button>
           <el-button
             v-if="row.status !== 6 && row.status !== 2"
@@ -302,21 +329,15 @@
             {{ getStatusText(detailCard.status) }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="生效时间">
-          {{ detailCard.valid_from ? formatDate(detailCard.valid_from) : '-' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="过期时间">
-          {{ detailCard.expire_at ? formatDate(detailCard.expire_at) : '-' }}
+        <el-descriptions-item label="有效期" :span="2">
+          {{ formatValidityPeriod(detailCard.valid_from, detailCard.expire_at) }}
         </el-descriptions-item>
         <template v-if="detailCard.status === 3">
           <el-descriptions-item label="冻结时间">
-            {{ detailCard.frozen_at ? formatDate(detailCard.frozen_at) : '-' }}
+            {{ detailCard.frozen_at ? formatDateTime(detailCard.frozen_at) : '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="冻结到期">
-            {{ detailCard.frozen_until ? formatDate(detailCard.frozen_until) : '-' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="已冻结时长" :span="2">
-            {{ getFrozenDuration(detailCard) }}
+            {{ detailCard.frozen_until ? formatFrozenUntil(detailCard.frozen_until) : '-' }}
           </el-descriptions-item>
           <el-descriptions-item label="剩余冻结天数" :span="2">
             <span style="color: #e6a23c; font-weight: 600">
@@ -331,10 +352,10 @@
           {{ detailCard.frozen_reason || '-' }}
         </el-descriptions-item>
         <el-descriptions-item label="创建时间" :span="2">
-          {{ detailCard.created_at ? formatDate(detailCard.created_at) : '-' }}
+          {{ detailCard.created_at ? formatDateTime(detailCard.created_at) : '-' }}
         </el-descriptions-item>
         <el-descriptions-item label="更新时间" :span="2">
-          {{ detailCard.updated_at ? formatDate(detailCard.updated_at) : '-' }}
+          {{ detailCard.updated_at ? formatDateTime(detailCard.updated_at) : '-' }}
         </el-descriptions-item>
       </el-descriptions>
     </el-dialog>
@@ -364,6 +385,36 @@
           />
         </el-form-item>
       </el-form>
+      <!-- F6.7 影响面区域（四态；查询失败不阻断主操作） -->
+      <div class="affected-section">
+        <el-skeleton v-if="affectedLoading" :rows="2" animated />
+        <div v-else-if="affectedError" class="affected-error">
+          <span>影响面查询失败，可重试或继续操作</span>
+          <el-button link type="primary" size="small" @click="retryLoadAffected"> 重试 </el-button>
+        </div>
+        <template v-else-if="affectedData">
+          <el-alert
+            v-if="affectedData.total > 0"
+            type="warning"
+            show-icon
+            :closable="false"
+            :title="`该卡有 ${affectedData.total} 个有效预约，冻结后学员可自助换卡或联系机构处理`"
+          />
+          <div v-else class="affected-empty">该卡无受影响预约</div>
+          <ul v-if="affectedData.total > 0" class="affected-list">
+            <li v-for="item in affectedData.items" :key="item.booking_id">
+              <span class="affected-course">{{ item.course_name || '未知课程' }}</span>
+              <span class="affected-time">{{ formatDateTime(item.start_at) }}</span>
+              <el-tag size="small" :type="item.status === 3 ? 'warning' : 'primary'">
+                {{ item.status === 3 ? '已签到' : '已预约' }}
+              </el-tag>
+            </li>
+          </ul>
+          <div v-if="affectedData.total > 0" class="affected-hint">
+            以上为实时查询结果，仅预览前 {{ affectedData.items.length }} 条，以操作时实际为准
+          </div>
+        </template>
+      </div>
       <template #footer>
         <el-button @click="freezeDialogVisible = false"> 取消 </el-button>
         <el-button type="primary" :loading="submitting" @click="handleFreeze"> 确定 </el-button>
@@ -386,9 +437,45 @@
           />
         </el-form-item>
       </el-form>
+      <!-- F6.7 影响面区域（四态；查询失败不阻断主操作） -->
+      <div class="affected-section">
+        <el-skeleton v-if="affectedLoading" :rows="2" animated />
+        <div v-else-if="affectedError" class="affected-error">
+          <span>影响面查询失败，可重试或继续操作</span>
+          <el-button link type="primary" size="small" @click="retryLoadAffected"> 重试 </el-button>
+        </div>
+        <template v-else-if="affectedData">
+          <el-alert
+            v-if="affectedData.total > 0"
+            type="danger"
+            show-icon
+            :closable="false"
+            :title="`该卡有 ${affectedData.total} 个有效预约。作废后卡不可恢复，这些预约需学员换卡或机构人工处理。`"
+          />
+          <div v-else class="affected-empty">该卡无受影响预约</div>
+          <ul v-if="affectedData.total > 0" class="affected-list">
+            <li v-for="item in affectedData.items" :key="item.booking_id">
+              <span class="affected-course">{{ item.course_name || '未知课程' }}</span>
+              <span class="affected-time">{{ formatDateTime(item.start_at) }}</span>
+              <el-tag size="small" :type="item.status === 3 ? 'warning' : 'primary'">
+                {{ item.status === 3 ? '已签到' : '已预约' }}
+              </el-tag>
+            </li>
+          </ul>
+          <div v-if="affectedData.total > 0" class="affected-hint">
+            以上为实时查询结果，仅预览前 {{ affectedData.items.length }} 条，以操作时实际为准
+          </div>
+        </template>
+      </div>
       <template #footer>
         <el-button @click="cancelDialogVisible = false"> 取消 </el-button>
-        <el-button type="primary" :loading="submitting" @click="handleCancel"> 确定 </el-button>
+        <el-button
+          type="danger"
+          :loading="submitting"
+          @click="handleCancel"
+        >
+          {{ affectedData && affectedData.total > 0 ? '确定作废' : '确定' }}
+        </el-button>
       </template>
     </el-dialog>
 
@@ -448,7 +535,7 @@
     >
       <div class="renewal-content">
         <div class="renewal-header">
-          <span class="renewal-icon">⚠️</span>
+          <span class="renewal-icon">️</span>
           <span class="renewal-title">该学员已有 {{ renewalCardCount }} 张同课程类型有效卡</span>
         </div>
         <div class="renewal-subtitle">如需继续发卡（续卡），请确认以下规则：</div>
@@ -462,6 +549,87 @@
         <div class="renewal-footer">请确认生效时间后，重新点击"确定"按钮</div>
       </div>
     </el-dialog>
+
+    <!-- 冲突处理对话框 -->
+    <el-dialog
+      v-model="conflictDialogVisible"
+      title="⚠️ 冻结到期-课程冲突"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div class="conflict-dialog-content">
+        <!-- 卡信息 -->
+        <div class="card-info">
+          <div class="info-row">
+            <span class="label">产品名称：</span>
+            <span class="value product-name">{{ conflictCard?.product_name || '会员卡' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">会员卡号：</span>
+            <span class="value card-no">{{ conflictCard?.card_no || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">冻结到期：</span>
+            <span class="value">{{
+              conflictCard?.frozen_until ? formatFrozenUntil(conflictCard.frozen_until) : '-'
+            }}</span>
+          </div>
+        </div>
+
+        <!-- 冲突卡列表 -->
+        <div v-if="conflictCardsList.length > 0" class="conflict-section">
+          <div class="section-title">
+            <el-icon style="color: #e6a23c; margin-right: 4px"><WarningFilled /></el-icon>
+            检测到以下冲突卡：
+          </div>
+          <div class="conflict-cards-list">
+            <div v-for="item in conflictCardsList" :key="item.id" class="conflict-card-item">
+              <div class="conflict-card-info">
+                <div class="card-name-row">
+                  <span class="card-product-name">{{ item.product_name || '会员卡' }}</span>
+                  <span class="card-no-badge">#{{ item.card_no }}</span>
+                </div>
+                <div class="card-details">
+                  <span>状态：{{ getStatusText(item.status) }}</span>
+                  <span v-if="item.card_type === 'count'"
+                    >| 剩余：{{ item.remaining_credits }}次</span
+                  >
+                  <span>| 有效期：{{ formatValidityPeriod(item.valid_from, item.expire_at) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 处理方式选择 -->
+        <div class="action-section">
+          <div class="section-title">请选择处理方式：</div>
+          <el-radio-group v-model="selectedAction" class="action-radio-group">
+            <el-radio label="unfreeze_and_cancel">
+              解冻并作废冲突卡（冲突卡剩余次数清零）
+            </el-radio>
+            <el-radio label="unfreeze_and_freeze"> 解冻并冻结冲突卡（冲突卡冻结365天） </el-radio>
+          </el-radio-group>
+        </div>
+
+        <!-- 备注 -->
+        <div class="remark-section">
+          <el-input
+            v-model="conflictRemark"
+            type="textarea"
+            placeholder="请输入操作备注（可选）"
+            :rows="2"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="conflictDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleConfirmConflictAction">
+          确认
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -474,11 +642,17 @@ import {
   type MembershipCardProduct,
   userApi,
 } from '@dance-saas/api-client'
-import { Search } from '@element-plus/icons-vue'
+import { Search, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 
+// F6.7：受影响预约响应类型由 api-client 方法签名推导（单一事实源为 api-client，不在本地重复定义 DTO）
+type AffectedBookingsData = Awaited<
+  ReturnType<typeof membershipCardApi.getAffectedBookings>
+>['data']
+
 const loading = ref(false)
+const loadError = ref('')
 const submitting = ref(false)
 const cards = ref<MembershipCard[]>([])
 const total = ref(0)
@@ -543,11 +717,59 @@ const renewalDialogVisible = ref(false)
 const renewalCardCount = ref('')
 const renewalEarliestDate = ref<string | null>(null)
 
+// 冲突处理相关
+const conflictDialogVisible = ref(false)
+const conflictCard = ref<MembershipCard | null>(null)
+const conflictCardsList = ref<any[]>([])
+const selectedAction = ref('unfreeze_and_cancel')
+const conflictRemark = ref('')
+
 const detailDialogVisible = ref(false)
 const detailCard = ref<MembershipCard | null>(null)
 
+// F6.7 影响面查询状态（冻结/作废弹窗共用，同一时间仅一个弹窗打开）
+const affectedLoading = ref(false)
+const affectedError = ref('')
+const affectedData = ref<AffectedBookingsData | null>(null)
+const affectedCardId = ref<number | null>(null)
+// 请求序号，防止快速切换弹窗时旧响应覆盖新状态
+let affectedReqSeq = 0
+
+function resetAffectedState(cardId: number) {
+  affectedCardId.value = cardId
+  affectedData.value = null
+  affectedError.value = ''
+  affectedLoading.value = false
+}
+
+async function loadAffectedBookings(cardId: number) {
+  const seq = ++affectedReqSeq
+  affectedLoading.value = true
+  affectedError.value = ''
+  try {
+    const res = await membershipCardApi.getAffectedBookings(cardId, { page: 1, page_size: 5 })
+    if (seq !== affectedReqSeq) return
+    affectedData.value = res.data
+  } catch (e: any) {
+    if (seq !== affectedReqSeq) return
+    affectedData.value = null
+    affectedError.value = e?.response?.data?.msg || '影响面查询失败'
+  } finally {
+    if (seq === affectedReqSeq) {
+      affectedLoading.value = false
+    }
+  }
+}
+
+function retryLoadAffected() {
+  if (affectedCardId.value != null) {
+    loadAffectedBookings(affectedCardId.value)
+  }
+}
+
 async function fetchCards() {
   loading.value = true
+  loadError.value = ''
   try {
     const params: any = {
       page: currentPage.value,
@@ -563,7 +785,8 @@ async function fetchCards() {
     cards.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载会员卡列表失败')
+    loadError.value = e?.response?.data?.msg || '加载会员卡列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -792,6 +1015,9 @@ function openFreezeDialog(row: MembershipCard) {
   freezeForm.value = { reason: '', freeze_days: 7 }
   freezeDialogVisible.value = true
   freezeFormRef.value?.clearValidate()
+  // F6.7：打开弹窗即查影响面，失败不阻断冻结操作（R-7）
+  resetAffectedState(row.id)
+  loadAffectedBookings(row.id)
 }
 
 async function handleFreeze() {
@@ -814,24 +1040,62 @@ async function handleFreeze() {
   }
 }
 
-async function handleUnfreeze(row: MembershipCard) {
+// 管理员解冻（带冲突检查）
+async function handleAdminUnfreeze(row: MembershipCard) {
   try {
-    await ElMessageBox.confirm(
-      `确定要提前解冻学员「${row.student_nickname || '未知'}」的会员卡吗？解冻后卡片将立即恢复正常使用。`,
-      '提前解冻确认',
-      {
-        confirmButtonText: '确定解冻',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    )
-    await membershipCardApi.unfreeze(row.id)
-    ElMessage.success('解冻成功')
-    fetchCards()
+    // 先检查冲突
+    const res = await membershipCardApi.checkConflict(row.id)
+    const conflictData = res.data
+
+    if (conflictData?.has_conflict) {
+      // 有冲突，显示冲突处理对话框
+      conflictCard.value = row
+      conflictCardsList.value = conflictData.conflict_cards || []
+      selectedAction.value = 'unfreeze_and_cancel'
+      conflictRemark.value = ''
+      conflictDialogVisible.value = true
+    } else {
+      // 无冲突，直接解冻
+      await ElMessageBox.confirm(
+        `确定要提前解冻学员「${row.student_nickname || '未知'}」的会员卡吗？解冻后卡片将立即恢复正常使用。`,
+        '提前解冻确认',
+        {
+          confirmButtonText: '确定解冻',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+      )
+      await membershipCardApi.unfreeze(row.id)
+      ElMessage.success('解冻成功')
+      fetchCards()
+    }
   } catch (e: any) {
     if (e !== 'cancel') {
       ElMessage.error(e?.response?.data?.msg || '解冻失败')
     }
+  }
+}
+
+// 确认执行冲突处理操作
+async function handleConfirmConflictAction() {
+  if (!conflictCard.value) return
+
+  submitting.value = true
+  try {
+    const payload: any = {
+      action: selectedAction.value,
+      remark: conflictRemark.value,
+      conflict_card_ids: conflictCardsList.value.map(c => c.id),
+    }
+
+    await membershipCardApi.unfreezeWithConflict(conflictCard.value.id, payload)
+    ElMessage.success('操作成功')
+    conflictDialogVisible.value = false
+    fetchCards()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '操作失败')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -840,6 +1104,9 @@ function openCancelDialog(row: MembershipCard) {
   cancelForm.value = { reason: '' }
   cancelDialogVisible.value = true
   cancelFormRef.value?.clearValidate()
+  // F6.7：打开弹窗即查影响面，失败不阻断作废操作（R-7）
+  resetAffectedState(row.id)
+  loadAffectedBookings(row.id)
 }
 
 async function handleCancel() {
@@ -958,27 +1225,73 @@ function getCardTypeTag(type: string) {
   return cardTypeTagMap[type] || 'info'
 }
 
-function formatDate(dateStr: string) {
+// 格式化时间为 yyyy-MM-dd HH:mm:ss
+function formatDateTime(dateStr: string) {
   if (!dateStr) return '-'
-  return dateStr
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
 
-function getFrozenDuration(card: MembershipCard) {
-  if (!card.frozen_at) return '-'
-  const frozenAt = new Date(card.frozen_at).getTime()
-  const now = Date.now()
-  const diffMs = now - frozenAt
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-  return `${diffDays}天`
+// 格式化冻结到期时间（日期部分 + 23:59:59）
+function formatFrozenUntil(dateStr: string) {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day} 23:59:59`
 }
 
-function getFrozenRemainingDays(card: MembershipCard) {
+// 格式化有效期时间（开始时间 00:00:00，结束时间 23:59:59）
+function formatValidityPeriod(startDate: string | null, endDate: string | null) {
+  if (!startDate || !endDate) return '-'
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+
+  const startYear = start.getFullYear()
+  const startMonth = String(start.getMonth() + 1).padStart(2, '0')
+  const startDay = String(start.getDate()).padStart(2, '0')
+
+  const endYear = end.getFullYear()
+  const endMonth = String(end.getMonth() + 1).padStart(2, '0')
+  const endDay = String(end.getDate()).padStart(2, '0')
+
+  return `${startYear}-${startMonth}-${startDay} 00:00:00 ~ ${endYear}-${endMonth}-${endDay} 23:59:59`
+}
+
+function getFrozenRemainingDays(card: MembershipCard): number | string {
   if (!card.frozen_until) return '-'
   const frozenUntil = new Date(card.frozen_until).getTime()
   const now = Date.now()
   const diffMs = frozenUntil - now
   if (diffMs <= 0) return 0
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  // 使用 Math.floor 计算完整天数，避免将几小时向上取整为一天
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+// 获取冻结剩余天数（仅返回数字，用于模板比较）
+function getFrozenRemainingDaysNum(card: MembershipCard): number {
+  if (!card.frozen_until) return 999
+  const frozenUntil = new Date(card.frozen_until).getTime()
+  const now = Date.now()
+  const diffMs = frozenUntil - now
+  if (diffMs <= 0) return 0
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+// 判断冻结卡是否因冲突无法解冻
+function isConflictFrozen(card: MembershipCard) {
+  // 冻结已到期（frozen_until 已过）但仍有冲突
+  if (card.status !== 3 || !card.frozen_until) return false
+  const frozenUntil = new Date(card.frozen_until).getTime()
+  const now = Date.now()
+  return frozenUntil <= now && (card as any).has_conflict === true
 }
 
 onMounted(() => {
@@ -991,6 +1304,73 @@ onMounted(() => {
 /* 会员卡号可点击样式 */
 :deep(.el-link.is-underline) {
   font-weight: 500;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+}
+
+/* F6.7 影响面区域 */
+.affected-section {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.affected-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: #e6a23c;
+}
+
+.affected-empty {
+  font-size: 13px;
+  color: #909399;
+}
+
+.affected-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.affected-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #606266;
+  border-bottom: 1px solid #f5f7fa;
+}
+
+.affected-list li:last-child {
+  border-bottom: none;
+}
+
+.affected-course {
+  font-weight: 500;
+  color: #303133;
+}
+
+.affected-time {
+  flex: 1;
+  color: #909399;
+  font-size: 12px;
+}
+
+.affected-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 
 /* 续卡提示对话框样式 */
@@ -1133,6 +1513,187 @@ onMounted(() => {
   span:nth-child(2) {
     color: #909399;
     min-width: 100px;
+  }
+}
+
+/* 冲突处理对话框样式 */
+.conflict-dialog-content {
+  .card-info {
+    background: #f5f7fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 14px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .label {
+        color: #909399;
+        min-width: 80px;
+        flex-shrink: 0;
+      }
+
+      .value {
+        color: #303133;
+        font-weight: 500;
+
+        &.product-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: #1d2129;
+        }
+
+        &.card-no {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 12px;
+          background: #e8f3ff;
+          color: #165dff;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+          font-size: 14px;
+          font-weight: 600;
+          border-radius: 6px;
+          letter-spacing: 0.5px;
+        }
+      }
+    }
+  }
+
+  .conflict-section {
+    margin-bottom: 20px;
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #303133;
+      margin-bottom: 12px;
+    }
+
+    .conflict-cards-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ebeef5;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fafafa;
+
+      &::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: #dcdfe6;
+        border-radius: 2px;
+      }
+
+      .conflict-card-item {
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #ebeef5;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .conflict-card-info {
+          .card-name-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+
+            .card-product-name {
+              font-size: 15px;
+              font-weight: 500;
+              color: #303133;
+            }
+
+            .card-no-badge {
+              display: inline-flex;
+              align-items: center;
+              padding: 4px 12px;
+              background: #e8f3ff;
+              color: #165dff;
+              font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+              font-size: 13px;
+              font-weight: 600;
+              border-radius: 4px;
+              letter-spacing: 0.5px;
+            }
+          }
+
+          .card-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 13px;
+            color: #909399;
+            line-height: 1.8;
+
+            span {
+              white-space: nowrap;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .action-section {
+    margin-bottom: 16px;
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #303133;
+      margin-bottom: 12px;
+    }
+
+    .action-radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: flex-start;
+
+      :deep(.el-radio) {
+        margin-right: 0;
+        margin-left: 0;
+        font-size: 14px;
+        color: #606266;
+        justify-content: flex-start;
+        width: 100%;
+      }
+
+      :deep(.el-radio__input) {
+        margin-right: 8px;
+        flex-shrink: 0;
+      }
+
+      :deep(.el-radio__label) {
+        white-space: normal;
+      }
+    }
+  }
+
+  .remark-section {
+    :deep(.el-textarea__inner) {
+      font-size: 14px;
+    }
   }
 }
 </style>

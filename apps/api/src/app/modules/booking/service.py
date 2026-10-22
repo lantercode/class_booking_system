@@ -26,6 +26,7 @@ from app.core.exceptions import (
     ValidationException,
 )
 from app.core.rbac import get_user_role_codes
+from app.core.rbac.checker import check_roles
 from app.modules.booking.models import (
     Booking,
     BookingReschedule,
@@ -34,6 +35,8 @@ from app.modules.booking.models import (
 )
 from app.modules.booking.repository import BookingRepository, BookingRescheduleRepository
 from app.modules.booking.schemas import (
+    AffectedBookingItem,
+    AffectedBookingsResponse,
     BookingCreate,
     BookingListResponse,
     BookingRescheduleRequest,
@@ -1222,6 +1225,78 @@ class BookingService:
         total = len(response_items)
 
         return BookingListResponse(
+            total=total,
+            page=page,
+            page_size=page_size,
+            items=response_items,
+        )
+
+    async def get_affected_bookings_by_card(
+        self,
+        db: AsyncSession,
+        *,
+        card_id: int,
+        tenant_id: int,
+        requester_user_id: int,
+        redis_client=None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> AffectedBookingsResponse:
+        """查询会员卡失效时的「受影响预约」明细与计数（F6.7，只读，R-8）
+
+        归属校验（K2 / R-5，Service 层强制，端点不挂角色装饰器）：
+          - admin / super_admin（check_roles 判定）：可查本租户任意卡
+          - 其余角色：仅本人卡（card.student_id == requester_user_id），否则 403
+        卡不存在 / 跨租户：复用 ``membership_card_service.get_card`` → 404
+        （跨租户经 TenantAwareRepository 自动注入屏蔽为 None）。
+
+        口径（K1 / R-1）：status ∈ {BOOKED, CHECKED_IN} 且排期 start_at > now。
+        排序（R-10）：start_at ASC, booking.id ASC。
+        """
+        card = await membership_card_service.get_card(db, card_id, tenant_id)
+
+        is_admin = await check_roles(
+            db,
+            ["admin", "super_admin"],
+            redis_client=redis_client,
+            user_id=requester_user_id,
+            tenant_id=tenant_id,
+        )
+        if not is_admin and card.student_id != requester_user_id:
+            raise PermissionException("无权查看该卡的受影响预约")
+
+        total, items = await self.repo.list_affected_by_card(
+            db,
+            card_id,
+            tenant_id,
+            now=datetime.now(UTC),
+            page=page,
+            page_size=page_size,
+        )
+
+        schedule_map = await self._get_schedule_info_map(
+            db, list({b.schedule_id for b in items})
+        )
+
+        response_items = []
+        for b in items:
+            info = schedule_map.get(b.schedule_id) or {}
+            response_items.append(
+                AffectedBookingItem(
+                    booking_id=b.id,
+                    schedule_id=b.schedule_id,
+                    status=b.status,
+                    start_at=info.get("start_at"),
+                    end_at=info.get("end_at"),
+                    course_name=info.get("course_name"),
+                    classroom_name=info.get("classroom_name"),
+                    teacher_name=info.get("teacher_name"),
+                )
+            )
+
+        return AffectedBookingsResponse(
+            card_id=card.id,
+            card_status=card.status,
             total=total,
             page=page,
             page_size=page_size,

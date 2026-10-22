@@ -6603,6 +6603,95 @@
         }
       }
     },
+    "/api/v1/membership/cards/{card_id}/affected-bookings": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "查询会员卡的受影响预约（F6.7）",
+        "description": "查询会员卡失效时的受影响预约（admin 查本租户任意卡；学员仅本人卡）。\n\n混合角色端点：不挂角色装饰器，归属校验在 Service 层强制\n（BookingService.get_affected_bookings_by_card）。只读，不开事务。",
+        "operationId": "get_card_affected_bookings_api_v1_membership_cards__card_id__affected_bookings_get",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页数量（上限100）",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量（上限100）"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Card Affected Bookings Api V1 Membership Cards  Card Id  Affected Bookings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/membership/cards/{card_id}/freeze": {
       "post": {
         "tags": [

@@ -536,6 +536,26 @@ export const bookingApi = {
   complete(bookingId: number) {
     return request(`/bookings/${bookingId}/complete`, "POST");
   },
+
+  /**
+   * 改期 / 改派（F6.5）。F6.7 换卡场景为同排期纯改派：
+   * new_schedule_id 传原排期，new_membership_card_id 传替代卡。
+   * idempotencyKey 经 Idempotency-Key 请求头上送，网络重试安全。
+   */
+  reschedule(
+    bookingId: number,
+    data: {
+      new_schedule_id: number;
+      new_membership_card_id?: number | null;
+      reason?: string | null;
+    },
+    idempotencyKey?: string,
+  ) {
+    const headers = idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
+      : undefined;
+    return request(`/bookings/${bookingId}/reschedule`, "POST", data, headers);
+  },
 };
 
 export const teacherApi = {
@@ -646,6 +666,15 @@ export const membershipApi = {
   }) {
     const query = buildQuery(params);
     return request(`/membership/transactions${query}`);
+  },
+
+  // 卡的受影响预约（F6.7；student 仅本人卡可查，主要用于核对场景）
+  getAffectedBookings(
+    cardId: number,
+    params?: { page?: number; page_size?: number },
+  ) {
+    const query = buildQuery(params);
+    return request(`/membership/cards/${cardId}/affected-bookings${query}`);
   },
 };
 

@@ -1536,6 +1536,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/membership/cards/{card_id}/affected-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询会员卡的受影响预约（F6.7）
+         * @description 查询会员卡失效时的受影响预约（admin 查本租户任意卡；学员仅本人卡）。
+         *
+         *     混合角色端点：不挂角色装饰器，归属校验在 Service 层强制
+         *     （BookingService.get_affected_bookings_by_card）。只读，不开事务。
+         */
+        get: operations["get_card_affected_bookings_api_v1_membership_cards__card_id__affected_bookings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/membership/cards/{card_id}/freeze": {
         parameters: {
             query?: never;
@@ -6862,6 +6885,46 @@ export interface operations {
     get_card_api_v1_membership_cards__card_id__get: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_card_affected_bookings_api_v1_membership_cards__card_id__affected_bookings_get: {
+        parameters: {
+            query?: {
+                /** @description 页码 */
+                page?: number;
+                /** @description 每页数量（上限100） */
+                page_size?: number;
+            };
             header?: {
                 authorization?: string | null;
             };

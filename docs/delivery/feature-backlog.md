@@ -559,22 +559,22 @@
 
 ### Feature 6.7：卡失效替代与受影响预约（D3）
 
-- **Status**：READY（依赖 F6.5 的改派能力）
+- **Status**：✅ DONE（2026-10-22 人工验收通过；效率实验**试点组**样本）
 - **Priority**：P1
 - **Goal**：冻结/过期/作废卡时能查询受影响的有效预约；学员可自助换卡改派，无卡时引导联系机构；管理端操作前展示影响面。
-- **Scope**：后端新增"受影响预约"查询（建议 `GET /api/v1/membership/cards/{id}/affected-bookings`）；管理端冻结/作废确认弹窗展示 N 条；小程序预约列表警示条 + 换卡入口（复用 F6.5 改派）；无替代卡空态。
-- **Out of Scope**：不做自动顺延；不自动取消预约；不做通知推送（F6.2）。
-- **Dependencies**：F6.5（原子改派）、F6.3（卡状态语义）；admin/miniapp UI 契约需冻结。
-- **Current Code Gaps**：
-  - `conflict-check` 只查同课程类型卡冲突，不查预约：`membership/service.py:674-717`。
-  - 冻结/作废直接改状态，无预约影响面：`membership/service.py:624-672,1529-1576`。
-  - admin 会员卡页无"受影响预约"提示：`apps/admin-web/src/views/membership/index.vue`（作废弹窗仅原因，`:394-414`）。
-  - 小程序我的预约无计划卡状态警示：`apps/miniapp/src/pages/student/bookings/index.vue`（现有列表无卡状态字段）。
-- **Tasks**：T6.7.1 Repository/Service 查询；T6.7.2 端点 + 权限（admin 全量、学员仅本人）；T6.7.3 admin 影响面弹窗；T6.7.4 小程序警示条 + 换卡跳转；T6.7.5 测试（归属、跨租户、空态）。
-- **Required Agents**：backend-engineer, frontend-engineer
-- **Definition of Ready**：需冻结"受影响"状态口径（建议 BOOKED/CHECKED_IN 且未开始）；需确认学员查询端点归属校验。
+- **Scope（已交付）**：`GET /api/v1/membership/cards/{card_id}/affected-bookings`（admin 任意卡 / 学员本人卡 403 / 跨租户与不存在 404）；admin 冻结/作废双弹窗影响面（四态、不阻断）；miniapp 预约列表警示条 + 换卡弹层（复用 F6.5 原子改派 + 幂等键）+ 无卡空态联系机构。
+- **Out of Scope**：不做自动顺延；不自动取消预约；不做通知推送（F6.2）；批量作废聚合影响面（U-5 登记）。
+- **Dependencies**：F6.5（原子改派，已交付）、F6.3（卡状态语义）、F6.6（recommend-card，换卡弹层消费）。
+- **契约冻结（K1–K3，2026-10-22）**：K1 受影响口径 = BOOKED/CHECKED_IN 且 `schedule.start_at > now`；K2 单端点 + 角色作用域；K3 改派复用 F6.5 reschedule。
+- **Tasks（实际）**：T6.7.1 Repository/Service 查询（放 BookingService，规避循环 import）；T6.7.2 端点 + 归属校验；T6.7.3 admin 影响面双弹窗；T6.7.4 miniapp 警示条 + 换卡弹层；T6.7.5 测试（B 12 + C 10 + 并发 C-11/C-12 + E-3）。
 - **Acceptance 概要**：作废/冻结前返回准确 N 条；学员只能看自己；换卡成功走 F6.5 原子事务；无卡时仅人工出口；空态/错误态齐全。
-- **交付物**：`docs/features/F6.7-card-invalid-replacement/`。
+- **交付物**：`docs/features/F6.7-card-invalid-replacement/`（requirement / user-flow / acceptance / implementation-plan / implementation-report / static-verification / runtime-test-report / review / release-note，共 9 份）+ `docs/engineering/task-records/20261022-F6.7-card-invalid-replacement.md`。
+- **验收结论（2026-10-22）**：**人工验收通过**。新增测试 24 passed（含并发竞态账务守恒断言）；定向回归 9 + 31 passed；`py_compile` ×5 / `ruff` ×5 / `pnpm gen:types`（82 路径）/ admin build / miniapp type-check + build 全部通过；Stage 10 复核 READY_FOR_ACCEPTANCE（0 Blocker / 0 Major / 3 Minor）。
+- **新登记技术债**：
+  - D-F6.7-1（低）：api-client barrel 未导出 `AffectedBookingsResponse`（admin-web 暂以 `ReturnType` 推导）
+  - D-F6.7-2（低）：acceptance C-9 原文 400 与全局 422 约定差异（测试按 422 断言）
+  - D-F6.7-3（低）：miniapp 前端 join 为近似口径（display_status 1/3 + 卡失效 2/3/6），安全侧超集，后端 K1 为准
+- **实验观察（试点组）**：返工 0；活跃耗时约 75 min（L4）；子 Agent 遥测回传完整。
 
 ### Feature 6.8：次卡余额用尽展示（D2）
 

@@ -85,3 +85,27 @@ class BookingListResponse(BaseModel):
     page: int = Field(..., ge=1, description="当前页码")
     page_size: int = Field(..., ge=1, le=500, description="每页数量")
     items: list[BookingResponse]
+
+
+class AffectedBookingItem(BaseModel):
+    """受影响预约明细项（F6.7，K1 口径：BOOKED/CHECKED_IN 且排期未开始）"""
+
+    booking_id: int = Field(..., description="预约ID")
+    schedule_id: int = Field(..., description="排期ID")
+    status: int = Field(..., description="预约状态：1已预约/3已签到")
+    start_at: datetime = Field(..., description="上课开始时间（UTC）")
+    end_at: datetime = Field(..., description="上课结束时间（UTC）")
+    course_name: str | None = Field(None, description="课程名称（关联查询）")
+    classroom_name: str | None = Field(None, description="教室名称（关联查询）")
+    teacher_name: str | None = Field(None, description="教师名称（关联查询）")
+
+
+class AffectedBookingsResponse(BaseModel):
+    """会员卡受影响预约分页响应（F6.7）"""
+
+    card_id: int = Field(..., description="会员卡ID")
+    card_status: int = Field(..., description="会员卡当前状态（CardStatus 枚举值）")
+    total: int = Field(..., description="受影响预约总数（跨分页）")
+    page: int = Field(..., ge=1, description="当前页码")
+    page_size: int = Field(..., ge=1, le=100, description="每页数量")
+    items: list[AffectedBookingItem]
