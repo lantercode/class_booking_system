@@ -109,6 +109,11 @@
                 <AppIcon name="arrow-right" :size="24" color="#b8956a" />
               </view>
             </view>
+
+            <view v-else class="no-available-cards">
+              <!-- 无可用的会员卡：直接展示后端返回的文案 -->
+              <text class="no-cards-text">{{ noAvailableMessage }}</text>
+            </view>
           </view>
         </view>
 
@@ -171,12 +176,11 @@
 
         <scroll-view scroll-y class="card-list-scroll">
           <view
-            v-for="card in allCardsWithStatus"
+            v-for="card in availableCards"
             :key="card.id"
             class="card-option"
             :class="{
-              'card-selected': selectedCardId === card.id && card.isAvailable,
-              'card-disabled': !card.isAvailable,
+              'card-selected': selectedCardId === card.id,
             }"
             @tap="handleCardSelect(card)"
           >
@@ -184,13 +188,11 @@
               <view
                 class="card-radio"
                 :class="{
-                  'radio-checked':
-                    selectedCardId === card.id && card.isAvailable,
-                  'radio-disabled': !card.isAvailable,
+                  'radio-checked': selectedCardId === card.id,
                 }"
               >
                 <view
-                  v-if="selectedCardId === card.id && card.isAvailable"
+                  v-if="selectedCardId === card.id"
                   class="radio-dot"
                 ></view>
               </view>
@@ -204,11 +206,6 @@
                 <text class="card-option-applicable">{{
                   getCardApplicableText(card)
                 }}</text>
-                <text
-                  v-if="!card.isAvailable && card.unavailableReason"
-                  class="card-option-reason"
-                  >{{ card.unavailableReason }}</text
-                >
               </view>
             </view>
             <view class="card-option-type">
@@ -216,6 +213,11 @@
                 getCardTypeText(card.card_type)
               }}</text>
             </view>
+          </view>
+
+          <!-- 无可用会员卡提示 -->
+          <view v-if="availableCards.length === 0" class="no-available-cards">
+            <text class="no-cards-text">暂无可用的会员卡</text>
           </view>
         </scroll-view>
 
@@ -248,7 +250,10 @@ import { computed, onMounted, ref } from "vue";
 
 const scheduleId = ref<number>(0);
 const schedule = ref<any>({});
-const membershipCards = ref<any[]>([]);
+// 可用会员卡：由后端 recommend-card 返回，顺序即最终展示顺序（前端不再排序/过滤）
+const availableCards = ref<any[]>([]);
+// 无可用卡时的空态文案（直接使用后端 message）
+const noAvailableMessage = ref("暂无可用的会员卡");
 const selectedCardId = ref<number | null>(null);
 const showCardSelector = ref(false);
 const loading = ref(true);
@@ -256,81 +261,15 @@ const courseTypeMap = ref<Record<string, string>>({});
 const cancelMinutes = ref(90); // 默认90分钟
 
 const systemInfo = uni.getSystemInfoSync();
-const navbarHeight = systemInfo.statusBarHeight + 44;
+// 状态栏高度在 H5/部分设备可能为 undefined，缺省按 0 处理
+const navbarHeight = (systemInfo.statusBarHeight ?? 0) + 44;
 const actionBarHeight = 120;
 const scrollViewHeight = ref(
   Math.max(systemInfo.windowHeight - navbarHeight - actionBarHeight, 300),
 );
 const safeAreaBottom = systemInfo.safeAreaInsets?.bottom || 0;
 
-// 所有会员卡（包含可用和不可用）
-const allCardsWithStatus = computed(() => {
-  if (!schedule.value.course_id) return [];
-
-  const now = new Date();
-  const scheduleCourseTypeCode = schedule.value.course_type_code;
-
-  return membershipCards.value.map((card: any) => {
-    let isAvailable = true;
-    let unavailableReason = "";
-
-    if (card.status !== 1) {
-      isAvailable = false;
-      unavailableReason = "会员卡已停用";
-    } else if (card.expire_at && new Date(card.expire_at) < now) {
-      isAvailable = false;
-      unavailableReason = "会员卡已过期";
-    } else if (card.valid_from && new Date(card.valid_from) > now) {
-      isAvailable = false;
-      unavailableReason = "会员卡未生效";
-    } else if (card.card_type === "count") {
-      const remaining = (card.total_credits || 0) - (card.used_credits || 0);
-      if (remaining <= 0) {
-        isAvailable = false;
-        unavailableReason = "余额不足";
-      }
-    }
-
-    // 检查课程类型限制（单选字段）
-    if (isAvailable) {
-      const cardCourseType = card.applicable_course_type_code;
-
-      if (cardCourseType) {
-        if (
-          scheduleCourseTypeCode &&
-          cardCourseType !== scheduleCourseTypeCode
-        ) {
-          isAvailable = false;
-          unavailableReason = "不适用于此课程类型";
-        }
-      }
-    }
-
-    if (
-      isAvailable &&
-      card.applicable_course_ids &&
-      card.applicable_course_ids.length > 0
-    ) {
-      if (!card.applicable_course_ids.includes(schedule.value.course_id)) {
-        isAvailable = false;
-        unavailableReason = "不适用于此课程";
-      }
-    }
-
-    return {
-      ...card,
-      isAvailable,
-      unavailableReason,
-    };
-  });
-});
-
-// 可用会员卡列表
-const availableCards = computed(() => {
-  return allCardsWithStatus.value.filter((card) => card.isAvailable);
-});
-
-// 选中的会员卡
+// 选中的会员卡（仅来自后端返回的可用卡列表）
 const selectedCard = computed(() => {
   return (
     availableCards.value.find((c: any) => c.id === selectedCardId.value) || null
@@ -357,16 +296,6 @@ const formatTime = (dateStr: string) => {
   return `${hours}:${minutes}`;
 };
 
-// 格式化完整日期
-const formatDateFull = (dateStr: string) => {
-  if (!dateStr) return "-";
-  const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
 // 获取会员卡类型文本
 const getCardTypeText = (cardType: string) => {
   const typeMap: Record<string, string> = {
@@ -377,16 +306,6 @@ const getCardTypeText = (cardType: string) => {
   return typeMap[cardType] || cardType;
 };
 
-// 获取会员卡图标
-const getCardIcon = (cardType: string) => {
-  const iconMap: Record<string, string> = {
-    count: "🎫",
-    period: "📅",
-    unlimited: "️",
-  };
-  return iconMap[cardType] || "";
-};
-
 // 获取会员卡剩余信息
 const getCardRemainingText = (card: any) => {
   if (!card) return "";
@@ -395,15 +314,32 @@ const getCardRemainingText = (card: any) => {
     return `剩余 ${remaining} 次`;
   }
   if (card.card_type === "period") {
-    if (card.expire_at) {
-      const expireDate = new Date(card.expire_at);
-      const now = new Date();
-      const days = Math.floor(
-        (expireDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    if (!card.expire_at) return "有效期内";
+
+    // 使用与会员卡页面相同的计算逻辑
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const expireDay = new Date(
+      new Date(card.expire_at).getFullYear(),
+      new Date(card.expire_at).getMonth(),
+      new Date(card.expire_at).getDate(),
+    );
+
+    // 未激活的卡：从 valid_from 开始计算总有效期
+    let startDay = today;
+    if (card.status === 0 && card.valid_from) {
+      startDay = new Date(
+        new Date(card.valid_from).getFullYear(),
+        new Date(card.valid_from).getMonth(),
+        new Date(card.valid_from).getDate(),
       );
-      return `剩余 ${Math.max(0, days)} 天`;
     }
-    return "有效期内";
+
+    const diffMs = expireDay.getTime() - startDay.getTime();
+    if (diffMs < 0) return "已过期";
+    // +1 是因为需要包含起始日和结束日（闭区间计算）
+    const days = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
+    return `剩余 ${days} 天`;
   }
   if (card.card_type === "unlimited") {
     return "永久有效";
@@ -443,88 +379,14 @@ const getRemainingAfterDeduction = () => {
   return "不限";
 };
 
-// 选择会员卡
+// 选择会员卡（列表只包含可用卡）
 const handleCardSelect = (card: any) => {
-  if (!card.isAvailable) {
-    uni.showToast({
-      title: card.unavailableReason || "该卡不可用",
-      icon: "none",
-      duration: 2000,
-    });
-    return;
-  }
   selectedCardId.value = card.id;
 };
 
 // 打开会员卡选择器
 const handleOpenCardSelector = () => {
   showCardSelector.value = true;
-};
-
-// 智能匹配默认选中的会员卡
-const getDefaultSelectedCard = (cards: any[]) => {
-  if (!cards || cards.length === 0) return null;
-  if (cards.length === 1) return cards[0].id;
-
-  const scheduleCourseTypeCode = schedule.value.course_type_code;
-
-  const specificCards = cards.filter((card: any) => {
-    if (!card.applicable_course_ids || card.applicable_course_ids.length === 0)
-      return false;
-    return card.applicable_course_ids.includes(schedule.value.course_id);
-  });
-
-  if (specificCards.length === 1) return specificCards[0].id;
-
-  if (specificCards.length > 1) {
-    const countCards = specificCards.filter(
-      (c: any) => c.card_type === "count",
-    );
-    if (countCards.length > 0) {
-      countCards.sort((a: any, b: any) => {
-        const aRemain = (a.total_credits || 0) - (a.used_credits || 0);
-        const bRemain = (b.total_credits || 0) - (b.used_credits || 0);
-        return bRemain - aRemain;
-      });
-      return countCards[0].id;
-    }
-    return specificCards[0].id;
-  }
-
-  const typeMatchedCards = cards.filter((card: any) => {
-    // 检查课程类型限制（单选字段）
-    const cardCourseType = card.applicable_course_type_code;
-
-    if (!cardCourseType) return true;
-    if (!scheduleCourseTypeCode) return true;
-    return cardCourseType === scheduleCourseTypeCode;
-  });
-
-  if (typeMatchedCards.length > 0) {
-    const priorityOrder: Record<string, number> = {
-      unlimited: 1,
-      period: 2,
-      count: 3,
-    };
-    typeMatchedCards.sort((a: any, b: any) => {
-      const aPriority = priorityOrder[a.card_type] || 99;
-      const bPriority = priorityOrder[b.card_type] || 99;
-      return aPriority - bPriority;
-    });
-    return typeMatchedCards[0].id;
-  }
-
-  const priorityOrder: Record<string, number> = {
-    unlimited: 1,
-    period: 2,
-    count: 3,
-  };
-  cards.sort((a: any, b: any) => {
-    const aPriority = priorityOrder[a.card_type] || 99;
-    const bPriority = priorityOrder[b.card_type] || 99;
-    return aPriority - bPriority;
-  });
-  return cards[0].id;
 };
 
 // 加载数据
@@ -551,21 +413,15 @@ const loadData = async () => {
       console.warn("加载课程类型失败:", e);
     }
 
-    // 加载会员卡
-    const cardsRes = await membershipApi.getMyCards();
-    const cardsData = cardsRes?.data as any;
-    let cards: any[] = [];
-    if (cardsData?.items && Array.isArray(cardsData.items)) {
-      cards = cardsData.items;
-    } else if (Array.isArray(cardsData)) {
-      cards = cardsData;
-    }
-    membershipCards.value = cards;
-
-    // 智能匹配默认卡
-    if (availableCards.value.length > 0) {
-      selectedCardId.value = getDefaultSelectedCard(availableCards.value);
-    }
+    // 加载可用会员卡与推荐卡（可用性判定与排序均由后端完成）
+    const recommendRes = await membershipApi.getRecommendCard(scheduleId.value);
+    const recommendData = recommendRes?.data as any;
+    availableCards.value = Array.isArray(recommendData?.available_cards)
+      ? recommendData.available_cards
+      : [];
+    selectedCardId.value = recommendData?.recommended_card_id ?? null;
+    noAvailableMessage.value =
+      recommendData?.message || "暂无可用的会员卡";
   } catch (error) {
     console.error("加载数据失败:", error);
     uni.showToast({ title: "加载失败", icon: "none" });
@@ -581,7 +437,9 @@ const handleCancel = () => {
 
 // 确认预约
 const handleConfirm = async () => {
-  if (!selectedCardId.value) {
+  // 提前固化已选中的卡片 ID（number），避免在弹窗回调中把 number | null 传入请求
+  const cardId = selectedCardId.value;
+  if (!cardId) {
     uni.showToast({ title: "请选择会员卡", icon: "none" });
     return;
   }
@@ -594,7 +452,7 @@ const handleConfirm = async () => {
         try {
           const result = await bookingApi.create({
             schedule_id: scheduleId.value,
-            membership_card_id: selectedCardId.value,
+            membership_card_id: cardId,
           });
           if (result.code === 0 || result.code === 200) {
             uni.showToast({ title: "预约成功", icon: "success" });
@@ -993,6 +851,19 @@ onMounted(async () => {
   margin-bottom: 24rpx;
 }
 
+// 无可用会员卡提示
+.no-available-cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+
+  .no-cards-text {
+    font-size: 28rpx;
+    color: #999;
+  }
+}
+
 .card-option {
   display: flex;
   align-items: center;
@@ -1080,6 +951,97 @@ onMounted(async () => {
 .card-option-applicable {
   font-size: 22rpx;
   color: #a09080;
+}
+
+.card-option-reason-wrapper {
+  margin-top: 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.card-option-reason-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  align-self: flex-start;
+
+  &.reason-pending {
+    background: rgba(255, 193, 7, 0.12);
+    border: 1rpx solid rgba(255, 193, 7, 0.3);
+  }
+
+  &.reason-expired {
+    background: rgba(244, 67, 54, 0.12);
+    border: 1rpx solid rgba(244, 67, 54, 0.3);
+  }
+
+  &.reason-frozen {
+    background: rgba(158, 158, 158, 0.12);
+    border: 1rpx solid rgba(158, 158, 158, 0.3);
+  }
+
+  &.reason-cancelled {
+    background: rgba(158, 158, 158, 0.12);
+    border: 1rpx solid rgba(158, 158, 158, 0.3);
+  }
+
+  &.reason-depleted {
+    background: rgba(255, 87, 34, 0.12);
+    border: 1rpx solid rgba(255, 87, 34, 0.3);
+  }
+
+  &.reason-not-applicable {
+    background: rgba(255, 152, 0, 0.12);
+    border: 1rpx solid rgba(255, 152, 0, 0.3);
+  }
+
+  &.reason-default {
+    background: rgba(158, 158, 158, 0.12);
+    border: 1rpx solid rgba(158, 158, 158, 0.3);
+  }
+}
+
+.reason-badge-text {
+  font-size: 20rpx;
+  font-weight: 500;
+  line-height: 1.4;
+
+  .reason-pending & {
+    color: #ff9800;
+  }
+
+  .reason-expired & {
+    color: #f44336;
+  }
+
+  .reason-frozen & {
+    color: #9e9e9e;
+  }
+
+  .reason-cancelled & {
+    color: #9e9e9e;
+  }
+
+  .reason-depleted & {
+    color: #ff5722;
+  }
+
+  .reason-not-applicable & {
+    color: #ff9800;
+  }
+
+  .reason-default & {
+    color: #9e9e9e;
+  }
+}
+
+.card-option-reason-detail {
+  font-size: 20rpx;
+  color: #9e9e9e;
+  line-height: 1.5;
+  padding-left: 4rpx;
 }
 
 .card-option-reason {

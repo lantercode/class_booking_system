@@ -1496,6 +1496,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/membership/recommend-card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取排期推荐会员卡（学员端）
+         * @description 按排期返回当前学员的可用会员卡（D6 排序）与推荐卡 id。只读。
+         */
+        get: operations["recommend_card_api_v1_membership_recommend_card_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/membership/cards/{card_id}": {
         parameters: {
             query?: never;
@@ -6773,6 +6793,42 @@ export interface operations {
     get_my_cards_api_v1_membership_my_cards_get: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recommend_card_api_v1_membership_recommend_card_get: {
+        parameters: {
+            query: {
+                /** @description 排期ID */
+                schedule_id: number;
+            };
             header?: {
                 authorization?: string | null;
             };

@@ -6478,6 +6478,70 @@
         }
       }
     },
+    "/api/v1/membership/recommend-card": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "获取排期推荐会员卡（学员端）",
+        "description": "按排期返回当前学员的可用会员卡（D6 排序）与推荐卡 id。只读。",
+        "operationId": "recommend_card_api_v1_membership_recommend_card_get",
+        "parameters": [
+          {
+            "name": "schedule_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "排期ID",
+              "title": "Schedule Id"
+            },
+            "description": "排期ID"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Recommend Card Api V1 Membership Recommend Card Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/membership/cards/{card_id}": {
       "get": {
         "tags": [

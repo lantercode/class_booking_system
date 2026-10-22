@@ -531,21 +531,31 @@
 
 ### Feature 6.6：多卡默认推荐策略（D6）
 
-- **Status**：READY（前端部分依赖 F6.3 的卡可用语义）
+- **Status**：✅ DONE（2026-10-22 人工验收通过）
 - **Priority**：P1
 - **Goal**：统一"先过期优先 → 剩余次数少优先 → 同分取先发放"的默认推荐，避免小程序本地规则与后端不一致。
-- **Scope**：后端新增推荐能力（建议 `GET /api/v1/membership/recommend-card?course_id=&schedule_id=` 或在 `my-cards` 响应增加推荐字段，二选一由 Architect 冻结）；小程序 `booking-confirm` 改为消费后端推荐；无可用卡空态与理由展示。
-- **Out of Scope**：不做自动替卡/自动顺延（D3）；不做多卡同时扣次；不改发卡/扣次事务。
+- **Scope（已交付）**：后端新增 `GET /api/v1/membership/recommend-card?schedule_id=`；小程序 `booking-confirm` 改为消费后端推荐；无可用卡空态与理由展示。
+- **Out of Scope**：不做自动替卡/自动顺延（D3）；不做多卡同时扣次；不改发卡/扣次事务；推荐阶段不做期卡区间冲突预校验（K4）。
 - **Dependencies**：F6.3（PENDING/ACTIVE/用尽/课程类型语义稳定）；契约冻结后前端才编码（v3 R5）。
-- **Current Code Gaps**：
-  - 小程序本地推荐：unlimited→period→count，且次卡按剩余次数**降序**：`apps/miniapp/src/pages/student/booking-confirm/index.vue:552-615`；与 D6"剩余少优先、先过期优先"相反/缺失。
-  - 后端无推荐端点：`membership/router.py` 无 recommend 路由。
-  - `my-cards` 返回全部卡（含过期/作废）：`membership/router.py:247-257`，过滤在 `booking-confirm/index.vue:642-654`。
-- **Tasks**：T6.6.1 推荐策略纯函数 + Service；T6.6.2 端点/DTO；T6.6.3 小程序替换本地排序；T6.6.4 单测 + 小程序 vue-tsc/build。
+- **Current Code Gaps（已消除）**：
+  - 小程序本地推荐已删除：`apps/miniapp/src/pages/student/booking-confirm/index.vue` 不再维护 `allCardsWithStatus` / `getDefaultSelectedCard`。
+  - 后端新增推荐端点：`membership/router.py`。
+  - 卡过滤不再在 `booking-confirm` 本地执行。
+- **Tasks（实际）**：T6.6.1 推荐策略纯函数 + Service；T6.6.2 端点/DTO；T6.6.3 小程序替换本地排序；T6.6.4 单测 + 小程序 vue-tsc/build。
 - **Required Agents**：backend-engineer, frontend-engineer, project-architect（契约）
-- **Definition of Ready**：需冻结"推荐字段 vs 独立端点"；需确认同分"先发放"以 `created_at` 还是 `id` 排序（建议 `created_at, id`）。
+- **Definition of Ready**：已冻结「独立端点」；同分排序为 `created_at, id`。
 - **Acceptance 概要**：给定固定卡集合推荐顺序稳定；无可用卡返回空原因；过期/未来生效/冻结/课程不适用被排除；两端显示一致；无契约漂移。
-- **交付物**：`docs/features/F6.6-card-recommendation/`。
+- **交付物**：`docs/features/F6.6-card-recommendation/`（requirement / user-flow / acceptance / implementation-plan / implementation-report / static-verification / runtime-test-report / review / release-note，共 9 份）+ `docs/engineering/task-records/20261022-F6.6-card-recommendation.md`。
+- **验收结论（2026-10-22）**：**人工验收通过**。新增单测 18 + 集成 9（合并 27）通过；会员卡定向回归 29 通过；`py_compile` / `ruff`（改动文件）/ `pnpm gen:types`（81 路径）/ `pnpm type-check` / `pnpm build:mp-weixin` 通过；OpenAPI 与产物逐对象一致。
+- **关键实现**：`MembershipCardService.recommend_card_for_schedule` 只读链路；共享 `card_unavailable_reason` 并由 `is_bookable_card` 委托；D6 排序 `expire_at ASC(NULL 最后) → remaining ASC(None 最后) → created_at → id`；无可用卡返回 200 + `recommended_card_id=null` + 聚合 `message`；小程序仅保留展示函数，未新增请求层。
+- **未验证（NOT VERIFIED）**：E-4 的 500 分支未构造确定性触发点；已验证 401/404 不含 traceback/SQL/内部地址。
+- **新登记技术债**：
+  - D-F6.6-1（低）：`recommend-card` 使用 `response_model=dict`，OpenAPI 200 为泛型对象（与 `my-cards` 同口径）
+  - D-F6.6-2：死代码（`getStatusBadgeClass` / `getCardIcon`）—— **已关闭**（本 Feature 内删除）
+  - D-F6.6-3（低）：D6 排序以 `remaining_credits is None` 识别期卡/无限卡，依赖发放数据 `total_credits=NULL`
+  - D-F6.6-4（低）：推荐请求失败与「无可用卡」共用空态渲染，未进入独立错误态
+  - D-F6.6-5：requirement 示例信封 —— **已关闭**（已对齐 `msg=ok` + `request_id`）
+
 
 ### Feature 6.7：卡失效替代与受影响预约（D3）
 

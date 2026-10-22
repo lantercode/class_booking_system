@@ -36,6 +36,7 @@ from app.modules.membership.schemas import (
     MembershipCardCreate,
     MembershipCardProductCreate,
     MembershipCardProductUpdate,
+    MembershipCardResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -547,6 +548,85 @@ class MembershipCardService:
             and card.valid_from is None
         )
 
+    @staticmethod
+    def _card_field(card, name: str):
+        """统一读取 ORM 实体或 dict 上的会员卡字段。
+
+        推荐链路的数据源是 ``get_all_cards_by_student`` 返回的 dict，
+        下单校验链路传入 ORM 实体，两种形态共用同一判定函数。
+        """
+        if isinstance(card, dict):
+            return card.get(name)
+        return getattr(card, name, None)
+
+    @staticmethod
+    def _card_status_unavailable_reason(status) -> str:
+        """按卡状态生成不可用原因（仅非可用状态调用）。"""
+        if status == CardStatus.CANCELLED.value:
+            return "已作废"
+        if status == CardStatus.EXPIRED.value:
+            return "已过期"
+        if status == CardStatus.FROZEN.value:
+            return "已冻结"
+        if status == CardStatus.PENDING.value:
+            return "未激活"
+        return "已停用"
+
+    def card_unavailable_reason(
+        self,
+        card,
+        *,
+        schedule_start_at: datetime,
+        course_id: int,
+        course_type_code: str | None,
+    ) -> str | None:
+        """基础不可用原因（状态 + 排期日有效期 + 课程适用性）。
+
+        可用返回 ``None``。仅覆盖共享判定；次卡余额与期卡区间冲突不在此处。
+        有效期按“排期日”比较（含 expire_at 当天），不得使用 now。
+        """
+        card_type = self._card_field(card, "card_type")
+        status = self._card_field(card, "status")
+        valid_from = self._card_field(card, "valid_from")
+        expire_at = self._card_field(card, "expire_at")
+        applicable_course_type_code = self._card_field(
+            card, "applicable_course_type_code"
+        )
+        applicable_course_ids = self._card_field(card, "applicable_course_ids")
+
+        if card_type not in (
+            CardType.COUNT.value,
+            CardType.UNLIMITED.value,
+            CardType.PERIOD.value,
+        ):
+            return "不支持的卡类型"
+
+        if card_type in (CardType.COUNT.value, CardType.UNLIMITED.value):
+            if status != CardStatus.ACTIVE.value:
+                return self._card_status_unavailable_reason(status)
+        else:  # PERIOD：ACTIVE 或 PENDING 且 valid_from IS NULL（D9）可预约
+            if status != CardStatus.ACTIVE.value and not (
+                status == CardStatus.PENDING.value and valid_from is None
+            ):
+                return self._card_status_unavailable_reason(status)
+
+        schedule_date = schedule_start_at.date()
+        if valid_from is not None and schedule_date < valid_from.date():
+            return f"尚未生效（{valid_from.strftime('%Y-%m-%d')} 生效）"
+        if expire_at is not None and schedule_date > expire_at.date():
+            return f"已过期（{expire_at.strftime('%Y-%m-%d')} 到期）"
+
+        if applicable_course_type_code:
+            if (
+                not course_type_code
+                or applicable_course_type_code != course_type_code
+            ):
+                return "不适用于此课程类型"
+        if applicable_course_ids and course_id not in applicable_course_ids:
+            return "不适用于此课程"
+
+        return None
+
     def is_bookable_card(
         self,
         card: MembershipCard,
@@ -559,37 +639,38 @@ class MembershipCardService:
 
         有效期按“排期日”比较（含 expire_at 当天），不得使用 now。
         """
-        if card.card_type == CardType.COUNT.value:
-            if card.status != CardStatus.ACTIVE.value:
-                return False
-        elif card.card_type == CardType.UNLIMITED.value:
-            if card.status != CardStatus.ACTIVE.value:
-                return False
-        elif card.card_type == CardType.PERIOD.value:
-            if not (
-                card.status == CardStatus.ACTIVE.value
-                or self.is_period_pending_bookable(card)
-            ):
-                return False
-        else:
-            return False
+        return (
+            self.card_unavailable_reason(
+                card,
+                schedule_start_at=schedule_start_at,
+                course_id=course_id,
+                course_type_code=course_type_code,
+            )
+            is None
+        )
 
-        schedule_date = schedule_start_at.date()
-        if card.valid_from is not None and schedule_date < card.valid_from.date():
-            return False
-        if card.expire_at is not None and schedule_date > card.expire_at.date():
-            return False
+    def card_recommend_unavailable_reason(
+        self,
+        card,
+        *,
+        schedule_start_at: datetime,
+        course_id: int,
+        course_type_code: str | None,
+    ) -> str | None:
+        """推荐链路不可用原因：在共享判定之上追加次卡余额校验。
 
-        if card.applicable_course_type_code:
-            if (
-                not course_type_code
-                or card.applicable_course_type_code != course_type_code
-            ):
-                return False
-        if card.applicable_course_ids and course_id not in card.applicable_course_ids:
-            return False
-
-        return True
+        期卡区间冲突不在推荐阶段预校验（K4），仍由下单校验负责。
+        """
+        reason = self.card_unavailable_reason(
+            card,
+            schedule_start_at=schedule_start_at,
+            course_id=course_id,
+            course_type_code=course_type_code,
+        )
+        if reason is None and self._card_field(card, "card_type") == CardType.COUNT.value:
+            if (self._card_field(card, "remaining_credits") or 0) <= 0:
+                return "次卡已用完"
+        return reason
 
     async def validate_card_for_booking(
         self,
@@ -933,6 +1014,86 @@ class MembershipCardService:
                 card["conflict_count"] = conflict_check["conflict_count"]
 
         return cards
+
+    @staticmethod
+    def _as_aware(value: datetime | None) -> datetime | None:
+        """统一时区，避免排序键比较 naive/aware 混用。"""
+        if value is None:
+            return None
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+    @classmethod
+    def _recommend_sort_key(cls, card) -> tuple:
+        """D6 排序：expire_at ASC（NULL 最后）→ remaining ASC（None 最后）
+        → created_at ASC → id ASC。"""
+        expire_at = cls._as_aware(cls._card_field(card, "expire_at"))
+        remaining = cls._card_field(card, "remaining_credits")
+        created_at = cls._as_aware(cls._card_field(card, "created_at"))
+        max_dt = datetime.max.replace(tzinfo=UTC)
+        return (
+            expire_at is None,
+            expire_at or max_dt,
+            remaining is None,
+            remaining if remaining is not None else 0,
+            created_at or max_dt,
+            cls._card_field(card, "id") or 0,
+        )
+
+    @staticmethod
+    def _recommend_message(
+        total_cards: int,
+        available_count: int,
+        reasons: list[str],
+    ) -> str | None:
+        """无可用卡时的聚合文案；有可用卡返回 None。"""
+        if total_cards == 0:
+            return "您还没有会员卡"
+        if available_count == 0:
+            return "暂无可用会员卡：" + "；".join(dict.fromkeys(reasons))
+        return None
+
+    async def recommend_card_for_schedule(
+        self,
+        db: AsyncSession,
+        student_id: int,
+        tenant_id: int,
+        schedule_id: int,
+    ) -> dict:
+        """按排期推荐学员可用会员卡（只读，无锁、无写库）。
+
+        跨模块只读取排期（ScheduleService），卡数据复用租户感知 Repository。
+        """
+        from app.modules.schedule.service import ScheduleService
+
+        schedule = await ScheduleService().get_schedule_by_id(db, schedule_id)
+        if schedule.tenant_id != tenant_id:
+            raise HTTPException(status_code=404, detail="排期不存在")
+
+        cards = await self.card_repo.get_all_cards_by_student(db, student_id, tenant_id)
+        available: list[dict] = []
+        reasons: list[str] = []
+        for card in cards:
+            reason = self.card_recommend_unavailable_reason(
+                card,
+                schedule_start_at=schedule.start_at,
+                course_id=schedule.course_id,
+                course_type_code=schedule.course_type_code,
+            )
+            if reason is None:
+                available.append(card)
+            else:
+                reasons.append(reason)
+
+        available.sort(key=self._recommend_sort_key)
+
+        return {
+            "schedule_id": schedule_id,
+            "recommended_card_id": available[0]["id"] if available else None,
+            "available_cards": [
+                MembershipCardResponse.model_validate(card) for card in available
+            ],
+            "message": self._recommend_message(len(cards), len(available), reasons),
+        }
 
     async def get_student_active_cards(
         self,

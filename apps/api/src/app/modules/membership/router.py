@@ -8,7 +8,7 @@ Membership Card Router - 会员卡模块路由
 - 冻结记录查询
 """
 
-from fastapi import APIRouter, Body, Depends, Path, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -257,6 +257,25 @@ async def get_my_cards(
     return success(data=items)
 
 
+@router.get(
+    "/recommend-card",
+    response_model=dict,
+    summary="获取排期推荐会员卡（学员端）",
+)
+async def recommend_card(
+    schedule_id: int = Query(..., ge=1, description="排期ID"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """按排期返回当前学员的可用会员卡（D6 排序）与推荐卡 id。只读。"""
+    tenant_id = current_user.get("tenant_id")
+    student_id = current_user.get("user_id")
+    result = await membership_card_service.recommend_card_for_schedule(
+        db, student_id, tenant_id, schedule_id
+    )
+    return success(data=result)
+
+
 @router.get("/cards/{card_id}", response_model=dict, summary="获取会员卡详情")
 async def get_card(
     card_id: int = Path(...),
@@ -286,6 +305,79 @@ async def freeze_card(
     await db.commit()
     await db.refresh(result)
     return success(data=MembershipCardResponse.model_validate(result), msg="会员卡已冻结")
+
+
+@router.get("/cards/{card_id}/conflict-check", response_model=dict, summary="检查会员卡是否存在冲突")
+@require_roles("admin", "super_admin")
+async def check_card_conflict(
+    card_id: int = Path(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """检查会员卡是否存在同课程类型的时间冲突"""
+    tenant_id = current_user.get("tenant_id")
+    result = await membership_card_service.check_card_conflict(db, card_id, tenant_id)
+    return success(data=result)
+
+
+@router.post("/cards/{card_id}/admin-unfreeze", response_model=dict, summary="管理员解冻会员卡（支持冲突处理）")
+@require_roles("admin", "super_admin")
+async def admin_unfreeze_card(
+    card_id: int = Path(...),
+    data: dict = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """管理员解冻会员卡（支持多种冲突处理方式）"""
+    tenant_id = current_user.get("tenant_id")
+    operator_id = current_user.get("user_id")
+
+    action = data.get("action", "force_unfreeze")
+    conflict_card_ids = data.get("conflict_card_ids", [])
+    remark = data.get("remark", "")
+
+    if action == "force_unfreeze":
+        # 强制解冻（允许冲突）
+        result = await membership_card_service.admin_force_unfreeze_card(
+            db, card_id, tenant_id, operator_id, force=True, remark=remark
+        )
+        await db.commit()
+        await db.refresh(result)
+        return success(data=MembershipCardResponse.model_validate(result), msg="会员卡已强制解冻")
+
+    elif action == "unfreeze_and_cancel":
+        # 解冻并作废冲突卡
+        if not conflict_card_ids:
+            raise HTTPException(status_code=400, detail="请指定要作废的冲突卡ID")
+        cancel_reason = remark or "解冻冲突卡自动作废"
+        result = await membership_card_service.unfreeze_and_cancel_conflicts(
+            db, card_id, tenant_id, operator_id, conflict_card_ids, cancel_reason
+        )
+        await db.commit()
+        await db.refresh(result["unfrozen_card"])
+        return success(
+            data=result,
+            msg=f"解冻成功，已作废{result['success_count']}张冲突卡"
+        )
+
+    elif action == "unfreeze_and_freeze":
+        # 解冻并冻结冲突卡
+        if not conflict_card_ids:
+            raise HTTPException(status_code=400, detail="请指定要冻结的冲突卡ID")
+        freeze_reason = remark or "解冻冲突卡自动冻结"
+        freeze_days = data.get("freeze_days", 365)
+        result = await membership_card_service.unfreeze_and_freeze_conflicts(
+            db, card_id, tenant_id, operator_id, conflict_card_ids, freeze_reason, freeze_days
+        )
+        await db.commit()
+        await db.refresh(result["unfrozen_card"])
+        return success(
+            data=result,
+            msg=f"解冻成功，已冻结{result['success_count']}张冲突卡"
+        )
+
+    else:
+        raise HTTPException(status_code=400, detail=f"不支持的操作类型：{action}")
 
 
 @router.post("/cards/{card_id}/unfreeze", response_model=dict, summary="解冻会员卡")
@@ -324,6 +416,7 @@ async def extend_card(
 
 
 @router.post("/cards/{card_id}/activate", response_model=dict, summary="激活会员卡（学员端）")
+@require_roles("student")
 async def activate_card(
     card_id: int = Path(...),
     db: AsyncSession = Depends(get_session),
@@ -339,6 +432,7 @@ async def activate_card(
 
 
 @router.post("/cards/{card_id}/student-unfreeze", response_model=dict, summary="学员提前解冻会员卡")
+@require_roles("student")
 async def student_unfreeze_card(
     card_id: int = Path(...),
     db: AsyncSession = Depends(get_session),

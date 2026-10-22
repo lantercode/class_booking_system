@@ -1,3 +1,5 @@
+import type { PaginatedData } from "@/utils/helpers";
+
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://api.seplume.com/api/v1";
 
@@ -20,6 +22,106 @@ interface ApiResponse<T = any> {
   code: number;
   data: T;
   msg: string;
+}
+
+/**
+ * miniapp 实际使用的 HTTP 动词。
+ * 后端契约含 PATCH（users / courses / schedules / teachers 更新接口），
+ * 而 @dcloudio/types 的 RequestOptions.method 内联联合
+ * （'OPTIONS'|'GET'|'HEAD'|'POST'|'PUT'|'DELETE'|'TRACE'|'CONNECT'）漏声明 PATCH；
+ * uni.request 在微信运行时透传 method 字符串，PATCH 可用（上述更新接口既有调用已依赖此行为），
+ * 故在 uni.request 调用边界做一次局部断言（见 request 实现），不改变任何运行时行为。
+ */
+type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+/** 与 @dcloudio/types RequestOptions.method 联合保持一致，仅用于局部断言 */
+type UniCompatibleRequestMethod =
+  | "OPTIONS"
+  | "GET"
+  | "HEAD"
+  | "POST"
+  | "PUT"
+  | "DELETE"
+  | "TRACE"
+  | "CONNECT";
+
+/** 租户配置 GET /tenant/settings（后端 TenantService.get_settings） */
+export interface TenantSettings {
+  booking_cancel_minutes: number;
+  booking_advance_days: number;
+}
+
+/** 租户信息 GET /tenant/info（后端 TenantService.get_tenant_info） */
+export interface TenantInfo {
+  id: number;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+}
+
+/** AI 历史消息项 GET /ai/history（会话中角色仅 user / assistant） */
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp?: string;
+}
+
+/** AI 对话响应 data POST /ai/chat */
+export interface AiChatResult {
+  response: string;
+  session_id: string;
+  timestamp: string;
+  has_pending_state: boolean;
+  latency_ms: number;
+}
+
+/** 排期详情 GET /schedules/{id}，字段对齐后端 ScheduleResponse */
+export interface ScheduleDetail {
+  id: number;
+  public_id: string;
+  tenant_id: number;
+  course_id: number;
+  teacher_id: number;
+  classroom_id: number | null;
+  start_at: string;
+  end_at: string;
+  capacity: number;
+  booked_count: number;
+  booking_opens_at: string | null;
+  booking_closes_at: string | null;
+  cancel_deadline: string | null;
+  status: number;
+  display_status: number;
+  notes: string | null;
+  preview_content: string | null;
+  preview_updated_at: string | null;
+  cancel_reason: string | null;
+  cancelled_by: number | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  teacher_name: string | null;
+  course_name: string | null;
+  classroom_name: string | null;
+  course_type_code: string | null;
+}
+
+/** 教师列表项 GET /teachers/（仅声明 miniapp 实际消费字段） */
+export interface TeacherListItem {
+  id: number;
+  nickname?: string;
+  avatar_url?: string;
+  title?: string;
+  specialties?: string[];
+}
+
+/** 教师端工作台统计（teacher/profile 页面消费结构） */
+export interface TeacherStats {
+  courses: number;
+  schedules: number;
+  students: number;
 }
 
 /**
@@ -100,7 +202,7 @@ async function refreshToken(): Promise<boolean> {
 
 async function request<T>(
   url: string,
-  method: "GET" | "POST" | "PATCH" | "DELETE" = "GET",
+  method: HttpMethod = "GET",
   data?: any,
   headers?: any,
   showError: boolean = true,
@@ -146,13 +248,14 @@ async function request<T>(
   let requestTask: ReturnType<typeof uni.request> | null = null;
 
   return withTimeout(
-    new Promise((resolve, reject) => {
+    new Promise<ApiResponse<T>>((resolve, reject) => {
       const fullUrl = `${BASE_URL}${url}`;
       console.log(`API请求: ${method} ${fullUrl}`, data || "");
 
       requestTask = uni.request({
         url: fullUrl,
-        method,
+        // 第三方 @dcloudio/types 联合漏 PATCH，见 HttpMethod 注释；局部断言、运行时原样透传
+        method: method as UniCompatibleRequestMethod,
         data,
         header: { ...defaultHeaders, ...headers },
         timeout: requestTimeout,
@@ -168,7 +271,8 @@ async function request<T>(
             try {
               const refreshed = await refreshToken();
               if (refreshed) {
-                const retryResult = await request(
+                // 显式透传泛型 T，保证重放请求与原请求响应类型一致
+                const retryResult = await request<T>(
                   url,
                   method,
                   data,
@@ -386,7 +490,7 @@ export const scheduleApi = {
   },
 
   get(id: number) {
-    return request(`/schedules/${id}`);
+    return request<ScheduleDetail>(`/schedules/${id}`);
   },
 
   create(data: any) {
@@ -403,9 +507,10 @@ export const scheduleApi = {
 };
 
 export const bookingApi = {
+  // 后端 GET /bookings 固定返回分页结构 { items,total,page,page_size }
   list(params?: any) {
     const query = buildQuery(params);
-    return request(`/bookings${query}`);
+    return request<PaginatedData<any>>(`/bookings${query}`);
   },
 
   create(data: { schedule_id: number; membership_card_id?: number }) {
@@ -452,12 +557,14 @@ export const teacherApi = {
     return request(`/schedules${query}`);
   },
 
+  // 注意：当前端点为 /auth/me，返回结构与 TeacherStats 的差异为既有实现，
+  // 本 Feature 仅按页面消费结构补类型，不改接口与业务逻辑（见交付报告 Risks）。
   getStats() {
-    return request("/auth/me");
+    return request<TeacherStats>("/auth/me");
   },
 
   list() {
-    return request("/teachers/");
+    return request<TeacherListItem[]>("/teachers/");
   },
 };
 
@@ -489,7 +596,7 @@ export const classroomApi = {
 
 export const aiChatApi = {
   chat(message: string, session_id: string = "default") {
-    return request(
+    return request<AiChatResult>(
       "/ai/chat",
       "POST",
       { message, session_id },
@@ -500,7 +607,7 @@ export const aiChatApi = {
 
   getHistory(session_id: string = "default") {
     const query = buildQuery({ session_id });
-    return request(`/ai/history${query}`);
+    return request<AiChatMessage[]>(`/ai/history${query}`);
   },
 
   clearHistory(session_id: string = "default") {
@@ -511,6 +618,13 @@ export const aiChatApi = {
 export const membershipApi = {
   getMyCards() {
     return request("/membership/my-cards");
+  },
+
+  // 排期推荐可用会员卡（后端统一可用性判定与 D6 排序）
+  getRecommendCard(scheduleId: number) {
+    return request("/membership/recommend-card", "GET", {
+      schedule_id: scheduleId,
+    });
   },
 
   getCardDetail(cardId: number) {
@@ -537,9 +651,9 @@ export const membershipApi = {
 
 export const tenantApi = {
   getSettings() {
-    return request("/tenant/settings");
+    return request<TenantSettings>("/tenant/settings");
   },
   getInfo() {
-    return request("/tenant/info");
+    return request<TenantInfo>("/tenant/info");
   },
 };
