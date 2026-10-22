@@ -1,13 +1,13 @@
 """预约模块路由"""
 
-from fastapi import APIRouter, Body, Depends, Path, Query
+from fastapi import APIRouter, Body, Depends, Header, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.rbac import require_permissions
+from app.core.rbac import require_permissions, require_roles
 from app.core.response import success
 from app.deps.auth import get_current_user
-from app.modules.booking.schemas import BookingCreate
+from app.modules.booking.schemas import BookingCreate, BookingRescheduleRequest
 from app.modules.booking.service import BookingService
 
 router = APIRouter(prefix="/bookings", tags=["预约管理"])
@@ -26,6 +26,7 @@ booking_service = BookingService()
     summary="创建预约",
     description="学员预约课程排期（自动校验容量、重复预约、时间窗口）",
 )
+@require_roles("student")
 async def create_booking(
     data: BookingCreate = Body(...),
     db: AsyncSession = Depends(get_session),
@@ -62,9 +63,11 @@ async def list_bookings(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """获取预约列表"""
-    student_id = current_user.get("user_id") if not schedule_id else None
+    """获取预约列表
 
+    归属分流在 Service 层完成（按 current_user 的角色：student 只看自己、teacher
+    只看自己排期下的、admin/super_admin 全量）。Router 不做角色判断，仅透传 current_user。
+    """
     # 解析 status 参数：支持逗号分隔多个状态
     statuses = None
     if status:
@@ -101,8 +104,8 @@ async def list_bookings(
 
     result = await booking_service.list_bookings(
         db,
+        current_user=current_user,
         schedule_id=schedule_id,
-        student_id=student_id,
         statuses=statuses,
         display_status=display_status,
         upcoming=is_upcoming,
@@ -123,8 +126,10 @@ async def get_booking(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """获取预约详情"""
-    result = await booking_service.get_booking_by_id(db, booking_id)
+    """获取预约详情（归属校验在 Service 层：owner / 教师本人 / admin 放行）"""
+    result = await booking_service.get_booking_by_id(
+        db, booking_id, current_user=current_user
+    )
     return success(data=result)
 
 
@@ -134,6 +139,7 @@ async def get_booking(
     summary="取消预约",
     description="取消指定预约（自动释放名额）",
 )
+@require_roles("student")
 async def cancel_booking(
     booking_id: int = Path(..., description="预约ID"),
     reason: str = Query("", description="取消原因"),
@@ -157,6 +163,7 @@ async def cancel_booking(
     summary="取消预约（学员端）",
     description="学员通过排期ID取消自己的预约",
 )
+@require_roles("student")
 async def cancel_booking_by_schedule(
     schedule_id: int = Body(..., description="排期ID"),
     reason: str | None = Body(None, description="取消原因"),
@@ -172,6 +179,36 @@ async def cancel_booking_by_schedule(
         reason=reason,
     )
     return success(data=result, msg="预约已取消")
+
+
+@router.post(
+    "/{booking_id}/reschedule",
+    response_model=dict,
+    summary="原子改期 / 原子改派",
+    description="学员将本人预约改期到其他排期，或同排期更换会员卡（同一事务内完成）",
+)
+@require_roles("student")
+async def reschedule_booking(
+    booking_id: int = Path(..., description="预约ID"),
+    data: BookingRescheduleRequest = Body(...),
+    idempotency_key: str | None = Header(
+        None, alias="Idempotency-Key", max_length=64, description="幂等键（可选）"
+    ),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """原子改期 / 改派"""
+    result = await booking_service.reschedule_booking(
+        db,
+        booking_id=booking_id,
+        data=data,
+        current_user=current_user,
+        idempotency_key=idempotency_key,
+    )
+    return success(
+        data=result,
+        msg="改期成功" if result.mode == "reschedule" else "改派成功",
+    )
 
 
 # ============================================================

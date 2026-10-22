@@ -24,66 +24,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/common/test-exception": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 测试异常
-         * @description 测试各类异常处理
-         */
-        get: operations["test_exception_api_v1_common_test_exception_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/common/test-auth": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 测试认证
-         * @description 测试认证依赖注入
-         */
-        get: operations["test_auth_api_v1_common_test_auth_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/common/test-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * 生成测试 Token
-         * @description 创建一个测试用的 Token，用于测试认证依赖
-         */
-        get: operations["test_generate_token_api_v1_common_test_token_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/common/upload/image": {
         parameters: {
             query?: never;
@@ -390,12 +330,7 @@ export interface paths {
          * 系统设置
          * @description 系统设置页面。
          *
-         *     **权限要求**: admin:all 或 super:manage（OR 逻辑）
-         *
-         *     OR 逻辑说明：
-         *     - 有 admin:all 权限的普通管理员可以访问
-         *     - 有 super:manage 权限的超管也可以访问
-         *     - 两者满足其一即可
+         *     **角色要求**: admin 或 super_admin（OR 逻辑）
          */
         get: operations["system_settings_api_v1_admin_settings_get"];
         put?: never;
@@ -503,15 +438,10 @@ export interface paths {
          * 批量删除用户（高危）
          * @description 批量删除多个用户（极度危险的操作！）。
          *
-         *     **角色要求**: super_admin AND security_admin（必须同时拥有两个角色）
-         *
-         *     为什么用 AND 逻辑？
-         *     - 单人误操作风险太高
-         *     - 需要两种不同角色的确认
-         *     - 类似银行转账需要两个U盾的场景
+         *     **角色要求**: super_admin（仅超级管理员）
          *
          *     ⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️
-         *     - 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行
+         *     - 只有超级管理员才能执行
          *     - 会触发审计日志告警
          *     - 建议增加二次确认机制
          */
@@ -1203,7 +1133,7 @@ export interface paths {
         };
         /**
          * 获取预约详情
-         * @description 获取预约详情
+         * @description 获取预约详情（归属校验在 Service 层：owner / 教师本人 / admin 放行）
          */
         get: operations["get_booking_api_v1_bookings__booking_id__get"];
         put?: never;
@@ -1248,6 +1178,26 @@ export interface paths {
          * @description 学员通过排期ID取消自己的预约
          */
         post: operations["cancel_booking_by_schedule_api_v1_bookings_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bookings/{booking_id}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 原子改期 / 原子改派
+         * @description 学员将本人预约改期到其他排期，或同排期更换会员卡（同一事务内完成）
+         */
+        post: operations["reschedule_booking_api_v1_bookings__booking_id__reschedule_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1350,7 +1300,11 @@ export interface paths {
          * @description 获取当前租户的配置信息
          */
         get: operations["get_tenant_settings_api_v1_tenant_settings_get"];
-        put?: never;
+        /**
+         * 更新租户配置
+         * @description 更新当前租户的配置信息（浅合并：保留未传键）
+         */
+        put: operations["update_tenant_settings_api_v1_tenant_settings_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1370,7 +1324,11 @@ export interface paths {
          * @description 获取当前租户的基本信息（名称、logo等）
          */
         get: operations["get_tenant_info_api_v1_tenant_info_get"];
-        put?: never;
+        /**
+         * 更新租户基本信息
+         * @description 更新当前租户的基本信息（名称、logo、联系方式）
+         */
+        put: operations["update_tenant_info_api_v1_tenant_info_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1527,7 +1485,7 @@ export interface paths {
         };
         /**
          * 获取我的会员卡（学员端）
-         * @description 获取当前学员的有效会员卡（学员端专用）
+         * @description 获取当前学员的所有会员卡（学员端专用，包含已过期、已作废）
          */
         get: operations["get_my_cards_api_v1_membership_my_cards_get"];
         put?: never;
@@ -1572,6 +1530,46 @@ export interface paths {
          * @description 冻结会员卡
          */
         post: operations["freeze_card_api_v1_membership_cards__card_id__freeze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/conflict-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 检查会员卡是否存在冲突
+         * @description 检查会员卡是否存在同课程类型的时间冲突
+         */
+        get: operations["check_card_conflict_api_v1_membership_cards__card_id__conflict_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/admin-unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 管理员解冻会员卡（支持冲突处理）
+         * @description 管理员解冻会员卡（支持多种冲突处理方式）
+         */
+        post: operations["admin_unfreeze_card_api_v1_membership_cards__card_id__admin_unfreeze_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1632,6 +1630,26 @@ export interface paths {
          * @description 学员主动激活待激活的会员卡
          */
         post: operations["activate_card_api_v1_membership_cards__card_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/membership/cards/{card_id}/student-unfreeze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 学员提前解冻会员卡
+         * @description 学员提前解冻已到期的冻结会员卡
+         */
+        post: operations["student_unfreeze_card_api_v1_membership_cards__card_id__student_unfreeze_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1877,6 +1895,27 @@ export interface components {
              * @description 会员卡ID
              */
             membership_card_id?: number | null;
+        };
+        /**
+         * BookingRescheduleRequest
+         * @description 改期 / 改派请求体（F6.5）
+         */
+        BookingRescheduleRequest: {
+            /**
+             * New Schedule Id
+             * @description 目标排期ID
+             */
+            new_schedule_id: number;
+            /**
+             * New Membership Card Id
+             * @description 目标会员卡ID；不传=沿用原卡
+             */
+            new_membership_card_id?: number | null;
+            /**
+             * Reason
+             * @description 改期原因
+             */
+            reason?: string | null;
         };
         /**
          * ChangePasswordRequest
@@ -2762,6 +2801,59 @@ export interface components {
             preview_content?: string | null;
         };
         /**
+         * TenantInfoUpdate
+         * @description 更新租户基本信息请求体
+         *
+         *     设计说明：
+         *     - ``name`` 必填（租户名称不可为空）；
+         *     - 其余字段可选，仅当客户端显式传入且非 None 时才更新。
+         */
+        TenantInfoUpdate: {
+            /**
+             * Name
+             * @description 租户名称
+             */
+            name: string;
+            /**
+             * Logo Url
+             * @description Logo URL
+             */
+            logo_url?: string | null;
+            /**
+             * Contact Phone
+             * @description 联系电话
+             */
+            contact_phone?: string | null;
+            /**
+             * Contact Email
+             * @description 联系邮箱
+             */
+            contact_email?: string | null;
+        };
+        /**
+         * TenantSettingsUpdate
+         * @description 更新租户配置请求体
+         *
+         *     设计说明：
+         *     - 两个字段均带默认值，便于客户端只传需要修改的字段；
+         *     - Router 使用 ``model_dump(exclude_unset=True)`` 仅传递客户端显式提交的字段，
+         *       从而在 Service 层实现"浅合并、保留未传键"的语义。
+         */
+        TenantSettingsUpdate: {
+            /**
+             * Booking Cancel Minutes
+             * @description 预约可提前取消的最少分钟数（1-480）；超出此窗口取消将影响课时
+             * @default 90
+             */
+            booking_cancel_minutes: number;
+            /**
+             * Booking Advance Days
+             * @description 预约可提前的最大天数（1-90）
+             * @default 14
+             */
+            booking_advance_days: number;
+        };
+        /**
          * TokenResponse
          * @description 令牌响应（双 Token）
          */
@@ -3148,94 +3240,6 @@ export interface components {
 export type $defs = Record<string, never>;
 export interface operations {
     health_api_v1_common_health_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    test_exception_api_v1_common_test_exception_get: {
-        parameters: {
-            query: {
-                type: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    test_auth_api_v1_common_test_auth_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    test_generate_token_api_v1_common_test_token_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -6035,6 +6039,48 @@ export interface operations {
             };
         };
     };
+    reschedule_booking_api_v1_bookings__booking_id__reschedule_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description 幂等键（可选） */
+                "Idempotency-Key"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                /** @description 预约ID */
+                booking_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingRescheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     check_in_booking_api_v1_bookings__booking_id__check_in_post: {
         parameters: {
             query?: never;
@@ -6245,6 +6291,43 @@ export interface operations {
             };
         };
     };
+    update_tenant_settings_api_v1_tenant_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_tenant_info_api_v1_tenant_info_get: {
         parameters: {
             query?: never;
@@ -6255,6 +6338,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_tenant_info_api_v1_tenant_info_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantInfoUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6757,6 +6877,82 @@ export interface operations {
             };
         };
     };
+    check_card_conflict_api_v1_membership_cards__card_id__conflict_check_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_unfreeze_card_api_v1_membership_cards__card_id__admin_unfreeze_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     unfreeze_card_api_v1_membership_cards__card_id__unfreeze_post: {
         parameters: {
             query?: never;
@@ -6832,6 +7028,41 @@ export interface operations {
         };
     };
     activate_card_api_v1_membership_cards__card_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    student_unfreeze_card_api_v1_membership_cards__card_id__student_unfreeze_post: {
         parameters: {
             query?: never;
             header?: {
@@ -7119,7 +7350,9 @@ export interface operations {
     get_supported_intents_api_v1_ai_intents_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -7132,6 +7365,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

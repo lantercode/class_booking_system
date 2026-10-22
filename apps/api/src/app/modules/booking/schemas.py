@@ -17,6 +17,16 @@ class BookingCreate(BaseModel):
     membership_card_id: int | None = Field(None, description="会员卡ID")
 
 
+class BookingRescheduleRequest(BaseModel):
+    """改期 / 改派请求体（F6.5）"""
+
+    new_schedule_id: int = Field(..., ge=1, description="目标排期ID")
+    new_membership_card_id: int | None = Field(
+        None, ge=1, description="目标会员卡ID；不传=沿用原卡"
+    )
+    reason: str | None = Field(None, max_length=200, description="改期原因")
+
+
 class BookingUpdate(BaseModel):
     """更新预约请求体"""
 
@@ -57,6 +67,15 @@ class BookingResponse(BaseModel):
     teacher_name: str | None = Field(None, description="教师名称（关联查询）")
 
     model_config = {"from_attributes": True}
+
+
+class BookingRescheduleResponse(BaseModel):
+    """改期 / 改派响应体（F6.5，D-11）"""
+
+    mode: str = Field(..., description="reschedule=改期 / card_swap=同排期改派")
+    previous_booking_id: int = Field(..., description="原预约ID")
+    previous_status: int = Field(..., description="原预约状态（改期前恒为已预约1）")
+    booking: BookingResponse = Field(..., description="改期后新预约 / 改派后的当前预约")
 
 
 class BookingListResponse(BaseModel):

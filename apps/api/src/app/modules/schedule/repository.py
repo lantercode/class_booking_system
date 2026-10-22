@@ -114,8 +114,21 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
         """检查时间冲突（同一教室或同一教师在同一时间段内是否有排期）
 
         Args:
-            use_lock: 是否使用行级锁(SELECT FOR UPDATE)防止并发冲突
-                     创建排期时应设置为True,确保事务隔离
+            use_lock: 为 True 时对冲突查询追加
+                ``SELECT ... FOR UPDATE SKIP LOCKED``。
+
+                .. warning::
+                    ``SKIP LOCKED`` 会**跳过正被其他事务持行锁的冲突行**，
+                    因此它不能保证冲突检测的完整性：被跳过的真实冲突不会
+                    出现在结果集中。
+
+                    - 在 READ COMMITTED 短事务中仅用于"尝试锁定可用行"类
+                      语义（如扣减 booked_count）；
+                    - **SERIALIZABLE 事务中的创建冲突检查必须传 False**：
+                      普通快照谓词读配合 SSI predicate lock 即可检测并发
+                      插入冲突（冲突方以 40001 失败）；若传 True，被并发
+                      RC 事务（预约/取消）持锁的真实冲突行会被吞掉，且 SSI
+                      依赖图缺边无法以 40001 兜底，导致静默双占。
 
         Returns:
             dict: {
@@ -166,12 +179,50 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
             "teacher_conflicts": teacher_conflicts,
         }
 
+    async def get_by_ids_for_update(
+        self,
+        db: AsyncSession,
+        schedule_ids: list[int],
+    ) -> list[CourseSchedule]:
+        """按 id 列表批量加悲观锁（去重 + id ASC + FOR UPDATE）
+
+        F6.5：改期需一次性锁定旧/目标排期，统一按 id ASC 加锁以消除
+        反向改期的死锁风险。
+
+        注意：**不使用 SKIP LOCKED**。改期应排队等待锁，而不是跳过被
+        其他事务锁定的排期（skip_locked 仅适用于"抢名额快速失败"）。
+        """
+        if not schedule_ids:
+            return []
+
+        from app.core.tenant_context import get_tenant_id
+
+        unique_ids = sorted({int(schedule_id) for schedule_id in schedule_ids})
+        tenant_id = get_tenant_id()
+
+        query = select(CourseSchedule).where(CourseSchedule.id.in_(unique_ids))
+        if tenant_id:
+            query = query.where(CourseSchedule.tenant_id == tenant_id)
+
+        query = query.order_by(CourseSchedule.id.asc()).with_for_update()
+        # 与 membership/repository.py 的锁查询一致：调用方可能已用 get_by_id
+        # 预读排期，若锁查询不覆盖 identity map，会拿到加锁前的 booked_count，
+        # 并发改期/取消时产生丢失更新（F6.5 并发用例已复现）。
+        query = query.execution_options(populate_existing=True)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
     async def increment_booked_count(
         self,
         db: AsyncSession,
         schedule_id: int,
     ) -> bool:
-        """预约人数 +1（原子操作）"""
+        """预约人数 +1（原子操作）
+
+        使用 skip_locked=True：高并发抢最后名额时，被锁的请求快速返回 False，
+        而不是排队等待超时。调用方据此返回"排期已满"友好错误。
+        """
         stmt = (
             select(CourseSchedule)
             .where(
@@ -179,7 +230,7 @@ class ScheduleRepository(TenantAwareRepository[CourseSchedule]):
                 CourseSchedule.status == ScheduleStatus.NORMAL.value,
                 CourseSchedule.booked_count < CourseSchedule.capacity,
             )
-            .with_for_update()
+            .with_for_update(skip_locked=True)
         )
         result = await db.execute(stmt)
         schedule = result.scalar_one_or_none()

@@ -30,127 +30,6 @@
         }
       }
     },
-    "/api/v1/common/test-exception": {
-      "get": {
-        "tags": [
-          "Common"
-        ],
-        "summary": "测试异常",
-        "description": "测试各类异常处理",
-        "operationId": "test_exception_api_v1_common_test_exception_get",
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Type"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Test Exception Api V1 Common Test Exception Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/common/test-auth": {
-      "get": {
-        "tags": [
-          "Common"
-        ],
-        "summary": "测试认证",
-        "description": "测试认证依赖注入",
-        "operationId": "test_auth_api_v1_common_test_auth_get",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Test Auth Api V1 Common Test Auth Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/common/test-token": {
-      "get": {
-        "tags": [
-          "Common"
-        ],
-        "summary": "生成测试 Token",
-        "description": "创建一个测试用的 Token，用于测试认证依赖",
-        "operationId": "test_generate_token_api_v1_common_test_token_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Test Generate Token Api V1 Common Test Token Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/common/upload/image": {
       "post": {
         "tags": [
@@ -1097,7 +976,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "系统设置",
-        "description": "系统设置页面。\n\n**权限要求**: admin:all 或 super:manage（OR 逻辑）\n\nOR 逻辑说明：\n- 有 admin:all 权限的普通管理员可以访问\n- 有 super:manage 权限的超管也可以访问\n- 两者满足其一即可",
+        "description": "系统设置页面。\n\n**角色要求**: admin 或 super_admin（OR 逻辑）",
         "operationId": "system_settings_api_v1_admin_settings_get",
         "parameters": [
           {
@@ -1302,7 +1181,7 @@
           "管理后台 - 用户管理"
         ],
         "summary": "批量删除用户（高危）",
-        "description": "批量删除多个用户（极度危险的操作！）。\n\n**角色要求**: super_admin AND security_admin（必须同时拥有两个角色）\n\n为什么用 AND 逻辑？\n- 单人误操作风险太高\n- 需要两种不同角色的确认\n- 类似银行转账需要两个U盾的场景\n\n⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️\n- 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行\n- 会触发审计日志告警\n- 建议增加二次确认机制",
+        "description": "批量删除多个用户（极度危险的操作！）。\n\n**角色要求**: super_admin（仅超级管理员）\n\n⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️\n- 只有超级管理员才能执行\n- 会触发审计日志告警\n- 建议增加二次确认机制",
         "operationId": "batch_delete_users_api_v1_admin_users_batch_delete_post",
         "parameters": [
           {
@@ -4972,7 +4851,7 @@
           "预约管理"
         ],
         "summary": "获取预约详情",
-        "description": "获取预约详情",
+        "description": "获取预约详情（归属校验在 Service 层：owner / 教师本人 / admin 放行）",
         "operationId": "get_booking_api_v1_bookings__booking_id__get",
         "parameters": [
           {
@@ -5149,6 +5028,98 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Cancel Booking By Schedule Api V1 Bookings Cancel Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bookings/{booking_id}/reschedule": {
+      "post": {
+        "tags": [
+          "预约管理"
+        ],
+        "summary": "原子改期 / 原子改派",
+        "description": "学员将本人预约改期到其他排期，或同排期更换会员卡（同一事务内完成）",
+        "operationId": "reschedule_booking_api_v1_bookings__booking_id__reschedule_post",
+        "parameters": [
+          {
+            "name": "booking_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "description": "预约ID",
+              "title": "Booking Id"
+            },
+            "description": "预约ID"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "幂等键（可选）",
+              "title": "Idempotency-Key"
+            },
+            "description": "幂等键（可选）"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingRescheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reschedule Booking Api V1 Bookings  Booking Id  Reschedule Post"
                 }
               }
             }
@@ -5508,6 +5479,66 @@
             }
           }
         }
+      },
+      "put": {
+        "tags": [
+          "租户管理"
+        ],
+        "summary": "更新租户配置",
+        "description": "更新当前租户的配置信息（浅合并：保留未传键）",
+        "operationId": "update_tenant_settings_api_v1_tenant_settings_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantSettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Tenant Settings Api V1 Tenant Settings Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/tenant/info": {
@@ -5545,6 +5576,66 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Tenant Info Api V1 Tenant Info Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "租户管理"
+        ],
+        "summary": "更新租户基本信息",
+        "description": "更新当前租户的基本信息（名称、logo、联系方式）",
+        "operationId": "update_tenant_info_api_v1_tenant_info_put",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TenantInfoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Tenant Info Api V1 Tenant Info Put"
                 }
               }
             }
@@ -6341,7 +6432,7 @@
           "会员卡管理"
         ],
         "summary": "获取我的会员卡（学员端）",
-        "description": "获取当前学员的有效会员卡（学员端专用）",
+        "description": "获取当前学员的所有会员卡（学员端专用，包含已过期、已作废）",
         "operationId": "get_my_cards_api_v1_membership_my_cards_get",
         "parameters": [
           {
@@ -6502,6 +6593,140 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Freeze Card Api V1 Membership Cards  Card Id  Freeze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/conflict-check": {
+      "get": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "检查会员卡是否存在冲突",
+        "description": "检查会员卡是否存在同课程类型的时间冲突",
+        "operationId": "check_card_conflict_api_v1_membership_cards__card_id__conflict_check_get",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Check Card Conflict Api V1 Membership Cards  Card Id  Conflict Check Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/admin-unfreeze": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "管理员解冻会员卡（支持冲突处理）",
+        "description": "管理员解冻会员卡（支持多种冲突处理方式）",
+        "operationId": "admin_unfreeze_card_api_v1_membership_cards__card_id__admin_unfreeze_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Admin Unfreeze Card Api V1 Membership Cards  Card Id  Admin Unfreeze Post"
                 }
               }
             }
@@ -6695,6 +6920,67 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Activate Card Api V1 Membership Cards  Card Id  Activate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/membership/cards/{card_id}/student-unfreeze": {
+      "post": {
+        "tags": [
+          "会员卡管理"
+        ],
+        "summary": "学员提前解冻会员卡",
+        "description": "学员提前解冻已到期的冻结会员卡",
+        "operationId": "student_unfreeze_card_api_v1_membership_cards__card_id__student_unfreeze_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Card Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Student Unfreeze Card Api V1 Membership Cards  Card Id  Student Unfreeze Post"
                 }
               }
             }
@@ -7193,12 +7479,40 @@
         ],
         "summary": "Get Supported Intents",
         "operationId": "get_supported_intents_api_v1_ai_intents_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -7387,6 +7701,48 @@
         ],
         "title": "BookingCreate",
         "description": "创建预约请求体"
+      },
+      "BookingRescheduleRequest": {
+        "properties": {
+          "new_schedule_id": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "New Schedule Id",
+            "description": "目标排期ID"
+          },
+          "new_membership_card_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Membership Card Id",
+            "description": "目标会员卡ID；不传=沿用原卡"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "改期原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_schedule_id"
+        ],
+        "title": "BookingRescheduleRequest",
+        "description": "改期 / 改派请求体（F6.5）"
       },
       "ChangePasswordRequest": {
         "properties": {
@@ -9177,6 +9533,85 @@
         "type": "object",
         "title": "ScheduleUpdate",
         "description": "更新排期请求体（部分更新）"
+      },
+      "TenantInfoUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "description": "租户名称"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url",
+            "description": "Logo URL"
+          },
+          "contact_phone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Phone",
+            "description": "联系电话"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email",
+            "description": "联系邮箱"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TenantInfoUpdate",
+        "description": "更新租户基本信息请求体\n\n设计说明：\n- ``name`` 必填（租户名称不可为空）；\n- 其余字段可选，仅当客户端显式传入且非 None 时才更新。"
+      },
+      "TenantSettingsUpdate": {
+        "properties": {
+          "booking_cancel_minutes": {
+            "type": "integer",
+            "maximum": 480.0,
+            "minimum": 1.0,
+            "title": "Booking Cancel Minutes",
+            "description": "预约可提前取消的最少分钟数（1-480）；超出此窗口取消将影响课时",
+            "default": 90
+          },
+          "booking_advance_days": {
+            "type": "integer",
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Booking Advance Days",
+            "description": "预约可提前的最大天数（1-90）",
+            "default": 14
+          }
+        },
+        "type": "object",
+        "title": "TenantSettingsUpdate",
+        "description": "更新租户配置请求体\n\n设计说明：\n- 两个字段均带默认值，便于客户端只传需要修改的字段；\n- Router 使用 ``model_dump(exclude_unset=True)`` 仅传递客户端显式提交的字段，\n  从而在 Service 层实现\"浅合并、保留未传键\"的语义。"
       },
       "TokenResponse": {
         "properties": {

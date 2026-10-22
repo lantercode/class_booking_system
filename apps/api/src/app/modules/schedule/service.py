@@ -28,6 +28,21 @@ from app.modules.user.repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
+# F4.5：SERIALIZABLE 下并发创建的最大尝试次数（首次 + 重试）。
+_CREATE_SERIALIZABLE_MAX_ATTEMPTS = 3
+
+
+def _is_serialization_failure(exc: BaseException) -> bool:
+    """判断异常是否为 PostgreSQL SerializationFailure（SQLSTATE 40001）。
+
+    asyncpg 的 ``SerializationError`` 经 SQLAlchemy 包装为 ``DBAPIError``
+    （``orig`` 携带原始驱动异常）；直连/测试场景也可能抛出原生异常，两者都识别。
+    """
+    orig = getattr(exc, "orig", exc)
+    if getattr(orig, "sqlstate", None) == "40001":
+        return True
+    return "could not serialize access" in str(orig)
+
 
 class ScheduleService:
     """排期管理服务"""
@@ -41,12 +56,18 @@ class ScheduleService:
         data: ScheduleCreate,
         operator_id: int | None = None,
     ) -> ScheduleResponse:
-        """创建排期"""
+        """创建排期
+
+        F4.5：冲突检查与插入在同一 SERIALIZABLE 事务内完成，避免并发下产生
+        时间重叠排期。若因并发冲突导致 SerializationFailure，自动重试；
+        重试耗尽后返回友好业务错误。
+        """
         logger.info(
             f"[ScheduleService] 创建排期: course_id={data.course_id}, "
             f"teacher_id={data.teacher_id}, start={data.start_at}"
         )
 
+        # ---------- 纯校验（无状态依赖，放在重试外） ----------
         if data.end_at <= data.start_at:
             raise ValidationException("结束时间必须晚于开始时间")
 
@@ -69,34 +90,7 @@ class ScheduleService:
             if classroom.status != 1:
                 raise ValidationException("该教室正在维护中，暂不可用")
 
-        conflicts = await self.repo.find_conflicts(
-            db,
-            classroom_id=data.classroom_id,
-            teacher_id=data.teacher_id,
-            start_at=data.start_at,
-            end_at=data.end_at,
-            use_lock=True,  # 使用行级锁防止并发冲突
-        )
-        if conflicts["has_conflict"]:
-            error_messages = []
-            if conflicts["classroom_conflicts"]:
-                classroom_names = []
-                for c in conflicts["classroom_conflicts"]:
-                    time_range = (
-                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
-                    )
-                    classroom_names.append(time_range)
-                error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
-            if conflicts["teacher_conflicts"]:
-                teacher_names = []
-                for c in conflicts["teacher_conflicts"]:
-                    time_range = (
-                        f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
-                    )
-                    teacher_names.append(time_range)
-                error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
-            raise BusinessException("；".join(error_messages), code=400)
-
+        # ---------- 事务内冲突检查 + 插入（SERIALIZABLE + 重试） ----------
         schedule_data: dict[str, Any] = {
             "course_id": data.course_id,
             "teacher_id": data.teacher_id,
@@ -119,9 +113,89 @@ class ScheduleService:
             schedule_data["preview_content"] = data.preview_content
             schedule_data["preview_updated_at"] = datetime.now(UTC)
 
-        schedule = await self.repo.create(db, schedule_data)
-        await db.commit()
-        await db.refresh(schedule)
+        schedule: CourseSchedule | None = None
+        for attempt in range(1, _CREATE_SERIALIZABLE_MAX_ATTEMPTS + 1):
+            try:
+                # 关闭上游（如 RBAC）可能已开启的只读事务，确保连接上不存在
+                # 活动事务；随后通过 SQLAlchemy 官方入口把本次创建事务提升为
+                # SERIALIZABLE（底层由 asyncpg 原生事务 API 发出
+                # ``BEGIN ISOLATION LEVEL SERIALIZABLE``，相较裸发 ``BEGIN``
+                # 不会触发 PostgreSQL "there is already a transaction in
+                # progress" 告警，重试时 rollback 后可安全重复提升）。
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+
+                await db.connection(
+                    execution_options={"isolation_level": "SERIALIZABLE"}
+                )
+
+                # SERIALIZABLE 下必须使用普通快照谓词读（use_lock=False）：
+                # 1) SSI 会为该谓词读建立 predicate lock，并发事务插入重叠行
+                #    时必有一方收到 40001，由本方法重试/失败兜底，无需显式行锁；
+                # 2) 切忌 use_lock=True：其 FOR UPDATE SKIP LOCKED 会跳过
+                #    "已存在、正被并发 READ COMMITTED 事务（预约/取消，
+                #    increment/decrement_booked_count 持 schedule 行锁）锁住的
+                #    真实冲突行"，而 RC 持锁方不产生 SIREAD 锁，SSI 依赖图缺边，
+                #    40001 无法兜底，将静默插入重叠排期。
+                conflicts = await self.repo.find_conflicts(
+                    db,
+                    classroom_id=data.classroom_id,
+                    teacher_id=data.teacher_id,
+                    start_at=data.start_at,
+                    end_at=data.end_at,
+                    use_lock=False,
+                )
+                if conflicts["has_conflict"]:
+                    # 注意：必须在 rollback 之前构造错误消息——rollback 会使
+                    # ORM 对象过期，事后再访问 c.start_at 会触发惰性加载
+                    # （greenlet_spawn 错误）。
+                    error_messages = []
+                    if conflicts["classroom_conflicts"]:
+                        classroom_names = [
+                            f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                            for c in conflicts["classroom_conflicts"]
+                        ]
+                        error_messages.append(f"该教室已被占用：{', '.join(classroom_names)}")
+                    if conflicts["teacher_conflicts"]:
+                        teacher_names = [
+                            f"{c.start_at.strftime('%Y-%m-%d %H:%M')}~{c.end_at.strftime('%H:%M')}"
+                            for c in conflicts["teacher_conflicts"]
+                        ]
+                        error_messages.append(f"该教师时间冲突：{', '.join(teacher_names)}")
+                    await db.rollback()
+                    raise BusinessException("；".join(error_messages), code=400)
+
+                schedule = await self.repo.create(db, schedule_data, auto_commit=False)
+                await db.commit()
+                await db.refresh(schedule)
+                break  # 成功，跳出重试循环
+
+            except BusinessException:
+                raise
+            except Exception as exc:
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
+                if _is_serialization_failure(exc) and attempt < _CREATE_SERIALIZABLE_MAX_ATTEMPTS:
+                    logger.warning(
+                        f"[ScheduleService] 创建排期遭遇 SerializationFailure，"
+                        f"第 {attempt} 次尝试失败，准备重试: {exc}"
+                    )
+                    continue
+                logger.error(f"[ScheduleService] 创建排期失败（尝试 {attempt}）: {exc}")
+                raise BusinessException(
+                    "创建排期失败，请稍后重试。若持续失败，可能是并发冲突导致。",
+                    code=500,
+                )
+
+        if schedule is None:
+            raise BusinessException(
+                "创建排期失败，请稍后重试。若持续失败，可能是并发冲突导致。",
+                code=500,
+            )
 
         logger.info(f"[ScheduleService] ✅ 排期创建成功: id={schedule.id}")
         return self._to_response(schedule)
@@ -235,20 +309,17 @@ class ScheduleService:
         cancel_reason: str,
         operator_id: int,
     ) -> dict[str, Any]:
-        """取消排期(含学员预约处理)"""
+        """取消排期(含学员预约处理)
+
+        事务边界：本方法持有整个事务。任一 booking 处理失败（含
+        ``MembershipCardService.restore_credit`` 失败）都直接 raise，
+        ``db.commit()`` 永不执行，AsyncSession 由 FastAPI 依赖清理时被动回滚，
+        全部 booking 状态变更、``decrement_booked_count``、schedule 状态变更
+        一并回滚，保证数据一致。与 ``BookingService._do_cancel_booking`` 同构。
+        """
         logger.warning(
             f"[ScheduleService] 取消排期: schedule_id={schedule_id}, reason={cancel_reason}"
         )
-
-        schedule = await self.repo.get_by_id(db, schedule_id)
-        if not schedule:
-            raise NotFoundException("排期不存在")
-
-        if schedule.status == ScheduleStatus.CANCELLED.value:
-            raise BusinessException("排期已取消", code=400)
-
-        if schedule.status == ScheduleStatus.FINISHED.value:
-            raise BusinessException("排期已完成，无法取消", code=400)
 
         from app.modules.booking.models import BookingStatus
         from app.modules.booking.repository import BookingRepository
@@ -257,46 +328,74 @@ class ScheduleService:
         booking_repo = BookingRepository()
         membership_card_service = MembershipCardService()
 
-        bookings = await booking_repo.search(
+        # F6.5 T6.5.11 固定锁序：booking(id ASC) → schedule，
+        # 与 cancel_booking / reschedule_booking / finalize_schedule_bookings 一致。
+        # 1) 无锁读 id，再按 id ASC 批量 FOR UPDATE，避免多行锁序不一致导致死锁。
+        booking_ids = await booking_repo.list_ids_by_schedule(
             db,
-            schedule_id=schedule_id,
-            status=BookingStatus.BOOKED.value,
-            page=1,
-            page_size=1000,
+            schedule_id,
+            (BookingStatus.BOOKED.value,),
         )
-        booking_list = bookings[0]
+        bookings = await booking_repo.get_by_ids_for_update(db, booking_ids)
 
-        success_count = 0
-        failed_bookings = []
+        # 2) 锁排期并重检状态（等锁期间可能已被并发取消/结束）。
+        schedule = await self.get_schedule_for_update(db, schedule_id)
+        if schedule.status == ScheduleStatus.CANCELLED.value:
+            raise BusinessException("排期已取消", code=400)
 
-        for booking in booking_list:
-            try:
-                booking.status = BookingStatus.CANCELLED.value
-                booking.cancelled_at = datetime.now(UTC)
-                booking.cancelled_reason = f"老师取消课程: {cancel_reason}"
+        if schedule.status == ScheduleStatus.FINISHED.value:
+            raise BusinessException("排期已完成，无法取消", code=400)
 
-                await self.repo.decrement_booked_count(db, schedule_id)
+        # 3) 持有排期锁后重新收集 BOOKED 预约：首次读之后可能有改期新约落入本排期。
+        #    排期已被锁定，后续不会再新增，故此处快照完整。
+        latest_ids = await booking_repo.list_ids_by_schedule(
+            db,
+            schedule_id,
+            (BookingStatus.BOOKED.value,),
+        )
+        locked_ids = {booking.id for booking in bookings}
+        extra_ids = [bid for bid in latest_ids if bid not in locked_ids]
+        if extra_ids:
+            bookings.extend(await booking_repo.get_by_ids_for_update(db, extra_ids))
 
-                if booking.membership_card_id:
-                    tenant_id = booking.tenant_id
-                    idempotency_key = f"schedule_cancel_{booking.id}_{schedule_id}"
-                    try:
-                        await membership_card_service.restore_credit(
-                            db,
-                            card_id=booking.membership_card_id,
-                            tenant_id=tenant_id,
-                            booking_id=booking.id,
-                            idempotency_key=idempotency_key,
-                        )
-                    except Exception as e:
-                        logger.error(f"[ScheduleService] 会员卡恢复次数失败: {e}")
-                        raise
+        # 4) 等锁期间预约可能被取消/改期，锁后按最新状态过滤。
+        bookings = [
+            booking
+            for booking in bookings
+            if booking.status == BookingStatus.BOOKED.value
+        ]
+        total_bookings = len(bookings)
 
-                success_count += 1
-            except Exception as e:
-                failed_bookings.append(
-                    {"booking_id": booking.id, "student_id": booking.student_id, "error": str(e)}
-                )
+        # 逐个处理预约取消 + 课时回补。
+        # 任一失败 → raise → db.commit() 永不执行 → AsyncSession 被动回滚
+        # → 已变更的 booking 状态、decrement_booked_count、schedule 状态全部回滚。
+        for booking in bookings:
+            booking.status = BookingStatus.CANCELLED.value
+            booking.cancelled_at = datetime.now(UTC)
+            booking.cancelled_reason = f"老师取消课程: {cancel_reason}"
+
+            await self.repo.decrement_booked_count(db, schedule_id)
+
+            if booking.membership_card_id:
+                tenant_id = booking.tenant_id
+                idempotency_key = f"schedule_cancel_{booking.id}_{schedule_id}"
+                try:
+                    await membership_card_service.restore_credit(
+                        db,
+                        card_id=booking.membership_card_id,
+                        tenant_id=tenant_id,
+                        booking_id=booking.id,
+                        idempotency_key=idempotency_key,
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"[ScheduleService] 取消排期时会员卡恢复次数失败 "
+                        f"booking_id={booking.id} card_id={booking.membership_card_id}: {e}"
+                    )
+                    raise BusinessException(
+                        f"会员卡恢复次数失败，取消排期操作已撤销: {e}",
+                        code=500,
+                    )
 
         update_data = {
             "status": ScheduleStatus.CANCELLED.value,
@@ -310,16 +409,52 @@ class ScheduleService:
 
         logger.warning(
             f"[ScheduleService] ✅ 排期已取消: id={schedule_id}, "
-            f"total_bookings={len(booking_list)}, success={success_count}, failed={len(failed_bookings)}"
+            f"total_bookings={total_bookings}, all_restored=True"
         )
 
+        # 返回字段集合保持与既有契约一致（router 仅消费 total_bookings / success_count）。
+        # 事务回滚路径不会执行到这里；正常路径下 success_count == total_bookings。
         return {
             "schedule_id": schedule_id,
-            "total_bookings": len(booking_list),
-            "success_count": success_count,
-            "failed_count": len(failed_bookings),
-            "failed_bookings": failed_bookings,
+            "total_bookings": total_bookings,
+            "success_count": total_bookings,
+            "failed_count": 0,
+            "failed_bookings": [],
         }
+
+    async def delete_schedule(
+        self,
+        db: AsyncSession,
+        schedule_id: int,
+    ) -> dict[str, Any]:
+        """硬删除排期
+
+        业务规则（原 router 逻辑原样下沉，行为零变化）：
+        - 排期不存在 / 跨租户 → NotFoundException（404 "排期不存在"）。
+        - 仅 NORMAL（待上课）状态且 booked_count > 0 时拒绝删除
+          → BusinessException（400），需先取消排期。
+        - 先删除该排期关联的 booking（避免外键约束冲突），再硬删 schedule；
+          两步共享同一 AsyncSession，由 ``self.repo.delete(auto_commit=True)``
+          统一 commit，异常时 Repository 内 rollback 并 raise。
+        """
+        schedule = await self.repo.get_by_id(db, schedule_id)
+        if not schedule:
+            raise NotFoundException("排期不存在")
+
+        # 仅对待上课状态的排期检查学员预约
+        if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
+            raise BusinessException("该排期仍有学员预约，请先取消排期后再删除", code=400)
+
+        # 删除关联的预约记录（避免外键约束冲突）
+        from app.modules.booking.repository import BookingRepository
+
+        booking_repo = BookingRepository()
+        await booking_repo.delete_by_schedule_id(db, schedule_id)
+
+        await self.repo.delete(db, schedule_id, hard_delete=True)
+
+        logger.info(f"[ScheduleService] ✅ 排期删除成功: id={schedule_id}")
+        return {"schedule_id": schedule_id}
 
     async def batch_delete_schedules(
         self,
@@ -409,6 +544,49 @@ class ScheduleService:
             teacher_map.get(schedule.teacher_id),
             classroom_map.get(schedule.classroom_id),
         )
+
+    async def get_schedule_for_update(
+        self,
+        db: AsyncSession,
+        schedule_id: int,
+    ) -> CourseSchedule:
+        """加悲观锁读取排期（SELECT ... FOR UPDATE，带租户约束）
+
+        F6.3 T6.3.4：供 BookingService.finalize_schedule_bookings 使用，
+        避免跨模块直接操作 ScheduleRepository 加锁。
+        """
+        from app.core.tenant_context import get_tenant_id
+
+        query = select(CourseSchedule).where(CourseSchedule.id == schedule_id)
+        tenant_id = get_tenant_id()
+        if tenant_id:
+            query = query.where(CourseSchedule.tenant_id == tenant_id)
+
+        result = await db.execute(query.with_for_update())
+        schedule = result.scalar_one_or_none()
+        if not schedule:
+            raise NotFoundException("排期不存在")
+        return schedule
+
+    async def get_schedules_for_update(
+        self,
+        db: AsyncSession,
+        schedule_ids: list[int],
+    ) -> dict[int, CourseSchedule]:
+        """批量加悲观锁读取排期（去重 + id ASC，带租户约束）
+
+        F6.5：供 BookingService.reschedule_booking 一次性锁定旧/目标排期，
+        避免跨模块直接操作 ScheduleRepository；任一 id 缺失即抛 404。
+        """
+        unique_ids = sorted({int(schedule_id) for schedule_id in schedule_ids})
+        if not unique_ids:
+            return {}
+
+        schedules = await self.repo.get_by_ids_for_update(db, unique_ids)
+        if len(schedules) != len(unique_ids):
+            raise NotFoundException("排期不存在")
+
+        return {schedule.id: schedule for schedule in schedules}
 
     async def list_schedules(
         self,
