@@ -578,21 +578,16 @@
 
 ### Feature 6.8：次卡余额用尽展示（D2）
 
-- **Status**：READY（低风险）
+- **Status**：✅ DONE（2026-10-24 人工验收通过；效率实验**试点组**样本 2，L2）
 - **Priority**：P2
 - **Goal**：不新增 EXHAUSTED 状态，用余额徽标/文案表达"已用尽"，并在选卡时过滤/灰显。
-- **Scope**：miniapp 会员卡列表/详情/预约选卡；admin 会员卡列表状态列辅助文案（不新增筛选枚举）；student-web 若 F6.11 已落地则同步。
-- **Out of Scope**：不改枚举、不改 Check 约束、不改 scheduler、不改扣次规则。
-- **Dependencies**：F6.3（期卡/次卡状态与余额口径稳定）；F6.6（选卡推荐语义）。
-- **Current Code Gaps**：
-  - 无 EXHAUSTED 枚举：`membership/models.py:49-57`；余额为属性：`models.py:250-254`。
-  - 小程序已有"已用完"分组但仅本地判断：`apps/miniapp/src/pages/student/membership/index.vue:767-777`。
-  - 选卡过滤本地计算：`booking-confirm/index.vue:328-329,521-524`。
-- **Tasks**：T6.8.1 统一"已用尽"文案/徽标；T6.8.2 选卡灰显与原因；T6.8.3 四态与构建自验。
-- **Required Agents**：frontend-engineer
-- **Definition of Ready**：是。D2 已冻结；仅展示层。
-- **Acceptance 概要**：remaining=0 的 ACTIVE 次卡显示"已用尽"且不可选；不改变后端状态值；过期/冻结/作废徽标不混淆；vue-tsc/build 通过。
-- **交付物**：`docs/features/F6.8-exhausted-card-display/`。
+- **Scope（已交付）**：miniapp 会员卡列表已用卡灰显 + "已用完"徽标 + 提示文案；admin 状态列追加"（已用完）"辅助文案。
+- **Out of Scope**：不改枚举/Check 约束/scheduler/扣次规则；不新增 admin 筛选项；不改 booking-confirm（F6.6 后端已排除）；不动 student-web。
+- **Dependencies**：F6.3（余额口径）、F6.6（选卡推荐语义）。
+- **契约（D2 已冻结 + K1–K3，2026-10-24）**：K1 miniapp 灰显+徽标；K2 详情内联标签+文案（无独立详情页，内联卡片）；K3 admin 辅助文案。
+- **验收结论**：人工验收通过；miniapp `pnpm type-check` + `build:mp-weixin` 通过，admin `pnpm build` 3.62s 通过；L2 自查 diff PASS（不调 architect，M2 试点）。
+- **交付物**：扩展任务记录 `docs/engineering/task-records/20261024-F6.8-card-exhausted-display.md`（L2 产物裁剪试点，替代 9 份 Feature 产物）+ release-note。
+- **实验观察（试点组）**：活跃耗时约 7 min（L2）；返工 0；M1 产物裁剪生效（仅 1 份扩展任务记录，无 9 份产物）；M2 单 Agent 交付（仅 frontend-engineer，无 architect/backend/database/mcp）。
 
 ### Feature 6.9：退款入口占位（D8）
 

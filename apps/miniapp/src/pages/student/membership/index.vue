@@ -245,6 +245,13 @@
                     >
                   </view>
                 </view>
+
+                <!-- 已用完提示 -->
+                <view class="used-up-hint">
+                  <text class="used-up-hint-text"
+                    >次数已用完，请续卡或换卡</text
+                  >
+                </view>
               </view>
             </view>
           </view>
@@ -502,12 +509,19 @@
                       }}</text>
                     </view>
                   </view>
-                  <!-- 提前解冻按钮 -->
+                  <!-- 提前解冻按钮（仅在无冲突时显示） -->
                   <view
+                    v-if="!card.has_conflict"
                     class="unfreeze-btn-inline"
                     @tap.stop="handleUnfreeze(card)"
                   >
                     <text class="unfreeze-btn-text">提前解冻</text>
+                  </view>
+                  <!-- 有冲突时显示提示 -->
+                  <view v-else class="conflict-hint">
+                    <text class="conflict-hint-text"
+                      >存在冲突卡，无法提前解冻</text
+                    >
                   </view>
                 </view>
               </view>
@@ -733,6 +747,9 @@ interface MembershipCard {
   frozen_until: string | null;
   frozen_reason: string | null;
   applicable_course_type_code?: string;
+  // 冲突检查相关字段
+  has_conflict?: boolean;
+  conflict_count?: number;
 }
 
 const cards = ref<MembershipCard[]>([]);
@@ -1054,6 +1071,7 @@ const goToHandle = () => {
   &.card-used-up {
     background: linear-gradient(135deg, #faf8f5 0%, #f7f3ed 100%);
     border: 1rpx solid rgba(201, 166, 107, 0.1);
+    opacity: 0.6;
   }
 
   &.card-pending {
@@ -1087,6 +1105,19 @@ const goToHandle = () => {
   display: flex;
   flex-direction: column;
   gap: 8rpx;
+}
+
+// 已用完卡提示
+.used-up-hint {
+  margin-top: 4rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(158, 158, 158, 0.08);
+  border-radius: 8rpx;
+
+  .used-up-hint-text {
+    font-size: $font-size-caption;
+    color: #9e9e9e;
+  }
 }
 
 .card-header {
@@ -1611,6 +1642,23 @@ const goToHandle = () => {
   .unfreeze-btn-text {
     font-size: $font-size-caption;
     color: #fff;
+    font-weight: $font-weight-medium;
+  }
+}
+
+// 冲突提示
+.conflict-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 24rpx;
+  background: #f5f5f5;
+  border-radius: 32rpx;
+  flex-shrink: 0;
+
+  .conflict-hint-text {
+    font-size: $font-size-caption;
+    color: #999;
     font-weight: $font-weight-medium;
   }
 }
