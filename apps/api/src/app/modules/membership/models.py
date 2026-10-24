@@ -165,10 +165,10 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         default=uuid4,
     )
     card_no: Mapped[str | None] = mapped_column(
-        String(17),
+        String(19),
         unique=True,
         nullable=True,
-        comment="会员卡号（yyyyMMdd + 9位随机数）",
+        comment="会员卡号（MC + yyyyMMdd + 9位随机数）",
     )
     student_id: Mapped[int] = mapped_column(
         BigInteger,
@@ -245,11 +245,11 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
 
     @staticmethod
     def generate_card_no() -> str:
-        """生成会员卡号：yyyyMMdd + 9位随机数"""
+        """生成会员卡号：MC + yyyyMMdd + 9位随机数"""
         now = datetime.now(UTC)
         date_part = now.strftime("%Y%m%d")
         random_part = f"{randint(0, 999999999):09d}"
-        return f"{date_part}{random_part}"
+        return f"MC{date_part}{random_part}"
 
     @property
     def remaining_credits(self) -> int | None:

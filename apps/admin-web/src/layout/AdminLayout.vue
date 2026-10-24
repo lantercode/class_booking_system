@@ -151,6 +151,7 @@ const menuItems: MenuItem[] = [
   { path: '/courses', title: '课程管理', icon: Reading },
   { path: '/classrooms', title: '教室管理', icon: OfficeBuilding },
   { path: '/schedules', title: '排期管理', icon: Calendar },
+  { path: '/bookings', title: '预约管理', icon: Calendar },
   { path: '/card-types', title: '卡产品管理', icon: Collection },
   { path: '/membership', title: '会员卡管理', icon: CreditCard },
   { path: '/tenant', title: '机构设置', icon: Setting },

@@ -44,7 +44,7 @@ from app.modules.booking.schemas import (
     BookingResponse,
 )
 from app.modules.course.service import CourseService
-from app.modules.membership.models import CardStatus, CardType
+from app.modules.membership.models import CardStatus, CardType, MembershipCard
 from app.modules.membership.service import membership_card_service
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.schedule.repository import ScheduleRepository
@@ -278,6 +278,24 @@ class BookingService:
         )
 
         booking = await self.repo.find_by_schedule_and_student(db, schedule_id, student_id)
+        if not booking:
+            raise NotFoundException("预约不存在")
+
+        return await self._do_cancel_booking(db, booking, reason)
+
+    async def admin_cancel_booking(
+        self,
+        db: AsyncSession,
+        booking_id: int,
+        operator_id: int | None = None,
+        reason: str | None = None,
+    ) -> BookingResponse:
+        """管理员代取消预约（不校验学员归属，需 booking:manage 权限）"""
+        logger.warning(
+            f"[BookingService] 管理员代取消预约: booking_id={booking_id}, operator_id={operator_id}"
+        )
+
+        booking = await self.repo.get_by_id(db, booking_id)
         if not booking:
             raise NotFoundException("预约不存在")
 
@@ -1153,6 +1171,7 @@ class BookingService:
         display_status: int | None = None,
         upcoming: bool = False,
         exclude_cancelled: bool = False,
+        keyword: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> BookingListResponse:
@@ -1194,6 +1213,7 @@ class BookingService:
             status=status,
             statuses=statuses,
             upcoming=upcoming,
+            keyword=keyword,
             page=page,
             page_size=page_size,
         )
@@ -1206,9 +1226,18 @@ class BookingService:
         schedule_ids = list({b.schedule_id for b in items})
         schedule_map = await self._get_schedule_info_map(db, schedule_ids)
 
+        # 获取所有会员卡ID并批量查询卡信息（卡号、状态、类型、剩余课时）
+        card_ids = list({b.membership_card_id for b in items if b.membership_card_id})
+        card_map = await self._get_card_info_map(db, card_ids)
+
         # 构建响应对象列表
         response_items = [
-            self._to_response(b, student_map.get(b.student_id), schedule_map.get(b.schedule_id))
+            self._to_response(
+                b,
+                student_map.get(b.student_id),
+                schedule_map.get(b.schedule_id),
+                card_map.get(b.membership_card_id),
+            )
             for b in items
         ]
 
@@ -1379,15 +1408,49 @@ class BookingService:
             for row in rows
         }
 
+    async def _get_card_info_map(
+        self, db: AsyncSession, card_ids: list[int]
+    ) -> dict[int, dict[str, Any]]:
+        """批量获取会员卡关联信息（卡号、状态、类型、剩余课时）"""
+        if not card_ids:
+            return {}
+
+        query = select(
+            MembershipCard.id,
+            MembershipCard.card_no,
+            MembershipCard.status,
+            MembershipCard.card_type,
+            MembershipCard.total_credits,
+            MembershipCard.used_credits,
+        ).where(MembershipCard.id.in_(card_ids))
+        result = await db.execute(query)
+        rows = result.all()
+
+        return {
+            row.id: {
+                "card_no": row.card_no,
+                "status": row.status,
+                "card_type": row.card_type,
+                "remaining_credits": (
+                    (row.total_credits - row.used_credits)
+                    if row.total_credits is not None
+                    else None
+                ),
+            }
+            for row in rows
+        }
+
     def _to_response(
         self,
         booking: Booking,
         student_info: tuple[str, str] | None = None,
         schedule_info: dict[str, Any] | None = None,
+        card_info: dict[str, Any] | None = None,
     ) -> BookingResponse:
         """将 ORM 模型转换为响应对象"""
         nickname, phone = student_info if student_info else (None, None)
         schedule_info = schedule_info or {}
+        card_info = card_info or {}
 
         # 计算显示状态：1待上课/2已取消/3上课中/4已完成
         now = datetime.now(UTC)
@@ -1437,4 +1500,8 @@ class BookingService:
             end_at=schedule_info.get("end_at"),
             classroom_name=schedule_info.get("classroom_name"),
             teacher_name=schedule_info.get("teacher_name"),
+            card_no=card_info.get("card_no"),
+            card_status=card_info.get("status"),
+            card_type=card_info.get("card_type"),
+            remaining_credits=card_info.get("remaining_credits"),
         )

@@ -60,6 +60,7 @@ async def list_bookings(
     ),
     upcoming: bool = Query(False, description="是否只查询待上课（未开始）的预约"),
     exclude_cancelled: bool = Query(False, description="是否排除已取消的记录（小程序端使用）"),
+    keyword: str | None = Query(None, description="关键词模糊检索（学员昵称/手机号、课程名、排期ID）"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
@@ -110,6 +111,7 @@ async def list_bookings(
         display_status=display_status,
         upcoming=is_upcoming,
         exclude_cancelled=exclude_cancelled,
+        keyword=keyword,
         page=page,
         page_size=page_size,
     )
@@ -248,3 +250,27 @@ async def complete_booking(
     """完成课程"""
     result = await booking_service.complete_booking(db, booking_id)
     return success(data=result, msg="课程已完成")
+
+
+@router.post(
+    "/{booking_id}/admin-cancel",
+    response_model=dict,
+    summary="管理员代取消预约",
+    description="管理员取消任意预约（需 booking:manage 权限），自动恢复课时与名额",
+)
+@require_permissions("booking:manage")
+async def admin_cancel_booking(
+    booking_id: int = Path(..., description="预约ID"),
+    reason: str = Query("", description="取消原因"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """管理员代取消预约"""
+    operator_id = current_user.get("user_id")
+    result = await booking_service.admin_cancel_booking(
+        db,
+        booking_id,
+        operator_id=operator_id,
+        reason=reason or None,
+    )
+    return success(data=result, msg="预约已取消")

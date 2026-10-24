@@ -66,6 +66,11 @@ class BookingResponse(BaseModel):
     classroom_name: str | None = Field(None, description="教室名称（关联查询）")
     teacher_name: str | None = Field(None, description="教师名称（关联查询）")
 
+    card_no: str | None = Field(None, description="会员卡编号（关联查询）")
+    card_status: int | None = Field(None, description="会员卡状态：0未激活/1使用中/2已过期/3已冻结/6已作废（关联查询）")
+    card_type: str | None = Field(None, description="会员卡类型 count/period（关联查询）")
+    remaining_credits: int | None = Field(None, description="剩余课时（次卡，关联查询）")
+
     model_config = {"from_attributes": True}
 
 

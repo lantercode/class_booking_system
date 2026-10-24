@@ -80,6 +80,15 @@
             >
               签到
             </el-button>
+            <el-button
+              v-if="student.status === 'attended'"
+              size="small"
+              type="primary"
+              text
+              @click="complete(student)"
+            >
+              完成
+            </el-button>
           </div>
         </div>
       </template>
@@ -113,6 +122,7 @@ const loadError = ref('')
 
 const attendedCount = computed(() => students.value.filter((s) => s.status === 'attended').length)
 const absentCount = computed(() => students.value.filter((s) => s.status === 'confirmed').length)
+const completedCount = computed(() => students.value.filter((s) => s.status === 'completed').length)
 
 function formatDateTime(isoStr: string) {
   const date = new Date(isoStr)
@@ -173,6 +183,16 @@ async function checkIn(student: StudentBooking) {
     ElMessage.success(`${student.nickname} 签到成功`)
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || '签到失败')
+  }
+}
+
+async function complete(student: StudentBooking) {
+  try {
+    await bookingApi.complete(student.id)
+    student.status = 'completed'
+    ElMessage.success(`${student.nickname} 已完成`)
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '操作失败')
   }
 }
 

@@ -1232,23 +1232,20 @@ function adminA5(){
   let rows=BOOKINGS.map(b=>{
     const cardFail=['CANCELLED','EXPIRED','FROZEN','USED_UP'].includes(b.cardStatus);
     return `<tr>
-      <td>${b.id}</td><td>${b.student}</td><td>${b.course}<br><span class="muted">${b.date} ${b.time}</span></td>
+      <td>${b.student}</td><td>${b.course}<br><span class="muted">${b.date} ${b.time}</span></td>
       <td>${bookBadge(b)}</td>
       <td>${b.cardNo}<br>${badge(b.cardStatus)}${b.cardCancelReason?`<div class="muted">${b.cardCancelReason}</div>`:''}</td>
       <td>${b.source==='SELF'?'本人':b.source==='TEACHER'?'教师':'管理员'}</td>
       <td>${b.cancelReason||'—'}</td>
       <td>
-        ${cardFail&&['BOOKED','CHECKED_IN'].includes(b.status)?'<button class="btn-text btn-sm" style="color:#e6a23c" onclick="toast(\'人工处理:联系学员换卡(占位)\')">人工处理</button>':''}
         ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="toast(\'代取消(演示)\')">代取消</button>':''}
         <button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名\')">点名</button>
-        <button class="btn-text btn-sm" disabled style="opacity:.5">改期</button>
       </td>
     </tr>`;
   }).join('');
   return pendingBanner('管理后台预约管理页：真实 admin 菜单无此页（会员卡管理/排期管理之外未实现预约管理列表）')
   +`<div class="toolbar"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option></select><input placeholder="学员/排期筛选"><span class="muted">计划卡失效行高亮警示(D3)</span></div>
-  <div class="scroll-x"><table class="el"><thead><tr><th>预约ID</th><th>学员</th><th>课程/排期</th><th>状态</th><th>计划卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
-  ${sticky(7,'改期/改派为"待开发"原子端点,本版仅占位')}
+  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>课程/排期</th><th>状态</th><th>计划卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
   <div class="muted" style="margin-top:8px">可找出"计划卡已作废的有效预约"演示场景(B3)</div>`;
 }
 
@@ -1262,13 +1259,12 @@ function adminA6(){
     <td>
       ${r.status==='BOOKED'?(r.cardStatus!=='ACTIVE'?'<button class="btn-text btn-sm" style="color:#f56c6c" onclick="adminCheckIn(\''+r.bId+'\')">代签到</button>':'<button class="btn-text btn-sm" onclick="adminCheckIn(\''+r.bId+'\')">代签到</button>'):''}
       ${r.status==='CHECKED_IN'?'<button class="btn-text btn-sm" onclick="adminComplete(\''+r.bId+'\')">完成</button>':''}
-      ${r.status==='BOOKED'||r.status==='CHECKED_IN'?'<button class="btn-text btn-sm" disabled style="opacity:.5">标记缺席</button>':''}
     </td>
   </tr>`).join('');
   return `<div class="toolbar">排期:<select onchange="STATE.teacherSched=this.value;renderAdminPage();renderTeacher()">${opts}</select>
     <span class="muted">D9: 签到校验计划卡状态,非 ACTIVE 拦截</span></div>
   <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>预约状态</th><th>计划卡</th><th>签到时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
-  ${confirmedNote(5,'缺席(NO_SHOW)自动消解:排期COMPLETED即扣,是否到场不影响扣次;"标记缺席"仅记录,不触发回补(灰置)')}
+  ${confirmedNote(5,'缺席(NO_SHOW)自动消解:排期COMPLETED即扣,是否到场不影响扣次,无需手动标记缺席(D5)')}
   ${confirmedNote(1,'签到/完成不再扣次,扣次在预约时已发生(预扣);此处签到仅推进预约状态')}`;
 }
 function adminCheckIn(bId){

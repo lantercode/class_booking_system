@@ -363,6 +363,62 @@
           {{ detailCard.updated_at ? formatDateTime(detailCard.updated_at) : '-' }}
         </el-descriptions-item>
       </el-descriptions>
+
+      <div class="transactions-section">
+        <div class="section-header">
+          <span class="section-title">课时流水</span>
+        </div>
+
+        <div v-if="transactionError" class="transaction-error-block">
+          <el-result icon="error" title="加载课时流水失败" :sub-title="transactionError">
+            <template #extra>
+              <el-button type="primary" @click="detailCard && loadTransactions(detailCard.id)">
+                重试
+              </el-button>
+            </template>
+          </el-result>
+        </div>
+
+        <el-table
+          v-else
+          v-loading="transactionLoading"
+          :data="transactionData"
+          stripe
+          size="small"
+          style="width: 100%"
+          empty-text="暂无流水记录"
+        >
+          <el-table-column label="操作类型" min-width="120">
+            <template #default="{ row }">
+              {{ getOperationTypeText(row.operation_type) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="变动金额" width="120">
+            <template #default="{ row }">
+              <span :style="{ color: getChangeAmountColor(row.change_amount), fontWeight: 600 }">
+                {{ row.change_amount > 0 ? '+' : '' }}{{ row.change_amount }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间" min-width="160">
+            <template #default="{ row }">
+              {{ row.created_at ? formatDateTime(row.created_at) : '-' }}
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-if="!transactionError" class="transaction-pagination">
+          <el-pagination
+            background
+            small
+            layout="total, prev, pager, next"
+            :total="transactionTotal"
+            :page-size="transactionPageSize"
+            :current-page="transactionPage"
+            @current-change="handleTransactionPageChange"
+          />
+        </div>
+      </div>
     </el-dialog>
 
     <el-dialog
@@ -645,11 +701,12 @@ import {
   membershipCardApi,
   type MembershipCardCreateParams,
   type MembershipCardProduct,
+  type MembershipCardTransaction,
   userApi,
 } from '@dance-saas/api-client'
 import { Search, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 // F6.7：受影响预约响应类型由 api-client 方法签名推导（单一事实源为 api-client，不在本地重复定义 DTO）
 type AffectedBookingsData = Awaited<
@@ -770,6 +827,75 @@ function retryLoadAffected() {
   if (affectedCardId.value != null) {
     loadAffectedBookings(affectedCardId.value)
   }
+}
+
+// F6.10 卡详情弹窗：课时流水
+const transactionLoading = ref(false)
+const transactionError = ref('')
+const transactionData = ref<MembershipCardTransaction[]>([])
+const transactionTotal = ref(0)
+const transactionPage = ref(1)
+const transactionPageSize = ref(10)
+let transactionReqSeq = 0
+
+async function loadTransactions(cardId: number) {
+  const seq = ++transactionReqSeq
+  transactionLoading.value = true
+  transactionError.value = ''
+  try {
+    const res = await membershipCardApi.getTransactions({
+      card_id: cardId,
+      page: transactionPage.value,
+      page_size: transactionPageSize.value,
+    })
+    if (seq !== transactionReqSeq) return
+    transactionData.value = res.data.items
+    transactionTotal.value = res.data.total
+  } catch (e: any) {
+    if (seq !== transactionReqSeq) return
+    transactionData.value = []
+    transactionTotal.value = 0
+    transactionError.value = e?.response?.data?.msg || '加载课时流水失败'
+  } finally {
+    if (seq === transactionReqSeq) {
+      transactionLoading.value = false
+    }
+  }
+}
+
+function resetTransactions() {
+  transactionReqSeq++
+  transactionLoading.value = false
+  transactionError.value = ''
+  transactionData.value = []
+  transactionTotal.value = 0
+  transactionPage.value = 1
+}
+
+function handleTransactionPageChange(p: number) {
+  if (!detailCard.value) return
+  transactionPage.value = p
+  loadTransactions(detailCard.value.id)
+}
+
+const operationTypeMap: Record<string, string> = {
+  issue: '发放/开卡',
+  consume: '扣减课时',
+  restore: '恢复课时',
+  recharge: '充值',
+  refund: '退款',
+  adjust: '手动调整',
+  expire: '过期清零',
+}
+
+function getOperationTypeText(type: string): string {
+  return operationTypeMap[type] || type
+}
+
+function getChangeAmountColor(amount: number): string {
+  if (amount > 0) return '#67c23a'
+  if (amount < 0) return '#f56c6c'
+  return '#909399'
 }
 
 async function fetchCards() {
@@ -904,7 +1030,16 @@ function handleProductChange(productId: number) {
 function openDetailDialog(row: MembershipCard) {
   detailCard.value = row
   detailDialogVisible.value = true
+  transactionPage.value = 1
+  loadTransactions(row.id)
 }
+
+// 关闭详情弹窗时清空流水状态，避免下次打开时闪现旧数据
+watch(detailDialogVisible, visible => {
+  if (!visible) {
+    resetTransactions()
+  }
+})
 
 function handleDialogClose() {
   formRef.value?.clearValidate()
@@ -1325,6 +1460,36 @@ onMounted(() => {
   background: #fff;
   border-radius: 12px;
   border: 1px solid #ebeef5;
+}
+
+/* F6.10 卡详情弹窗：课时流水 */
+.transactions-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.transactions-section .section-header {
+  margin-bottom: 12px;
+}
+
+.transactions-section .section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.transaction-error-block {
+  padding: 24px 0;
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+}
+
+.transaction-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* F6.7 影响面区域 */

@@ -6,7 +6,7 @@ Booking Repository - 预约数据访问层
 
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, func, select, text
+from sqlalchemy import String, and_, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
@@ -29,6 +29,7 @@ class BookingRepository(TenantAwareRepository[Booking]):
         status: int | None = None,
         statuses: list[int] | None = None,
         upcoming: bool = False,
+        keyword: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[Booking], int]:
@@ -38,12 +39,16 @@ class BookingRepository(TenantAwareRepository[Booking]):
           - student_id：按学员过滤（学员角色由 Service 强制为 current_user.user_id）
           - teacher_id：按排期教师过滤（教师角色由 Service 强制为 current_user.user_id；
             提供时 JOIN course_schedules，命中 idx_schedules_teacher_start 索引）
+        keyword：模糊检索学员昵称/手机号、课程名、排期ID（管理端使用）
         """
+        from app.modules.course.models import Course
+        from app.modules.user.models import User
+
         base_query = select(Booking)
         count_query = select(func.count()).select_from(Booking)
 
-        # 需要 JOIN 排期表：upcoming（按 start_at 过滤）或 teacher_id（按排期教师过滤）
-        needs_schedule_join = upcoming or teacher_id is not None
+        # 需要 JOIN 排期表：upcoming / teacher_id / keyword（课程名）
+        needs_schedule_join = upcoming or teacher_id is not None or keyword is not None
         if needs_schedule_join:
             base_query = base_query.join(
                 CourseSchedule, Booking.schedule_id == CourseSchedule.id
@@ -51,6 +56,15 @@ class BookingRepository(TenantAwareRepository[Booking]):
             count_query = count_query.join(
                 CourseSchedule, Booking.schedule_id == CourseSchedule.id
             )
+
+        # keyword 需要额外 JOIN course（课程名）和 user（学员昵称/手机号）
+        if keyword:
+            base_query = base_query.outerjoin(
+                Course, CourseSchedule.course_id == Course.id
+            ).outerjoin(User, Booking.student_id == User.id)
+            count_query = count_query.outerjoin(
+                Course, CourseSchedule.course_id == Course.id
+            ).outerjoin(User, Booking.student_id == User.id)
 
         if schedule_id:
             base_query = base_query.where(Booking.schedule_id == schedule_id)
@@ -70,6 +84,18 @@ class BookingRepository(TenantAwareRepository[Booking]):
         elif status is not None:
             base_query = base_query.where(Booking.status == status)
             count_query = count_query.where(Booking.status == status)
+
+        # 关键词模糊检索：学员昵称 / 手机号 / 课程名 / 排期ID
+        if keyword:
+            kw = f"%{keyword}%"
+            keyword_filter = or_(
+                User.nickname.ilike(kw),
+                User.phone.ilike(kw),
+                Course.name.ilike(kw),
+                cast(Booking.schedule_id, String).ilike(kw),
+            )
+            base_query = base_query.where(keyword_filter)
+            count_query = count_query.where(keyword_filter)
 
         # 待上课筛选：只返回还未开始的预约
         if upcoming:

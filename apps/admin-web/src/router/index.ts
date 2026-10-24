@@ -63,6 +63,18 @@ const router = createRouter({
           meta: { title: '排期管理', icon: 'Calendar' },
         },
         {
+          path: 'bookings',
+          name: 'Bookings',
+          component: () => import('@/views/bookings/index.vue'),
+          meta: { title: '预约管理', icon: 'Calendar' },
+        },
+        {
+          path: 'bookings/roll-call',
+          name: 'BookingsRollCall',
+          component: () => import('@/views/bookings/roll-call.vue'),
+          meta: { title: '排期签到点名', hidden: true },
+        },
+        {
           path: 'classrooms',
           name: 'Classrooms',
           component: () => import('@/views/classrooms/index.vue'),

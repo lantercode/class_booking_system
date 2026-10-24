@@ -17,6 +17,16 @@ export interface Booking {
   updated_at: string
   student_nickname?: string | null
   student_phone?: string | null
+  course_name?: string | null
+  start_at?: string | null
+  end_at?: string | null
+  classroom_name?: string | null
+  teacher_name?: string | null
+  display_status?: number
+  card_no?: string | null
+  card_status?: number | null
+  card_type?: string | null
+  remaining_credits?: number | null
 }
 
 export interface BookingListParams {
@@ -24,7 +34,9 @@ export interface BookingListParams {
   page_size?: number
   schedule_id?: number
   student_id?: number
-  status?: number
+  status?: string | number
+  display_status?: number
+  keyword?: string
 }
 
 export interface BookingCreateParams {
@@ -63,5 +75,9 @@ export const bookingApi = {
 
   complete(id: number) {
     return apiClient.post<Booking>(`/bookings/${id}/complete`)
+  },
+
+  adminCancel(id: number, reason?: string) {
+    return apiClient.post<Booking>(`/bookings/${id}/admin-cancel`, null, { params: reason ? { reason } : {} })
   },
 }
