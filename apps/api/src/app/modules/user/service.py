@@ -26,7 +26,7 @@ from app.core.security import hash_password, verify_password
 from app.modules.auth.models import UserRole
 from app.modules.auth.repository import AuthRepository
 from app.modules.teacher.models import TeacherProfile
-from app.modules.user.models import UserStatus
+from app.modules.user.models import User, UserStatus
 from app.modules.user.repository import UserRepository
 from app.modules.user.schemas import (
     ChangePasswordRequest,
@@ -52,6 +52,76 @@ class UserService:
         date_str = datetime.now(UTC).strftime("%Y%m%d")
         random_digits = "".join([str(random.randint(0, 9)) for _ in range(6)])
         return f"{prefix}{date_str}{random_digits}"
+
+    async def _ensure_profiles_for_user(
+        self,
+        db: AsyncSession,
+        user: User,
+        role_codes: list[str],
+    ) -> tuple[str | None, str | None]:
+        """
+        兜底修复：确保有 teacher/student 角色的用户一定有对应的 Profile + 编号。
+        用于处理历史遗留数据（种子数据、之前手动插库的用户）缺失 Profile 的情况。
+
+        Returns:
+            (teacher_code, student_code)
+        """
+        teacher_code = None
+        student_code = None
+
+        # 检查/创建 TeacherProfile
+        if "teacher" in role_codes:
+            teacher_result = await db.execute(
+                select(TeacherProfile).where(TeacherProfile.user_id == user.id)
+            )
+            teacher_profile = teacher_result.scalar_one_or_none()
+            if teacher_profile:
+                teacher_code = teacher_profile.teacher_code
+            else:
+                from app.modules.teacher.models import TeacherStatus
+
+                teacher_code = self._generate_code("T")
+                teacher_profile = TeacherProfile(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    teacher_code=teacher_code,
+                    status=TeacherStatus.ACTIVE.value,
+                )
+                db.add(teacher_profile)
+                logger.info(
+                    f"[UserService] 🔧 懒修复：补建 TeacherProfile: user_id={user.id}, code={teacher_code}"
+                )
+
+        # 检查/创建 StudentProfile
+        if "student" in role_codes:
+            from app.modules.student.models import StudentProfile, StudentStatus
+
+            student_result = await db.execute(
+                select(StudentProfile).where(StudentProfile.user_id == user.id)
+            )
+            student_profile = student_result.scalar_one_or_none()
+            if student_profile:
+                student_code = student_profile.student_code
+            else:
+                student_code = self._generate_code("S")
+                student_profile = StudentProfile(
+                    user_id=user.id,
+                    tenant_id=user.tenant_id,
+                    student_code=student_code,
+                    status=StudentStatus.ACTIVE.value,
+                )
+                db.add(student_profile)
+                logger.info(
+                    f"[UserService] 🔧 懒修复：补建 StudentProfile: user_id={user.id}, code={student_code}"
+                )
+
+        # 有新 Profile 需要提交
+        if "teacher" in role_codes and not teacher_code:
+            await db.flush()
+        if "student" in role_codes and not student_code:
+            await db.flush()
+
+        return teacher_code, student_code
 
     async def create_user(
         self,
@@ -372,6 +442,8 @@ class UserService:
         user_id: int,
         operator_id: int,
         redis_client=None,
+        *,
+        auto_commit: bool = True,
     ) -> bool:
         """
         删除用户（软删除）
@@ -381,6 +453,8 @@ class UserService:
             user_id: 用户ID
             operator_id: 操作人ID（不能删除自己）
             redis_client: Redis客户端
+            auto_commit: 是否立即提交事务（默认 True）。
+                批量删除场景由调用方传 False，在同一 AsyncSession 中统一提交。
 
         Returns:
             是否删除成功
@@ -416,7 +490,7 @@ class UserService:
             raise ValidationException("该教师有未完成的排课，请先取消或完成排课后再删除")
 
         # 执行软删除
-        success = await self.user_repo.delete(db, user_id)
+        success = await self.user_repo.delete(db, user_id, auto_commit=auto_commit)
 
         if not success:
             raise NotFoundException("用户不存在")
@@ -454,27 +528,10 @@ class UserService:
         roles = await AuthRepository.get_user_roles(db, user.id)
         role_codes = [role.code for role in roles]
 
-        # 获取教师编号和学员编号
-        teacher_code = None
-        student_code = None
-
-        if "teacher" in role_codes:
-            teacher_result = await db.execute(
-                select(TeacherProfile).where(TeacherProfile.user_id == user.id)
-            )
-            teacher_profile = teacher_result.scalar_one_or_none()
-            if teacher_profile:
-                teacher_code = teacher_profile.teacher_code
-
-        if "student" in role_codes:
-            from app.modules.student.models import StudentProfile
-
-            student_result = await db.execute(
-                select(StudentProfile).where(StudentProfile.user_id == user.id)
-            )
-            student_profile = student_result.scalar_one_or_none()
-            if student_profile:
-                student_code = student_profile.student_code
+        teacher_code, student_code = await self._ensure_profiles_for_user(
+            db, user, role_codes
+        )
+        await db.commit()
 
         return UserResponse(
             id=user.id,
@@ -524,6 +581,7 @@ class UserService:
             db,
             keyword=keyword,
             status=status,
+            role_code=role_code,
             page=page,
             page_size=page_size,
         )
@@ -534,13 +592,11 @@ class UserService:
             roles = await AuthRepository.get_user_roles(db, user.id)
             role_codes = [role.code for role in roles]
 
-            # 角色筛选
-            if role_code and role_code not in role_codes:
-                continue
+            teacher_code, student_code = await self._ensure_profiles_for_user(
+                db, user, role_codes
+            )
 
-            # 获取教师简介和教师编号（如果是教师角色）
             bio = None
-            teacher_code = None
             if "teacher" in role_codes:
                 teacher_result = await db.execute(
                     select(TeacherProfile).where(TeacherProfile.user_id == user.id)
@@ -548,26 +604,10 @@ class UserService:
                 teacher_profile = teacher_result.scalar_one_or_none()
                 if teacher_profile:
                     bio = teacher_profile.bio
-                    teacher_code = teacher_profile.teacher_code
-
-            # 获取学员编号（如果是学员角色）
-            student_code = None
-            if "student" in role_codes:
-                from app.modules.student.models import StudentProfile
-
-                student_result = await db.execute(
-                    select(StudentProfile).where(StudentProfile.user_id == user.id)
-                )
-                student_profile = student_result.scalar_one_or_none()
-                if student_profile:
-                    student_code = student_profile.student_code
 
             # 查询微信绑定状态
             wechat_account = await AuthRepository.get_wechat_account_by_user_id(db, user.id)
             wechat_bound = wechat_account is not None
-            print(
-                f"[用户列表] user_id={user.id}, phone={user.phone}, wechat_bound={wechat_bound}, wechat_account={wechat_account}"
-            )
 
             user_responses.append(
                 UserResponse(
@@ -593,8 +633,10 @@ class UserService:
                 )
             )
 
+        await db.commit()
+
         return UserListResponse(
-            total=len(user_responses) if role_code else total,
+            total=total,
             page=page,
             page_size=page_size,
             items=user_responses,

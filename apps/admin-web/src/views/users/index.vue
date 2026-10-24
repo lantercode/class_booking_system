@@ -43,7 +43,15 @@
       </el-select>
     </div>
 
-    <el-table v-loading="loading" :data="users" stripe style="width: 100%">
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载用户列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchUsers">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
+    <el-table v-else v-loading="loading" :data="users" stripe style="width: 100%" empty-text="暂无数据">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="nickname" label="昵称">
         <template #default="{ row }">
@@ -203,6 +211,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
 const loading = ref(false)
+const loadError = ref('')
 const submitLoading = ref(false)
 const search = ref('')
 const roleFilter = ref('')
@@ -281,6 +290,7 @@ function handleSearch() {
 
 async function fetchUsers() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await userApi.list({
       page: page.value,
@@ -292,7 +302,8 @@ async function fetchUsers() {
     users.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载用户列表失败')
+    loadError.value = e?.response?.data?.msg || '加载用户列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -302,8 +313,8 @@ async function fetchRoles() {
   try {
     const res = await roleApi.list({ page_size: 100 })
     roles.value = res.data.items
-  } catch {
-    /* ignore */
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '加载角色列表失败')
   }
 }
 
@@ -495,5 +506,12 @@ onMounted(() => {
 <style scoped>
 .search-icon:hover {
   color: #409eff;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
 }
 </style>

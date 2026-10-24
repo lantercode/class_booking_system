@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
 
@@ -16,7 +17,11 @@ from app.core.database import SessionLocal
 from app.core.exceptions import DanceSaasException
 from app.core.tenant_query import setup_tenant_query_injection
 from app.deps.auth import get_redis_client
-from app.middleware.error_handler import dance_saas_exception_handler
+from app.middleware.error_handler import (
+    dance_saas_exception_handler,
+    integrity_error_handler,
+    unhandled_exception_handler,
+)
 from app.middleware.tenant_middleware import TenantASGIMiddleware
 from app.modules.admin.router import router as admin_router  # ⭐ 新增：管理后台路由
 from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能助手路由
@@ -28,6 +33,7 @@ from app.modules.course.router import router as course_router  # ⭐ 新增：�
 from app.modules.membership.router import router as membership_router  # 会员卡路由
 from app.modules.membership.scheduler import (
     auto_activate_membership_cards,
+    auto_cancel_pending_membership_cards,
     auto_expire_membership_cards,
     auto_unfreeze_membership_cards,
     notify_expiring_membership_cards,
@@ -126,6 +132,22 @@ async def lifespan(app: FastAPI):
     )
     print("✅ 定时任务已注册: auto_unfreeze_membership_cards (每 5min 运行 - 测试模式)")
 
+    # 7.1 【F6.3】启动 PENDING 期卡超期作废定时任务（每天一次）
+    if settings.PENDING_CARD_CANCEL_ENABLED:
+        scheduler.add_job(
+            auto_cancel_pending_membership_cards,
+            "interval",
+            minutes=1440,
+            id="auto_cancel_pending_membership_cards",
+            replace_existing=True,
+        )
+        print(
+            "✅ 定时任务已注册: auto_cancel_pending_membership_cards "
+            f"(每 1440min 运行, days={settings.PENDING_CARD_CANCEL_DAYS})"
+        )
+    else:
+        print("⚠️  PENDING_CARD_CANCEL_ENABLED=false, 跳过期卡作废任务注册")
+
     # 8. 启动自动取消人数不足课程定时任务
     scheduler.add_job(
         auto_cancel_underbooked_schedules,
@@ -160,6 +182,8 @@ app = FastAPI(
     redirect_slashes=False,
 )
 app.add_exception_handler(DanceSaasException, dance_saas_exception_handler)
+app.add_exception_handler(IntegrityError, integrity_error_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.add_middleware(
     CORSMiddleware,

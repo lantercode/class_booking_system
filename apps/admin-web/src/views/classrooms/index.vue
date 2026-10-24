@@ -21,7 +21,15 @@
       </el-input>
     </div>
 
-    <div v-loading="loading" class="classroom-content">
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载教室列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchClassrooms">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
+    <div v-else v-loading="loading" class="classroom-content">
       <el-row :gutter="20" style="row-gap: 16px">
         <el-col v-for="room in classrooms" :key="room.id" :span="8">
           <el-card shadow="hover" class="classroom-card">
@@ -67,7 +75,7 @@
         </el-col>
       </el-row>
 
-      <el-empty v-if="!loading && classrooms.length === 0" description="--" />
+      <el-empty v-if="!loading && classrooms.length === 0" description="暂无数据" />
     </div>
 
     <el-dialog
@@ -119,6 +127,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
 const loading = ref(false)
+const loadError = ref('')
 const submitting = ref(false)
 const classrooms = ref<Classroom[]>([])
 const search = ref('')
@@ -139,6 +148,7 @@ const rules = {
 
 async function fetchClassrooms() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await classroomApi.list({
       keyword: search.value || undefined,
@@ -146,7 +156,8 @@ async function fetchClassrooms() {
     })
     classrooms.value = res.data.items
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载教室列表失败')
+    loadError.value = e?.response?.data?.msg || '加载教室列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -237,6 +248,13 @@ onMounted(() => {
 <style scoped lang="scss">
 .search-icon:hover {
   color: #409eff;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
 }
 
 .classroom-content {

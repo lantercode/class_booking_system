@@ -18,11 +18,10 @@ AI 智能助手 API 路由
 import time
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.ai.agent.runtime import AgentRuntime
-from app.core.exceptions import DanceSaasException
 from app.deps.auth import get_current_user, get_redis_client
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI 智能助手"])
@@ -50,7 +49,9 @@ async def get_agent_runtime(
     current_user=Depends(get_current_user),
 ) -> AgentRuntime:
     return AgentRuntime(
-        redis_client=redis_client, user_id=current_user.get("user_id") if current_user else None
+        redis_client=redis_client,
+        user_id=current_user.get("user_id") if current_user else None,
+        tenant_id=current_user.get("tenant_id") if current_user else None,
     )
 
 
@@ -60,69 +61,53 @@ async def chat(
 ):
     start_time = time.time()
 
-    try:
-        response_text = await agent_runtime.chat(
-            user_input=body.message, session_id=body.session_id
-        )
+    response_text = await agent_runtime.chat(user_input=body.message, session_id=body.session_id)
 
-        state = await agent_runtime.session.get_state(body.session_id)
-        has_pending_state = bool(state)
-        latency_ms = int((time.time() - start_time) * 1000)
+    state = await agent_runtime.session.get_state(body.session_id)
+    has_pending_state = bool(state)
+    latency_ms = int((time.time() - start_time) * 1000)
 
-        return ChatResponse(
-            code=0,
-            msg="success",
-            data={
-                "response": response_text,
-                "session_id": body.session_id,
-                "timestamp": datetime.now().isoformat(),
-                "has_pending_state": has_pending_state,
-                "latency_ms": latency_ms,
-            },
-        )
-
-    except DanceSaasException as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
-
-    except Exception:
-        raise HTTPException(status_code=500, detail={"code": 50001, "message": "AI 服务暂时不可用"})
+    return ChatResponse(
+        code=0,
+        msg="success",
+        data={
+            "response": response_text,
+            "session_id": body.session_id,
+            "timestamp": datetime.now().isoformat(),
+            "has_pending_state": has_pending_state,
+            "latency_ms": latency_ms,
+        },
+    )
 
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_history(
     session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
-    try:
-        messages = await agent_runtime.session.get_history(session_id)
+    messages = await agent_runtime.session.get_history(session_id)
 
-        return HistoryResponse(
-            data=[
-                {
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", ""),
-                    "timestamp": msg.get("timestamp", ""),
-                }
-                for msg in messages[-50:]
-            ]
-        )
-
-    except Exception:
-        raise HTTPException(status_code=500, detail="获取历史记录失败")
+    return HistoryResponse(
+        data=[
+            {
+                "role": msg.get("role", "user"),
+                "content": msg.get("content", ""),
+                "timestamp": msg.get("timestamp", ""),
+            }
+            for msg in messages[-50:]
+        ]
+    )
 
 
 @router.delete("/history")
 async def clear_history(
     session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
 ):
-    try:
-        await agent_runtime.session.clear(session_id)
-        return {"code": 0, "msg": "已清空对话历史"}
-    except Exception:
-        raise HTTPException(status_code=500, detail="清空失败")
+    await agent_runtime.session.clear(session_id)
+    return {"code": 0, "msg": "已清空对话历史"}
 
 
 @router.get("/intents")
-async def get_supported_intents():
+async def get_supported_intents(current_user: dict = Depends(get_current_user)):
     from app.ai.agent.intent import IntentRecognizer
 
     recognizer = IntentRecognizer()

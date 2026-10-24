@@ -145,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { bookingApi, courseTypeApi, membershipApi, scheduleApi } from "@/api";
+import { bookingApi, courseTypeApi, membershipApi, scheduleApi, tenantApi } from "@/api";
 import AiAssistant from "@/components/AiAssistant.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";
@@ -190,11 +190,14 @@ interface CardValidationResult {
     | "not_applicable"
     | "insufficient"
     | "weekly_limit"
-    | "expired";
+    | "expired"
+    | "pending"
+    | "frozen";
 }
 
 const systemInfo = uni.getSystemInfoSync();
-const navbarHeight = systemInfo.statusBarHeight + 44;
+// 状态栏高度在 H5/部分设备可能为 undefined，缺省按 0 处理
+const navbarHeight = (systemInfo.statusBarHeight ?? 0) + 44;
 const tabbarHeight = (100 / 750) * systemInfo.windowWidth;
 const filterAreaHeight = (280 / 750) * systemInfo.windowWidth;
 const scrollViewHeight = ref(
@@ -369,26 +372,53 @@ const validateCardForSchedule = (schedule: any): CardValidationResult => {
     };
   }
 
-  // 筛选有效会员卡
   const now = new Date();
-  const validCards = membershipCards.value.filter((card: any) => {
-    if (card.status !== 1) return false; // 1 = ACTIVE
+  const scheduleCourseTypeCode = schedule.course_type_code;
 
-    // 检查有效期
+  // 筛选有效会员卡（带详细原因）
+  const validCards = membershipCards.value.filter((card: any) => {
+    if (card.status !== 1) return false;
     if (card.expire_at && new Date(card.expire_at) < now) return false;
     if (card.valid_from && new Date(card.valid_from) > now) return false;
-
-    // 检查次卡余额
     if (card.card_type === "count") {
       const remaining = (card.total_credits || 0) - (card.used_credits || 0);
       if (remaining <= 0) return false;
     }
-
     return true;
   });
 
   if (validCards.length === 0) {
-    // 检查是否有卡但都无效
+    // 找出第一个无效卡的具体原因
+    const firstInvalidCard = membershipCards.value[0];
+
+    if (firstInvalidCard.status === 0) {
+      return {
+        valid: false,
+        availableCards: [],
+        reason: "会员卡未激活，请前往会员中心激活",
+        reasonType: "pending",
+      };
+    }
+
+    if (firstInvalidCard.status === 3) {
+      const reason = firstInvalidCard.frozen_reason || "未知";
+      return {
+        valid: false,
+        availableCards: [],
+        reason: `会员卡已冻结（${reason}），请联系管理员解冻`,
+        reasonType: "frozen",
+      };
+    }
+
+    if (firstInvalidCard.status === 2 || firstInvalidCard.status === 6) {
+      return {
+        valid: false,
+        availableCards: [],
+        reason: "会员卡已过期或已作废，请续费或办理新卡",
+        reasonType: "expired",
+      };
+    }
+
     const hasExpiredCards = membershipCards.value.some((card: any) => {
       if (card.status === 1 && card.expire_at && new Date(card.expire_at) < now)
         return true;
@@ -417,7 +447,6 @@ const validateCardForSchedule = (schedule: any): CardValidationResult => {
   }
 
   // 检查适用课程类型（单选字段）
-  const scheduleCourseTypeCode = schedule.course_type_code;
   const typeApplicableCards = validCards.filter((card: any) => {
     const cardCourseType = card.applicable_course_type_code;
 

@@ -11,32 +11,50 @@
           <h3>角色列表</h3>
           <el-button type="primary" size="small" text @click="openCreateDialog"> 新增 </el-button>
         </div>
-        <div class="role-list">
-          <div
-            v-for="role in roles"
-            :key="role.id"
-            class="role-item"
-            :class="{ active: selectedRole?.id === role.id }"
-            @click="selectRole(role)"
-          >
-            <div class="role-info">
-              <span class="role-name">{{ role.name }}</span>
-              <span class="role-code">{{ role.code }}</span>
-            </div>
-            <div class="role-actions">
-              <el-tag v-if="role.is_system" size="small" type="info"> 系统 </el-tag>
-              <el-button
-                v-if="!role.is_system"
-                size="small"
-                type="danger"
-                text
-                :loading="deleteLoading === role.id"
-                @click.stop="handleDeleteRole(role)"
-              >
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </div>
+        <div v-loading="roleLoading" class="role-list">
+          <div v-if="roleLoadError" class="role-error-block">
+            <el-result
+              icon="error"
+              title="加载角色列表失败"
+              :sub-title="roleLoadError"
+            >
+              <template #extra>
+                <el-button type="primary" size="small" @click="fetchRoles">重试</el-button>
+              </template>
+            </el-result>
           </div>
+          <el-empty
+            v-else-if="!roleLoading && roles.length === 0"
+            description="暂无角色"
+            :image-size="60"
+          />
+          <template v-else>
+            <div
+              v-for="role in roles"
+              :key="role.id"
+              class="role-item"
+              :class="{ active: selectedRole?.id === role.id }"
+              @click="selectRole(role)"
+            >
+              <div class="role-info">
+                <span class="role-name">{{ role.name }}</span>
+                <span class="role-code">{{ role.code }}</span>
+              </div>
+              <div class="role-actions">
+                <el-tag v-if="role.is_system" size="small" type="info"> 系统 </el-tag>
+                <el-button
+                  v-if="!role.is_system"
+                  size="small"
+                  type="danger"
+                  text
+                  :loading="deleteLoading === role.id"
+                  @click.stop="handleDeleteRole(role)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -54,8 +72,26 @@
           </el-tag>
         </div>
         <div class="permission-content">
+          <div v-if="permLoadError" class="perm-error-block">
+            <el-result
+              icon="error"
+              title="加载权限失败"
+              :sub-title="permLoadError"
+            >
+              <template #extra>
+                <el-button
+                  v-if="selectedRole"
+                  type="primary"
+                  size="small"
+                  @click="selectRole(selectedRole)"
+                >
+                  重试
+                </el-button>
+              </template>
+            </el-result>
+          </div>
           <el-tree
-            v-if="selectedRole"
+            v-else-if="selectedRole"
             ref="treeRef"
             :key="selectedRole.id"
             :data="treeData"
@@ -102,6 +138,9 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 const loading = ref(false)
+const roleLoading = ref(false)
+const roleLoadError = ref('')
+const permLoadError = ref('')
 const saving = ref(false)
 const showRoleDialog = ref(false)
 const createLoading = ref(false)
@@ -201,6 +240,8 @@ async function handleDeleteRole(role: Role) {
 }
 
 async function fetchRoles() {
+  roleLoading.value = true
+  roleLoadError.value = ''
   try {
     const res = await roleApi.list({ page_size: 100 })
     roles.value = res.data.items
@@ -208,7 +249,10 @@ async function fetchRoles() {
       selectRole(roles.value[0])
     }
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载角色列表失败')
+    roleLoadError.value = e?.response?.data?.msg || '加载角色列表失败'
+    ElMessage.error(roleLoadError.value)
+  } finally {
+    roleLoading.value = false
   }
 }
 
@@ -223,13 +267,15 @@ async function selectRole(role: Role) {
   rolePermissionIds.value = []
   selectedRole.value = role
   loading.value = true
+  permLoadError.value = ''
   try {
     const res = await roleApi.getPermissions(role.id)
     rolePermissionIds.value = res.data.items.map((p: any) => p.id)
     await nextTick()
     treeRef.value?.setCheckedKeys(rolePermissionIds.value)
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载角色权限失败')
+    permLoadError.value = e?.response?.data?.msg || '加载角色权限失败'
+    ElMessage.error(permLoadError.value)
   } finally {
     loading.value = false
   }
@@ -303,6 +349,11 @@ onMounted(() => {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+}
+
+.role-error-block,
+.perm-error-block {
+  padding: 24px 0;
 }
 
 .roles-layout {

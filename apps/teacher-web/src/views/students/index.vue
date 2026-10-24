@@ -40,34 +40,49 @@
     </div>
 
     <div class="students-list">
-      <div v-for="student in students" :key="student.id" class="student-item">
-        <div class="student-left">
-          <el-avatar :size="44">
-            <el-icon :size="22"><UserFilled /></el-icon>
-          </el-avatar>
-          <div class="student-info">
-            <span class="student-name">{{ student.nickname }}</span>
-            <span class="student-phone">{{ student.phone }}</span>
+      <div v-if="loading" v-loading="true" class="state-wrapper">
+        <div style="height: 120px"></div>
+      </div>
+      <div v-else-if="loadError" class="state-wrapper">
+        <el-result icon="error" title="加载学员列表失败" :sub-title="loadError">
+          <template #extra>
+            <el-button type="primary" @click="fetchData">重试</el-button>
+          </template>
+        </el-result>
+      </div>
+      <div v-else-if="students.length === 0" class="state-wrapper">
+        <el-empty description="暂无学员预约" />
+      </div>
+      <template v-else>
+        <div v-for="student in students" :key="student.id" class="student-item">
+          <div class="student-left">
+            <el-avatar :size="44">
+              <el-icon :size="22"><UserFilled /></el-icon>
+            </el-avatar>
+            <div class="student-info">
+              <span class="student-name">{{ student.nickname }}</span>
+              <span class="student-phone">{{ student.phone }}</span>
+            </div>
+          </div>
+          <div class="student-right">
+            <el-tag
+              :type="student.status === 'attended' ? 'success' : student.status === 'completed' ? 'success' : student.status === 'cancelled' ? 'info' : 'warning'"
+              size="small"
+            >
+              {{ student.status === 'attended' ? '已签到' : student.status === 'completed' ? '已完成' : student.status === 'cancelled' ? '已取消' : '待签到' }}
+            </el-tag>
+            <el-button
+              v-if="student.status === 'confirmed'"
+              size="small"
+              type="primary"
+              text
+              @click="checkIn(student)"
+            >
+              签到
+            </el-button>
           </div>
         </div>
-        <div class="student-right">
-          <el-tag
-            :type="student.status === 'attended' ? 'success' : student.status === 'completed' ? 'success' : student.status === 'cancelled' ? 'info' : 'warning'"
-            size="small"
-          >
-            {{ student.status === 'attended' ? '已签到' : student.status === 'completed' ? '已完成' : student.status === 'cancelled' ? '已取消' : '待签到' }}
-          </el-tag>
-          <el-button
-            v-if="student.status === 'confirmed'"
-            size="small"
-            type="primary"
-            text
-            @click="checkIn(student)"
-          >
-            签到
-          </el-button>
-        </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
@@ -76,7 +91,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Collection, Clock, Location, UserFilled, User } from '@element-plus/icons-vue'
+import { ArrowLeft, Collection, Clock, Location, UserFilled } from '@element-plus/icons-vue'
 import { bookingApi, scheduleApi } from '@dance-saas/api-client'
 
 const route = useRoute()
@@ -94,6 +109,7 @@ interface StudentBooking {
 const scheduleInfo = ref({ courseName: '', time: '', classroom: '' })
 const students = ref<StudentBooking[]>([])
 const loading = ref(false)
+const loadError = ref('')
 
 const attendedCount = computed(() => students.value.filter((s) => s.status === 'attended').length)
 const absentCount = computed(() => students.value.filter((s) => s.status === 'confirmed').length)
@@ -117,6 +133,7 @@ function formatTime(isoStr: string) {
 
 async function fetchData() {
   loading.value = true
+  loadError.value = ''
   try {
     const [bRes, sRes] = await Promise.all([
       bookingApi.list({ schedule_id: scheduleId, page_size: 500 }),
@@ -140,7 +157,11 @@ async function fetchData() {
       status: b.status === 3 ? 'attended' : b.status === 4 ? 'completed' : 'confirmed',
       userId: b.student_id,
     }))
-  } catch (_) {} finally {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载学员列表失败'
+    ElMessage.error(loadError.value)
+    students.value = []
+  } finally {
     loading.value = false
   }
 }
@@ -246,6 +267,14 @@ onMounted(() => {
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+
+  .state-wrapper {
+    padding: 40px 0;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   .student-item {
     display: flex;

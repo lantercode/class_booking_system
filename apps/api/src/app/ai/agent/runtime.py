@@ -34,10 +34,11 @@ class AgentRuntime:
     5. 管理会话上下文
     """
 
-    def __init__(self, redis_client=None, user_id: int = None):
+    def __init__(self, redis_client=None, user_id: int = None, tenant_id: int = None):
         self.intent = IntentRecognizer()
         self.session = SessionManager(redis_client, user_id=user_id)
         self.user_id = user_id
+        self.tenant_id = tenant_id
         self.logger = logging.getLogger(__name__)
 
     async def chat(self, user_input: str, session_id: str = "default") -> str:
@@ -323,44 +324,36 @@ class AgentRuntime:
         """
         将业务异常转换为用户友好的提示
 
-        面试要点：
-          为什么不直接返回 str(error)？
-          1. 异常信息可能包含技术细节（SQL、堆栈），不适合展示给用户
-          2. 不同异常需要不同的引导动作（余额不足→去充值，名额已满→查其他时段）
-          3. 错误码便于日志分析和监控告警
-
-        设计模式：策略模式（错误码→处理函数映射）
+        设计模式：策略模式（错误关键词→处理函数映射）
+        关键约束（F5.3）：友好提示不得包含原始异常字符串作为子串，防止泄露内部细节。
         """
-        error_msg = str(error).upper()
+        error_msg = str(error)
 
-        error_map = {
-            "SCHEDULE_FULL": (
-                "❌ 该时段刚被约满 😢\n\n"
-                "您可以：\n"
-                "• 回复「重新查询」查看其他时段\n"
-                "• 或告诉我其他时间偏好"
-            ),
-            "ALREADY_BOOKED": ("❌ 您已预约过此课程\n\n回复「我的预约」可查看已预约的课程"),
-            "BALANCE_INSUFFICIENT": (
-                "❌ 课时余额不足\n\n请联系前台充值后再预约\n或回复「余额」查看当前课时"
-            ),
-            "BOOKING_NOT_FOUND": ("❌ 未找到该预约记录\n\n可能已被取消，请回复「我的预约」确认"),
-            "CANCEL_DEADLINE_PASSED": (
-                "❌ 已超过取消截止时间（需提前2小时）\n\n如需帮助，请联系前台处理"
-            ),
-            "SCHEDULE_EXPIRED": (
-                "❌ 该课程已开始，无法预约\n\n您可以：\n• 回复「查排期」查看其他时段"
-            ),
-            "SCHEDULE_TOO_FAR": (
-                "❌ 只能预约未来两周内的课程\n\n您可以：\n• 回复「查排期」查看可预约的时段"
-            ),
-        }
+        # 按中文关键词匹配 Service 层抛出的 BusinessException 消息
+        # 约束：友好提示不得包含原始异常字符串作为子串
+        keyword_map = [
+            ("约满", "❌ 该时段已约满 😢\n\n您可以：\n• 回复「重新查询」查看其他时段\n• 或告诉我其他时间偏好"),
+            ("已预约", "❌ 您已预约过此课程\n\n回复「我的预约」可查看已预约的课程"),
+            ("余额不足", "❌ 课时余额不足\n\n请联系前台充值后再预约\n或回复「余额」查看当前课时"),
+            ("扣次失败", "❌ 余额不足导致扣次失败\n\n请联系前台确认卡状态"),
+            ("未找到", "❌ 未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
+            ("找不到", "❌ 未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
+            ("取消截止", "❌ 无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
+            ("不可取消", "❌ 无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
+            ("已开始", "❌ 课程已开始，无法操作\n\n您可以：\n• 回复「查排期」查看其他时段"),
+            ("两周", "❌ 超出两周可预约范围\n\n您可以：\n• 回复「查排期」查看可预约的时段"),
+            ("已取消", "❌ 该记录已是取消状态\n\n回复「我的预约」查看当前列表"),
+            ("状态", "❌ 当前记录状态无法执行此操作\n\n请回复「我的预约」确认状态"),
+            ("学员身份", "❌ 当前账号没有学员身份\n\n请使用学员账号登录后再试"),
+            ("无效", "❌ 输入参数无效，请重新选择"),
+        ]
 
-        for code, friendly_msg in error_map.items():
-            if code in error_msg:
+        for keyword, friendly_msg in keyword_map:
+            if keyword in error_msg:
                 return friendly_msg
 
-        return f"⚠️ 处理请求时出错：{error}\n请稍后重试或联系客服"
+        # 兜底：不回显原始异常（防止泄露 SQL/堆栈/内部细节）
+        return "⚠️ 操作失败，请稍后重试或联系客服"
 
     # ============================================================
     # 分布式锁（防止并发导致重复预约）

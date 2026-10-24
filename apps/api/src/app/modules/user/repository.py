@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
+from app.modules.auth.models import Role, UserRole
 from app.modules.user.models import User
 
 
@@ -81,24 +82,43 @@ class UserRepository(TenantAwareRepository[User]):
         *,
         keyword: str | None = None,
         status: int | None = None,
+        role_code: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[list[User], int]:
         """
-        搜索用户（支持关键词、状态筛选、分页）
+        搜索用户（支持关键词、状态、角色筛选、分页）
 
         Args:
             db: 数据库会话
             keyword: 搜索关键词（匹配手机号/昵称/真实姓名）
             status: 用户状态筛选
+            role_code: 角色代码筛选（数据库层面 JOIN user_roles + roles）
             page: 页码
             page_size: 每页数量
 
         Returns:
             用户列表和总数
         """
-        base_query = select(User).where(User.deleted_at.is_(None))
-        count_query = select(func.count()).select_from(User).where(User.deleted_at.is_(None))
+        if role_code:
+            base_query = (
+                select(User)
+                .distinct()
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.code == role_code)
+                .where(User.deleted_at.is_(None))
+            )
+            count_query = (
+                select(func.count(func.distinct(User.id)))
+                .join(UserRole, UserRole.user_id == User.id)
+                .join(Role, Role.id == UserRole.role_id)
+                .where(Role.code == role_code)
+                .where(User.deleted_at.is_(None))
+            )
+        else:
+            base_query = select(User).where(User.deleted_at.is_(None))
+            count_query = select(func.count()).select_from(User).where(User.deleted_at.is_(None))
 
         # 关键词搜索
         if keyword:

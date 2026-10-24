@@ -15,12 +15,22 @@
       </div>
     </div>
 
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载卡产品列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchCardTypes">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
     <!-- 正常列表 -->
     <el-table
+      v-else
       v-loading="loading"
       :data="cardTypes"
       stripe
       style="width: 100%"
+      empty-text="暂无数据"
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" />
@@ -203,6 +213,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 const authStore = useAuthStore()
 
 const loading = ref(false)
+const loadError = ref('')
 const submitting = ref(false)
 const batchDeleting = ref(false)
 const cardTypes = ref<MembershipCardProduct[]>([])
@@ -292,6 +303,7 @@ function getCourseTypeTagType(code: string) {
 
 async function fetchCardTypes() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await cardTypeApi.list({
       page: currentPage.value,
@@ -300,7 +312,8 @@ async function fetchCardTypes() {
     cardTypes.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载卡产品列表失败')
+    loadError.value = e?.response?.data?.msg || '加载卡产品列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -461,3 +474,12 @@ onMounted(() => {
   fetchCourseTypes()
 })
 </script>
+
+<style scoped>
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+}
+</style>

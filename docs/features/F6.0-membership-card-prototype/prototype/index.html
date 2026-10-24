@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F6.0 会员卡全生命周期原型 · D9 方案</title>
+<style>
+:root{
+  --blue:#409EFF; --blue-d:#337ecc; --green:#67c23a; --green-d:#5daf34;
+  --brand:#667eea; --brand2:#764ba2;
+  --gold:#C9A66B; --gold-d:#B8956A; --gold-l:#DBC18A;
+  --gold-grad:linear-gradient(135deg,#C9A66B 0%,#D4AF77 50%,#E8D5B7 100%);
+  --gold-grad-btn:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);
+  --red:#f56c6c; --orange:#e6a23c; --gray:#909399; --gray-l:#c0c4cc;
+  --bg:#f0f2f5; --card:#fff; --border:#ebeef5; --border-d:#dcdfe6;
+  --text:#303133; --text-2:#606266; --text-3:#909399;
+  --shadow:0 2px 12px 0 rgba(0,0,0,.08); --shadow-d:0 2px 16px 0 rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:1px solid var(--border-d);background:#fff;color:var(--text-2);border-radius:4px;padding:7px 14px;font-size:13px;transition:.1s}
+button:hover{color:var(--blue);border-color:#c6e2ff;background:#ecf5ff}
+button:disabled{cursor:not-allowed;color:var(--gray-l);background:#f5f7fa;border-color:#e4e7ed}
+.btn-primary{background:linear-gradient(135deg,#409eff 0%,#3a8ee6 100%);border:none;color:#fff;box-shadow:0 2px 8px rgba(64,158,255,.3)}
+.btn-primary:hover{background:linear-gradient(135deg,#3a8ee6 0%,#337ecc 100%);color:#fff;box-shadow:0 4px 12px rgba(64,158,255,.4);transform:translateY(-1px)}
+.btn-primary:active{transform:translateY(0)}
+.btn-success{background:var(--green);border-color:var(--green);color:#fff}
+.btn-success:hover{background:var(--green-d);border-color:var(--green-d);color:#fff}
+/* 危险按钮对齐真实 admin-web `.el-button--danger`（渐变红 + 阴影 + hover 位移） */
+.btn-danger{background:linear-gradient(135deg,#f56c6c 0%,#e04040 100%);border:none;color:#fff;box-shadow:0 2px 8px rgba(245,108,108,.3)}
+.btn-danger:hover{background:linear-gradient(135deg,#f56c6c 0%,#e04040 100%);color:#fff;box-shadow:0 4px 12px rgba(245,108,108,.4);transform:translateY(-1px);opacity:.9}
+.btn-danger:active{transform:translateY(0)}
+.btn-text{border:none;background:transparent;color:var(--blue);padding:4px 8px}
+.btn-text:hover{background:transparent;color:var(--blue-d)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-lg{padding:10px 20px;font-size:14px}
+
+/* ===== Global nav ===== */
+#topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:0 16px;height:48px;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04)}
+#topbar .brand{font-weight:600;font-size:15px;margin-right:8px;color:var(--blue)}
+#topbar .brand small{font-weight:400;color:var(--text-3);font-size:12px;margin-left:6px}
+#topbar .spacer{flex:1}
+.view-tabs{display:flex;gap:2px;background:#f0f2f5;border-radius:6px;padding:2px}
+.view-tabs button{border:none;background:transparent;padding:6px 12px;border-radius:4px;color:var(--text-2)}
+.view-tabs button.active{background:#fff;color:var(--blue);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* ===== Stage layout ===== */
+#stage{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.panel{background:#fff;border-radius:8px;box-shadow:var(--shadow);overflow:hidden;flex-shrink:0}
+#admin-panel{width:1000px}
+#student-panel{width:375px;border-radius:28px;border:8px solid #1f2937;box-shadow:var(--shadow-d)}
+#teacher-panel{flex:1;min-width:0;max-width:1200px}
+.hidden{display:none!important}
+.center-wrap{display:flex;justify-content:center;padding:16px}
+.page-title{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:#fafafa}
+.page-title h2{font-size:15px;font-weight:600}
+.page-title .pid{font-size:11px;color:#fff;background:var(--blue);padding:2px 8px;border-radius:10px;margin-right:8px}
+#student-panel .page-title{background:#fff}
+#student-panel .page-title .pid{background:var(--gold)}
+#teacher-panel .page-title .pid{background:var(--blue)}
+
+/* ===== Admin layout ===== */
+.admin-body{display:flex;height:620px}
+.admin-side{width:200px;background:#1a1a2e;border-right:none;padding:0 0 8px;overflow-y:auto;flex-shrink:0}
+.admin-side .logo{height:60px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px}
+.admin-side .logo .ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+.admin-side .logo .tt{color:#fff;font-weight:700;font-size:15px}
+.admin-side .nav-item{padding:11px 18px;cursor:pointer;color:#a0a0b8;font-size:13px;border-left:3px solid transparent}
+.admin-side .nav-item .ni{display:inline-block;width:16px;margin-right:8px;opacity:.85}
+.admin-side .nav-item .ni svg{width:16px;height:16px;display:inline-block;vertical-align:middle;fill:currentColor}
+.admin-side .nav-item:hover{color:#fff;background:rgba(102,126,234,.12)}
+.admin-side .nav-item.active{color:#fff;font-weight:600;background:linear-gradient(90deg,rgba(102,126,234,.3),transparent);border-left-color:#667eea}
+.admin-side .nav-item .sub{display:block;font-size:10px;color:#6b6b85;margin-top:2px}
+.admin-side .nav-item.active .sub{color:#a0a0b8}
+/* 待新增页面:灰置入口 + 标注(严格复刻定位:真实项目不存在的页面不作为已存在能力展示) */
+.admin-side .nav-item.nav-added{opacity:.5}
+.admin-side .nav-item.nav-added .ni{filter:grayscale(1)}
+.chip-added{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;font-size:10px;line-height:1.5;background:rgba(255,244,224,.14);color:#d0a35c;border:1px solid rgba(208,163,92,.4);vertical-align:middle}
+.pending-banner{display:flex;gap:8px;align-items:flex-start;background:#fff8ec;border:1px dashed #e0b070;color:#a9702a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6}
+.pending-banner .pb-ttl{font-weight:700;color:#b8792a;white-space:nowrap}
+.admin-side .grp{padding:12px 18px 4px;font-size:11px;color:#6b6b85;letter-spacing:.5px}
+.admin-main{flex:1;overflow:auto;padding:14px}
+.admin-main .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.admin-main .toolbar input,.admin-main .toolbar select{padding:6px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px}
+table.el{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #ebeef5;border-radius:8px;overflow:hidden}
+table.el th{background:#f5f7fa;color:#303133;font-weight:600;text-align:left;padding:10px 8px;border-bottom:1px solid #ebeef5;white-space:nowrap}
+table.el td{padding:10px 8px;border-bottom:1px solid #ebeef5;vertical-align:middle}
+table.el tr:hover td{background:#f5f7fa}
+table.el tbody tr:nth-child(even) td{background:#fafafa}
+table.el tbody tr:nth-child(even):hover td{background:#f0f2f5}
+.cell{padding:0 4px}
+.muted{color:var(--text-3);font-size:12px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;background:#f0f2f5;color:var(--text-2)}
+/* admin el-tag 颜色(对齐 Element Plus tag type: primary/success/warning/info/danger) */
+.tag-primary{background:#ecf5ff;color:#409eff;border:1px solid #b3d8ff}
+.tag-success{background:#f0f9eb;color:#67c23a;border:1px solid #c2e7b0}
+.tag-warning{background:#fdf6ec;color:#e6a23c;border:1px solid #f5dab1}
+.tag-info{background:#f4f4f5;color:#909399;border:1px solid #e9e9eb}
+.tag-danger{background:#fef0f0;color:#f56c6c;border:1px solid #fbc4c4}
+
+/* ===== Badges ===== */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:12px;line-height:1.6;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st-gray{background:#f4f4f5;color:#909399}
+.st-green{background:#f0f9eb;color:#67c23a}
+.st-blue{background:#ecf5ff;color:#409eff}
+.st-orange{background:#fdf6ec;color:#e6a23c}
+.st-red{background:#fef0f0;color:#f56c6c}
+/* miniapp 卡状态徽标:圆点+浅底+文字(严格对齐真实 .card-status-badge) */
+.card-status-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:12px;font-size:11px;line-height:1.7;white-space:nowrap}
+.card-status-badge .badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.card-status-badge .badge-text{font-weight:500}
+.mst-active{background:rgba(76,175,80,.12);color:#2e7d32}
+.mst-usedup{background:rgba(158,158,158,.1);color:#757575}
+.mst-pending{background:rgba(255,183,77,.15);color:#e65100}
+.mst-expired{background:rgba(244,67,54,.1);color:#c62828}
+.mst-voided{background:rgba(158,158,158,.1);color:#757575}
+.mst-frozen{background:rgba(100,149,237,.12);color:#4a7bd4}
+
+/* ===== Sticky note (decision placeholder) ===== */
+.sticky{background:#fffbe6;border:1px solid #ffe58f;border-left:4px solid #faad14;border-radius:4px;padding:8px 10px;font-size:12px;color:#86592b;margin:8px 0;line-height:1.6}
+.sticky b{color:#d48806;background:#fff7d6;padding:0 6px;border-radius:3px;margin-right:6px}
+.sticky .dnum{font-size:10px;color:#d48806;font-weight:700}
+
+/* ===== Empty / error ===== */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center;color:var(--text-3)}
+.empty .ico{font-size:40px;margin-bottom:10px}
+.empty.err .ico{color:var(--red)}
+.empty p{margin-bottom:12px;max-width:280px}
+
+/* ===== Modal ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:100;align-items:center;justify-content:center;padding:20px}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:8px;width:480px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-d)}
+.modal.wide{width:640px}
+.modal .m-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal .m-head h3{font-size:16px}
+.modal .m-body{padding:18px;overflow:auto}
+.modal .m-foot{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:13px;color:var(--text-2);margin-bottom:6px}
+.form-row label .req{color:var(--red)}
+.form-row input,.form-row select,.form-row textarea{width:100%;padding:8px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px;font-family:inherit}
+.form-row .hint{font-size:12px;color:var(--text-3);margin-top:4px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.confirm-box{background:#f5f7fa;border-radius:6px;padding:12px;margin:8px 0}
+.confirm-box .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+.confirm-box .row .k{color:var(--text-3)}
+/* ===== Admin 详情弹窗 el-descriptions 风格网格(原型自建 .desc-grid) ===== */
+.desc-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #ebeef5;border-radius:6px;overflow:hidden;margin:8px 0 4px}
+.desc-grid .dg-item{display:flex;border-bottom:1px solid #ebeef5;border-right:1px solid #ebeef5;min-height:38px}
+.desc-grid .dg-item.span2{grid-column:span 2}
+.desc-grid .dg-k{background:#fafafa;color:#909399;padding:9px 12px;font-size:13px;width:110px;flex-shrink:0;border-right:1px solid #ebeef5;box-sizing:border-box}
+.desc-grid .dg-v{padding:9px 12px;font-size:13px;color:#303133;flex:1;word-break:break-all}
+/* ===== 筛选栏(独立一行) + 状态多选(复刻真实 el-select multiple) ===== */
+.filter-row{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-row input{padding:6px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px}
+.ms-select{display:inline-flex;gap:6px;align-items:center;padding:4px 8px;border:1px solid var(--border-d);border-radius:4px;background:#fff}
+.ms-opt{font-size:12px;padding:3px 10px;border-radius:12px;background:#f4f4f5;color:#606266;cursor:pointer;user-select:none}
+.ms-opt.on{background:#ecf5ff;color:#409eff;border:1px solid #b3d8ff}
+.chk-line{margin:6px 0;font-size:13px;color:#606266}
+.chk-line label{display:flex;align-items:center;gap:6px;cursor:pointer}
+/* ===== 绿色"已确认"便签(结构对齐 sticky,语义=已确认决策) ===== */
+.cnote{background:#f0f9eb;border:1px solid #c2e7b0;border-left:4px solid #67c23a;border-radius:4px;padding:8px 10px;font-size:12px;color:#4e7a35;margin:8px 0;line-height:1.6}
+.cnote b{color:#3d6b26;background:#e7f5d8;padding:0 6px;border-radius:3px;margin-right:6px}
+.cnote .dnum{font-size:10px;color:#3d6b26;font-weight:700}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:6px;z-index:200;font-size:13px;box-shadow:var(--shadow-d);display:none}
+.toast.show{display:block;animation:fade .3s}
+@keyframes fade{from{opacity:0;top:40px}to{opacity:1;top:60px}}
+
+/* ===== Student mini-app ===== */
+.stu-frame{position:relative;display:flex;flex-direction:column;height:680px;background:linear-gradient(180deg,#faf6f0 0%,#f5ede3 100%)}
+.stu-statusbar{height:24px;background:#1f2937;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:space-between;padding:0 14px}
+.stu-statusbar .right{display:flex;gap:4px;align-items:center}
+.stu-content{flex:1;overflow-y:auto;padding:12px}
+/* ---- 底部导航:严格复刻 components/HomeTabBar.vue(rpx→px ×0.5) ----
+   .tab-bar(padding 12rpx 0 28rpx/border-top 1rpx #f5f5f5/shadow 0 -2rpx 12rpx rgba(0,0,0,.04))
+   .tab-item(flex:1/column/center/padding 8rpx 0) + AppIcon size 48rpx
+   .tab-text(22rpx #999/激活 #8b7355 font-weight 500) + .tab-indicator(40rpx×4rpx 渐变) */
+.stu-tabbar{background:#fff;padding:6px 0 14px;border-top:.5px solid #f5f5f5;box-shadow:0 -1px 6px rgba(0,0,0,.04);display:flex}
+.stu-tabbar.hidden{display:none}
+.stu-tabbar .tab-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:4px 0;cursor:pointer}
+.stu-tabbar .tab-item .tab-ic{width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.stu-tabbar .tab-item .tab-ic svg{width:24px;height:24px;display:block}
+.stu-tabbar .tab-text{font-size:11px;color:#999;margin-top:3px;transition:color .3s ease}
+.stu-tabbar .tab-text.active{color:#8b7355;font-weight:500}
+.stu-tabbar .tab-indicator{position:absolute;bottom:0;width:20px;height:2px;background:linear-gradient(90deg,#c9a66b,#d9a7b0);border-radius:1px}
+/* 返回条:模拟小程序 native 导航栏返回按钮(真实 pushed 页由系统导航栏提供) */
+.stu-backbar{display:flex;align-items:center;gap:4px;padding:2px 0 10px;font-size:13px;color:#8b7355;cursor:pointer}
+/* ===== AI 助手页(一级 Tab) —— 沿用学员端香槟金主题,与首页/排期/我的保持同一设计系统 ===== */
+/* .ai-mode: 内容区去内边距并禁止外层滚动,交由聊天页内部两段式布局(对话区滚动 + 输入区固定) */
+.stu-content.ai-mode{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.ai-page{flex:1;min-height:0;display:flex;flex-direction:column;background:linear-gradient(180deg,#faf6f0 0%,#f5ede3 100%)}
+/* 顶部区域:标题 + 简洁会话状态(不占过多垂直空间) */
+.ai-header{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#fff;border-bottom:.5px solid #f2ece4;flex-shrink:0}
+.ai-header .ai-hic{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#d4b896,#c9a66b);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-header .ai-hic svg{width:18px;height:18px}
+.ai-header .ai-htxt{display:flex;flex-direction:column;line-height:1.35;min-width:0}
+.ai-header .ai-hname{font-size:14px;font-weight:600;color:#3a2c1e}
+.ai-header .ai-hsub{font-size:10px;color:#b8a088;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.ai-header .ai-dot{width:6px;height:6px;border-radius:50%;background:#7bbf8a;display:inline-block;flex-shrink:0}
+.ai-header .ai-clear{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#8b7355;border:.5px solid #e6dccd;border-radius:999px;padding:3px 10px;cursor:pointer;flex-shrink:0}
+/* 对话区域:占据主要可用空间,独立滚动 */
+.ai-msgs{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 6px;display:flex;flex-direction:column;gap:10px}
+.ai-welcome{display:flex;flex-direction:column;align-items:center;padding:10px 2px 4px}
+.ai-welcome .ai-wbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(201,166,107,.14);color:#8b7355;font-size:11px;padding:5px 12px;border-radius:999px}
+.ai-welcome .ai-wic{width:14px;height:14px;display:flex;align-items:center;justify-content:center}
+.ai-welcome .ai-wic svg{width:14px;height:14px}
+.ai-quick{display:flex;flex-direction:column;gap:8px;margin-top:12px;width:100%}
+.ai-qcard{display:flex;align-items:center;gap:10px;background:#fff;border:.5px solid #efe6d8;border-radius:10px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.04);cursor:pointer;text-align:left}
+.ai-qcard:active{transform:scale(.99)}
+.ai-qcard .ai-qic{width:26px;height:26px;border-radius:8px;background:rgba(201,166,107,.16);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-qcard .ai-qic svg{width:15px;height:15px}
+.ai-qcard .ai-qtext{font-size:12px;color:#5a4a38}
+.ai-qcard .ai-qarrow{margin-left:auto;color:#c9a66b;font-size:14px;line-height:1}
+/* 消息:用户/AI 区分展示 */
+.ai-msg{display:flex;gap:8px;align-items:flex-start;width:100%}
+.ai-msg.user{justify-content:flex-end}
+.ai-msg .ai-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#d4b896,#c9a66b);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ai-msg .ai-av svg{width:16px;height:16px}
+.ai-bubble{max-width:76%;padding:9px 12px;font-size:12px;line-height:1.6;color:#3a2c1e;background:#fff;border-radius:4px 12px 12px 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);white-space:pre-wrap;word-break:break-word}
+.ai-msg.user .ai-bubble{background:linear-gradient(135deg,#d4b896,#c9a66b);color:#fff;border-radius:12px 4px 12px 12px}
+.ai-bubble.err{background:#fdf1f0;color:#c0392b;border:.5px solid #f3d6d3}
+.ai-bubble .ai-dots{display:flex;gap:4px;padding:3px 0}
+.ai-bubble .ai-dots .dt{width:6px;height:6px;border-radius:50%;background:#c9a66b;animation:aiDot 1.4s ease-in-out infinite}
+.ai-bubble .ai-dots .dt:nth-child(2){animation-delay:.2s}
+.ai-bubble .ai-dots .dt:nth-child(3){animation-delay:.4s}
+@keyframes aiDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+/* 底部输入区:固定在页面底部(TabBar 之上),预留安全区间距,不遮挡消息与导航 */
+.ai-input-area{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 12px 12px;background:#fff;border-top:.5px solid #f2ece4}
+.ai-input-wrap{flex:1;display:flex;align-items:center;background:#faf7f2;border:.5px solid #eee3d5;border-radius:999px;padding:0 12px;gap:6px;min-width:0}
+.ai-input-wrap>span{display:flex;flex-shrink:0}
+.ai-input-wrap svg{width:15px;height:15px}
+.ai-input{flex:1;min-width:0;height:34px;border:0;background:transparent;font-size:12px;color:#3a2c1e;outline:none}
+.ai-input::placeholder{color:#b8a088}
+.ai-send{width:34px;height:34px;border-radius:50%;background:#efe6d8;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .25s ease}
+.ai-send svg{width:17px;height:17px}
+.ai-send.active{background:linear-gradient(135deg,#d4b896,#c9a66b);box-shadow:0 2px 8px rgba(201,166,107,.35)}
+.stu-card{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;overflow:hidden;border:1px solid rgba(201,166,107,.14)}
+.stu-card .hd{padding:12px 14px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #f5f2ec}
+.stu-card .hd .nm{font-weight:600;font-size:15px;color:#5a4a3a}
+.stu-card .hd .ty{font-size:11px;color:#8a7a6a;margin-top:2px}
+.stu-card .bd{padding:12px 14px}
+.stu-card .bd .line{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
+.stu-card .bd .line .k{color:#8a7a6a}
+.stu-card .bd .line b{color:var(--gold-d)}
+.stu-card .ft{padding:10px 14px;border-top:1px solid #f5f2ec;display:flex;gap:8px;justify-content:flex-end}
+/* 小程序卡状态视觉(对齐真实 membership/index.vue) */
+.stu-card.card-active{background:linear-gradient(135deg,#fdf6e9 0%,#f9edda 30%,#f5e6c8 60%,#f0d9a8 100%);border-color:rgba(201,166,107,.2)}
+.stu-card.card-pending,.stu-card.card-used-up{background:linear-gradient(135deg,#faf8f5 0%,#f7f3ed 100%)}
+.stu-card.card-frozen{background:linear-gradient(135deg,#f5f7fa 0%,#eef1f5 100%)}
+.stu-card.card-expired,.stu-card.card-voided{background:linear-gradient(135deg,#f8f6f3 0%,#f3f0eb 100%);opacity:.65}
+.cardnoline{font-size:11px;color:#999;display:flex;align-items:center;gap:4px;margin-top:4px}
+.stu-card.card-active .cardnoline{color:rgba(90,74,42,.6)}
+/* ---- P-M1 我的会员卡:严格复刻 pages/student/membership/index.vue 结构 ---- */
+.filter-tabs{display:flex;gap:8px;padding:2px 0 12px}
+.filter-tab{flex:1;text-align:center;padding:9px 0;border-radius:50px;background:rgba(255,255,255,.7);color:#b8a088;font-size:13px;font-weight:500;cursor:pointer}
+.filter-tab.tab-active{background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);color:#fff;font-weight:600;box-shadow:0 4px 20px rgba(201,166,107,.35)}
+.card-item{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;border:1px solid rgba(201,166,107,.14);overflow:hidden}
+.card-item.card-active{background:linear-gradient(135deg,#fdf6e9 0%,#f9edda 30%,#f5e6c8 60%,#f0d9a8 100%);border-color:rgba(201,166,107,.2);box-shadow:0 2px 12px rgba(201,166,107,.2)}
+.card-item.card-pending,.card-item.card-used-up{background:linear-gradient(135deg,#faf8f5 0%,#f7f3ed 100%)}
+.card-item.card-frozen{background:linear-gradient(135deg,#f5f7fa 0%,#eef1f5 100%)}
+.card-item.card-expired,.card-item.card-voided{background:linear-gradient(135deg,#f8f6f3 0%,#f3f0eb 100%);opacity:.65}
+.card-content{padding:14px}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card-name{font-size:15px;font-weight:700;color:#333}
+.card-no-row{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#999}
+.card-no-label{color:#8a7a6a}
+.card-no-text{color:#999;letter-spacing:.3px}
+.copy-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:4px;background:rgba(201,166,107,.14);color:#b8956a;font-size:10px;line-height:1;cursor:pointer;flex-shrink:0}
+.card-item.card-active .card-no-label,.card-item.card-active .card-no-text{color:rgba(90,74,42,.6)}
+.card-usage{display:flex;align-items:flex-end;justify-content:space-between;margin-top:12px;gap:10px}
+.usage-inline{display:flex;align-items:center}
+.usage-main{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.credits-display{display:flex;align-items:baseline;gap:1px}
+.credits-label{font-size:12px;color:#8a7a6a;margin-right:2px}
+.credits-remaining{font-size:26px;font-weight:700;color:#c9a66b;line-height:1.1}
+.credits-remaining.zero{color:#ef5350}
+.credits-separator{font-size:14px;color:#c0b6a6;margin:0 1px}
+.credits-total{font-size:14px;color:#999}
+.credits-unit{font-size:12px;color:#999;margin-left:2px}
+.usage-unlimited-text{font-size:15px;font-weight:600;color:#c9a66b;margin-left:2px}
+.usage-divider-line{width:1px;height:24px;background:rgba(201,166,107,.28);flex-shrink:0}
+.usage-valid-range{font-size:11px;color:#8a7a6a;text-align:right;white-space:nowrap}
+.usage-valid-range .vr-k{display:block;font-size:10px;color:#a89b8a}
+.usage-with-activate{justify-content:space-between}
+.activate-btn-inline{flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);border:none;box-shadow:0 4px 16px rgba(201,166,107,.3)}
+.activation-warning-box{display:flex;gap:8px;align-items:flex-start;background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.32);border-radius:8px;padding:8px 10px;margin-top:10px}
+.activation-warning-box .warn-ic{color:#e65100;font-size:14px;line-height:1.4}
+.warning-title{font-size:12px;font-weight:600;color:#e65100}
+.warning-desc{font-size:11px;color:#a06a2c;line-height:1.5;margin-top:2px}
+/* 空状态:3D 插画 + 权益四宫格 */
+.empty-state{display:flex;flex-direction:column;align-items:center;padding:22px 12px 8px;text-align:center}
+.empty-card-illustration{position:relative;width:132px;height:96px;margin-bottom:14px}
+.card-3d{position:relative;width:106px;height:68px;margin:10px auto 0;border-radius:10px;background:linear-gradient(135deg,#f3d9a4 0%,#e2c184 55%,#c9a66b 100%);box-shadow:0 10px 22px rgba(201,166,107,.35);display:flex;align-items:center;justify-content:center;transform:rotate(-8deg)}
+.card-3d.invalid{background:linear-gradient(135deg,#f0ebe3 0%,#e8e0d5 55%,#ddd5c8 100%);box-shadow:0 10px 22px rgba(184,160,136,.2)}
+.card-3d .card-face{font-size:26px;line-height:1}
+.card-shadow{position:absolute;left:14px;right:14px;bottom:2px;height:10px;border-radius:50%;background:rgba(201,166,107,.22);filter:blur(2px)}
+.sparkles{position:absolute;inset:0;pointer-events:none}
+.sparkles span{position:absolute;color:#d9b979;font-size:12px}
+.sparkles span:nth-child(1){left:4px;top:6px}
+.sparkles span:nth-child(2){right:2px;top:14px;font-size:15px}
+.sparkles span:nth-child(3){left:12px;bottom:12px;font-size:14px}
+.empty-title{font-size:15px;font-weight:600;color:#5a4a3a}
+.empty-desc{font-size:12px;color:#a89b8a;margin-top:6px}
+.go-handle-btn{display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:9px 22px;border-radius:24px;border:none;color:#fff;font-size:14px;font-weight:600;background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);box-shadow:0 4px 20px rgba(201,166,107,.3)}
+.go-handle-btn .btn-arrow{opacity:.85}
+.benefits-section{margin-top:22px;width:100%}
+.benefits-title{font-size:12px;color:#a89b8a;margin-bottom:10px}
+.benefits-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.benefit-item{background:rgba(255,255,255,.8);border:1px solid rgba(201,166,107,.16);border-radius:10px;padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.benefit-item .bi{font-size:18px}
+.benefit-text{font-size:12px;color:#8a7a6a}
+/* ---- P-M4 预约确认:严格复刻 pages/student/booking-confirm/index.vue 结构 ---- */
+.info-card,.use-card-card,.notice-card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;padding:14px}
+.header-left{display:flex;align-items:center}
+.header-icon{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#d4b896,#c9a66b);display:inline-flex;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
+.card-label{font-size:14px;font-weight:600;color:#5a4a3a}
+.header-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(201,166,107,.35),transparent);margin-left:10px}
+.course-name{font-size:16px;font-weight:700;color:#333;display:block;margin:10px 0 6px}
+.info-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;color:#5a4a3a}
+.info-row .ir-ic{width:16px;text-align:center;flex-shrink:0}
+.selected-card-info{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px;margin-top:10px;border-radius:10px;background:rgba(201,166,107,.07);cursor:pointer}
+.selected-card-info .card-details{min-width:0}
+.selected-card-info .card-details .cd-name{font-size:14px;font-weight:600;color:#333}
+.selected-card-info .card-details .cd-sub{font-size:12px;color:#8a7a6a;margin-top:3px}
+.selected-card-info .card-details .cd-applicable{font-size:11px;color:#a89b8a;margin-top:2px}
+.card-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.type-badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600;white-space:nowrap}
+.type-count{background:rgba(230,162,60,.16);color:#e6a23c}
+.type-period{background:rgba(64,158,255,.16);color:#409eff}
+.type-unlimited{background:rgba(114,46,209,.16);color:#722ed1}
+.arrow{color:#c0b6a6;font-size:16px}
+.notice-item{display:flex;gap:8px;padding:5px 0;font-size:12px;color:#8a7a6a;line-height:1.6}
+.notice-diamond{color:#c9a66b;flex-shrink:0}
+.action-bar{display:flex;gap:12px;padding:8px 2px 4px}
+.action-btn{flex:1;padding:12px;border-radius:24px;font-size:15px;font-weight:600;border:none}
+.action-btn.cancel-btn{background:#fff;color:#8a7a6a;border:1px solid #e5ddd0}
+.action-btn.confirm-btn{background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);color:#fff;box-shadow:0 4px 16px rgba(201,166,107,.3)}
+.action-btn.confirm-btn:disabled{background:#e5ddd0;color:#a89b8a;box-shadow:none}
+/* 选卡底部弹窗 */
+.card-selector-mask{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:20}
+.card-selector-popup{width:100%;background:#fff;border-radius:20px 20px 0 0;max-height:74%;display:flex;flex-direction:column;box-shadow:0 -6px 24px rgba(0,0,0,.14)}
+.selector-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #f2ede4}
+.selector-title{font-size:15px;font-weight:600;color:#5a4a3a}
+.selector-close{width:24px;height:24px;border-radius:50%;background:#f5f0e8;color:#8a7a6a;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer}
+.card-list-scroll{padding:10px 14px;overflow-y:auto}
+.card-option{display:flex;align-items:center;gap:10px;border:1.5px solid #ebe5da;border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;background:#fff}
+.card-option.card-selected{border-color:#c9a66b;background:rgba(201,166,107,.08)}
+.card-option.card-disabled{opacity:.55;cursor:not-allowed;background:#faf8f5}
+.card-option-left{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.card-radio{width:18px;height:18px;border:2px solid #d9d2c6;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.card-radio.radio-checked{border-color:#c9a66b}
+.card-radio .radio-dot{width:9px;height:9px;border-radius:50%;background:#c9a66b;display:none}
+.card-radio.radio-checked .radio-dot{display:block}
+.card-option-info{min-width:0}
+.card-option-name{font-size:14px;font-weight:600;color:#333}
+.card-option-remaining{font-size:11px;color:#8a7a6a;margin-top:3px}
+.card-option-applicable{font-size:11px;color:#a89b8a;margin-top:2px}
+.card-option-type{flex-shrink:0}
+.no-available-cards{text-align:center;padding:26px 0;color:#a89b8a;font-size:13px}
+.selector-footer{padding:12px 16px;border-top:1px solid #f2ede4}
+.footer-btn{display:block;width:100%;padding:11px;border-radius:24px;border:none;color:#fff;font-size:15px;font-weight:600;background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);box-shadow:0 4px 16px rgba(201,166,107,.3)}
+/* ---- P-M6 我的预约:严格复刻 pages/student/bookings/index.vue 结构 ---- */
+.empty-ill{font-size:40px;color:#d0c0b0;margin-bottom:8px}
+.booking-card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;overflow:hidden}
+.booking-card .card-info{padding:14px}
+.booking-card .info-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.bk-course{font-size:15px;font-weight:700;color:#333}
+.status-badge{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;font-size:11px;font-weight:500;color:#b8956a;background:rgba(201,166,107,.1);border-radius:12px;padding:2px 10px}
+.status-badge .sb-ic{color:#b8956a}
+.booking-card .info-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;color:#8a7a6a}
+.booking-card .ir-ic{width:16px;text-align:center;flex-shrink:0;color:#b8956a}
+.booking-card .card-actions{padding:0 14px 12px;display:flex;justify-content:flex-end}
+.cancel-btn{padding:7px 16px;border-radius:20px;border:1px solid rgba(245,108,108,.5);background:#fff;color:#f56c6c;font-size:12px;font-weight:600}
+.cancel-disabled{font-size:11px;color:#a89b8a}
+/* ---- P-M3 课程排期:严格复刻 pages/student/schedule/index.vue 结构 ----
+   时间区是卡片内 50px 圆角小方块(非左侧通栏),分隔线为竖线(2rpx×24rpx) */
+.m3-navbar{background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px;font-weight:600;color:#1a1a1a;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.filter-scroll,.date-scroll{white-space:nowrap;overflow-x:auto;margin-bottom:10px}
+.filter-list,.date-list{display:inline-flex;gap:6px;padding:3px 0;align-items:center}
+.filter-pill{padding:10px 16px;border-radius:50px;background:rgba(255,255,255,.85);border:1px solid rgba(201,166,107,.2);color:#8b7355;font-size:13px;line-height:1.2;box-shadow:0 1px 4px rgba(0,0,0,.04);cursor:pointer}
+.filter-pill.pill-active{background:linear-gradient(135deg,#e8d5b7 0%,#d4b896 100%);color:#5c4a32;border-color:transparent;font-weight:600;box-shadow:0 2px 8px rgba(201,166,107,.3)}
+.date-pill{position:relative;min-width:60px;padding:6px 12px;border-radius:20px;background:rgba(255,255,255,.85);border:1px solid rgba(201,166,107,.15);display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;box-shadow:0 1px 4px rgba(0,0,0,.04);cursor:pointer}
+.date-pill.pill-active{background:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);border-color:transparent;box-shadow:0 2px 8px rgba(201,166,107,.35)}
+.date-pill.pill-active::after{content:"";position:absolute;bottom:6px;width:4px;height:4px;background:#fff;border-radius:50%}
+.pill-day-name{font-size:10px;color:#8E8579;margin-bottom:1px}
+.pill-day-date{font-size:12px;color:#1A1A1A;font-weight:500}
+.date-pill.pill-active .pill-day-name,.date-pill.pill-active .pill-day-date{color:#fff}
+.schedule-card{display:flex;background:rgba(255,255,255,.92);border:1px solid rgba(201,166,107,.12);border-radius:12px;padding:14px 12px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+.schedule-time-section{width:50px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(232,213,183,.3) 0%,rgba(212,184,150,.15) 100%);border-radius:8px;padding:8px 6px;margin-right:10px}
+.time-start,.time-end{font-size:14px;font-weight:600;color:#8b7355;line-height:1.2}
+.time-divider{width:1px;height:12px;background:linear-gradient(180deg,#c9a66b 0%,rgba(201,166,107,.3) 100%);margin:4px 0;border-radius:2px}
+.schedule-content{flex:1;min-width:0}
+.schedule-top{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.course-type-tag{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;flex-shrink:0;background:linear-gradient(135deg,rgba(200,180,220,.4) 0%,rgba(180,160,200,.2) 100%);color:#7b6b8a}
+.course-type-tag.tag-private{background:linear-gradient(135deg,rgba(232,213,183,.5) 0%,rgba(212,184,150,.3) 100%);color:#8b7355}
+.course-type-tag.tag-special{background:linear-gradient(135deg,rgba(180,220,200,.4) 0%,rgba(160,200,180,.2) 100%);color:#5b8a7b}
+.sch-course{font-size:16px;font-weight:600;color:#4a3728;letter-spacing:.25px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.schedule-info{margin-bottom:10px}
+.schedule-info .info-item{display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:13px;color:#8b7355;line-height:1.4}
+.schedule-info .ii-ic{color:#b8a088;width:14px;text-align:center;flex-shrink:0}
+.schedule-footer{display:flex;align-items:center;justify-content:space-between}
+.capacity-info{display:flex;align-items:center;gap:4px}
+.capacity-info .ii-ic{color:#b8a088}
+.capacity-text{font-size:12px;color:#a89880}
+.btn-wrapper{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.book-btn{padding:6px 14px;border-radius:16px;border:none;font-size:12px;font-weight:500;line-height:1.2;letter-spacing:.25px;color:#fff;background:linear-gradient(135deg,#c9a66b 0%,#d4b896 100%);box-shadow:0 2px 6px rgba(201,166,107,.3)}
+.book-btn.booked{background:linear-gradient(135deg,#e8d5b7 0%,#d4b896 100%);font-weight:600;box-shadow:0 1px 4px rgba(201,166,107,.25)}
+.book-btn.disabled{background:#f5f0eb;color:#c4b5a5;box-shadow:none}
+.book-btn.no-card{background:#f5f0eb;color:#c4b5a5;box-shadow:none;border:1px solid rgba(201,166,107,.15)}
+.book-btn.not-applicable,.book-btn.insufficient,.book-btn.weekly-limit{background:rgba(232,213,183,.5);color:#a89880;box-shadow:none;border:1px solid rgba(201,166,107,.2)}
+.cancel-hint{font-size:10px;color:#c9a66b;line-height:1.2}
+.stu-h1{font-size:16px;font-weight:600;padding:4px 0 10px;color:#5a4a3a}
+.stu-section{font-size:13px;color:#8a7a6a;margin:14px 4px 8px;font-weight:500}
+.stu-link{display:block;text-align:center;color:var(--gold);padding:10px}
+.stu-list-item{background:#fff;border-radius:8px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.stu-list-item .l{flex:1}
+.stu-list-item .l .t{font-weight:600;font-size:14px}
+.stu-list-item .l .d{font-size:12px;color:var(--text-3);margin-top:3px}
+.stu-btn{display:block;width:100%;padding:11px;background:var(--gold-grad-btn);color:#fff;border:none;border-radius:24px;font-size:15px;font-weight:600;box-shadow:0 4px 20px rgba(201,166,107,.3)}
+.stu-btn:disabled{background:#e5ddd0;box-shadow:none;color:#a89b8a}
+.stu-btn.outline{background:#fff;color:var(--gold);border:1px solid var(--gold);box-shadow:none}
+.stu-mini-btn{display:inline-block;padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;background:#fff;color:var(--gold-d);border:1px solid rgba(201,166,107,.5)}
+.stu-mini-btn.danger{color:#f56c6c;border-color:rgba(245,108,108,.5)}
+.stu-mini-btn.disabled{color:#c9c2b6;border-color:#e5ddd0}
+.warn-bar{background:#fef0f0;border:1px solid #fbc4c4;color:#a33;border-radius:6px;padding:10px 12px;margin:8px 0;font-size:12px;display:flex;gap:8px;align-items:flex-start}
+.warn-bar .ic{font-size:16px}
+.result-box{text-align:center;padding:24px 16px}
+.result-box .big{font-size:46px;margin-bottom:10px}
+.result-box h3{font-size:17px;margin-bottom:8px}
+.result-info{background:#fff;border-radius:8px;padding:12px 14px;margin-top:14px;text-align:left}
+.result-info .line{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
+/* ---- P-M8 首页·课程列表:严格复刻 pages/student/courses/index.vue 结构 ----
+   navbar(location) → banner(360rpx) → 师资团队(横滑) → 推荐课程(列表) → 舞蹈视频(列表) */
+.home-page{margin:-12px}
+.home-navbar{display:flex;align-items:center;gap:2px;padding:10px 16px 8px}
+.home-navbar .loc-ic{font-size:14px;line-height:1}
+.home-navbar .loc-text{font-size:14px;color:#3d2e1f;font-weight:500}
+.home-navbar .loc-arrow{font-size:12px;color:#8b7355}
+.home-banner{position:relative;width:100%;height:180px;overflow:hidden}
+.home-banner .banner-slide{position:relative;width:100%;height:180px;overflow:hidden}
+.home-banner .banner-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(30,22,16,.75) 0%,rgba(30,22,16,.4) 50%,rgba(30,22,16,.1) 100%);z-index:1}
+.home-banner .banner-content{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:20px 24px;z-index:2}
+.home-banner .banner-title{display:block;font-size:22px;font-weight:700;color:#fff;line-height:1.4;margin-bottom:8px;text-shadow:0 1px 4px rgba(0,0,0,.3)}
+.home-banner .banner-subtitle{display:block;font-size:13px;color:rgba(255,255,255,.9);line-height:1.5;text-shadow:0 .5px 2px rgba(0,0,0,.2)}
+.home-banner .banner-dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:4px;z-index:3}
+.home-banner .bdot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.4)}
+.home-banner .bdot.on{background:#c9a66b}
+.home-section{padding:20px 16px 0}
+.home-section:last-child{padding-bottom:20px}
+.home-section .sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-title{display:flex;align-items:center;gap:4px}
+.sec-title .t-ic{font-size:16px;line-height:1}
+.sec-title .t-txt{font-size:16px;font-weight:600;color:#3d2e1f}
+.sec-more{display:flex;align-items:center;gap:2px;font-size:12px;color:#8b7355;cursor:pointer}
+.teachers-scroll{white-space:nowrap;overflow-x:auto;padding-bottom:4px}
+.teachers-list{display:inline-flex;gap:16px}
+.teacher-item{display:inline-flex;flex-direction:column;align-items:center;width:70px;flex-shrink:0}
+.teacher-avatar{width:60px;height:60px;border-radius:50%;overflow:hidden;margin-bottom:6px;border:1px solid rgba(201,166,107,.3);background:linear-gradient(135deg,#f5e6d3 0%,#e8d5c4 100%);display:flex;align-items:center;justify-content:center}
+.teacher-avatar .avatar-text{font-size:18px;font-weight:600;color:#8b7355}
+.teacher-name{display:block;font-size:13px;font-weight:500;color:#3d2e1f;margin-bottom:2px;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.teacher-specialty{display:block;font-size:11px;color:#8b7355;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.course-list{display:flex;flex-direction:column;gap:16px}
+.course-item{display:flex;gap:16px;padding:16px;background:rgba(255,255,255,.92);border-radius:10px;border:1px solid rgba(201,166,107,.12);box-shadow:0 2px 10px rgba(0,0,0,.04);cursor:pointer}
+.course-image{width:80px;height:80px;border-radius:8px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,#2d2418 0%,#5a4632 100%)}
+.course-info{flex:1;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.course-name{display:block;font-size:15px;font-weight:600;color:#3d2e1f;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.course-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:#8b7355;line-height:1.5}
+.video-list{display:flex;flex-direction:column;gap:16px}
+.video-card{background:rgba(255,255,255,.92);border-radius:10px;border:1px solid rgba(201,166,107,.12);box-shadow:0 2px 10px rgba(0,0,0,.04);overflow:hidden;cursor:pointer}
+.video-cover{position:relative;width:100%;height:180px;overflow:hidden;background:linear-gradient(135deg,#1a1612 0%,#2d2418 100%)}
+.video-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.1) 0%,rgba(0,0,0,.4) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.play-button{width:50px;height:50px;border-radius:50%;background:rgba(201,166,107,.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(201,166,107,.4)}
+.play-button .play-icon{font-size:18px;color:#fff;margin-left:3px}
+.video-duration{font-size:12px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.5);padding:2px 8px;border-radius:10px}
+.video-info{padding:16px}
+.video-title{display:block;font-size:15px;font-weight:600;color:#3d2e1f;margin-bottom:4px}
+.video-desc{display:block;font-size:12px;color:#8b7355;line-height:1.5}
+/* ---- P-M9 我的·个人中心:严格复刻 pages/student/profile/index.vue 结构 ----
+   navbar(我的) → profile-header(头像/昵称/角色/会员徽章) → 我的会员卡入口 → 预约记录 → 账号设置(解绑微信/退出登录) */
+.profile-page{margin:-12px;min-height:100%;background:linear-gradient(180deg,#fef6f0 0%,#faf5f0 50%,#f8f2ed 100%)}
+.profile-navbar{display:flex;align-items:center;padding:12px 16px 8px}
+.profile-navbar .nav-ttl{font-size:18px;font-weight:600;color:#2c1810;letter-spacing:.5px}
+.profile-header{position:relative;padding:20px 16px 30px;overflow:hidden}
+.profile-header .bg-dec{position:absolute;inset:0;background:radial-gradient(ellipse at 80% 20%,rgba(212,165,116,.15) 0%,transparent 50%),radial-gradient(ellipse at 20% 80%,rgba(217,167,176,.12) 0%,transparent 50%);pointer-events:none}
+.profile-content{position:relative;z-index:1;display:flex;align-items:center;gap:12px}
+.avatar-ph{width:70px;height:70px;border-radius:50%;border:2px solid rgba(255,255,255,.9);box-shadow:0 4px 12px rgba(44,24,16,.12);background:linear-gradient(135deg,#c9a66b 0%,#d9a7b0 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.avatar-ph .av-txt{font-size:28px;font-weight:600;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.1)}
+.user-info-sec{flex:1;display:flex;flex-direction:column;gap:4px}
+.user-name{font-size:18px;font-weight:600;color:#2c1810;letter-spacing:.25px}
+.user-role-row{display:flex;align-items:center;gap:4px}
+.user-role{font-size:13px;color:#8b7355;font-weight:500}
+.role-divider{font-size:13px;color:#c9a66b;opacity:.6}
+.member-level{font-size:13px;color:#c9a66b;font-weight:500}
+.membership-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:linear-gradient(135deg,rgba(201,166,107,.15) 0%,rgba(217,167,176,.12) 100%);border-radius:12px;width:fit-content;margin-top:2px;font-size:11px;color:#c9a66b;font-weight:500}
+.profile-content-area{padding:0 12px;display:flex;flex-direction:column;gap:12px}
+.mem-card{position:relative;background:linear-gradient(135deg,#fef6f0 0%,#faf0e6 100%);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(201,166,107,.15);border:1px solid rgba(201,166,107,.2);cursor:pointer}
+.mem-card .mem-card-content{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;padding:16px}
+.mem-card .mem-left{display:flex;align-items:center;gap:10px;flex:1}
+.mem-card .mem-ic{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(201,166,107,.2) 0%,rgba(217,167,176,.15) 100%);flex-shrink:0;font-size:20px}
+.mem-card .mem-info{display:flex;flex-direction:column;gap:4px}
+.mem-card .mem-title{font-size:16px;font-weight:600;color:#2c1810;letter-spacing:.25px}
+.mem-card .mem-desc{font-size:12px;color:#8b7355;line-height:1.4}
+.menu-group{display:flex;flex-direction:column;gap:8px}
+.menu-card{background:rgba(255,255,255,.85);border-radius:10px;overflow:hidden;border:1px solid rgba(201,166,107,.1);box-shadow:0 1px 6px rgba(44,24,16,.04);cursor:pointer}
+.menu-item{display:flex;align-items:center;justify-content:space-between;padding:14px 12px}
+.menu-left{display:flex;align-items:center;gap:10px;flex:1}
+.menu-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(254,246,240,.8) 0%,rgba(250,240,230,.6) 100%);flex-shrink:0;font-size:18px}
+.menu-ic.logout-icon{background:linear-gradient(135deg,rgba(231,76,60,.1) 0%,rgba(231,76,60,.05) 100%)}
+.menu-info{display:flex;flex-direction:column;gap:3px;flex:1}
+.menu-title{font-size:15px;font-weight:500;color:#2c1810;letter-spacing:.15px}
+.menu-desc{font-size:12px;color:#a89279;line-height:1.3}
+.menu-arrow{font-size:16px;color:#c9a66b}
+
+/* ===== Teacher (teacher-web: 无侧边栏, 移动风卡片列表) ===== */
+.tch-body{padding:16px;overflow:auto;height:620px;background:linear-gradient(180deg,#fef5f9 0%,#f0f2ff 30%,#f5f7fa 100%)}
+.tch-wrap{max-width:560px;margin:0 auto}
+.tch-head{background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;padding:16px 18px;color:#fff;box-shadow:0 6px 18px rgba(102,126,234,.28);margin-bottom:12px}
+.tch-head h3{font-size:17px;margin-bottom:6px}
+.tch-head .sub{font-size:12px;opacity:.9;line-height:1.7}
+.tch-info{display:flex;gap:10px;margin-top:10px;font-size:12px}
+.tch-info span{background:rgba(255,255,255,.18);border-radius:6px;padding:4px 8px}
+.tch-stat{display:flex;background:#fff;border-radius:12px;padding:12px 0;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.tch-stat .it{flex:1;text-align:center;border-right:1px solid #f0f2f5}
+.tch-stat .it:last-child{border-right:none}
+.tch-stat .it .n{font-size:20px;font-weight:700;color:#1a1a2e}
+.tch-stat .it .l{font-size:11px;color:#909399;margin-top:2px}
+.tch-row{background:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.05);display:flex;gap:12px;align-items:center}
+.tch-row .av{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;flex-shrink:0}
+.tch-row .mn{flex:1;min-width:0}
+.tch-row .mn .n{font-weight:600;font-size:14px;color:#303133}
+.tch-row .mn .d{font-size:11px;color:#909399;margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.tch-row .op{display:flex;gap:6px;flex-shrink:0}
+.flow-wiz{font-size:12px}
+.flow-wiz .item{padding:8px 0;border-bottom:1px dashed var(--border)}
+.flow-wiz .item .ttl{font-weight:600;margin-bottom:3px}
+.flow-wiz .item .desc{color:var(--text-3);font-size:11px;line-height:1.5;margin-bottom:6px}
+.scroll-x{overflow-x:auto}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">会员卡全生命周期原型 <small>D9 用户确认方案</small></div>
+  <div class="spacer"></div>
+  <button class="btn-sm" onclick="openFlows()">📖 演示流程</button>
+  <button class="btn-sm" onclick="resetData()">↺ 重置数据</button>
+  <div class="view-tabs">
+    <button id="vt-dual" class="active" onclick="setView('dual')">并排预览</button>
+    <button id="vt-admin" onclick="setView('admin')">管理后台</button>
+    <button id="vt-student" onclick="setView('student')">学员小程序</button>
+    <button id="vt-teacher" onclick="setView('teacher')">教师端</button>
+  </div>
+</div>
+
+<div id="stage">
+  <!-- ===== ADMIN ===== -->
+  <div id="admin-panel" class="panel">
+    <div class="page-title"><h2><span class="pid">ADMIN</span><span id="admin-ptitle">会员卡管理</span></h2><span class="muted">桌面端 · Element Plus 风格</span></div>
+    <div class="admin-body">
+      <div class="admin-side" id="admin-side"></div>
+      <div class="admin-main" id="admin-main"></div>
+    </div>
+  </div>
+
+  <!-- ===== STUDENT ===== -->
+  <div id="student-panel" class="panel">
+    <div class="stu-statusbar"><span>9:41</span><span class="right">•• 5G ▮</span></div>
+    <div class="page-title"><h2><span class="pid">MINI</span><span id="stu-ptitle">我的会员卡</span></h2></div>
+    <div class="stu-frame"><div class="stu-content" id="stu-content"></div>
+      <!-- 底部导航:内容由 renderTabBar() 按当前页渲染;仅在 首页/排期/我的 三页显示(对齐真实 HomeTabBar) -->
+      <div class="stu-tabbar" id="stu-tabbar"></div>
+    </div>
+  </div>
+
+  <!-- ===== TEACHER ===== -->
+  <div id="teacher-panel" class="panel hidden">
+    <div class="page-title"><h2><span class="pid">TEACHER</span>学员列表 / 签到点名</h2><span class="muted">教师端 · 移动风卡片列表</span></div>
+    <div class="tch-body" id="tch-body"></div>
+  </div>
+</div>
+
+<div class="modal-mask" id="mask"><div class="modal" id="modal-box"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   F6.0 会员卡原型 · D9 用户确认方案
+   期卡: 发卡PENDING → 预约不扣次(按排期日+validity_days算预期有效期做区间重叠冲突) → 排期COMPLETED激活写入valid_from/expire_at
+   次卡: 预约预扣(used+1) → COMPLETED确认不回补 → CANCELLED回补(used-1)
+   正常上课 = 预约成功 + 排期COMPLETED(不以签到为准) · 缺席自动消解(课开即扣)
+   PENDING 期卡 90天无COMPLETED → 自动CANCELLED · freeze对PENDING拒绝
+============================================================ */
+
+const TODAY='2026-10-10';
+/* applicable_course_type_code 对应真实卡产品字段(activation 冲突判定按此 code 比较) */
+const BASE_PRODUCTS=[
+  {id:'P1',name:'拉丁舞次卡',type:'credits',price:980,credits:10,validity_days:90,applicable:'拉丁舞',applicable_course_type_code:'regular',max_weekly:5,status:'上架',description:'拉丁舞入门 10 次课,90 天内有效'},
+  {id:'P2',name:'拉丁舞期限卡',type:'period',price:1280,credits:null,validity_days:30,applicable:'拉丁舞',applicable_course_type_code:'regular',max_weekly:0,status:'上架',description:'拉丁舞 30 天内不限次上课'},
+  {id:'P3',name:'私教课期限卡',type:'period',price:1980,credits:null,validity_days:30,applicable:'私教课',applicable_course_type_code:'private',max_weekly:0,status:'上架',description:'私教一对一 30 天课程包'},
+];
+/* student_phone/created_at/updated_at/frozen_at/frozen_until/frozen_reason 为 admin 展示新增字段(内部既有字段名不变) */
+const BASE_CARDS=[
+  {id:'C1',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P2',productName:'拉丁舞期限卡',type:'period',status:'PENDING',used:0,total:null,remaining:null,valid_from:null,expire_at:null,validity_days:30,cardNo:'MC20261010001',issueDate:'2026-10-09',applicable_course_type_code:'regular',created_at:'2026-10-09 10:02:00',updated_at:'2026-10-09 10:02:00',frozenReason:null,cancelReason:null},
+  {id:'C2',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P1',productName:'拉丁舞次卡',type:'credits',status:'ACTIVE',used:3,total:10,remaining:7,valid_from:'2026-09-10',expire_at:'2026-12-09',validity_days:90,cardNo:'MC20260910002',issueDate:'2026-09-10',applicable_course_type_code:'regular',created_at:'2026-09-10 10:02:00',updated_at:'2026-10-10 09:00:00'},
+  {id:'C3',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P1',productName:'拉丁舞次卡',type:'credits',status:'ACTIVE',used:10,total:10,remaining:0,valid_from:'2026-07-01',expire_at:'2026-09-29',validity_days:90,cardNo:'MC20260701003',issueDate:'2026-07-01',applicable_course_type_code:'regular',created_at:'2026-07-01 10:00:00',updated_at:'2026-09-29 23:59:00'},
+  {id:'C4',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P2',productName:'拉丁舞期限卡',type:'period',status:'EXPIRED',used:0,total:null,remaining:null,valid_from:'2026-08-10',expire_at:'2026-09-09',validity_days:30,cardNo:'MC20260810004',issueDate:'2026-08-10',applicable_course_type_code:'regular',created_at:'2026-08-10 10:00:00',updated_at:'2026-09-09 23:59:00'},
+  {id:'C5',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P1',productName:'拉丁舞次卡',type:'credits',status:'FROZEN',used:2,total:10,remaining:8,valid_from:'2026-09-20',expire_at:'2026-12-19',validity_days:90,cardNo:'MC20260920005',issueDate:'2026-09-20',applicable_course_type_code:'regular',created_at:'2026-09-20 10:00:00',updated_at:'2026-09-28 11:00:00',frozen_at:'2026-09-28 11:00:00',frozen_until:'2026-10-12',frozen_reason:'学员请假外出',frozenReason:'学员请假外出'},
+  {id:'C6',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P2',productName:'拉丁舞期限卡',type:'period',status:'CANCELLED',used:0,total:null,remaining:null,valid_from:'2026-09-01',expire_at:'2026-09-30',validity_days:30,cardNo:'MC20260901006',issueDate:'2026-09-01',applicable_course_type_code:'regular',created_at:'2026-09-01 10:00:00',updated_at:'2026-09-20 10:00:00',cancelReason:'学员退课,管理员作废'},
+  {id:'C7',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P3',productName:'私教课期限卡',type:'period',status:'PENDING',used:0,total:null,remaining:null,valid_from:null,expire_at:null,validity_days:30,cardNo:'MC20261012007',issueDate:'2026-10-12',applicable_course_type_code:'private',created_at:'2026-10-12 10:00:00',updated_at:'2026-10-12 10:00:00',frozenReason:null,cancelReason:null},
+  {id:'C8',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P2',productName:'拉丁舞期限卡',type:'period',status:'ACTIVE',used:0,total:null,remaining:null,valid_from:'2026-10-05',expire_at:'2026-11-04',validity_days:30,cardNo:'MC20261005008',issueDate:'2026-10-05',applicable_course_type_code:'regular',created_at:'2026-10-05 10:00:00',updated_at:'2026-10-06 19:00:00'},
+];
+const BASE_TXNS={
+  C2:[
+    {time:'2026-09-10 10:02',type:'发放',delta:'+0',balance:10,booking:'',note:'线下发卡 ISSUE'},
+    {time:'2026-10-05 19:30',type:'消费',delta:'-1',balance:9,booking:'拉丁舞基础 10-05',note:'预约预扣'},
+    {time:'2026-10-08 20:00',type:'消费',delta:'-1',balance:8,booking:'拉丁舞基础 10-08',note:'排期COMPLETED确认'},
+    {time:'2026-10-10 09:00',type:'消费',delta:'-1',balance:7,booking:'拉丁舞基础 10-10',note:'预约预扣(B1)'},
+  ],
+  C1:[{time:'2026-10-09 10:02',type:'发放',delta:'+0',balance:'-',booking:'',note:'期卡PENDING待激活'}],
+  C3:[{time:'2026-07-01 10:00',type:'发放',delta:'+0',balance:10,note:'线下发卡'},{time:'2026-09-29 23:59',type:'过期',delta:'清零',balance:0,note:'expire_at过期,次卡清零'}],
+  C4:[{time:'2026-08-10 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡PENDING'},{time:'2026-09-09 23:59',type:'过期',delta:'-',balance:'-',note:'PENDING遗留卡标EXPIRED'}],
+  C5:[{time:'2026-09-20 10:00',type:'发放',delta:'+0',balance:10,note:'线下发卡'},{time:'2026-09-25 10:00',type:'消费',delta:'-1',balance:9,note:'排期COMPLETED'},{time:'2026-09-28 10:00',type:'消费',delta:'-1',balance:8,note:'排期COMPLETED'},{time:'2026-09-28 11:00',type:'冻结',delta:'-',balance:8,note:'学员请假外出'}],
+  C6:[{time:'2026-09-01 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡PENDING'},{time:'2026-09-20 10:00',type:'作废',delta:'-',balance:'-',note:'学员退课'}],
+  C7:[{time:'2026-10-12 10:00',type:'发放',delta:'+0',balance:'-',note:'线下发卡 私教课期卡PENDING'}],
+  C8:[{time:'2026-10-05 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡首发,预约阶段不激活'},{time:'2026-10-06 19:00',type:'激活',delta:'-',balance:'-',note:'排期COMPLETED,写入有效期 2026-10-05~2026-11-04'}],
+};
+/* course_type_code/name 对应真实 courseTypeApi 与 getCourseTypeLabel 的 private/regular/special */
+const BASE_SCHEDULES=[
+  {id:'S1',course:'拉丁舞基础',course_type_code:'regular',course_type_name:'常规课',date:'2026-10-10',time:'19:00-20:30',teacher:'刘老师',room:'1号厅',capacity:10,booked:8,state:'today'},
+  {id:'S2',course:'拉丁舞进阶',course_type_code:'regular',course_type_name:'常规课',date:'2026-10-11',time:'19:00-20:30',teacher:'刘老师',room:'1号厅',capacity:10,booked:5,state:'open'},
+  {id:'S3',course:'拉丁舞基础',course_type_code:'regular',course_type_name:'常规课',date:'2026-10-12',time:'10:00-11:30',teacher:'陈老师',room:'2号厅',capacity:10,booked:10,state:'full'},
+  {id:'S4',course:'拉丁舞基础',course_type_code:'private',course_type_name:'私教课',date:'2026-10-11',time:'10:00-11:30',teacher:'陈老师',room:'2号厅',capacity:10,booked:2,state:'open'},
+  {id:'S5',course:'拉丁舞进阶',course_type_code:'special',course_type_name:'特色课',date:'2026-10-12',time:'19:00-20:30',teacher:'刘老师',room:'1号厅',capacity:10,booked:10,state:'full'},
+  /* S6:与 S1(今日 19:00-20:30,张小明 B1 已约)时间段重叠,用于演示"跨排期时间段冲突"拦截 */
+  {id:'S6',course:'拉丁舞进阶',course_type_code:'regular',course_type_name:'常规课',date:'2026-10-10',time:'19:30-20:30',teacher:'刘老师',room:'1号厅',capacity:10,booked:3,state:'open'},
+];
+/* S1 roster: 张小明=B1(BOOKED), plus display-only extras */
+const S1_ROSTER=[
+  {name:'张小明',bId:'B1',status:'BOOKED',cardNo:'MC20260910002',cardStatus:'ACTIVE',cardId:'C2',cardType:'credits',checkInTime:''},
+  {name:'陈晨',bId:'BX1',status:'BOOKED',cardNo:'MC20261008008',cardStatus:'ACTIVE',cardId:'-',cardType:'credits',checkInTime:''},
+  {name:'林芳',bId:'BX2',status:'CHECKED_IN',cardNo:'MC20261007009',cardStatus:'ACTIVE',cardId:'-',cardType:'credits',checkInTime:'19:02'},
+];
+/* S3 roster: 张小明=B3(BOOKED, 计划卡已作废) */
+const S3_ROSTER=[
+  {name:'张小明',bId:'B3',status:'BOOKED',cardNo:'MC20260901006',cardStatus:'CANCELLED',cardId:'C6',cardType:'period',checkInTime:''},
+  {name:'周杰',bId:'BX3',status:'COMPLETED',cardNo:'MC20261001010',cardStatus:'ACTIVE',cardId:'-',cardType:'credits',checkInTime:'10:05'},
+];
+const BASE_BOOKINGS=[
+  {id:'B1',student:'张小明',studentId:'U1',scheduleId:'S1',cardId:'C2',cardNo:'MC20260910002',cardStatus:'ACTIVE',cardType:'credits',status:'BOOKED',source:'SELF',course:'拉丁舞基础',date:'2026-10-10',time:'19:00-20:30',room:'1号厅',teacher:'刘老师',cancelReason:null},
+  {id:'B2',student:'张小明',studentId:'U1',scheduleId:'S2',cardId:'C3',cardNo:'MC20260701003',cardStatus:'USED_UP',cardType:'credits',status:'CANCELLED',source:'SELF',course:'拉丁舞进阶',date:'2026-10-11',time:'19:00-20:30',room:'1号厅',teacher:'刘老师',cancelReason:'临时有事'},
+  {id:'B3',student:'张小明',studentId:'U1',scheduleId:'S3',cardId:'C6',cardNo:'MC20260901006',cardStatus:'CANCELLED',cardType:'period',status:'BOOKED',source:'SELF',course:'拉丁舞基础',date:'2026-10-12',time:'10:00-11:30',room:'2号厅',teacher:'陈老师',cancelReason:null,cardCancelReason:'学员退课,管理员作废'},
+  {id:'B4',student:'张小明',studentId:'U1',scheduleId:'S0',cardId:'C2',cardNo:'MC20260910002',cardStatus:'ACTIVE',cardType:'credits',status:'COMPLETED',source:'SELF',course:'拉丁舞基础',date:'2026-10-08',time:'19:00-20:30',room:'1号厅',teacher:'刘老师',cancelReason:null},
+  {id:'B5',student:'张小明',studentId:'U1',scheduleId:'S2',cardId:'C2',cardNo:'MC20260910002',cardStatus:'ACTIVE',cardType:'credits',status:'BOOKED',source:'SELF',course:'拉丁舞进阶',date:'2026-10-11',time:'19:00-20:30',room:'1号厅',teacher:'刘老师',cancelReason:null},
+];
+
+/* runtime mutable copies */
+var PRODUCTS, CARDS, TXNS, SCHEDULES, BOOKINGS, S1R, S3R;
+const STU={U1:'张小明'};
+/* P-M8 首页演示数据:banner 文案取自真实 pages/student/courses/index.vue;师资/课程由 API 加载,此处为演示 mock */
+const BASE_BANNERS=[
+  {title:'让舞蹈成为生活的一部分',subtitle:'遇见更好的自己 · 从一堂舞蹈课开始',bg:'linear-gradient(135deg,#2d2418 0%,#6b5138 55%,#3a2c1e 100%)'},
+  {title:'专业师资团队',subtitle:'资深舞蹈教师 · 一对一指导',bg:'linear-gradient(135deg,#1f1a14 0%,#4a3728 60%,#2d2418 100%)'},
+  {title:'多元化课程体系',subtitle:'古典舞 · 现代舞 · 街舞 · 芭蕾',bg:'linear-gradient(135deg,#3a2c1e 0%,#7a5c3a 55%,#2d2418 100%)'}
+];
+const BASE_TEACHERS=[{name:'林老师',spec:'古典舞 · 8年教龄'},{name:'苏老师',spec:'拉丁舞 · 6年教龄'},{name:'陈老师',spec:'街舞 · 5年教龄'}];
+const BASE_HOME_COURSES=[{name:'拉丁舞基础',desc:'能力素质训练,新手小白的入门必修课'},{name:'中国古典舞',desc:'身韵与基本功,感受东方美学韵味'},{name:'现代舞进阶',desc:'身体开发与编舞,进阶提升表现力'}];
+const BASE_VIDEOS=[{title:'中国古典舞《身韵》基础教学',desc:'学习古典舞核心身韵技巧,感受东方美学韵味',dur:'03:28'},{title:'拉丁舞恰恰基本步示范',desc:'恰恰舞基本步分解,零基础也能跟上',dur:'05:12'}];
+/* STATE declared with var so it becomes a global property, reliably reachable
+   from inline event handlers (onchange="STATE.x=...") in all browsers. */
+var STATE={
+  view:'dual', adminPage:'P-A2', stuPage:'P-M8', teacherSched:'S1', stuTab:'valid', bookTab:'all',
+  selCardId:null, selSchedId:null, bookCardId:'C2', bookResult:null,
+  cancelBId:null, cardSelOpen:false,
+  schedCat:'all', schedDate:TODAY,
+  selProducts:[], selCards:[], cardStatusFilter:[],
+  freezeCardId:null, conflictCardId:null, conflictAction:'unfreeze_and_cancel',
+  issuePid:null, issueValidFrom:'', issueRenew:false,
+  aiMsgs:[], aiLoading:false, aiErr:false, aiTimer:null,
+};
+
+function clone(o){return JSON.parse(JSON.stringify(o))}
+/* 补齐真实 DTO 的 snake_case 字段名(原型渲染 P-M1 必须用真实字段名,不得 camelCase) */
+function normCards(){
+  CARDS.forEach(c=>{
+    c.product_name=c.product_name||c.productName;
+    c.card_no=c.card_no||c.cardNo;
+    c.card_type=c.card_type||(c.type==='credits'?'count':c.type==='period'?'period':'unlimited');
+    if(c.total_credits==null)c.total_credits=c.total;
+    if(c.remaining_credits==null)c.remaining_credits=c.remaining;
+    if(c.used_credits==null)c.used_credits=c.used;
+    c.student_phone=c.student_phone||'138****8888';
+    c.created_at=c.created_at||((c.issueDate||TODAY)+' 10:00:00');
+    c.updated_at=c.updated_at||c.created_at;
+    c.frozen_reason=c.frozen_reason||c.frozenReason||null;
+  });
+}
+function resetData(){
+  PRODUCTS=clone(BASE_PRODUCTS); CARDS=clone(BASE_CARDS); TXNS=clone(BASE_TXNS);
+  SCHEDULES=clone(BASE_SCHEDULES); BOOKINGS=clone(BASE_BOOKINGS);
+  S1R=clone(S1_ROSTER); S3R=clone(S3_ROSTER);
+  STATE.selCardId=null; STATE.selSchedId=null; STATE.bookCardId='C2';
+  STATE.bookResult=null; STATE.cancelBId=null;
+  STATE.stuTab='valid'; STATE.cardSelOpen=false; STATE.bookTab='all';
+  STATE.schedCat='all'; STATE.schedDate=TODAY;
+  STATE.selProducts=[]; STATE.selCards=[]; STATE.cardStatusFilter=[];
+  STATE.freezeCardId=null; STATE.conflictCardId=null; STATE.conflictAction='unfreeze_and_cancel';
+  STATE.issuePid=null; STATE.issueValidFrom=''; STATE.issueRenew=false;
+  if(STATE.aiTimer){clearTimeout(STATE.aiTimer);STATE.aiTimer=null}
+  STATE.aiMsgs=[]; STATE.aiLoading=false; STATE.aiErr=false;
+  normCards();
+  renderAll(); toast('演示数据已重置');
+}
+function addDays(ds,n){const d=new Date(ds+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
+function fmtDate(ds){if(!ds)return '—';return ds}
+function cardById(id){return CARDS.find(c=>c.id===id)}
+function schedById(id){return SCHEDULES.find(s=>s.id===id)}
+function bookingById(id){return BOOKINGS.find(b=>b.id===id)}
+
+/* ===== badges ===== */
+const SMAP={
+  PENDING:{c:'st-gray',t:'未激活'},
+  ACTIVE:{c:'st-green',t:'使用中'},
+  EXPIRED:{c:'st-gray',t:'已过期'},
+  FROZEN:{c:'st-blue',t:'已冻结'},
+  CANCELLED:{c:'st-red',t:'已作废'},
+  USED_UP:{c:'st-orange',t:'已用尽'},
+  BOOKED:{c:'st-blue',t:'已预约'},
+  CHECKED_IN:{c:'st-orange',t:'已签到'},
+  COMPLETED:{c:'st-green',t:'已完成'},
+  CANCELLED_B:{c:'st-gray',t:'已取消'},
+};
+function badge(s){const m=SMAP[s]||{c:'st-gray',t:s};return `<span class="badge ${m.c}">${m.t}</span>`}
+function cardBadge(c){
+  if(c.type==='credits'&&c.remaining===0&&c.status==='ACTIVE') return badge('USED_UP');
+  return badge(c.status);
+}
+function bookBadge(b){return badge(b.status==='CANCELLED'?'CANCELLED_B':b.status)}
+
+/* ===== 管理端(admin)展示映射:严格对齐 admin-web/card-types 与 admin-web/membership 真实页面
+   管理端状态文案/徽标与学员端(miniapp)不同:学员端沿用 mCardBadge,此处不得改动学员端 */
+const ADMIN_ST={PENDING:{c:'st-gray',t:'未激活'},ACTIVE:{c:'st-green',t:'正常'},EXPIRED:{c:'st-orange',t:'已过期'},FROZEN:{c:'st-red',t:'已冻结'},CANCELLED:{c:'st-gray',t:'已作废'}};
+function adminCardBadge(c){const m=ADMIN_ST[c.status]||{c:'st-gray',t:'未知'};return `<span class="badge ${m.c}">${m.t}</span>`}
+/* 管理端状态 el-tag 色(getStatusType): 0未激活 info / 1正常 success / 2已过期 warning / 3已冻结 danger / 6已作废 info */
+const ADMIN_TAG={PENDING:'tag-info',ACTIVE:'tag-success',EXPIRED:'tag-warning',FROZEN:'tag-danger',CANCELLED:'tag-info'};
+function adminStatusTag(c){const t=ADMIN_TAG[c.status]||'tag-info';return `<span class="tag ${t}">${(ADMIN_ST[c.status]||{t:'未知'}).t}</span>`}
+/* 真实 card_type 文案(cardTypeMap): count=次卡 period=期卡 unlimited=无限卡 */
+function ctText(code){return code==='count'?'次卡':code==='period'?'期卡':code==='unlimited'?'无限卡':code}
+/* 卡产品页 tag 色: count=success period=warning unlimited=info */
+function ctTagProduct(code){const m={count:'tag-success',period:'tag-warning',unlimited:'tag-info'};return `<span class="tag ${m[code]||'tag-info'}">${ctText(code)}</span>`}
+/* 会员卡页 tag 色(与卡产品页不同,按真实): count=primary period=success unlimited=warning */
+function ctTagCard(code){const m={count:'tag-primary',period:'tag-success',unlimited:'tag-warning'};return `<span class="tag ${m[code]||'tag-info'}">${ctText(code)}</span>`}
+/* 适用课程类型:真实 courseTypeApi 数据源(names 无法确证,按 regular=常规课 private=私教课 special=特色课 约定);空值=不限(#909399) */
+function courseTypeName(code){return ({regular:'常规课',private:'私教课',special:'特色课'})[code]||code}
+function courseTypeTag(code){const m={regular:'tag-primary',private:'tag-warning',special:'tag-success'};return code?`<span class="tag ${m[code]||'tag-info'}">${courseTypeName(code)}</span>`:'<span style="color:#909399">不限</span>'}
+/* 冻结剩余天数(真实 getFrozenRemainingDays: frozen_until - now,向下取整) */
+function frozenRemainDays(c){if(!c.frozen_until)return '-';const d=Math.floor((new Date(c.frozen_until+'T00:00:00')-new Date(TODAY+'T00:00:00'))/86400000);return d<=0?0:d}
+/* 同名同学员同课程类型是否还有其他有效卡(驱动"强制解冻"与冻结到期冲突弹窗) */
+function hasSameCourseTypeCard(c){return CARDS.some(o=>o.id!==c.id&&o.studentId===c.studentId&&o.applicable_course_type_code===c.applicable_course_type_code&&['ACTIVE','PENDING'].includes(o.status))}
+function adminHasConflict(c){return c.status==='FROZEN'&&hasSameCourseTypeCard(c)}
+function fmtDT(s){return s?s:'-'}
+/* el-descriptions 风格条目(两列 border 网格) */
+function dg(k,v,span){return `<div class="dg-item${span?' span2':''}"><div class="dg-k">${k}</div><div class="dg-v">${(v==null||v==='')?'-':v}</div></div>`}
+/* 绿色"已确认"便签(结构对齐 sticky,语义=已确认决策,区别于黄色决策占位) */
+function confirmedNote(d,text){return `<div class="cnote"><span class="dnum">D${d}</span> <b>已确认</b>${text}</div>`}
+
+/* ---- miniapp 视觉映射(对齐真实小程序配色/文案, 与后台 el-tag 区分) ---- */
+const MST={ACTIVE:'mst-active',USED_UP:'mst-usedup',PENDING:'mst-pending',EXPIRED:'mst-expired',CANCELLED:'mst-voided',FROZEN:'mst-frozen'};
+const MST_TXT={ACTIVE:'使用中',USED_UP:'已用完',PENDING:'未激活',EXPIRED:'已过期',CANCELLED:'已作废',FROZEN:'冻结中'};
+function mStatus(c){return (c.status==='ACTIVE'&&c.type==='credits'&&c.remaining===0)?'USED_UP':c.status}
+/* 真实 .card-status-badge:圆点 + 文字(不是 el-tag 四色) */
+function mBadge(st){return `<span class="card-status-badge ${MST[st]||'mst-voided'}"><span class="badge-dot"></span><span class="badge-text">${MST_TXT[st]||st}</span></span>`}
+function mCardBadge(c){return mBadge(mStatus(c))}
+/* 真实卡状态 class 后缀:card-active/card-used-up/card-pending/card-frozen/card-expired/card-voided */
+const MCLS={ACTIVE:'active',USED_UP:'used-up',PENDING:'pending',FROZEN:'frozen',EXPIRED:'expired',CANCELLED:'voided'};
+function cardCls(c){return 'card-'+(MCLS[mStatus(c)]||'voided')}
+/* 分组规则(L755-L811):有效=使用中+已用完+待激活+冻结中;无效=已过期+已作废 */
+function cardGroupKey(c){return ['EXPIRED','CANCELLED'].includes(mStatus(c))?'invalid':'valid'}
+/* P-M6 我的预约:四 Tab + 取消时限(对齐真实 filterTabs / booking_cancel_minutes) */
+const BOOK_TABS=[{k:'all',t:'全部'},{k:'BOOKED',t:'待上课'},{k:'CHECKED_IN',t:'上课中'},{k:'COMPLETED',t:'已完成'}];
+const BOOK_STATUS_TXT={BOOKED:'待上课',CHECKED_IN:'上课中',COMPLETED:'已完成',CANCELLED:'已取消'};
+const CANCEL_MINUTES=90;                       /* 租户配置 booking_cancel_minutes,默认 90 */
+const DEMO_NOW=TODAY+'T18:30:00';              /* 演示用"当前时刻" */
+function bookingStatusBadge(b){return `<span class="status-badge"><span class="sb-ic">${ri('check-circle','#b8956a',12)}</span><span class="status-text">${BOOK_STATUS_TXT[b.status]||b.status}</span></span>`}
+function bookingStartAt(b){return new Date(b.date+'T'+b.time.split('-')[0]+':00')}
+function canCancelBooking(b){return b.status==='BOOKED'&&(bookingStartAt(b)-new Date(DEMO_NOW))/60000>CANCEL_MINUTES}
+function daysBetween(a,b){return Math.max(0,Math.round((new Date(b)-new Date(a))/86400000))}
+function sticky(d,text){return `<div class="sticky"><span class="dnum">D${d}</span> <b>决策占位</b>${text}</div>`}
+/* 真实项目不存在的页面:统一加"待新增"横幅(严格复刻定位,不得作为已存在能力展示) */
+function pendingBanner(desc){return `<div class="pending-banner"><span class="pb-ttl">待新增 · 真实项目不存在</span><span>${desc}（原型示意,真实页面尚未实现）</span></div>`}
+function emptyState(text,btnText,onclick){return `<div class="empty"><div class="ico">${ri('calendar-empty','#d0c0b0',40)}</div><p>${text}</p>${btnText?`<button class="btn-primary btn-sm" onclick="${onclick||''}">${btnText}</button>`:''}</div>`}
+function errorState(text,btnText,onclick){return `<div class="empty err"><div class="ico">${ri('alert','#f56c6c',40)}</div><p>${text}</p><button class="btn-primary btn-sm" onclick="${onclick||''}">${btnText||'重试'}</button></div>`}
+
+/* expected validity for a period card given a schedule date (D9) */
+function expectedRange(card,schedDate){return {from:schedDate,to:addDays(schedDate,card.validity_days)}}
+function overlap(a,b){return a.from<=b.to&&b.from<=a.to} // inclusive
+/* does this card conflict with another ACTIVE/PENDING period card of same product on given schedDate? */
+function cardConflict(card,schedDate){
+  if(card.type!=='period')return false;
+  const er=expectedRange(card,schedDate);
+  for(const o of CARDS){
+    if(o.id===card.id)continue;
+    if(o.studentId!==card.studentId)continue;
+    if(o.productId!==card.productId)continue;
+    if(!['ACTIVE','PENDING'].includes(o.status))continue;
+    let or;
+    if(o.status==='PENDING'&&o.valid_from==null){
+      // PENDING 期卡尚未有预约则无确定区间；冲突演示态下视为有一张已生效重叠卡
+      continue;
+    }
+    or={from:o.valid_from,to:o.expire_at};
+    if(overlap(er,or))return o;
+  }
+  return false;
+}
+
+/* 跨排期时间段重叠校验(原型演示态,2026-10-19 补)
+   口径:当前学员「进行中」预约(BOOKED/CHECKED_IN,不含 CANCELLED/COMPLETED)所在排期时间段,
+   与目标排期时间段做标准区间重叠判断 a.start < b.end && b.start < a.end。
+   时间粒度:排期=日期(date,'YYYY-MM-DD')+时段(time,'HH:MM-HH:MM');拼接为 'YYYY-MM-DDTHH:MM' 字符串,
+   该格式字典序即为时间序,直接字符串比较,不受本地时区影响。
+   与上方「会员卡有效期重叠」(cardConflict)相互独立,互不覆盖。
+   真实后端 apps/api/src/app/modules/booking/service.py::create_booking 尚无此校验,见 open-decisions.md。 */
+function slotRange(date,time){const p=time.split('-');return {start:date+'T'+p[0],end:date+'T'+p[1]}}
+function scheduleTimeConflict(schedule){
+  if(!schedule)return null;
+  const tgt=slotRange(schedule.date,schedule.time);
+  for(const b of BOOKINGS){
+    if(b.studentId!=='U1')continue;
+    if(['BOOKED','CHECKED_IN'].indexOf(b.status)<0)continue;
+    if(b.scheduleId===schedule.id)continue; /* 同排期重复预约由 P-M3 schedView 拦截,此处只管跨排期 */
+    const ex=slotRange(b.date,b.time);
+    if(tgt.start<ex.end&&ex.start<tgt.end)return b;
+  }
+  return null;
+}
+
+/* ============ TOAST ============ */
+let toastT;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200)}
+
+/* ============ MODAL ============ */
+function openModal(html,wide){const b=document.getElementById('modal-box');b.className='modal'+(wide?' wide':'');b.innerHTML=html;document.getElementById('mask').classList.add('show')}
+function closeModal(){document.getElementById('mask').classList.remove('show')}
+
+/* ============ VIEW ============ */
+function setView(v){
+  STATE.view=v;
+  document.getElementById('vt-dual').classList.toggle('active',v==='dual');
+  document.getElementById('vt-admin').classList.toggle('active',v==='admin');
+  document.getElementById('vt-student').classList.toggle('active',v==='student');
+  document.getElementById('vt-teacher').classList.toggle('active',v==='teacher');
+  const a=document.getElementById('admin-panel'),s=document.getElementById('student-panel'),t=document.getElementById('teacher-panel');
+  const stage=document.getElementById('stage');
+  a.classList.remove('hidden');s.classList.remove('hidden');t.classList.add('hidden');
+  stage.classList.remove('center-wrap');
+  if(v==='dual'){a.classList.remove('hidden');s.classList.remove('hidden')}
+  else if(v==='admin'){s.classList.add('hidden');stage.classList.add('center-wrap')}
+  else if(v==='student'){a.classList.add('hidden');stage.classList.add('center-wrap')}
+  else if(v==='teacher'){a.classList.add('hidden');s.classList.add('hidden');t.classList.remove('hidden');renderTeacher()}
+}
+
+/* ============ RENDER ALL ============ */
+function renderAll(){renderAdminSide();renderAdminPage();renderStuPage();if(STATE.view==='teacher')renderTeacher()}
+
+/* ---------- Admin sidebar ---------- */
+/* 图标取自真实 admin-web 侧栏所用的 @element-plus/icons-vue（v2.3.2）SVG path，
+   与真实页面图标一致（非 emoji）；仅展示本次原型范围内的菜单/页面入口。 */
+const ICON={
+  collection:['M192 736h640V128H256a64 64 0 0 0-64 64zm64-672h608a32 32 0 0 1 32 32v672a32 32 0 0 1-32 32H160l-32 57.536V192A128 128 0 0 1 256 64','M240 800a48 48 0 1 0 0 96h592v-96zm0-64h656v160a64 64 0 0 1-64 64H240a112 112 0 0 1 0-224m144-608v250.88l96-76.8 96 76.8V128zm-64-64h320v381.44a32 32 0 0 1-51.968 24.96L480 384l-108.032 86.4A32 32 0 0 1 320 445.44z'],
+  creditCard:['M896 324.096c0-42.368-2.496-55.296-9.536-68.48a52.35 52.35 0 0 0-22.144-22.08c-13.12-7.04-26.048-9.536-68.416-9.536H228.096c-42.368 0-55.296 2.496-68.48 9.536a52.35 52.35 0 0 0-22.08 22.144c-7.04 13.12-9.536 26.048-9.536 68.416v375.808c0 42.368 2.496 55.296 9.536 68.48a52.35 52.35 0 0 0 22.144 22.08c13.12 7.04 26.048 9.536 68.416 9.536h567.808c42.368 0 55.296-2.496 68.48-9.536a52.35 52.35 0 0 0 22.08-22.144c7.04-13.12 9.536-26.048 9.536-68.416zm64 0v375.808c0 57.088-5.952 77.76-17.088 98.56-11.136 20.928-27.52 37.312-48.384 48.448S852.928 864 795.968 864H228.032c-57.088 0-77.76-5.952-98.56-17.088a116.3 116.3 0 0 1-48.448-48.384c-11.136-20.864-17.088-41.6-17.088-98.56V324.032c0-57.088 5.952-77.76 17.088-98.56 11.136-20.928 27.52-37.312 48.384-48.448s41.6-17.088 98.56-17.088H795.84c57.088 0 77.76 5.952 98.56 17.088 20.928 11.136 37.312 27.52 48.448 48.384s17.088 41.6 17.088 98.56z','M64 320h896v64H64zm0 128h896v64H64zm128 192h256v64H192z'],
+  calendar:['M128 384v512h768V192H768v32a32 32 0 1 1-64 0v-32H320v32a32 32 0 0 1-64 0v-32H128v128h768v64zm192-256h384V96a32 32 0 1 1 64 0v32h160a32 32 0 0 1 32 32v768a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V160a32 32 0 0 1 32-32h160V96a32 32 0 0 1 64 0zm-32 384h64a32 32 0 0 1 0 64h-64a32 32 0 0 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m192-192h64a32 32 0 0 1 0 64h-64a32 32 0 0 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m192-192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64'],
+  ticket:['M640 832H64V640a128 128 0 1 0 0-256V192h576v160h64V192h256v192a128 128 0 1 0 0 256v192H704V672h-64zm0-416v192h64V416z'],
+  circlePlus:['M352 480h320a32 32 0 1 1 0 64H352a32 32 0 0 1 0-64','M480 672V352a32 32 0 1 1 64 0v320a32 32 0 0 1-64 0','M512 896a384 384 0 1 0 0-768 384 384 0 0 0 0 768m0 64a448 448 0 1 1 0-896 448 448 0 0 1 0 896'],
+  tickets:['M192 128v768h640V128zm-32-64h704a32 32 0 0 1 32 32v832a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V96a32 32 0 0 1 32-32m160 448h384v64H320zm0-192h192v64H320zm0 384h384v64H320z']
+};
+function iconSvg(key){
+  const ds=ICON[key]||[];
+  return '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+ds.map(d=>'<path fill="currentColor" d="'+d+'"/>').join('')+'</svg>';
+}
+function renderAdminSide(){
+  const items=[
+    {id:'P-A1',t:'卡产品管理',s:'产品模板·软删除',ic:'collection'},
+    {id:'P-A2',t:'会员卡管理',s:'卡实例·状态·操作',ic:'creditCard'},
+    {id:'P-A5',t:'预约管理',s:'计划卡失效警示',ic:'ticket',added:true},
+    {id:'P-A6',t:'排期签到点名',s:'代签到·完成',ic:'calendar'},
+  ];
+  document.getElementById('admin-side').innerHTML=
+    '<div class="logo"><span class="ic">✓</span><span class="tt">约课管理</span></div>'+
+    '<div class="grp">管理后台</div>'+
+    items.map(i=>`<div class="nav-item ${STATE.adminPage===i.id?'active':''} ${i.added?'nav-added':''}" onclick="goAdmin('${i.id}')"><span class="ni">${iconSvg(i.ic)}</span>${i.t}${i.added?'<span class="chip-added">待新增</span>':''}<span class="sub">${i.added?'待新增 · 真实项目不存在':i.s}</span></div>`).join('')+
+    '<div class="grp">弹窗/详情</div>'+
+    `<div class="nav-item" onclick="openIssueModal()"><span class="ni">${iconSvg('circlePlus')}</span>发卡弹窗 (P-A3)<span class="sub">从 P-A2 发放入口</span></div>`+
+    `<div class="nav-item" onclick="goAdmin('P-A2');openCardDetail('C2')"><span class="ni">${iconSvg('tickets')}</span>卡详情流水 (P-A4)<span class="sub">从 P-A2 行点击</span></div>`;
+}
+function goAdmin(p){STATE.adminPage=p;renderAdminSide();renderAdminPage()}
+const ADMIN_TITLE={P_A1:'卡产品管理',P_A2:'会员卡管理列表',P_A3:'发卡弹窗',P_A4:'卡详情 + 流水',P_A5:'预约管理列表',P_A6:'排期签到点名'};
+function renderAdminPage(){
+  const p=STATE.adminPage.replace('-','');
+  document.getElementById('admin-ptitle').textContent=ADMIN_TITLE[p]||p;
+  const el=document.getElementById('admin-main');
+  if(STATE.adminPage==='P-A1')el.innerHTML=adminA1();
+  else if(STATE.adminPage==='P-A2')el.innerHTML=adminA2();
+  else if(STATE.adminPage==='P-A5')el.innerHTML=adminA5();
+  else if(STATE.adminPage==='P-A6')el.innerHTML=adminA6();
+}
+
+/* ---------- P-A1 卡产品管理(对齐 admin-web/views/card-types/index.vue) ---------- */
+function adminA1(){
+  const sel=STATE.selProducts||[];
+  const empty=`<tr><td colspan="10" style="text-align:center;color:#909399">暂无数据</td></tr>`;
+  let rows=PRODUCTS.map((p,i)=>{
+    const code=p.type==='credits'?'count':p.type;   /* 真实 card_type: count=次卡 period=期卡 unlimited=无限卡 */
+    const isCount=code==='count',isPeriod=code==='period';
+    return `<tr>
+    <td><input type="checkbox" ${sel.includes(p.id)?'checked':''} onclick="toggleProductSel('${p.id}')"></td>
+    <td>${i+1}</td>
+    <td>${p.name}</td>
+    <td>${ctTagProduct(code)}</td>
+    <td>${isCount?(p.credits==null?'-':p.credits):'-'}</td>
+    <td>${(isCount||isPeriod)?p.validity_days:'-'}</td>
+    <td>${p.price}</td>
+    <td>${courseTypeTag(p.applicable_course_type_code)}</td>
+    <td>${p.status==='上架'?'<span class="tag tag-success">上架</span>':'<span class="tag tag-info">下架</span>'}</td>
+    <td>
+      <button class="btn-text btn-sm" onclick="openProductModal('${p.id}')">编辑</button>
+      <button class="btn-text btn-sm" style="color:${p.status==='上架'?'#e6a23c':'#67c23a'}" onclick="adminToggleProduct('${p.id}')">${p.status==='上架'?'下架':'上架'}</button>
+      ${p.status==='下架'?`<button class="btn-text btn-sm" style="color:#f56c6c" onclick="adminDeleteProduct('${p.id}')">删除</button>`:''}
+    </td>
+  </tr>`;
+  }).join('');
+  return `<div class="toolbar">
+    <button class="btn-primary btn-sm" onclick="openProductModal()">新增</button>
+    <button class="btn-danger btn-sm" ${sel.length?'':'disabled style="opacity:.5"'} onclick="openBatchDeleteProducts()">批量删除</button>
+    <span class="muted">产品=模板,卡=实例 (R-B1)</span>
+  </div>
+  <div class="scroll-x"><table class="el"><thead><tr><th style="width:40px"><input type="checkbox" onclick="toggleAllProductSel()"></th><th>序号</th><th>产品名称</th><th>计费方式</th><th>包含次数</th><th>有效天数</th><th>价格(元)</th><th>适用课程类型</th><th>状态</th><th>操作</th></tr></thead><tbody>${rows.length?rows:empty}</tbody></table></div>
+  ${sticky(2,'次卡用尽是否独立状态:现状无 EXHAUSTED,remaining=0 仍 ACTIVE,"已用尽"仅以余额徽标表达(本原型采用)')}
+  <div class="muted" style="margin-top:8px">软删除+回收站恢复为原型扩展(真实页面无回收站按钮,listDeleted 未接入);删除后新建同名产品不冲突</div>`;
+}
+/* 新建/编辑卡产品弹窗(对齐真实: 产品名称/计费方式(仅次卡·期卡)/包含次数/有效天数/价格/适用课程类型/描述) */
+function openProductModal(id){
+  const p=id?PRODUCTS.find(x=>x.id===id):{id:'P'+(PRODUCTS.length+1),name:'',type:'credits',price:'',credits:'',validity_days:'',applicable_course_type_code:'regular',description:''};
+  const ctOpts=`<option value="credits" ${p.type==='credits'?'selected':''}>次卡</option><option value="period" ${p.type==='period'?'selected':''}>期卡</option>`;
+  const ctTypeOpts=['regular','private','special'].map(c=>`<option value="${c}" ${p.applicable_course_type_code===c?'selected':''}>${courseTypeName(c)}</option>`).join('');
+  openModal(`<div class="m-head"><h3>${id?'编辑':'新增'} <span class="muted">P-A1</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <div class="form-row"><label>产品名称 <span class="req">*</span></label><input value="${p.name}" placeholder="请输入产品名称"></div>
+    <div class="form-row"><label>计费方式 <span class="req">*</span></label><select id="pm-type" onchange="productModalTypeChange()">${ctOpts}</select></div>
+    <div class="form-row" id="pm-credits-row" style="display:${p.type==='credits'?'':'none'}"><label>包含次数 <span class="req">*</span></label><input type="number" min="1" value="${p.credits==null?'':p.credits}"></div>
+    <div class="form-row" id="pm-days-row"><label>有效天数 <span class="req">*</span></label><input type="number" min="1" value="${p.validity_days==null?'':p.validity_days}"></div>
+    <div class="form-row"><label>价格(元) <span class="req">*</span></label><input type="number" min="0" step="0.01" value="${p.price}"></div>
+    <div class="form-row"><label>适用课程类型 <span class="req">*</span></label><select id="pm-ctcode">${ctTypeOpts}</select><div class="hint">必填项：选择后学员只能预约该课程类型的课程，请根据产品定位选择</div></div>
+    <div class="form-row"><label>描述</label><textarea rows="3" placeholder="请输入描述">${p.description||''}</textarea></div>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="closeModal();toast('已保存(演示)')">确定</button></div>`);
+}
+/* 计费方式切换:次卡显示"包含次数"(无限卡隐藏"有效天数") */
+function productModalTypeChange(){
+  const tEl=document.getElementById('pm-type');const t=tEl?tEl.value:'credits';
+  const cr=document.getElementById('pm-credits-row'),dr=document.getElementById('pm-days-row');
+  if(cr&&cr.style)cr.style.display=(t==='credits')?'':'none';
+  if(dr&&dr.style)dr.style.display=(t==='unlimited')?'none':'';
+}
+function toggleProductSel(id){const s=STATE.selProducts||(STATE.selProducts=[]);const i=s.indexOf(id);if(i>=0)s.splice(i,1);else s.push(id);renderAdminPage()}
+function toggleAllProductSel(){const all=PRODUCTS.map(p=>p.id);STATE.selProducts=((STATE.selProducts||[]).length===all.length)?[]:all.slice();renderAdminPage()}
+function adminToggleProduct(id){const p=PRODUCTS.find(x=>x.id===id);if(!p)return;const act=p.status==='上架'?'下架':'上架';openModal(confirmBox('提示',`确定要${act}卡类型「${p.name}」吗？`,'',act,`adminToggleProductDo('${id}')`))}
+function adminToggleProductDo(id){const p=PRODUCTS.find(x=>x.id===id);p.status=p.status==='上架'?'下架':'上架';closeModal();toast('操作成功');renderAdminPage()}
+function adminDeleteProduct(id){const p=PRODUCTS.find(x=>x.id===id);openModal(confirmBox('警告',`确定要删除卡类型「${p.name}」吗？`,'删除后移入回收站(软删除,原型扩展)','删除',`adminDeleteProductDo('${id}')`))}
+function adminDeleteProductDo(id){PRODUCTS=PRODUCTS.filter(p=>p.id!==id);STATE.selProducts=(STATE.selProducts||[]).filter(x=>x!==id);closeModal();toast('删除成功');renderAdminPage()}
+/* 批量删除弹窗(对齐真实: 标题/确定文案/仅已下架可删提示) */
+function openBatchDeleteProducts(){
+  const sel=(STATE.selProducts||[]).map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean);
+  if(!sel.length){toast('请先勾选要删除的卡类型');return}
+  const notOff=sel.filter(p=>p.status!=='下架');
+  if(notOff.length){toast('以下卡类型未下架,无法删除:'+notOff.map(p=>p.name).join('、')+'.请先下架后再删除');return}
+  openModal(`<div class="m-head"><h3>批量删除 <span class="muted">P-A1</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <p style="margin-bottom:12px">确定要删除以下 <strong style="color:#f56c6c;font-size:16px">${sel.length}</strong> 个卡类型吗？</p>
+    <ul style="padding-left:20px;color:#606266;line-height:1.9">${sel.map(p=>`<li>${p.name}（${ctText(p.type==='credits'?'count':p.type)}）</li>`).join('')}</ul>
+    <p style="margin-top:12px;color:#f56c6c;font-size:13px">注意：只有已下架的卡类型才能删除，删除后将移入回收站。</p>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="doBatchDeleteProducts()">确定</button></div>`);
+}
+function doBatchDeleteProducts(){const sel=STATE.selProducts||[];PRODUCTS=PRODUCTS.filter(p=>sel.indexOf(p.id)<0);STATE.selProducts=[];closeModal();toast('批量删除成功(演示)');renderAdminPage()}
+
+/* ---------- P-A2 会员卡管理(对齐 admin-web/views/membership/index.vue) ---------- */
+const ADMIN_ST_OPTS=[{v:'0',t:'未激活',s:'PENDING'},{v:'1',t:'正常',s:'ACTIVE'},{v:'2',t:'已过期',s:'EXPIRED'},{v:'3',t:'已冻结',s:'FROZEN'},{v:'6',t:'已作废',s:'CANCELLED'}];
+const S2C={PENDING:'0',ACTIVE:'1',EXPIRED:'2',FROZEN:'3',CANCELLED:'6'};
+function cardSelectable(c){return c.status!=='CANCELLED'&&c.status!=='EXPIRED'}
+function adminA2(){
+  const sel=STATE.selCards||[];const filt=STATE.cardStatusFilter||[];
+  const list=CARDS.filter(c=>!filt.length||filt.includes(S2C[c.status]));
+  const hasFrozen=CARDS.some(c=>c.status==='FROZEN');
+  const selectable=list.filter(cardSelectable);
+  const allSel=selectable.length>0&&selectable.every(c=>sel.includes(c.id));
+  const empty=`<tr><td colspan="${hasFrozen?14:13}" style="text-align:center;color:#909399">暂无数据</td></tr>`;
+  let rows=list.map((c,i)=>{
+    const isCount=c.card_type==='count';
+    const vrange=(c.valid_from&&c.expire_at)?`${c.valid_from} ~ ${c.expire_at}`:'-';
+    const fStock=`<td>${c.status==='FROZEN'?`<div style="color:${frozenRemainDays(c)<=0?'#e6a23c':'#67c23a'};font-size:13px;font-weight:500">剩余 ${frozenRemainDays(c)} 天解冻</div>${adminHasConflict(c)?`<div style="margin-top:4px"><span class="tag tag-warning">⚠ 冻结到期-课程冲突</span></div>`:''}`:'-'}</td>`;
+    return `<tr>
+    <td><input type="checkbox" ${sel.includes(c.id)?'checked':''} ${cardSelectable(c)?`onclick="toggleCardSel('${c.id}')"`:'disabled style="opacity:.4"'}></td>
+    <td>${i+1}</td>
+    <td>${c.card_no?`<a class="link" style="color:#409eff;cursor:pointer" onclick="openCardDetail('${c.id}')">${c.card_no}</a>`:'-'}</td>
+    <td>${c.product_name}</td>
+    <td>${ctTagCard(c.card_type)}</td>
+    <td>${c.student}</td>
+    <td>${c.student_phone||'-'}</td>
+    <td>${isCount?(c.total_credits==null?'-':c.total_credits):'-'}</td>
+    <td>${isCount?(c.used_credits==null?0:c.used_credits):'-'}</td>
+    <td>${isCount?(c.remaining_credits==null?'-':c.remaining_credits):'-'}</td>
+    <td>${adminCardBadge(c)}</td>
+    <td>${vrange}</td>
+    ${hasFrozen?fStock:''}
+    <td>
+      ${c.status==='PENDING'?`<button class="btn-text btn-sm" style="color:#67c23a" onclick="adminActivate('${c.id}')">激活</button>`:''}
+      ${c.status==='ACTIVE'?`<button class="btn-text btn-sm" style="color:#e6a23c" onclick="openFreezeModal('${c.id}')">冻结</button>`:''}
+      ${c.status==='FROZEN'?`<button class="btn-text btn-sm" style="color:#67c23a" onclick="adminUnfreeze('${c.id}')">${adminHasConflict(c)?'强制解冻':'提前解冻'}</button>`:''}
+      ${(c.status!=='CANCELLED'&&c.status!=='EXPIRED')?`<button class="btn-text btn-sm" style="color:#f56c6c" onclick="adminCancel('${c.id}')">作废</button>`:''}
+    </td>
+  </tr>`;
+  }).join('');
+  const stChips=ADMIN_ST_OPTS.map(o=>`<span class="ms-opt ${filt.includes(o.v)?'on':''}" onclick="toggleCardStatusFilter('${o.v}')">${o.t}</span>`).join('');
+  return `<div class="toolbar">
+    <button class="btn-primary btn-sm" onclick="openIssueModal()">发放会员卡 (P-A3)</button>
+    <button class="btn-danger btn-sm" ${sel.length?'':'disabled style="opacity:.5"'} onclick="openBatchCancelCards()">批量作废</button>
+    <span class="muted">D9: 期卡发卡即 PENDING,有效期待首次上课激活</span>
+  </div>
+  <div class="filter-row">
+    <input id="card-search" placeholder="搜索学员或手机号" style="width:240px">
+    <div class="ms-select"><span class="muted">状态筛选</span>${stChips}</div>
+  </div>
+  <div class="scroll-x"><table class="el"><thead><tr>
+    <th style="width:40px"><input type="checkbox" ${allSel?'checked':''} onclick="toggleAllCardSel()"></th><th>序号</th><th>会员卡号</th><th>产品名称</th><th>计费方式</th><th>学员</th><th>手机号</th><th>总次数</th><th>已用</th><th>剩余</th><th>状态</th><th>有效期</th>${hasFrozen?'<th>冻结信息</th>':''}<th>操作</th>
+  </tr></thead><tbody>${rows.length?rows:empty}</tbody></table></div>
+  ${confirmedNote(3,'冻结/作废前应显示"该卡 N 个有效预约受影响"(依赖待开发的受影响预约查询);此处为占位')}
+  <div class="muted" style="margin-top:8px">流程 A 入口:点击下方"演示流程 A"可跳转学员端查看课卡</div>`;
+}
+function toggleCardSel(id){const s=STATE.selCards||(STATE.selCards=[]);const i=s.indexOf(id);if(i>=0)s.splice(i,1);else s.push(id);renderAdminPage()}
+function toggleAllCardSel(){const ids=CARDS.filter(cardSelectable).map(c=>c.id);STATE.selCards=((STATE.selCards||[]).length===ids.length)?[]:ids.slice();renderAdminPage()}
+function toggleCardStatusFilter(v){const s=STATE.cardStatusFilter||(STATE.cardStatusFilter=[]);const i=s.indexOf(v);if(i>=0)s.splice(i,1);else s.push(v);renderAdminPage()}
+function adminActivate(id){const c=cardById(id);c.status='ACTIVE';c.valid_from=c.valid_from||TODAY;c.expire_at=c.expire_at||addDays(TODAY,c.validity_days);c.updated_at=TODAY+' 10:00:00';toast('激活成功');renderAdminPage();renderStuPage()}
+/* 冻结弹窗(对齐真实: 冻结天数 1-365 默认7 + 冻结原因 textarea) */
+function openFreezeModal(id){
+  STATE.freezeCardId=id;const c=cardById(id);
+  openModal(`<div class="m-head"><h3>冻结 <span class="muted">P-A2</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <div class="form-row"><label>冻结天数 <span class="req">*</span></label><input id="fz-days" type="number" min="1" max="365" value="7"><span class="hint" style="margin-top:6px">1-365天</span></div>
+    <div class="form-row"><label>冻结原因 <span class="req">*</span></label><textarea id="fz-reason" rows="3" placeholder="请输入冻结原因"></textarea></div>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="adminFreezeConfirm('${id}')">确定</button></div>`);
+}
+function adminFreezeConfirm(id){const c=cardById(id);const dEl=document.getElementById('fz-days');const rEl=document.getElementById('fz-reason');const days=parseInt((dEl?dEl.value:'')||'7',10);const reason=(rEl?rEl.value:'').trim();if(!reason){toast('请输入冻结原因');return}if(!(days>=1&&days<=365)){toast('冻结天数需在 1-365 之间');return}c.status='FROZEN';c.frozen_at=TODAY+' 10:00:00';c.frozen_until=addDays(TODAY,days);c.frozen_reason=reason;c.frozenReason=reason;c.updated_at=TODAY+' 10:00:00';closeModal();toast('冻结成功');renderAdminPage();renderStuPage()}
+/* 解冻:无冲突→二次确认直接解冻;有冲突→打开"冻结到期-课程冲突"处理弹窗 */
+function adminUnfreeze(id){const c=cardById(id);if(adminHasConflict(c)){openConflictModal(id);return}openModal(confirmBox('提前解冻确认',`确定要提前解冻学员「${c.student}」的会员卡吗？解冻后卡片将立即恢复正常使用。`,'','确定解冻',`adminUnfreezeDo('${id}')`))}
+function adminUnfreezeDo(id){const c=cardById(id);c.status='ACTIVE';c.frozen_at=null;c.frozen_until=null;c.frozen_reason=null;c.frozenReason=null;c.updated_at=TODAY+' 10:00:00';closeModal();toast('解冻成功');renderAdminPage();renderStuPage()}
+/* 冻结到期-课程冲突处理弹窗(对齐真实 conflictDialog) */
+function openConflictModal(id){
+  STATE.conflictCardId=id;STATE.conflictAction='unfreeze_and_cancel';
+  const c=cardById(id);const conflicts=CARDS.filter(o=>o.id!==id&&o.studentId===c.studentId&&o.applicable_course_type_code===c.applicable_course_type_code&&['ACTIVE','PENDING'].includes(o.status));
+  const list=conflicts.map(o=>`<div class="confirm-box" style="margin-top:8px"><div class="row"><span class="k">${o.product_name}</span><span>#${o.card_no}</span></div><div class="row"><span class="k">明细</span><span>状态：${(ADMIN_ST[o.status]||{t:'-'}).t}${o.card_type==='count'?` | 剩余：${o.remaining_credits}次`:''} | 有效期：${(o.valid_from&&o.expire_at)?`${o.valid_from} ~ ${o.expire_at}`:'-'}</span></div></div>`).join('');
+  openModal(`<div class="m-head"><h3>⚠️ 冻结到期-课程冲突 <span class="muted">P-A2</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <div class="confirm-box">
+      <div class="row"><span class="k">产品名称</span><span>${c.product_name||'会员卡'}</span></div>
+      <div class="row"><span class="k">会员卡号</span><span>${c.card_no||'-'}</span></div>
+      <div class="row"><span class="k">冻结到期</span><span>${c.frozen_until?c.frozen_until+' 23:59:59':'-'}</span></div>
+    </div>
+    <h4 style="margin:12px 0 4px">检测到以下冲突卡：</h4>${list||'<div class="muted">无</div>'}
+    <h4 style="margin:12px 0 6px">请选择处理方式：</h4>
+    <div class="chk-line"><label><input type="radio" name="cf-act" ${STATE.conflictAction==='unfreeze_and_cancel'?'checked':''} onclick="STATE.conflictAction='unfreeze_and_cancel'"> 解冻并作废冲突卡（冲突卡剩余次数清零）</label></div>
+    <div class="chk-line"><label><input type="radio" name="cf-act" ${STATE.conflictAction==='unfreeze_and_freeze'?'checked':''} onclick="STATE.conflictAction='unfreeze_and_freeze'"> 解冻并冻结冲突卡（冲突卡冻结365天）</label></div>
+    <div class="form-row" style="margin-top:10px"><label>操作备注</label><textarea id="cf-remark" rows="2" placeholder="请输入操作备注（可选）"></textarea></div>
+    ${confirmedNote(3,'冲突处理为原型扩展:真实含 unfreezeWithConflict 端点(action/remark/conflict_card_ids)')}
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="doConflictAction('${id}')">确认</button></div>`,true);
+}
+function doConflictAction(id){
+  const c=cardById(id);const act=STATE.conflictAction||'unfreeze_and_cancel';
+  const conflicts=CARDS.filter(o=>o.id!==id&&o.studentId===c.studentId&&o.applicable_course_type_code===c.applicable_course_type_code&&['ACTIVE','PENDING'].includes(o.status));
+  conflicts.forEach(o=>{if(act==='unfreeze_and_cancel'){o.status='CANCELLED';o.remaining_credits=0;o.remaining=0;o.cancelReason='冻结到期冲突,剩余次数清零'}else{o.status='FROZEN';o.frozen_at=TODAY+' 10:00:00';o.frozen_until=addDays(TODAY,365);o.frozen_reason='冲突冻结365天';o.frozenReason=o.frozen_reason}o.updated_at=TODAY+' 10:00:00'});
+  c.status='ACTIVE';c.frozen_at=null;c.frozen_until=null;c.frozen_reason=null;c.frozenReason=null;c.updated_at=TODAY+' 10:00:00';
+  closeModal();toast('操作成功');renderAdminPage();renderStuPage();
+}
+/* 作废弹窗(对齐真实: 标题"作废" + 作废原因 textarea) */
+function adminCancel(id){
+  const c=cardById(id);
+  // D3 影响面占位(原型特有标注,保留)
+  const affected=BOOKINGS.filter(b=>b.cardId===id&&['BOOKED','CHECKED_IN','COMPLETED'].includes(b.status));
+  openModal(`<div class="m-head"><h3>作废 <span class="muted">P-A2</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <div class="confirm-box"><div class="row"><span class="k">会员卡号</span><span>${c.card_no}</span></div><div class="row"><span class="k">学员</span><span>${c.student}</span></div><div class="row"><span class="k">当前状态</span><span>${adminCardBadge(c)}</span></div></div>
+    ${affected.length?`<div class="warn-bar"><span class="ic">⚠️</span><div><b>该卡有 ${affected.length} 个有效预约受影响(D3)</b><br>作废后这些预约将变为"计划卡已作废",需引导学员换卡或联系机构。<br>${affected.map(b=>b.course+' '+b.date).join('、')}</div></div>`:''}
+    ${c.status==='PENDING'?confirmedNote(9,'PENDING 期卡作废:不影响任何扣次(未激活)'):''}
+    <div class="form-row"><label>作废原因 <span class="req">*</span></label><textarea id="cancel-reason" rows="3" placeholder="请输入作废原因"></textarea></div>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="adminCancelDo('${id}')">确定</button></div>`);
+}
+function adminCancelDo(id){const el=document.getElementById('cancel-reason');const r=(el?el.value:'').trim();if(!r){toast('请填写作废原因');return}const c=cardById(id);c.status='CANCELLED';c.cancelReason=r;c.updated_at=TODAY+' 10:00:00';closeModal();toast('作废成功');renderAdminPage();renderStuPage()}
+/* 批量作废弹窗(对齐真实: 标题"批量" + 已选列表 + 批量作废原因) */
+function openBatchCancelCards(){
+  const sel=(STATE.selCards||[]).map(id=>cardById(id)).filter(Boolean);
+  if(!sel.length){toast('请先选择要作废的会员卡');return}
+  const list=sel.map(c=>`<div class="confirm-box" style="margin-top:6px"><div class="row"><span class="k">学员</span><span>${c.student}</span></div><div class="row"><span class="k">手机号</span><span>${c.student_phone||'-'}</span></div><div class="row"><span class="k">状态</span><span>${adminStatusTag(c)}</span></div></div>`).join('');
+  openModal(`<div class="m-head"><h3>批量 <span class="muted">P-A2</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <p>已选择 <strong style="color:#f56c6c;font-size:16px">${sel.length}</strong> 张会员卡进行批量作废</p>
+    ${list}
+    <div class="form-row" style="margin-top:12px"><label>作废原因 <span class="req">*</span></label><textarea id="batch-reason" rows="3" placeholder="请输入批量作废原因"></textarea></div>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="doBatchCancelCards()">确定</button></div>`);
+}
+function doBatchCancelCards(){const el=document.getElementById('batch-reason');const r=(el?el.value:'').trim();if(!r){toast('请填写批量作废原因');return}const ids=STATE.selCards||[];ids.forEach(id=>{const c=cardById(id);if(c){c.status='CANCELLED';c.cancelReason=r;c.updated_at=TODAY+' 10:00:00'}});STATE.selCards=[];closeModal();toast('批量作废成功');renderAdminPage();renderStuPage()}
+
+/* ---------- P-A3 发放会员卡弹窗(对齐真实 membership 发放弹窗) ---------- */
+function openIssueModal(){
+  if(!STATE.issuePid)STATE.issuePid=PRODUCTS[0].id;
+  const prodOpts=PRODUCTS.map(p=>`<option value="${p.id}" ${p.id===STATE.issuePid?'selected':''}>${p.name}</option>`).join('');
+  openModal(`<div class="m-head"><h3>发放 <span class="muted">(P-A3)</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <div class="form-row"><label>学员 <span class="req">*</span></label><select id="if-stu"><option value="U1" selected>张小明 (138****8888)</option></select></div>
+    <div class="form-row"><label>产品 <span class="req">*</span></label><select id="if-prod" onchange="issueProdChange()">${prodOpts}</select></div>
+    <div id="if-dynamic"></div>
+    <div class="form-row"><label>生效时间</label><input id="if-date" type="date" value="${STATE.issueValidFrom||''}" placeholder="选择生效日期（留空表示立即激活）"><div class="hint">留空表示立即激活</div></div>
+    <div class="form-row"><label>备注</label><textarea id="if-note" rows="3" placeholder="请输入备注"></textarea></div>
+    ${confirmedNote(9,'期卡发卡即 PENDING,valid_from/expire_at 待首次排期 COMPLETED 时写入')}
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="issueDo()">确定</button></div>`,true);
+  issueProdChange();
+}
+/* 产品切换:按真实渲染 总次数/有效天数(只读 disabled)/无限卡 tag,数值由产品决定 */
+function issueProdChange(){
+  const pEl=document.getElementById('if-prod');const pid=pEl?pEl.value:STATE.issuePid;const p=PRODUCTS.find(x=>x.id===pid)||PRODUCTS[0];
+  STATE.issuePid=p.id;
+  const code=p.type==='credits'?'count':p.type;
+  let h='';
+  if(code==='count'){
+    h+=`<div class="form-row"><label>总次数</label><input value="${p.credits}" disabled readonly style="background:#f5f7fa"><span class="hint" style="margin-top:6px">次数由产品决定，不可修改</span></div>`;
+    h+=`<div class="form-row"><label>有效天数</label><input value="${p.validity_days}" disabled readonly style="background:#f5f7fa"><span class="hint" style="margin-top:6px">天数由产品决定，不可修改</span></div>`;
+  } else if(code==='period'){
+    h+=`<div class="form-row"><label>有效天数</label><input value="${p.validity_days}" disabled readonly style="background:#f5f7fa"><span class="hint" style="margin-top:6px">天数由产品决定，不可修改</span></div>`;
+  } else {
+    h+=`<div class="form-row"><label>计费方式</label><span>${ctTagProduct(code)}</span><span class="hint" style="margin-top:6px">无限卡无次数和天数限制</span></div>`;
+  }
+  h+=`<div class="form-row"><label>适用课程类型</label><span>${courseTypeTag(p.applicable_course_type_code)}</span></div>`;
+  const box=document.getElementById('if-dynamic');if(box)box.innerHTML=h;
+}
+function issueDo(){
+  const pEl=document.getElementById('if-prod');const pid=pEl?pEl.value:STATE.issuePid;const p=PRODUCTS.find(x=>x.id===pid)||PRODUCTS[0];
+  const dEl=document.getElementById('if-date');const nEl=document.getElementById('if-note');
+  const validFrom=(dEl?dEl.value:'').trim();const note=(nEl?nEl.value:'').trim();
+  /* 同学员同课程类型已有 ACTIVE/PENDING 卡 → 先弹续卡提示(真实由后端 409 触发) */
+  const dup=CARDS.filter(c=>c.studentId==='U1'&&c.applicable_course_type_code===p.applicable_course_type_code&&['ACTIVE','PENDING'].includes(c.status));
+  if(dup.length&&!STATE.issueRenew){STATE.issueValidFrom=validFrom;STATE.issuePid=p.id;openRenewalModal(dup,p);return}
+  const code=p.type==='credits'?'count':p.type;
+  const no='MC'+TODAY.replace(/-/g,'')+String(CARDS.length+1).padStart(3,'0');
+  const nc={id:'C'+(CARDS.length+1),student:'张小明',studentId:'U1',student_phone:'138****8888',productId:p.id,product_name:p.name,productName:p.name,
+    card_type:code,type:p.type,status:'PENDING',used:0,total:code==='count'?p.credits:null,remaining:code==='count'?p.credits:null,
+    valid_from:validFrom||null,expire_at:null,validity_days:p.validity_days,applicable_course_type_code:p.applicable_course_type_code,
+    card_no:no,cardNo:no,issueDate:TODAY,created_at:TODAY+' 10:00:00',updated_at:TODAY+' 10:00:00',note:note||null,frozenReason:null,cancelReason:null};
+  CARDS.push(nc);TXNS[nc.id]=[{time:TODAY+' 10:00',type:'发放',delta:'+0',balance:code==='count'?p.credits:'-',note:'发卡 ISSUE'}];
+  STATE.issueRenew=false;STATE.issueValidFrom='';normCards();closeModal();toast('发放成功:状态 PENDING');renderAdminPage();renderStuPage();
+}
+/* 续卡提示弹窗(对齐真实 renewal-dialog;原"允许同产品重复发卡"复选框已删除) */
+function openRenewalModal(dup,p){
+  const maxExp=dup.map(c=>c.expire_at).filter(Boolean).sort().pop();
+  const earliest=maxExp?addDays(maxExp,1):TODAY;
+  STATE.issueValidFrom=earliest;
+  openModal(`<div class="m-head"><h3>续卡提示 <span class="muted">(P-A3)</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">
+    <p>该学员已有 <strong style="font-size:16px">${dup.length}</strong> 张同课程类型有效卡</p>
+    <p style="margin-top:8px;color:#606266">如需继续发卡（续卡），请确认以下规则：</p>
+    <div class="confirm-box" style="margin-top:8px">
+      <div class="row"><span class="k">续卡规则</span><span>• 新卡生效时间必须晚于旧卡到期时间的次日</span></div>
+      <div class="row"><span class="k">最早生效日期</span><span style="color:#67c23a">✅ 系统已自动设置最早生效日期：${earliest}</span></div>
+    </div>
+    <div class="muted" style="margin-top:8px">请确认生效时间后，重新点击"确定"按钮</div>
+    ${confirmedNote(9,'期卡发卡即 PENDING,续卡新卡生效时间需晚于旧卡到期次日')}
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">关闭</button><button class="btn-primary" onclick="STATE.issueRenew=true;closeModal();openIssueModal()">按此生效时间继续发放</button></div>`);
+}
+
+/* ---------- P-A4 卡详情(对齐真实 membership 详情弹窗 el-descriptions :column=2 border) ---------- */
+function openCardDetail(id){
+  STATE.selCardId=id;goAdmin('P-A2');
+  const c=cardById(id);
+  const txns=TXNS[id]||[];
+  const code=c.card_type;const isCount=code==='count';const isFrozen=c.status==='FROZEN';
+  let grid='';
+  grid+=dg('会员卡号',c.card_no||'-',true);
+  grid+=dg('产品名称',c.product_name||'-');
+  grid+=dg('计费方式',ctText(code));
+  grid+=dg('学员',c.student||'-');
+  grid+=dg('手机号',c.student_phone||'-');
+  if(isCount){
+    grid+=dg('总次数',c.total_credits);
+    grid+=dg('已用次数',c.used_credits==null?0:c.used_credits);
+    grid+=dg('剩余次数',c.remaining_credits);
+  }
+  grid+=dg('状态',adminStatusTag(c));
+  grid+=dg('有效期',(c.valid_from&&c.expire_at)?`${c.valid_from} ~ ${c.expire_at}`:'-',true);
+  if(isFrozen){
+    grid+=dg('冻结时间',c.frozen_at?fmtDT(c.frozen_at):'-');
+    grid+=dg('冻结到期',c.frozen_until?c.frozen_until+' 23:59:59':'-');
+    grid+=dg('剩余冻结天数',`<span style="color:#e6a23c;font-weight:600">${frozenRemainDays(c)} 天</span>`,true);
+    grid+=dg('冻结原因',c.frozen_reason,true);
+  } else {
+    grid+=dg('冻结原因',c.frozen_reason,true);
+  }
+  grid+=dg('创建时间',c.created_at,true);
+  grid+=dg('更新时间',c.updated_at,true);
+  openModal(`<div class="m-head"><h3>详情 <span class="muted">P-A4</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body" style="max-height:560px">
+    <div class="desc-grid">${grid}</div>
+    ${c.status==='PENDING'&&code==='period'?confirmedNote(9,'期卡PENDING:valid_from/expire_at 待首次排期 COMPLETED 时写入'):''}
+    <div class="muted" style="margin:12px 0 6px">原型扩展 · 真实详情弹窗不含流水（真实有 getTransactions 端点未接入）</div>
+    <table class="el"><thead><tr><th>时间</th><th>类型</th><th>变动</th><th>余额</th><th>关联课程</th><th>备注</th></tr></thead><tbody>
+    ${txns.length?txns.map(t=>`<tr><td>${t.time}</td><td>${t.type}</td><td>${t.delta}</td><td>${t.balance}</td><td>${t.booking||'—'}</td><td>${t.note}</td></tr>`).join(''):`<tr><td colspan="6">${emptyState('暂无使用记录')}</td></tr>`}
+    </tbody></table>
+    <div style="margin-top:14px">
+      <button class="btn-sm" disabled style="opacity:.5">申请退款</button>
+      ${sticky(8,'退款依赖 F6.1 支付渠道,本版仅入口占位(灰置)')}
+    </div>
+  </div>
+  <div class="m-foot"><button onclick="closeModal()">关闭</button><button class="btn-text" onclick="closeModal();toast('跳转关联预约(演示)')">查看关联预约</button></div>`,true);
+}
+
+/* ---------- P-A5 预约管理 ---------- */
+function adminA5(){
+  let rows=BOOKINGS.map(b=>{
+    const cardFail=['CANCELLED','EXPIRED','FROZEN','USED_UP'].includes(b.cardStatus);
+    return `<tr>
+      <td>${b.id}</td><td>${b.student}</td><td>${b.course}<br><span class="muted">${b.date} ${b.time}</span></td>
+      <td>${bookBadge(b)}</td>
+      <td>${b.cardNo}<br>${badge(b.cardStatus)}${b.cardCancelReason?`<div class="muted">${b.cardCancelReason}</div>`:''}</td>
+      <td>${b.source==='SELF'?'本人':b.source==='TEACHER'?'教师':'管理员'}</td>
+      <td>${b.cancelReason||'—'}</td>
+      <td>
+        ${cardFail&&['BOOKED','CHECKED_IN'].includes(b.status)?'<button class="btn-text btn-sm" style="color:#e6a23c" onclick="toast(\'人工处理:联系学员换卡(占位)\')">人工处理</button>':''}
+        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="toast(\'代取消(演示)\')">代取消</button>':''}
+        <button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名\')">点名</button>
+        <button class="btn-text btn-sm" disabled style="opacity:.5">改期</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return pendingBanner('管理后台预约管理页：真实 admin 菜单无此页（会员卡管理/排期管理之外未实现预约管理列表）')
+  +`<div class="toolbar"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option></select><input placeholder="学员/排期筛选"><span class="muted">计划卡失效行高亮警示(D3)</span></div>
+  <div class="scroll-x"><table class="el"><thead><tr><th>预约ID</th><th>学员</th><th>课程/排期</th><th>状态</th><th>计划卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${sticky(7,'改期/改派为"待开发"原子端点,本版仅占位')}
+  <div class="muted" style="margin-top:8px">可找出"计划卡已作废的有效预约"演示场景(B3)</div>`;
+}
+
+/* ---------- P-A6 排期签到点名 ---------- */
+function adminA6(){
+  const opts=SCHEDULES.map(s=>`<option value="${s.id}" ${STATE.teacherSched===s.id?'selected':''}>${s.course} ${s.date} ${s.time} (${s.state==='today'?'今日可签到':s.state==='open'?'可预约':s.state==='full'?'满员':''})</option>`).join('');
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;
+  let rows=roster.map(r=>`<tr>
+    <td>${r.name}</td><td>${badge(r.status==='BOOKED'?'BOOKED':r.status==='CHECKED_IN'?'CHECKED_IN':'COMPLETED')}</td>
+    <td>${r.cardNo}<br>${badge(r.cardStatus)}</td><td>${r.checkInTime||'—'}</td>
+    <td>
+      ${r.status==='BOOKED'?(r.cardStatus!=='ACTIVE'?'<button class="btn-text btn-sm" style="color:#f56c6c" onclick="adminCheckIn(\''+r.bId+'\')">代签到</button>':'<button class="btn-text btn-sm" onclick="adminCheckIn(\''+r.bId+'\')">代签到</button>'):''}
+      ${r.status==='CHECKED_IN'?'<button class="btn-text btn-sm" onclick="adminComplete(\''+r.bId+'\')">完成</button>':''}
+      ${r.status==='BOOKED'||r.status==='CHECKED_IN'?'<button class="btn-text btn-sm" disabled style="opacity:.5">标记缺席</button>':''}
+    </td>
+  </tr>`).join('');
+  return `<div class="toolbar">排期:<select onchange="STATE.teacherSched=this.value;renderAdminPage();renderTeacher()">${opts}</select>
+    <span class="muted">D9: 签到校验计划卡状态,非 ACTIVE 拦截</span></div>
+  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>预约状态</th><th>计划卡</th><th>签到时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${confirmedNote(5,'缺席(NO_SHOW)自动消解:排期COMPLETED即扣,是否到场不影响扣次;"标记缺席"仅记录,不触发回补(灰置)')}
+  ${confirmedNote(1,'签到/完成不再扣次,扣次在预约时已发生(预扣);此处签到仅推进预约状态')}`;
+}
+function adminCheckIn(bId){
+  // find roster entry
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;
+  const r=roster.find(x=>x.bId===bId);
+  if(r.status==='CHECKED_IN'){toast('该学员已签到,请勿重复');return}
+  if(r.cardStatus!=='ACTIVE'){
+    openModal(`<div class="m-head"><h3>签到拦截 <span class="muted">D9</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+    <div class="m-body"><div class="warn-bar"><span class="ic">⛔</span><div><b>该会员卡状态异常,无法签到</b><br>卡 ${r.cardNo} 当前状态:${badge(r.cardStatus)}<br>建议:引导学员换卡或联系机构(人工兜底)</div></div></div>
+    <div class="m-foot"><button onclick="closeModal()">知道了</button></div>`);
+    return;
+  }
+  r.status='CHECKED_IN';r.checkInTime='19:03';toast('代签到成功');renderAdminPage();renderTeacher();
+}
+function adminComplete(bId){
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;
+  const r=roster.find(x=>x.bId===bId);
+  if(r.status!=='CHECKED_IN'){toast('请先签到');return}
+  r.status='COMPLETED';
+  // 排期 COMPLETED: 次卡确认不回补; 期卡若PENDING则激活
+  const b=bookingById(bId);
+  if(b){
+    b.status='COMPLETED';
+    if(b.cardId&&b.cardType==='period'){
+      const c=cardById(b.cardId);
+      if(c&&c.status==='PENDING'){c.status='ACTIVE';c.valid_from=b.date;c.expire_at=addDays(b.date,c.validity_days);toast('排期完成→期卡已激活,D9')}
+    }
+  }
+  toast('已完成:排期COMPLETED确认扣次');renderAdminPage();renderTeacher();renderStuPage();
+}
+
+/* ============================================================
+   STUDENT MINI-APP
+============================================================ */
+const STU_TITLE={P_M1:'我的会员卡',P_M2:'卡详情',P_M3:'课程排期',P_M4:'预约确认',P_M5:'预约结果',P_M6:'我的预约',P_M7:'取消确认',P_M8:'首页',P_M9:'我的',P_M10:'AI 助手'};
+/* 底部导航:严格复刻 components/HomeTabBar.vue 的样式;AI 助手为本次新增的一级 Tab
+   四 Tab 首页/排期/AI 助手/我的(图标 tab-home/tab-booking/tab-profile + ai-robot);激活色 #8b7355,非激活 #999 */
+const TAB_ICONS={
+  home:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12H15V22" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  booking:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M16 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="CLR" stroke-width="1.5"/><path d="M8 14H8.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/><path d="M12 14H12.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/><path d="M16 14H16.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/><path d="M8 18H8.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/><path d="M12 18H12.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/></svg>',
+  ai:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="16" height="12" rx="3" stroke="CLR" stroke-width="1.5"/><circle cx="9" cy="14" r="1.5" fill="CLR"/><circle cx="15" cy="14" r="1.5" fill="CLR"/><path d="M12 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="2" r="1" fill="CLR"/><path d="M2 14H4" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M20 14H22" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M9 18H15" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  profile:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="8" r="4" stroke="CLR" stroke-width="1.5"/><path d="M20 21C20 17.134 16.4183 14 12 14C7.58172 14 4 17.134 4 21" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>'
+};
+/* AI 助手页内小图标:取自 static/icons/icon-map.ts,与真实 app 图标资源一致 */
+const AI_ICONS={
+  robot:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="16" height="12" rx="3" stroke="CLR" stroke-width="1.5"/><circle cx="9" cy="14" r="1.5" fill="CLR"/><circle cx="15" cy="14" r="1.5" fill="CLR"/><path d="M12 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="2" r="1" fill="CLR"/><path d="M2 14H4" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M20 14H22" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M9 18H15" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  message:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 11.5C21 16.7467 16.9706 21 12 21C10.3126 21 8.73256 20.5701 7.37103 19.8127L3 21L4.18732 16.629C3.42989 15.2674 3 13.6874 3 12C3 6.75329 7.02944 2.5 12 2.5C16.9706 2.5 21 6.75329 21 11.5Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  send:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  lightbulb:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 21H15" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M12 3C9.23858 3 7 5.23858 7 8C7 10.0409 8.20898 11.7967 9.92901 12.6378C10.3495 12.8433 10.6458 13.2365 10.7398 13.7012L10.9289 14.6396C11.0235 15.1088 11.4364 15.4444 11.9142 15.4444H12.0858C12.5636 15.4444 12.9765 15.1088 13.0711 14.6396L13.2602 13.7012C13.3542 13.2365 13.6505 12.8433 14.071 12.6378C15.791 11.7967 17 10.0409 17 8C17 5.23858 14.7614 3 12 3Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  calendar:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M16 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 14H8.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M12 14H12.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M16 14H16.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 18H8.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M12 18H12.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  card:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M2 10H22" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M6 15H10" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clipboard:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4H18C19.1046 4 20 4.89543 20 6V20C20 21.1046 19.1046 22 18 22H6C4.89543 22 4 21.1046 4 20V6C4 4.89543 4.89543 4 6 4H8" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><rect x="8" y="2" width="8" height="5" rx="1" stroke="CLR" stroke-width="1.5"/><path d="M9 12H15" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M9 16H15" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M9 8H10" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>'
+};
+/* 学员端页面内图标:逐条取自真实小程序的图标资源
+   来源1 apps/miniapp/src/static/icons/icon-map.ts(iconSvgMap, stroke="currentColor" 线条图标)
+   来源2 apps/miniapp/src/pages/student/courses/index.vue 中内联 SVG data-URI(首页实心图标 homePin/homePeople/homeStar/homePlay)
+   来源3 apps/miniapp/src/static/icons/icon-map.ts 的 empty-schedule(排期空态插图,自带配色)
+   渲染时把 CLR 替换为实际颜色,并按调用处传入尺寸(px)。 */
+const REAL_ICONS={
+  location:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="CLR" stroke-width="1.5"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="7" r="4" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  people:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="9" cy="7" r="3" stroke="CLR" stroke-width="1.5"/><path d="M3 21V19C3 16.7909 4.79086 15 7 15H11C13.2091 15 15 16.7909 15 19V21" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><circle cx="17" cy="7" r="2.5" stroke="CLR" stroke-width="1.5"/><path d="M21 21V19.5C21 17.567 19.433 16 17.5 16H16" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  homePin:'<svg viewBox="0 0 24 24" fill="CLR" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>',
+  homePeople:'<svg viewBox="0 0 24 24" fill="CLR" xmlns="http://www.w3.org/2000/svg"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>',
+  homeStar:'<svg viewBox="0 0 24 24" fill="CLR" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  homePlay:'<svg viewBox="0 0 24 24" fill="CLR" xmlns="http://www.w3.org/2000/svg"><path d="M8 5v14l11-7z"/></svg>',
+  book:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19.5C4 18.837 4.26339 18.2011 4.73223 17.7322C5.20107 17.2634 5.83696 17 6.5 17H20" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 2H20V22H6.5C5.83696 22 5.20107 21.7366 4.73223 21.2678C4.26339 20.7989 4 20.163 4 19.5V4.5C4 3.83696 4.26339 3.20107 4.73223 2.73223C5.20107 2.26339 5.83696 2 6.5 2Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="CLR" stroke-width="1.5"/><path d="M12 7V12L15 15" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  wallet:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 12V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V12Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 10H21" stroke="CLR" stroke-width="1.5"/><path d="M16 14H18" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  crown:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L4 8L6 17H18L20 8L12 3Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 17H18" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  tag:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.59 13.41L13.42 20.58C13.05 20.95 12.55 21.16 12.02 21.16H4C3.47 21.16 2.96 20.95 2.59 20.58C2.22 20.21 2.01 19.71 2.01 19.18V11.15C2.01 10.62 2.22 10.12 2.59 9.75L9.76 2.58C10.13 2.21 10.63 2 11.16 2H19.19C19.72 2 20.22 2.21 20.59 2.58C20.96 2.95 21.17 3.45 21.17 3.98V12.01C21.17 12.54 20.96 13.04 20.59 13.41Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="CLR"/></svg>',
+  'calendar-check':'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M16 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="CLR" stroke-width="1.5"/><path d="M9 16L11 18L15 14" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  heart:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.84 4.61C20.33 4.1 19.72 3.7 19.05 3.43C18.38 3.16 17.66 3.02 16.94 3.02C16.22 3.02 15.5 3.16 14.83 3.43C14.16 3.7 13.55 4.1 13.04 4.61L12 5.65L10.96 4.61C9.93 3.58 8.53 3 7.07 3C5.61 3 4.21 3.58 3.18 4.61C2.15 5.64 1.57 7.04 1.57 8.5C1.57 9.96 2.15 11.36 3.18 12.39L4.22 13.43L12 21.21L19.78 13.43L20.82 12.39C21.33 11.88 21.73 11.27 22 10.6C22.27 9.93 22.41 9.21 22.41 8.49C22.41 7.77 22.27 7.05 22 6.38C21.73 5.71 21.33 5.1 20.84 4.61Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  'check-circle':'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="CLR" stroke-width="1.5"/><path d="M8 12L11 15L16 9" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  'calendar-empty':'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="4" width="18" height="18" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M16 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="CLR" stroke-width="1.5"/><path d="M8 14H16" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M8 18H12" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  'card-invalid':'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="5" width="20" height="14" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M2 10H22" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M6 15H10" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M4 4L20 20" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  warning:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 22H22L12 2Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9V13" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M12 17H12.01" stroke="CLR" stroke-width="2" stroke-linecap="round"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="CLR" stroke-width="1.5"/><path d="M12 8V12" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M12 16H12.01" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  wechat:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.5 11C9.32843 11 10 10.3284 10 9.5C10 8.67157 9.32843 8 8.5 8C7.67157 8 7 8.67157 7 9.5C7 10.3284 7.67157 11 8.5 11Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.5 11C16.3284 11 17 10.3284 17 9.5C17 8.67157 16.3284 8 15.5 8C14.6716 8 14 8.67157 14 9.5C14 10.3284 14.6716 11 15.5 11Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 13C5.68629 13 3 15.2386 3 18C3 18.5523 3.44772 19 4 19H14C14.5523 19 15 18.5523 15 18C15 15.2386 12.3137 13 9 13Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 13C17.2091 13 19 14.7909 19 17C19 17.3682 18.9467 17.7246 18.847 18.0623" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  logout:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="16 17 21 12 16 7" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  'arrow-right':'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 18L15 12L9 6" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="8" width="12" height="12" rx="2" stroke="CLR" stroke-width="1.5"/><path d="M16 8V6C16 4.89543 15.1046 4 14 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="CLR" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11V17" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/><path d="M14 11V17" stroke="CLR" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  emptySchedule:`<svg viewBox="0 0 280 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="140" cy="195" rx="100" ry="18" fill="#f0e6d6" opacity="0.6"/>
+    <ellipse cx="140" cy="192" rx="80" ry="12" fill="#e8dcc8" opacity="0.4"/>
+    <path d="M45 160C30 145 25 120 35 100C40 90 50 85 55 90C45 105 48 130 60 150C65 158 55 165 45 160Z" fill="#e8d5b7" opacity="0.5"/>
+    <path d="M35 140C25 130 22 115 30 100C33 95 40 92 43 96C36 108 38 125 48 140C52 146 44 150 35 140Z" fill="#d4b896" opacity="0.3"/>
+    <path d="M235 160C250 145 255 120 245 100C240 90 230 85 225 90C235 105 232 130 220 150C215 158 225 165 235 160Z" fill="#e8d5b7" opacity="0.5"/>
+    <path d="M245 140C255 130 258 115 250 100C247 95 240 92 237 96C244 108 242 125 232 140C228 146 236 150 245 140Z" fill="#d4b896" opacity="0.3"/>
+    <rect x="85" y="55" width="110" height="130" rx="8" fill="#fff" stroke="#e8dcc8" stroke-width="2"/>
+    <rect x="85" y="55" width="110" height="35" rx="8" fill="#f5ede3"/>
+    <rect x="85" y="82" width="110" height="8" fill="#f5ede3"/>
+    <rect x="105" y="42" width="12" height="22" rx="6" fill="#c9a66b" opacity="0.6"/>
+    <rect x="134" y="42" width="12" height="22" rx="6" fill="#c9a66b" opacity="0.6"/>
+    <rect x="163" y="42" width="12" height="22" rx="6" fill="#c9a66b" opacity="0.6"/>
+    <g transform="translate(140, 120)">
+      <circle cx="0" cy="-28" r="8" fill="#c9a66b" opacity="0.7"/>
+      <path d="M0 -20C-2 -10 -3 0 0 10" stroke="#c9a66b" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+      <path d="M0 -15C-12 -20 -25 -18 -30 -10" stroke="#c9a66b" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+      <path d="M0 -15C12 -25 22 -30 25 -35" stroke="#c9a66b" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+      <path d="M0 10C-8 20 -15 35 -12 45" stroke="#c9a66b" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+      <path d="M0 10C5 18 8 28 5 38" stroke="#c9a66b" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+      <path d="M-8 5C-12 15 -10 25 0 28C10 25 12 15 8 5" fill="#c9a66b" opacity="0.15"/>
+    </g>
+    <path d="M85 175C100 185 120 190 140 188C160 186 180 180 195 175" stroke="#e8d5b7" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.5"/>
+    <path d="M65 65L67 70L72 72L67 74L65 79L63 74L58 72L63 70Z" fill="#c9a66b" opacity="0.6"/>
+    <path d="M215 85L217 89L221 91L217 93L215 97L213 93L209 91L213 89Z" fill="#c9a66b" opacity="0.5"/>
+    <path d="M75 100L76 103L79 104L76 105L75 108L74 105L71 104L74 103Z" fill="#c9a66b" opacity="0.4"/>
+  </svg>`
+};
+/* 真实图标渲染:ri(键, 颜色, 尺寸px);键优先取 REAL_ICONS,其次 AI_ICONS/TAB_ICONS */
+function ri(k,c,s){
+  const sv=REAL_ICONS[k]||AI_ICONS[k]||TAB_ICONS[k]||'';
+  return sv.split('CLR').join(c).replace('<svg ','<svg style="width:'+s+'px;height:'+s+'px;display:block" ');
+}
+const TAB_DEFS=[{p:'P-M8',t:'首页',ic:'home'},{p:'P-M3',t:'排期',ic:'booking'},{p:'P-M10',t:'AI 助手',ic:'ai'},{p:'P-M9',t:'我的',ic:'profile'}];
+const TAB_PAGES=['P-M8','P-M3','P-M10','P-M9'];
+function tabIcon(k,c){return TAB_ICONS[k].split('CLR').join(c)}
+function aiIcon(k,c){return AI_ICONS[k].split('CLR').join(c)}
+function renderTabBar(){
+  const bar=document.getElementById('stu-tabbar');
+  const show=TAB_PAGES.indexOf(STATE.stuPage)>=0;
+  bar.classList.toggle('hidden',!show);
+  if(!show){bar.innerHTML='';return;}
+  bar.innerHTML=TAB_DEFS.map(d=>{
+    const active=d.p===STATE.stuPage;
+    const color=active?'#8b7355':'#999';
+    return `<div class="tab-item ${active?'active':''}" onclick="stuTab('${d.p}')">`
+      +`<span class="tab-ic">${tabIcon(d.ic,color)}</span>`
+      +`<span class="tab-text ${active?'active':''}">${d.t}</span>`
+      +(active?'<span class="tab-indicator"></span>':'')+'</div>';
+  }).join('');
+}
+function stuTab(p){STATE.stuPage=p;renderStuPage()}
+function goStu(p){STATE.stuPage=p;renderStuPage()}
+function renderStuPage(){
+  const p=STATE.stuPage.replace('-','');
+  document.getElementById('stu-ptitle').textContent=STU_TITLE[p]||p;
+  const el=document.getElementById('stu-content');
+  // AI 助手页需要内部两段式布局(对话区滚动+输入区固定),故切换内容区模式
+  el.classList.toggle('ai-mode',STATE.stuPage==='P-M10');
+  if(STATE.stuPage==='P-M8')el.innerHTML=stuM8();
+  else if(STATE.stuPage==='P-M9')el.innerHTML=stuM9();
+  else if(STATE.stuPage==='P-M10')el.innerHTML=stuM10();
+  else if(STATE.stuPage==='P-M1')el.innerHTML=stuM1();
+  else if(STATE.stuPage==='P-M2')el.innerHTML=stuM2();
+  else if(STATE.stuPage==='P-M3')el.innerHTML=stuM3();
+  else if(STATE.stuPage==='P-M4')el.innerHTML=stuM4();
+  else if(STATE.stuPage==='P-M5')el.innerHTML=stuM5();
+  else if(STATE.stuPage==='P-M6')el.innerHTML=stuM6();
+  renderTabBar();
+  if(STATE.stuPage==='P-M10')scrollAiBottom();
+}
+function stuCardBalance(c){return c.type==='credits'?(c.remaining+'次'):'不限次'}
+
+/* P-M8 首页·课程列表 —— 严格复刻 pages/student/courses/index.vue
+   navbar(地点) → Banner轮播 → 师资团队(横滑) → 推荐课程 → 舞蹈视频 */
+function stuM8(){
+  const b=BASE_BANNERS[0];
+  let html='<div class="home-page">';
+  html+='<div class="home-navbar"><span class="loc-ic">'+ri('homePin','#8b7355',14)+'</span><span class="loc-text">舞蹈艺术培训中心</span><span class="loc-arrow">▾</span></div>';
+  html+='<div class="home-banner"><div class="banner-slide" style="background:'+b.bg+'">'
+    +'<div class="banner-overlay"></div>'
+    +'<div class="banner-content"><span class="banner-title">'+b.title+'</span><span class="banner-subtitle">'+b.subtitle+'</span></div>'
+    +'<div class="banner-dots">'+BASE_BANNERS.map((_,i)=>`<span class="bdot ${i===0?'on':''}"></span>`).join('')+'</div>'
+    +'</div></div>';
+  html+='<div class="home-section"><div class="sec-head"><div class="sec-title"><span class="t-ic">'+ri('homePeople','#c9a66b',16)+'</span><span class="t-txt">师资团队</span></div></div>'
+    +'<div class="teachers-scroll"><div class="teachers-list">'
+    +BASE_TEACHERS.map(t=>`<div class="teacher-item"><div class="teacher-avatar"><span class="avatar-text">${t.name.charAt(0)}</span></div><span class="teacher-name">${t.name}</span><span class="teacher-specialty">${t.spec}</span></div>`).join('')
+    +'</div></div></div>';
+  html+='<div class="home-section"><div class="sec-head"><div class="sec-title"><span class="t-ic">'+ri('homeStar','#c9a66b',16)+'</span><span class="t-txt">推荐课程</span></div>'
+    +'<div class="sec-more" onclick="toast(\'全部课程页:真实存在,原型未复刻\')"><span>全部课程</span><span>›</span></div></div>'
+    +'<div class="course-list">'
+    +BASE_HOME_COURSES.map(c=>`<div class="course-item" onclick="toast(\'课程详情页:真实存在,原型未复刻\')"><div class="course-image"></div><div class="course-info"><span class="course-name">${c.name}</span><span class="course-desc">${c.desc}</span></div></div>`).join('')
+    +'</div></div>';
+  html+='<div class="home-section"><div class="sec-head"><div class="sec-title"><span class="t-ic">'+ri('homePlay','#c9a66b',16)+'</span><span class="t-txt">舞动 · 让生活更美好</span></div></div>'
+    +'<div class="video-list">'
+    +BASE_VIDEOS.map(v=>`<div class="video-card" onclick="toast(\'视频播放页:真实存在,原型未复刻\')"><div class="video-cover"><div class="video-overlay"><div class="play-button"><span class="play-icon">▶</span></div><span class="video-duration">${v.dur}</span></div></div><div class="video-info"><span class="video-title">${v.title}</span><span class="video-desc">${v.desc}</span></div></div>`).join('')
+    +'</div></div>';
+  html+='</div>';
+  return html;
+}
+
+/* P-M9 我的·个人中心 —— 严格复刻 pages/student/profile/index.vue
+   navbar(我的) → 个人信息(头像/昵称/角色/会员徽章) → 我的会员卡入口 → 预约记录 → 账号设置 */
+function stuM9(){
+  let html='<div class="profile-page">';
+  html+='<div class="profile-navbar"><span class="nav-ttl">我的</span></div>';
+  html+='<div class="profile-header"><div class="bg-dec"></div><div class="profile-content">'
+    +'<div class="avatar-ph"><span class="av-txt">张</span></div>'
+    +'<div class="user-info-sec"><span class="user-name">张小明</span>'
+    +'<div class="user-role-row"><span class="user-role">学员</span><span class="role-divider">·</span><span class="member-level">138****8888</span></div>'
+    +'<div class="membership-badge"><span>'+ri('crown','#c9a66b',14)+'</span><span>普通会员</span></div></div></div></div>';
+  html+='<div class="profile-content-area">';
+  html+='<div class="mem-card" onclick="goStu(\'P-M1\')"><div class="mem-card-content"><div class="mem-left"><div class="mem-ic">'+ri('crown','#c9a66b',24)+'</div><div class="mem-info"><span class="mem-title">我的会员卡</span><span class="mem-desc">查看会员权益 · 课程信息 · 剩余课时</span></div></div><span class="menu-arrow">'+ri('arrow-right','#c9a66b',16)+'</span></div></div>';
+  html+='<div class="menu-group"><div class="menu-card" onclick="goStu(\'P-M6\')"><div class="menu-item"><div class="menu-left"><div class="menu-ic">'+ri('calendar','#8b7355',18)+'</div><div class="menu-info"><span class="menu-title">预约记录</span><span class="menu-desc">查看我的课程预约与历史记录</span></div></div><span class="menu-arrow">'+ri('arrow-right','#c9a66b',16)+'</span></div></div></div>';
+  html+='<div class="menu-group"><div class="menu-card" onclick="toast(\'解绑微信:真实功能,原型未复刻\')"><div class="menu-item"><div class="menu-left"><div class="menu-ic">'+ri('wechat','#8b7355',18)+'</div><div class="menu-info"><span class="menu-title">解绑微信</span><span class="menu-desc">已绑定微信账号</span></div></div><span class="menu-arrow">'+ri('arrow-right','#c9a66b',16)+'</span></div></div>'
+    +'<div class="menu-card" onclick="toast(\'退出登录:真实功能,原型未复刻\')"><div class="menu-item"><div class="menu-left"><div class="menu-ic logout-icon">'+ri('logout','#e74c3c',18)+'</div><div class="menu-info"><span class="menu-title">退出登录</span><span class="menu-desc">安全退出当前账号</span></div></div><span class="menu-arrow">'+ri('arrow-right','#c9a66b',16)+'</span></div></div></div>';
+  html+='</div></div>';
+  return html;
+}
+
+/* P-M10 AI 助手(一级 Tab) —— 独立完整聊天页,而非悬浮窗/弹窗
+   顶部(标题+会话状态) → 对话区(独立滚动:欢迎语/常用问题/用户与AI气泡/加载中/错误态) → 底部固定输入区
+   说明:本次仅实现可演示的模拟对话,未接入真实 AI 后端;真实端当前为 components/AiAssistant.vue 悬浮窗(蓝紫配色) */
+const AI_QUICK=[
+  {ic:'calendar', q:'如何预约课程？'},
+  {ic:'wallet', q:'我的课卡还剩多少次？'},
+  {ic:'edit', q:'如何取消或改约课程？'},
+  {ic:'clipboard', q:'我最近预约了哪些课程？'}
+];
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+/* 模拟回复:按关键词给出示例答案,并引用原型内真实演示数据(会员卡余额/预约记录) */
+function aiReplyFor(text){
+  const t=text||'';
+  if(/预约课程|怎么约|如何预约/.test(t)){
+    return '预约课程步骤：\n1) 点底部「排期」选择日期与课程分类；\n2) 找到想上的排期，点击「立即预约」；\n3) 在底部弹窗选择要扣次的会员卡；\n4) 确认后即预约成功（次卡当场预扣 1 次）。';
+  }
+  if(/剩多少|剩余|余额|课卡|课时/.test(t)){
+    const c=(CARDS||[]).find(x=>x.studentId==='U1'&&x.type==='credits'&&x.status==='ACTIVE')||(CARDS||[]).find(x=>x.type==='credits');
+    return c?('您当前使用的次卡剩余 '+c.remaining+' 次（共 '+c.total+' 次）。\n可在「我的 → 我的会员卡」查看有效期与使用记录。')
+            :'暂未查询到您的次卡信息，可在「我的 → 我的会员卡」查看。';
+  }
+  if(/取消|改约|改期|退课/.test(t)){
+    return '取消预约：进入「我的 → 预约记录」，开课前 '+CANCEL_MINUTES+' 分钟内不可取消；次卡取消会即时回补 1 次。\n改约/改派为待开发能力，暂未开放。';
+  }
+  if(/预约了|我的预约|最近预约|记录/.test(t)){
+    const list=(BOOKINGS||[]).filter(b=>b.studentId==='U1').slice(0,3);
+    if(!list.length)return '您当前暂无预约记录，可以在「排期」中选择课程进行预约。';
+    return '您最近的预约：\n'+list.map((b,i)=>' '+(i+1)+'. '+b.course+' · '+b.date+' '+b.time+'（'+b.status+'）').join('\n');
+  }
+  return '我是课程助手，可以帮您了解预约流程、会员卡余额、取消规则与近期预约。您可以点选下方常用问题，或直接输入您的问题。';
+}
+function scrollAiBottom(){
+  const el=document.getElementById('ai-msgs');
+  if(el&&typeof el.scrollHeight==='number')el.scrollTop=el.scrollHeight;
+}
+/* 发送:注入用户消息 → 进入加载中 → 延时给出模拟回复(650ms 贴近真实交互) */
+function aiAsk(text){
+  const t=(text||'').trim();
+  if(!t||STATE.aiLoading)return;
+  STATE.aiMsgs.push({r:'user',t:t});
+  STATE.aiLoading=true; STATE.aiErr=false;
+  renderStuPage();
+  if(STATE.aiTimer)clearTimeout(STATE.aiTimer);
+  STATE.aiTimer=setTimeout(aiResolve,650);
+}
+function aiSend(){const inp=document.getElementById('ai-input');aiAsk(inp?inp.value:'')}
+function aiInputChange(el){const s=document.getElementById('ai-send');if(s)s.classList.toggle('active',!!(el.value||'').trim())}
+/* 回复:输入「错误/异常/error/报错」触发演示用错误态,其余走关键词模拟回复 */
+function aiResolve(){
+  if(STATE.aiTimer){clearTimeout(STATE.aiTimer);STATE.aiTimer=null}
+  const last=[...STATE.aiMsgs].reverse().find(m=>m.r==='user');
+  const t=last?last.t:'';
+  STATE.aiLoading=false;
+  if(/^(错误|异常|error|报错)/i.test(t.trim())){
+    STATE.aiErr=true;
+    STATE.aiMsgs.push({r:'ai',t:'抱歉，本次请求出现异常（演示用错误状态）。请稍后重试。',err:true});
+  }else{
+    STATE.aiMsgs.push({r:'ai',t:aiReplyFor(t)});
+  }
+  renderStuPage();
+}
+function aiClear(){
+  if(STATE.aiTimer){clearTimeout(STATE.aiTimer);STATE.aiTimer=null}
+  STATE.aiMsgs=[]; STATE.aiLoading=false; STATE.aiErr=false;
+  renderStuPage();
+}
+function stuAiWelcome(){
+  return '<div class="ai-welcome">'
+    +'<span class="ai-wbadge"><span class="ai-wic">'+aiIcon('lightbulb','#8b7355')+'</span>您可以问我：</span>'
+    +'<div class="ai-quick">'
+    +AI_QUICK.map(item=>'<div class="ai-qcard" onclick="aiAsk(\''+item.q.replace(/'/g,"\\'")+'\')">'
+      +'<span class="ai-qic">'+ri(item.ic,'#c9a66b',15)+'</span>'
+      +'<span class="ai-qtext">'+esc(item.q)+'</span>'
+      +'<span class="ai-qarrow">'+ri('arrow-right','#c9a66b',16)+'</span></div>').join('')
+    +'</div></div>';
+}
+function stuM10(){
+  let html='<div class="ai-page">';
+  // 顶部区域:标题 + 简洁会话状态(未接入真实 AI,如实标注)
+  html+='<div class="ai-header">'
+    +'<span class="ai-hic">'+aiIcon('robot','#fff')+'</span>'
+    +'<span class="ai-htxt"><span class="ai-hname">AI 助手</span>'
+    +'<span class="ai-hsub"><span class="ai-dot"></span>智能课程助手 · 模拟对话（未接入真实 AI）</span></span>'
+    +'<span class="ai-clear" onclick="aiClear()">'+ri('trash','#8b7355',12)+'<span>清空</span></span></div>';
+  // 对话区域:占据主要可用空间,支持长消息阅读与独立滚动
+  html+='<div class="ai-msgs" id="ai-msgs">';
+  if(!STATE.aiMsgs.length&&!STATE.aiLoading){
+    html+=stuAiWelcome();
+  }else{
+    html+=STATE.aiMsgs.map(m=>{
+      if(m.r==='user')return '<div class="ai-msg user"><div class="ai-bubble">'+esc(m.t)+'</div></div>';
+      return '<div class="ai-msg ai"><span class="ai-av">'+aiIcon('robot','#fff')+'</span>'
+        +'<div class="ai-bubble'+(m.err?' err':'')+'">'+esc(m.t)+'</div></div>';
+    }).join('');
+  }
+  if(STATE.aiLoading){
+    html+='<div class="ai-msg ai"><span class="ai-av">'+aiIcon('robot','#fff')+'</span>'
+      +'<div class="ai-bubble"><span class="ai-dots"><span class="dt"></span><span class="dt"></span><span class="dt"></span></span></div></div>';
+  }
+  html+='</div>';
+  // 底部输入区:固定在页面底部(TabBar 之上),预留安全区间距,不遮挡最后一条消息与底部导航
+  html+='<div class="ai-input-area">'
+    +'<span class="ai-input-wrap">'+aiIcon('message','#9a8b78')
+    +'<input id="ai-input" class="ai-input" placeholder="输入您的问题..." oninput="aiInputChange(this)" onkeydown="if(event.key===\'Enter\')aiSend()"></span>'
+    +'<span class="ai-send" id="ai-send" onclick="aiSend()">'+aiIcon('send','#fff')+'</span></div>';
+  html+='</div>';
+  return html;
+}
+
+/* P-M1 我的会员卡 —— 严格复刻 pages/student/membership/index.vue
+   结构: filter-tabs 双胶囊(有效/无效) → card-item 列表;卡片不可点击,仅激活/解冻/复制可操作 */
+function stuM1(){
+  const all=CARDS.filter(c=>c.studentId==='U1');
+  const valid=all.filter(c=>cardGroupKey(c)==='valid');
+  const invalid=all.filter(c=>cardGroupKey(c)==='invalid');
+  const tab=STATE.stuTab==='invalid'?'invalid':'valid';
+  const list=tab==='invalid'?invalid:valid;
+  // 真实会员卡页为 native navbar(标题"我的会员卡"+返回),从"我的"进入;此处以返回条复现返回能力
+  let html='<div class="stu-backbar" onclick="goStu(\'P-M9\')"><span>‹</span><span>返回</span></div>';
+  html+='<div class="filter-tabs">'
+    +`<div class="filter-tab ${tab==='valid'?'tab-active':''}" onclick="stuTabSwitch('valid')">有效课卡 ${valid.length}</div>`
+    +`<div class="filter-tab ${tab==='invalid'?'tab-active':''}" onclick="stuTabSwitch('invalid')">无效课卡 ${invalid.length}</div>`
+    +'</div>';
+  if(!list.length){
+    html+=tab==='valid'?stuEmptyM1():`<div class="empty-state"><div class="empty-card-illustration"><div class="card-3d invalid"><span class="card-face">${ri('card-invalid','#b8a088',24)}</span></div><div class="card-shadow"></div></div><div class="empty-title">暂无无效卡</div><div class="empty-desc">所有会员卡均在有效期内</div></div>`;
+  }else{
+    html+=list.map(stuCardItem).join('');
+  }
+  html+=sticky(2,'用尽徽标:次卡 remaining_credits=0 时 status 仍为 1(正常),"已用完"仅以灰色徽标表达,不新增状态');
+  return html;
+}
+function stuTabSwitch(t){STATE.stuTab=t;renderStuPage()}
+function copyCardNo(no){toast('卡号已复制 '+no)}
+/* 单张卡 DOM:.card-item > .card-content > .card-header/.card-no-row/.card-usage */
+function stuCardItem(c){
+  const type=c.card_type;
+  let usage;
+  if(type==='count'){
+    const zero=c.remaining_credits===0;
+    usage=`<div class="credits-display"><span class="credits-remaining ${zero?'zero':''}">${c.remaining_credits}</span><span class="credits-separator">/</span><span class="credits-total">${c.total_credits}</span><span class="credits-unit">次</span></div>`;
+  }else if(type==='period'){
+    const days=c.valid_from?daysBetween(TODAY,c.expire_at):c.validity_days;
+    usage=`<div class="credits-display"><span class="credits-label">剩余</span><span class="credits-remaining">${days}</span><span class="credits-unit">天</span></div>`;
+  }else{
+    usage=`<div class="credits-display"><span class="credits-remaining">∞</span><span class="usage-unlimited-text">不限次</span></div>`;
+  }
+  const vr=c.valid_from
+    ?`<div class="usage-valid-range"><span class="vr-k">有效期至</span>${c.expire_at}</div>`
+    :`<div class="usage-valid-range"><span class="vr-k">有效期</span>首次上课后起算</div>`;
+  const st=mStatus(c);
+  // 使用区:行内激活(可激活) / 警告框(不可激活) / 解冻
+  let usageBlock=`<div class="card-usage"><div class="usage-main">${usage}<div class="usage-divider-line"></div>${vr}</div></div>`;
+  if(st==='PENDING'){
+    const block=cardActivationBlock(c);
+    if(!block){
+      usageBlock=`<div class="card-usage usage-inline usage-with-activate"><div class="usage-main">${usage}<div class="usage-divider-line"></div>${vr}</div>`
+        +`<button class="activate-btn-inline" onclick="event.stopPropagation();stuActivate('${c.id}')"><span class="activate-btn-text">立即激活</span></button></div>`;
+    }else{
+      usageBlock+=`<div class="activation-warning-box"><span class="warn-ic">${ri('warning','#c9a66b',16)}</span><div><div class="warning-title">当前无法激活</div><div class="warning-desc">${block}</div></div></div>`;
+    }
+  }else if(st==='FROZEN'){
+    usageBlock+=`<div style="margin-top:10px"><button class="stu-mini-btn" style="color:#4a7bd4;border-color:rgba(100,149,237,.5)" onclick="event.stopPropagation();toast('提前解冻需冲突检查(演示)')">提前解冻</button></div>`;
+  }
+  return `<div class="card-item ${cardCls(c)}">
+    <div class="card-content">
+      <div class="card-main">
+        <div class="card-header">
+          <span class="card-name">${c.product_name}</span>
+          ${mCardBadge(c)}
+        </div>
+        <div class="card-no-row">
+          <span class="card-no-label">卡号</span>
+          <span class="card-no-text">${c.card_no}</span>
+          <span class="copy-icon-btn" onclick="event.stopPropagation();copyCardNo('${c.card_no}')">${ri('copy','#b8956a',10)}</span>
+        </div>
+        ${usageBlock}
+      </div>
+    </div>
+  </div>`;
+}
+/* 空状态:3D 金卡插画 + 前往办理 + 权益四宫格 */
+function stuEmptyM1(){
+  const benefits=[['crown','专属课程优惠'],['tag','更多会员权益'],['calendar-check','优先预约课程'],['heart','享受专属服务']];
+  return `<div class="empty-state">
+    <div class="empty-card-illustration">
+      <div class="sparkles"><span>✦</span><span>✦</span><span>✦</span></div>
+      <div class="card-3d"><span class="card-face">${ri('crown','#c9a66b',24)}</span></div>
+      <div class="card-shadow"></div>
+    </div>
+    <div class="empty-title">暂无有效会员卡</div>
+    <div class="empty-desc">您还没有领取或激活会员卡</div>
+    <button class="go-handle-btn" onclick="toast('请联系管理员办理会员卡')">${ri('card','#fff',16)} 前往办理 <span class="btn-arrow">›</span></button>
+    <div class="benefits-section">
+      <div class="benefits-title">会员卡可以为您带来</div>
+      <div class="benefits-grid">${benefits.map(b=>`<div class="benefit-item"><span class="bi">${ri(b[0],'#c9a66b',24)}</span><span class="benefit-text">${b[1]}</span></div>`).join('')}</div>
+    </div>
+  </div>`;
+}
+/* 真实 getActivationBlockReason(L844-L864):同课程类型已有"使用中"卡则禁止激活 */
+function cardActivationBlock(c){
+  if(!c.applicable_course_type_code)return null;
+  const dup=CARDS.some(o=>o.id!==c.id&&o.studentId==='U1'&&o.status==='ACTIVE'&&o.applicable_course_type_code===c.applicable_course_type_code);
+  return dup?`已有${CCT_TXT[c.applicable_course_type_code]||c.applicable_course_type_code}在使用中，无法激活`:null;
+}
+function stuActivate(id){
+  const c=cardById(id),block=cardActivationBlock(c);
+  if(block){openModal(`<div class="m-head"><h3>无法激活 <span class="muted">P-M1</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+    <div class="m-body"><p>${block}</p></div><div class="m-foot"><button class="btn-primary" onclick="closeModal()">知道了</button></div>`);return}
+  openModal(confirmBox('确认激活','确认激活 '+c.product_name+'?','激活后开始计算有效期;已发卡未激活期间不消耗有效期','确认激活',`doActivate('${c.id}')`));
+}
+function doActivate(id){
+  const c=cardById(id);closeModal();
+  c.status='ACTIVE';
+  if(c.card_type==='period'&&!c.valid_from){c.valid_from=TODAY;c.expire_at=addDays(TODAY,c.validity_days)}
+  toast('已激活');renderStuPage();
+}
+
+/* P-M2 卡详情+使用记录 */
+function stuM2(){
+  const c=STATE.selCardId?cardById(STATE.selCardId):CARDS.find(x=>x.studentId==='U1'&&x.status==='ACTIVE');
+  if(!c)return emptyState('卡不存在','返回','goStu(\'P-M1\')');
+  const txns=TXNS[c.id]||[];
+  const bal=c.type==='credits'?(c.remaining+'/'+c.total):'不限次';
+  const vrange=c.valid_from?`${c.valid_from} ~ ${c.expire_at}`:'待激活(首次上课后起算)';
+  let html=pendingBanner('会员卡详情/使用记录页：真实小程序我的会员卡页无此页，卡片也不可点击');
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="btn-text" onclick="goStu('P-M1')">‹ 返回</button></div>`;
+  html+=`<div class="stu-card ${cardCls(c)}"><div class="hd"><div><div class="nm">${c.productName}</div><div class="cardnoline">卡号 ${c.cardNo}</div></div><div>${mCardBadge(c)}</div></div>
+    <div class="bd"><div class="line"><span class="k">类型</span><span>${c.type==='credits'?'次卡':'期限卡'}</span></div>
+    <div class="line"><span class="k">余额</span><span>${bal}</span></div>
+    <div class="line"><span class="k">有效期</span><span>${vrange}</span></div>
+    <div class="line"><span class="k">发卡日</span><span>${c.issueDate}</span></div>
+    ${c.frozenReason?`<div class="line"><span class="k">冻结原因</span><span>${c.frozenReason}</span></div>`:''}
+    ${c.cancelReason?`<div class="line"><span class="k">作废原因</span><span>${c.cancelReason}</span></div>`:''}
+    </div></div>`;
+  if(c.status==='PENDING'&&c.type==='period')html+=confirmedNote(9,'期卡PENDING:首次排期完成上课后自动激活并写入有效期');
+  html+=`<div class="stu-section">使用记录 <span class="muted">(只显示业务字段)</span></div>`;
+  if(!txns.length)html+=emptyState('暂无使用记录');
+  else html+=txns.map(t=>`<div class="stu-list-item"><div class="l"><div class="t">${t.type}</div><div class="d">${t.time}${t.booking?' · '+t.booking:''}</div></div><div>${t.delta}</div></div>`).join('');
+  html+=`<button class="stu-btn" style="margin-top:14px" onclick="goStu('P-M3')">去预约</button>`;
+  return html;
+}
+
+/* ---- P-M3 课程排期:与真实 pages/student/schedule/index.vue 同构 ---- */
+const SCHED_CATS=[{k:'all',t:'全部'},{k:'regular',t:'常规课'},{k:'private',t:'私教课'},{k:'special',t:'特色课'}];
+const CCT_TXT={private:'私教课',regular:'常规课',special:'特色课'};
+const CCT_CLS={private:'tag-private',regular:'tag-regular',special:'tag-special'};
+const DAY_NAMES=['周日','周一','周二','周三','周四','周五','周六'];
+function dsLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+/* 真实 dateList:今日前后滚动窗口(原型取 -1..+3),name=今日/明日/周X,dateStr=MM-DD */
+function stuDateList(){
+  const base=new Date(TODAY+'T00:00:00'),out=[];
+  for(let i=-1;i<=3;i++){
+    const d=new Date(base);d.setDate(base.getDate()+i);
+    out.push({date:dsLocal(d),name:i===0?'今日':i===1?'明日':DAY_NAMES[d.getDay()],dateStr:String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')});
+  }
+  return out;
+}
+function schedStart(s){return new Date(s.date+'T'+s.time.split('-')[0]+':00')}
+function schedBookedMine(s){return BOOKINGS.some(b=>b.studentId==='U1'&&b.scheduleId===s.id&&(b.status==='BOOKED'||b.status==='CHECKED_IN'))}
+function schedCardOK(s){return bookCardOptions(s).some(o=>!o.disabled)}
+function stuSchedCat(k){if(STATE.schedCat===k)return;STATE.schedCat=k;renderStuPage()}
+function stuSchedDate(d){if(STATE.schedDate===d)return;STATE.schedDate=d;renderStuPage()}
+/* 真实 displaySchedules 判定(L242-L361):已约/已满/已过期/取消时限 → 文案与状态类 */
+function schedView(s){
+  const isBooked=schedBookedMine(s),isFull=s.booked>=s.capacity;
+  const mins=(schedStart(s)-new Date(DEMO_NOW))/60000;
+  const isOngoing=mins<=0,withinLimit=mins<=CANCEL_MINUTES&&mins>0;
+  if(isBooked){
+    const blocked=isOngoing||withinLimit;
+    return {text:blocked?'不可取消':'取消',cls:'booked',disabled:blocked,
+      hint:isOngoing?'课程已开始,不可取消':withinLimit?`开课前${CANCEL_MINUTES}分钟内不可取消`:'',
+      act:blocked?`stuSchedBlocked(${isOngoing?'1':'0'})`:`stuSchedCancel('${s.id}')`};
+  }
+  if(isOngoing)return {text:'已完成',cls:'disabled',disabled:true,hint:'',act:''};
+  if(isFull)return {text:'已满',cls:'disabled',disabled:true,hint:'',act:''};
+  if(!schedCardOK(s))return {text:'无会员卡',cls:'no-card',disabled:true,hint:'您需要先办理会员卡才能预约课程',act:''};
+  return {text:'预约',cls:'',disabled:false,hint:'',act:`selectSched('${s.id}')`};
+}
+function stuSchedBlocked(ongoing){
+  openModal(`<div class="m-head"><h3>无法取消 <span class="muted">P-M3</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body"><p>${ongoing?'课程已开始，不可取消预约':`开课前 ${CANCEL_MINUTES} 分钟内不可取消预约，请准时参加课程`}</p></div>
+  <div class="m-foot"><button class="btn-primary" onclick="closeModal()">知道了</button></div>`);
+}
+function stuSchedCancel(sid){
+  const b=BOOKINGS.find(x=>x.studentId==='U1'&&x.scheduleId===sid&&x.status==='BOOKED');
+  if(!b){toast('预约不存在');return}
+  STATE.cancelBId=b.id;openCancelModal();
+}
+/* 排期卡:左时间竖排区 + 右内容区(类型标签/课程名/教室/教师/容量口径 booked/capacity 人/按钮) */
+function stuSchedCard(s){
+  const v=schedView(s),[st,en]=s.time.split('-');
+  return `<div class="schedule-card">
+    <div class="schedule-time-section"><span class="time-start">${st}</span><span class="time-divider"></span><span class="time-end">${en}</span></div>
+    <div class="schedule-content">
+      <div class="schedule-top"><span class="course-type-tag ${CCT_CLS[s.course_type_code]||'tag-regular'}">${CCT_TXT[s.course_type_code]||s.course_type_name||'常规课'}</span><span class="sch-course">${s.course}</span><span class="arrow">${ri('arrow-right','#c9a66b',16)}</span></div>
+      <div class="schedule-info">
+        <div class="info-item"><span class="ii-ic">${ri('location','#b8a088',14)}</span><span>${s.room||'未安排教室'}</span></div>
+        <div class="info-item"><span class="ii-ic">${ri('user','#b8a088',14)}</span><span>${s.teacher||'未知'}</span></div>
+      </div>
+      <div class="schedule-footer">
+        <div class="capacity-info"><span class="ii-ic">${ri('people','#b8a088',14)}</span><span class="capacity-text">${s.booked}/${s.capacity}人</span></div>
+        <div class="btn-wrapper"><button class="book-btn ${v.cls}" ${v.disabled?'disabled':''} ${v.disabled?'':`onclick="${v.act}"`}>${v.text}</button>${v.hint?`<span class="cancel-hint">${v.hint}</span>`:''}</div>
+      </div>
+    </div>
+  </div>`;
+}
+function stuM3(){
+  const cat=STATE.schedCat||'all',date=STATE.schedDate||TODAY;
+  const list=SCHEDULES.filter(s=>s.date===date&&(cat==='all'||s.course_type_code===cat));
+  let html=`<div class="m3-navbar">排期列表</div>`;
+  html+=`<div class="filter-scroll"><div class="filter-list">${SCHED_CATS.map(c=>`<span class="filter-pill ${cat===c.k?'pill-active':''}" onclick="stuSchedCat('${c.k}')">${c.t}</span>`).join('')}</div></div>`;
+  html+=`<div class="date-scroll"><div class="date-list">${stuDateList().map(d=>`<span class="date-pill ${date===d.date?'pill-active':''}" onclick="stuSchedDate('${d.date}')"><span class="pill-day-name">${d.name}</span><span class="pill-day-date">${d.dateStr}</span></span>`).join('')}</div></div>`;
+  html+=list.length?list.map(stuSchedCard).join('')
+    :`<div class="empty-state"><span class="empty-ill" style="font-size:0;line-height:0">${REAL_ICONS.emptySchedule.replace('<svg ','<svg style="width:120px;height:auto;display:block;margin:0 auto" ')}</span><span class="empty-title">暂无排期</span><span class="empty-desc">您还没有相关的课程安排</span></div>`;
+  html+=confirmedNote(9,'进入确认页前预检查卡可用性:按"排期日+validity_days"计算预期有效期；确认预约时另做跨排期时间段重叠校验(演示:今日 19:30-20:30 与已约 19:00-20:30 冲突被拦)');
+  html+=`<div class="muted" style="margin-top:10px;text-align:center;font-size:11px">原型附加(真实页面不存在)：<button class="btn-text" onclick="simBookFail()">演示 · 名额已满错误态</button></div>`;
+  return html;
+}
+function simBookFail(){STATE.bookResult={fail:'full'};goStu('P-M5')}
+function selectSched(id){STATE.selSchedId=id;STATE.bookCardId=null;STATE.cardSelOpen=false;goStu('P-M4')}
+
+/* P-M4 预约确认 —— 严格复刻 pages/student/booking-confirm/index.vue
+   结构: 课程信息卡 + 使用会员卡卡 + 注意事项卡 + 底部操作栏;选卡=底部弹窗(非内联列表) */
+const CARD_TYPE_TXT={count:'次卡',period:'期卡',unlimited:'无限卡'};
+function cardRemainText(c){
+  if(c.card_type==='count')return `剩余 ${c.remaining_credits}/${c.total_credits} 次`;
+  if(c.card_type==='period')return c.valid_from?`有效期至 ${c.expire_at}`:'待激活';
+  return '不限次';
+}
+/* 真实 isAvailable/unavailableReason 判定(按状态/次卡余额/期卡区间重叠) */
+function bookCardOptions(s){
+  return CARDS.filter(c=>c.studentId==='U1').map(c=>{
+    const st=mStatus(c),gk=cardGroupKey(c);
+    let reason='';
+    if(gk==='invalid')reason=st==='EXPIRED'?'已过期':'已作废';
+    else if(st==='FROZEN')reason='冻结中';
+    else if(st==='USED_UP')reason='已用完';
+    else if(c.card_type==='period'&&!!cardConflict(c,s.date))reason='有效期重叠';
+    return {id:c.id,card:c,disabled:!!reason,reason};
+  });
+}
+function stuM4(){
+  const s=schedById(STATE.selSchedId);
+  if(!s)return emptyState('请先选择排期','去选排期',`goStu('P-M3')`);
+  const opts=bookCardOptions(s);
+  const avail=opts.filter(o=>!o.disabled);
+  if(!avail.some(o=>o.id===STATE.bookCardId))STATE.bookCardId=avail.length?avail[0].id:null;
+  const sc=CARDS.find(c=>c.id===STATE.bookCardId)||null;
+  let html='';
+  // ① 课程信息卡
+  html+=`<div class="info-card">
+    <div class="card-header"><div class="header-left"><span class="header-icon">${ri('book','#fff',16)}</span><span class="card-label">课程信息</span><span class="header-line"></span></div></div>
+    <span class="course-name">${s.course}</span>
+    <div class="info-row"><span class="ir-ic">${ri('calendar','#b8956a',14)}</span><span class="info-text">${s.date}</span></div>
+    <div class="info-row"><span class="ir-ic">${ri('clock','#b8956a',14)}</span><span class="info-text">${s.time}</span></div>
+    <div class="info-row"><span class="ir-ic">${ri('location','#b8956a',14)}</span><span class="info-text">${s.room}</span></div>
+    <div class="info-row"><span class="ir-ic">${ri('user','#b8956a',14)}</span><span class="info-text">${s.teacher}</span></div>
+    <div class="info-row"><span class="ir-ic">${ri('people','#b8956a',14)}</span><span class="info-text">剩余 ${s.capacity-s.booked}/${s.capacity} 人</span></div>
+  </div>`;
+  // ② 使用会员卡卡
+  const cardBody=sc
+    ?`<div class="selected-card-info" onclick="openCardSel()">
+        <div class="card-details">
+          <div class="cd-name">${sc.product_name}</div>
+          <div class="cd-sub">${cardRemainText(sc)}</div>
+          <div class="cd-applicable">卡号 ${sc.card_no}</div>
+        </div>
+        <div class="card-right"><span class="type-badge type-${sc.card_type}">${CARD_TYPE_TXT[sc.card_type]}</span><span class="arrow">${ri('arrow-right','#b8956a',16)}</span></div>
+      </div>`
+    :`<div class="selected-card-info" onclick="openCardSel()"><span class="muted">请选择会员卡</span><span class="arrow">${ri('arrow-right','#b8956a',16)}</span></div>`;
+  html+=`<div class="use-card-card">
+    <div class="card-header"><div class="header-left"><span class="header-icon">${ri('card','#fff',16)}</span><span class="card-label">使用会员卡</span><span class="header-line"></span></div></div>
+    ${cardBody}
+  </div>`;
+  // ③ 注意事项卡
+  const notices=['开课前 90 分钟内不可取消预约','请准时到达教室,迟到可能影响上课','如需取消请提前在"我的预约"中操作'];
+  html+=`<div class="notice-card">
+    <div class="card-header"><div class="header-left"><span class="header-icon">${ri('alert','#fff',16)}</span><span class="card-label">注意事项</span><span class="header-line"></span></div></div>
+    <div style="margin-top:6px">${notices.map(t=>`<div class="notice-item"><span class="notice-diamond">◆</span><span>${t}</span></div>`).join('')}</div>
+  </div>`;
+  // ④ 底部操作栏
+  const canBook=!!sc&&avail.length>0;
+  html+=`<div class="action-bar">
+    <button class="action-btn cancel-btn" onclick="goStu('P-M3')">取消</button>
+    <button class="action-btn confirm-btn" ${canBook?'':'disabled'} onclick="submitBooking()">确认预约</button>
+  </div>`;
+  html+=confirmedNote(9,'PENDING 期卡正常可选(不进无效区);期卡按"排期日+有效天数"预算预期有效期,与已有同产品期卡区间重叠则不可选(演示:卡 C1 与已生效期卡 C8 区间重叠被拦截)');
+  // 选卡底部弹窗
+  html+=`<div class="card-selector-mask" ${STATE.cardSelOpen?'':'style="display:none"'} onclick="closeCardSel()">
+    <div class="card-selector-popup" onclick="event.stopPropagation()">
+      <div class="selector-header"><span class="selector-title">选择会员卡</span><span class="selector-close" onclick="closeCardSel()">✕</span></div>
+      ${avail.length
+        ?`<div class="card-list-scroll">${opts.map(cardOptionRow).join('')}</div>`
+        :`<div class="no-available-cards"><div class="no-cards-text">暂无可用的会员卡</div></div>`}
+      <div class="selector-footer"><button class="footer-btn" onclick="confirmCardSel()">确定</button></div>
+    </div>
+  </div>`;
+  return html;
+}
+function cardOptionRow(o){
+  const c=o.card;
+  const sel=STATE.bookCardId===c.id&&!o.disabled;
+  return `<div class="card-option ${sel?'card-selected':''} ${o.disabled?'card-disabled':''}" ${o.disabled?'':`onclick="pickBookCard('${c.id}')"`}>
+    <div class="card-option-left">
+      <span class="card-radio ${sel?'radio-checked':''}"><span class="radio-dot"></span></span>
+      <div class="card-option-info">
+        <div class="card-option-name">${c.product_name}</div>
+        <div class="card-option-remaining">${cardRemainText(c)}${o.reason?' · '+o.reason:''}</div>
+        <div class="card-option-applicable">卡号 ${c.card_no}</div>
+      </div>
+    </div>
+    <span class="card-option-type"><span class="type-badge type-${c.card_type}">${CARD_TYPE_TXT[c.card_type]}</span></span>
+  </div>`;
+}
+function openCardSel(){STATE.cardSelOpen=true;renderStuPage()}
+function closeCardSel(){STATE.cardSelOpen=false;renderStuPage()}
+function confirmCardSel(){STATE.cardSelOpen=false;renderStuPage()}
+function pickBookCard(id){STATE.bookCardId=id;renderStuPage()}
+function submitBooking(){
+  const s=schedById(STATE.selSchedId);const c=cardById(STATE.bookCardId);
+  if(!c){toast('请选择会员卡');return}
+  // D9 冲突最终校验
+  if(c.type==='period'&&cardConflict(c,s.date)){toast('该卡预期有效期与已有卡重叠,不可预约');return}
+  if(c.type==='credits'&&c.remaining<=0){toast('该卡已用尽');return}
+  if(c.status==='FROZEN'){toast('该卡已冻结');return}
+  // 跨排期时间段重叠校验(与上方卡有效期重叠相互独立;真实后端 create_booking 尚未实现)
+  const tc=scheduleTimeConflict(s);
+  if(tc){toast('该时间段与您已约课程《'+tc.course+'》冲突（'+s.time+' 与 '+tc.time+'），无法预约');return}
+  openModal(confirmBox('确认预约','确认使用 '+c.productName+' 预约 '+s.course+'?','写操作将预扣次(次卡)/不扣次(期卡)','确认预约','doBooking()'));
+}
+function doBooking(){
+  const s=schedById(STATE.selSchedId);const c=cardById(STATE.bookCardId);
+  closeModal();
+  if(c.type==='credits'){c.remaining-=1;c.used+=1;TXNS[c.id].push({time:TODAY+' 19:00',type:'消费',delta:'-1',balance:c.remaining,booking:s.course+' '+s.date,note:'预约预扣'});STATE.bookResult={schedId:s.id,cardId:c.id,after:c.remaining,kind:'credits'}}
+  else{STATE.bookResult={schedId:s.id,cardId:c.id,kind:'period',expFrom:s.date,expTo:addDays(s.date,c.validity_days)}}
+  // 创建新预约
+  const nb={id:'B'+(BOOKINGS.length+1),student:'张小明',studentId:'U1',scheduleId:s.id,cardId:c.id,cardNo:c.cardNo,cardStatus:c.status,cardType:c.type,status:'BOOKED',source:'SELF',course:s.course,date:s.date,time:s.time,room:s.room,teacher:s.teacher,cancelReason:null};
+  BOOKINGS.push(nb);
+  s.booked+=1;
+  toast('预约成功');goStu('P-M5');renderAdminPage();
+}
+
+/* P-M5 预约结果 */
+function stuM5(){
+  const r=STATE.bookResult||{};const s=schedById(r.schedId);const c=cardById(r.cardId);
+  const ban=pendingBanner('预约结果页：真实小程序无独立结果页，预约成功直接进入我的预约');
+  if(r.fail)return ban+errorState(r.fail==='full'?'该排期名额已满,无法预约':'预约失败,请重试','重新选择',`STATE.bookResult=null;goStu('P-M3')`);
+  if(!s)return ban+emptyState('无预约结果','返回首页',`goStu('P-M3')`);
+  let info;
+  if(r.kind==='credits')info=`<div class="result-info"><div class="line"><span class="k">课程</span><span>${s.course}</span></div><div class="line"><span class="k">时间</span><span>${s.date} ${s.time}</span></div><div class="line"><span class="k">已预扣</span><span>1 次</span></div><div class="line"><span class="k">剩余</span><span>${r.after} 次</span></div></div>`;
+  else info=`<div class="result-info"><div class="line"><span class="k">课程</span><span>${s.course}</span></div><div class="line"><span class="k">时间</span><span>${s.date} ${s.time}</span></div><div class="line"><span class="k">期卡</span><span>不扣次</span></div><div class="line"><span class="k">预期有效期</span><span>${r.expFrom} ~ ${r.expTo}</span></div></div>`;
+  return ban+`<div class="result-box"><div class="big">${ri('check-circle','var(--green)',42)}</div><h3>${r.kind==='credits'?'预约成功 · 已预扣 1 次':'预约成功 · 首次上课后激活'}</h3>
+    <div class="muted">${r.kind==='credits'?'排期完成后确认扣次,取消将回补':'期卡 PENDING,排期 COMPLETED 时激活并写入有效期'}</div>${info}
+    ${r.kind==='period'?confirmedNote(9,'期卡 PENDING:首次排期 COMPLETED 才激活,在此之前不消耗有效期'):''}
+    <button class="stu-btn" style="margin-top:14px" onclick="goStu('P-M6')">查看我的预约</button>
+    <button class="stu-btn outline" style="margin-top:10px" onclick="goStu('P-M3')">返回首页</button></div>`;
+}
+
+/* P-M6 我的预约 —— 严格复刻 pages/student/bookings/index.vue
+   结构: filter-tabs 四 Tab → booking-card(.card-info + .card-actions);取消时限来自 booking_cancel_minutes */
+function stuBookTab(k){STATE.bookTab=k;renderStuPage()}
+function stuM6(){
+  const all=BOOKINGS.filter(b=>b.studentId==='U1');
+  const tab=STATE.bookTab||'all';
+  const list=tab==='all'?all:all.filter(b=>b.status===tab);
+  // 真实预约记录页为 native navbar(标题"我的预约"+返回),从"我的"进入;此处以返回条复现返回能力
+  let html='<div class="stu-backbar" onclick="goStu(\'P-M9\')"><span>‹</span><span>返回</span></div>';
+  html+='<div class="filter-tabs">'+BOOK_TABS.map(t=>`<div class="filter-tab ${tab===t.k?'tab-active':''}" onclick="stuBookTab('${t.k}')">${t.t}</div>`).join('')+'</div>';
+  if(!list.length){html+=`<div class="empty-state"><span class="empty-ill">${ri('calendar-empty','#d0c0b0',60)}</span><span class="empty-title">暂无预约记录</span></div>`;return html;}
+  html+=list.map(bookingCardItem).join('');
+  html+=sticky(7,'取消时限由租户配置 booking_cancel_minutes(默认 90 分钟)驱动;进入时限后"取消预约"替换为不可点击提示');
+  html+=confirmedNote(3,'计划卡失效警示条(下方红色条)为新增占位:真实页面暂无该条,需待 D7 接口落地;换卡为待开发原子端点');
+  return html;
+}
+function bookingCardItem(b){
+  const cardFail=['CANCELLED','EXPIRED','FROZEN','USED_UP'].includes(b.cardStatus)&&['BOOKED','CHECKED_IN'].includes(b.status);
+  let warn='';
+  if(cardFail)warn=`<div class="warn-bar"><span class="ic">${ri('alert','#a33',16)}</span><div><b>待新增 · 计划卡已${b.cardStatus==='CANCELLED'?'作废':b.cardStatus==='EXPIRED'?'过期':b.cardStatus==='FROZEN'?'冻结':'用尽'}</b><br>该预约的会员卡当前不可用,请换卡或联系机构<div style="margin-top:8px;display:flex;gap:8px"><button class="stu-mini-btn" onclick="toast('换卡改派:待开发原子端点(D7)')">换卡(占位)</button><button class="stu-mini-btn" onclick="toast('已为你联系机构')">联系机构</button></div></div></div>`;
+  let actions='';
+  if(b.status==='BOOKED'){
+    actions=canCancelBooking(b)
+      ?`<button class="cancel-btn" onclick="STATE.cancelBId='${b.id}';openCancelModal()">取消预约</button>`
+      :`<span class="cancel-disabled">开课前 ${CANCEL_MINUTES} 分钟内不可取消</span>`;
+  }
+  const foot=(actions||b.cancelReason)
+    ?`<div class="card-actions">${b.cancelReason?`<span class="cancel-disabled">取消原因:${b.cancelReason}</span>`:actions}</div>`:'';
+  return `<div class="booking-card">
+    <div class="card-info">
+      <div class="info-top"><span class="bk-course">${b.course}</span>${bookingStatusBadge(b)}</div>
+      <div class="info-row"><span class="ir-ic">${ri('calendar','#b8956a',14)}</span><span class="info-text">${b.date} ${b.time}</span></div>
+      <div class="info-row"><span class="ir-ic">${ri('location','#b8956a',14)}</span><span class="info-text">${b.room||'未安排教室'}</span></div>
+      <div class="info-row"><span class="ir-ic">${ri('user','#b8956a',14)}</span><span class="info-text">${b.teacher||'未知'}</span></div>
+    </div>
+    ${warn}
+    ${foot}
+  </div>`;
+}
+function openCancelModal(){
+  const b=bookingById(STATE.cancelBId);if(!b)return;
+  const c=cardById(b.cardId);
+  let refund='';
+  if(b.cardType==='credits')refund=`<div class="confirm-box"><div class="row"><span class="k">排期</span><span>${b.course} ${b.date}</span></div><div class="row"><span class="k">原卡</span><span>${b.cardNo}</span></div><div class="row"><span class="k">当前剩余</span><span>${c?c.remaining:'—'} 次</span></div><div class="row" style="color:var(--green)"><span class="k">取消后回补</span><span>+1 次 → ${c?c.remaining+1:'—'} 次</span></div></div>`;
+  else refund=`<div class="confirm-box"><div class="row"><span class="k">排期</span><span>${b.course} ${b.date}</span></div><div class="row"><span class="k">期卡</span><span>不扣次,取消不回补,保持 PENDING</span></div></div>`;
+  openModal(`<div class="m-head"><h3>取消预约确认 <span class="muted">P-M7</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body">${refund}${confirmedNote(1,'次卡:取消立即回补(RESTORE),行锁保护;期卡:不激活不回补')}<div class="form-row"><label>取消原因</label><textarea id="cancel-reason" placeholder="选填" rows="2"></textarea></div></div>
+  <div class="m-foot"><button onclick="closeModal()">再想想</button><button class="btn-danger" onclick="doCancel()">确认取消</button></div>`);
+}
+function doCancel(){
+  const b=bookingById(STATE.cancelBId);if(!b){closeModal();return}
+  if(b.status!=='BOOKED'){toast('已签到/已完成,不可取消');closeModal();return}
+  b.status='CANCELLED';b.cancelReason=document.getElementById('cancel-reason').value.trim()||'临时取消';
+  if(b.cardType==='credits'&&b.cardId){const c=cardById(b.cardId);if(c){c.remaining+=1;c.used-=1;TXNS[c.id].push({time:TODAY+' 19:30',type:'回补',delta:'+1',balance:c.remaining,booking:b.course+' '+b.date,note:'取消回补 RESTORE'})}}
+  closeModal();toast('已取消,次卡已回补 +1');goStu('P-M1');renderAdminPage();
+}
+
+/* ============================================================
+   TEACHER P-T1
+============================================================ */
+function renderTeacher(){
+  const s=SCHEDULES.find(x=>x.id===STATE.teacherSched)||SCHEDULES[0];
+  const opts=SCHEDULES.map(x=>`<option value="${x.id}" ${STATE.teacherSched===x.id?'selected':''}>${x.course} ${x.date} ${x.time}</option>`).join('');
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;
+  const checked=roster.filter(r=>r.status!=='BOOKED').length;
+  const rows=roster.map(r=>{
+    const st=r.status==='BOOKED'?'BOOKED':r.status==='CHECKED_IN'?'CHECKED_IN':'COMPLETED';
+    const op=r.status==='BOOKED'?`<button class="btn-primary btn-sm" onclick="tchCheckIn('${r.bId}')">签到</button>`
+      :r.status==='CHECKED_IN'?`<button class="btn-success btn-sm" onclick="tchComplete('${r.bId}')">完成</button>`
+      :`<span class="muted">已完成</span>`;
+    const miss=(r.status==='BOOKED'||r.status==='CHECKED_IN')?`<button class="btn-sm" disabled style="opacity:.5">缺席</button>`:'';
+    return `<div class="tch-row"><div class="av">${r.name.slice(0,1)}</div>
+      <div class="mn"><div class="n">${r.name}</div>
+      <div class="d"><span>${r.cardNo}</span>${badge(r.cardStatus)}</div>
+      <div class="d">${badge(st)}${r.checkInTime?`<span>签到 ${r.checkInTime}</span>`:''}</div></div>
+      <div class="op">${op}${miss}</div></div>`;
+  }).join('');
+  document.getElementById('tch-body').innerHTML=`<div class="tch-wrap">
+    <div class="toolbar" style="display:flex;gap:8px;align-items:center;margin-bottom:10px">排期:<select onchange="STATE.teacherSched=this.value;renderTeacher();if(STATE.adminPage==='P-A6')renderAdminPage()">${opts}</select>
+    <span class="muted">D9:签到校验计划卡状态</span></div>
+  <div class="tch-head"><h3>${s.course}</h3><div class="sub">${s.date} ${s.time} · ${s.room} · ${s.teacher}</div><div class="tch-info"><span>排期 ${s.id}</span><span>容量 ${s.capacity}</span></div></div>
+  <div class="tch-stat"><div class="it"><div class="n">${roster.length}</div><div class="l">已预约</div></div><div class="it"><div class="n">${checked}</div><div class="l">已签到</div></div><div class="it"><div class="n">${roster.length-checked}</div><div class="l">未签到</div></div></div>
+  ${rows}
+  ${confirmedNote(5,'"标记缺席"灰置:缺席自动消解,排期COMPLETED即扣,不触发回补')}
+  ${confirmedNote(1,'签到/完成不扣次,扣次在预约时已发生(预扣)')}`;
+}
+function tchCheckIn(bId){
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;const r=roster.find(x=>x.bId===bId);
+  if(r.status==='CHECKED_IN'){toast('该学员已签到,请勿重复');return}
+  if(r.cardStatus!=='ACTIVE'){
+    openModal(`<div class="m-head"><h3>签到拦截 <span class="muted">D9</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+    <div class="m-body"><div class="warn-bar"><span class="ic">⛔</span><div><b>该会员卡状态异常,无法签到</b><br>卡 ${r.cardNo} 当前:${badge(r.cardStatus)}<br>请引导学员换卡或联系机构</div></div></div>
+    <div class="m-foot"><button onclick="closeModal()">知道了</button></div>`);
+    return;
+  }
+  r.status='CHECKED_IN';r.checkInTime='19:05';toast('签到成功');renderTeacher();if(STATE.adminPage==='P-A6')renderAdminPage();
+}
+function tchComplete(bId){
+  const roster=STATE.teacherSched==='S1'?S1R:S3R;const r=roster.find(x=>x.bId===bId);
+  if(r.status!=='CHECKED_IN'){toast('请先签到');return}
+  r.status='COMPLETED';const b=bookingById(bId);
+  if(b){b.status='COMPLETED';if(b.cardType==='period'&&b.cardId){const c=cardById(b.cardId);if(c&&c.status==='PENDING'){c.status='ACTIVE';c.valid_from=b.date;c.expire_at=addDays(b.date,c.validity_days);toast('排期完成→期卡已激活')}}}
+  toast('已完成:排期COMPLETED确认扣次');renderTeacher();renderStuPage();if(STATE.adminPage==='P-A6')renderAdminPage();
+}
+
+/* ============================================================
+   FLOW WIZARD + helpers
+============================================================ */
+function confirmBox(title,sub,desc,btn,fn){
+  return `<div class="m-head"><h3>${title}</h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body"><div class="confirm-box"><div class="row"><span class="k">${sub}</span></div><div class="muted">${desc}</div></div></div>
+  <div class="m-foot"><button onclick="closeModal()">取消</button><button class="btn-primary" onclick="${fn}">${btn}</button></div>`;
+}
+function openFlows(){
+  const flows=[
+    {id:'A',t:'流程 A:跨端预约',d:'管理后台 P-A2 查看课卡 → 学员小程序 P-M1 → P-M3 选排期 → P-M4 选卡 → P-M5 预约成功',fn:"resetData();setView('dual');goAdmin('P-A2');goStu('P-M1');toast('流程A:左侧管理后台,右侧学员小程序')"},
+    {id:'B',t:'流程 B:多卡切换/PENDING可选',d:'P-M4 多卡切换,余额预览联动;PENDING 期卡可选(角标待激活);冲突卡灰显',fn:"resetData();setView('student');goStu('P-M3')"},
+    {id:'C',t:'流程 C:取消回补',d:'P-M6 取消 → P-M7 回补预览(+1) → 确认取消 → P-M1 余额+1',fn:"resetData();setView('student');goStu('P-M6')"},
+    {id:'D',t:'流程 D:签到完成/重复拒绝',d:'P-T1 签到→完成;P-A6 代签到→重复签到被拒;计划卡已作废签到被拦截',fn:"resetData();setView('teacher')"},
+    {id:'E',t:'流程 E:计划卡已作废',d:'P-M6 "计划卡已作废"预约 → 警示条 → 换卡出口(占位)+联系机构',fn:"resetData();setView('student');goStu('P-M6')"},
+    {id:'F',t:'流程 F:失效徽标/作废影响面',d:'P-M1 用尽/过期/冻结徽标 → P-A2 作废时影响面提示(占位)',fn:"resetData();setView('dual');goStu('P-M1');goAdmin('P-A2')"},
+  ];
+  openModal(`<div class="m-head"><h3>演示流程向导</h3><button class="btn-text" onclick="closeModal()">✕</button></div>
+  <div class="m-body"><div class="flow-wiz">${flows.map(f=>`<div class="item"><div class="ttl">流程 ${f.id}</div><div class="desc">${f.d}</div><button class="btn-primary btn-sm" onclick="closeModal();${f.fn}">开始流程 ${f.id}</button></div>`).join('')}</div>
+  <div class="muted" style="margin-top:8px">每个流程会自动重置数据,确保从干净状态演示。也可点击右上角"重置数据"随时还原。</div></div>`,true);
+}
+
+/* ===== init ===== */
+resetData();
+</script>
+</body>
+</html>

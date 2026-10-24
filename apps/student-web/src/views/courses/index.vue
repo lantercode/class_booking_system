@@ -63,6 +63,14 @@
         <el-skeleton :rows="3" animated />
       </div>
 
+      <div v-else-if="loadError" class="error-wrapper">
+        <el-result icon="error" title="加载课程失败" :sub-title="loadError">
+          <template #extra>
+            <el-button type="primary" @click="fetchCourses">重试</el-button>
+          </template>
+        </el-result>
+      </div>
+
       <div v-else-if="filteredCourses.length === 0" class="empty-wrapper">
         <el-empty description="暂无课程">
           <el-button type="primary" @click="fetchCourses">刷新</el-button>
@@ -116,7 +124,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   UserFilled,
   ArrowDown,
@@ -175,6 +183,7 @@ function getDifficultyLabel(d: string): string {
 
 const courses = ref<CourseView[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const activeFilter = ref('all')
 
 const filterTabs = [
@@ -191,10 +200,13 @@ const filteredCourses = computed(() => {
 
 async function fetchCourses() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await courseApi.list({ page_size: 50 })
     courses.value = (res.data.items || []).map(mapCourse)
-  } catch {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载课程失败'
+    ElMessage.error(loadError.value)
     courses.value = []
   } finally {
     loading.value = false
@@ -396,6 +408,10 @@ onMounted(() => {
 
 .loading-wrapper {
   padding: 40px 0;
+}
+
+.error-wrapper {
+  padding: 60px 0;
 }
 
 .empty-wrapper {

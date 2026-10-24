@@ -50,12 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Management, Phone, Lock, OfficeBuilding } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules } from 'element-plus'
-import { useAuthStore } from '@/stores/auth'
+import {reactive, ref} from 'vue'
+import {useRoute, useRouter} from 'vue-router'
+import type {FormInstance, FormRules} from 'element-plus'
+import {ElMessage} from 'element-plus'
+import {Lock, Management, OfficeBuilding, Phone} from '@element-plus/icons-vue'
+import {useAuthStore} from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -88,7 +88,7 @@ async function handleLogin() {
       tenant_slug: form.tenant_slug || undefined,
     })
     ElMessage.success('登录成功')
-    router.push((route.query.redirect as string) || '/dashboard')
+    router.push((route.query.redirect as string) || '/users')
   } catch (err: any) {
     const msg =
       err?.response?.data?.msg || err?.response?.data?.detail || '登录失败，请检查账号密码'

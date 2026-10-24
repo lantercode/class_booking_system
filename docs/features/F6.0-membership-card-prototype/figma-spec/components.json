@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "feature": "F6.0-membership-card-prototype",
+    "artifact": "reusable-components",
+    "version": "v8",
+    "generated_at": "2026-10-17",
+    "figma_page": "10-可复用组件",
+    "component_count_doc": 11,
+    "component_count_actual_classes": 10,
+    "count_note": "指南 §0.2 记「由 10 类增至 11 类」，其增量来源为 DecisionSticker 的第二变体（confirmed 绿便签）与实际新增类无关；本文件按真实组件类列出 10 个，DecisionSticker 含 2 个 tone 变体。Figma 若按变体计数则为 11。",
+    "source_of_truth": [
+      "docs/features/F6.0-membership-card-prototype/prototype/index.html (v8)",
+      "docs/features/F6.0-membership-card-prototype/figma-creation-guide.md (§2 / §0.2)"
+    ],
+    "rules": [
+      "所有 Component 在 Page 10 定义并发布；主 Frame 通过 Instance 引用。",
+      "状态徽标颜色/文案与 entity-state-model.md 枚举一致（AC3）。",
+      "学员端不得出现 operator_id / idempotency_key 等内部字段（AC8 / 红线 3）。"
+    ]
+  },
+  "components": [
+    {
+      "name": "StatusBadge",
+      "purpose": "卡状态徽标",
+      "size": { "w": 64, "h": 24, "radius": 12, "padding": "4 8" },
+      "text_style": "text/aux-strong",
+      "variants": {
+        "platform": ["admin", "miniapp"],
+        "status": ["PENDING", "ACTIVE", "EXPIRED", "FROZEN", "CANCELLED", "EXHAUSTED"]
+      },
+      "status_map": [
+        { "status": "PENDING", "label": "未激活", "text": "#909399", "bg": "#F4F4F5", "border": "#E4E7ED" },
+        { "status": "ACTIVE", "label": "学员端「使用中」/ 管理端「正常」", "text": "#67C23A", "bg": "#F0F9EB", "border": "#E1F3D8", "note": "v8：文案分端" },
+        { "status": "EXPIRED", "label": "已过期", "text": "#909399", "bg": "#F4F4F5", "border": "#E4E7ED" },
+        { "status": "FROZEN", "label": "已冻结", "text": "#409EFF", "bg": "#ECF5FF", "border": "#D9ECFF" },
+        { "status": "CANCELLED", "label": "已作废", "text": "#F56C6C", "bg": "#FEF0F0", "border": "#FDE2E2" },
+        { "status": "EXHAUSTED", "label": "已用尽", "text": "#E6A23C", "bg": "#FDF6EC", "border": "#FAECD8", "note": "D2 占位：不在状态机枚举内，仅前端徽标表达；变体名后缀 -D2" }
+      ]
+    },
+    {
+      "name": "BookingStatusBadge",
+      "purpose": "预约状态徽标",
+      "size": { "w": 64, "h": 24, "radius": 12 },
+      "text_style": "text/aux-strong",
+      "variants": { "status": ["BOOKED", "CHECKED_IN", "COMPLETED", "CANCELLED"] },
+      "status_map": [
+        { "status": "BOOKED", "label": "已预约", "text": "#409EFF", "bg": "#ECF5FF", "border": "#D9ECFF" },
+        { "status": "CHECKED_IN", "label": "已签到", "text": "#67C23A", "bg": "#F0F9EB", "border": "#E1F3D8" },
+        { "status": "COMPLETED", "label": "已完成", "text": "#909399", "bg": "#F4F4F5", "border": "#E4E7ED" },
+        { "status": "CANCELLED", "label": "已取消", "text": "#F56C6C", "bg": "#FEF0F0", "border": "#FDE2E2" }
+      ]
+    },
+    {
+      "name": "CardListItem",
+      "purpose": "卡列表项（双端）",
+      "variants": {
+        "platform": ["admin", "miniapp"],
+        "status": ["PENDING", "ACTIVE", "EXPIRED", "FROZEN", "CANCELLED", "EXHAUSTED"]
+      },
+      "platform_spec": {
+        "admin": { "w": 1200, "h": 72, "bg": "#FFF", "border_bottom": "#EBEEF5 1px", "hover_bg": "#F5F7FA", "fields": ["卡号", "产品", "计费类型", "学员", "总·已·剩余次数", "状态徽标", "有效期", "冻结信息", "操作按钮组"] },
+        "miniapp": { "w": 343, "h": 96, "bg": "#FFF", "radius": 8, "padding": 12, "fields": ["产品名 14/600", "计费类型标签", "剩余·总次数 或 剩余天数", "有效期", "状态徽标", "右侧操作(激活/解冻)或冻结原因"] }
+      },
+      "text_style": { "title": "14/600", "body": "14/400", "aux": "12/400" },
+      "note": "v8：管理端状态文案为 未激活/正常/已过期/已冻结/已作废"
+    },
+    {
+      "name": "BookingListItem",
+      "purpose": "预约列表项",
+      "variants": { "platform": ["miniapp"], "status": ["BOOKED", "CHECKED_IN", "COMPLETED", "CANCELLED"] },
+      "platform_spec": {
+        "miniapp": { "w": 343, "h": 88, "bg": "#FFF", "radius": 8, "padding": 12, "fields": ["课程名 + 排期时间", "BookingStatusBadge", "计划卡号 + 卡状态徽标(失效红标)", "取消原因(已取消项)"] }
+      },
+      "text_style": { "title": "14/600", "body": "13/400", "aux": "12/400" }
+    },
+    {
+      "name": "TransactionRow",
+      "purpose": "流水行（双端）",
+      "variants": { "platform": ["admin", "miniapp"], "type": ["ISSUE", "CONSUME", "RESTORE", "RECHARGE", "REFUND", "ADJUST", "EXPIRE"] },
+      "platform_spec": {
+        "admin": { "w": 1200, "h": 48, "columns": ["时间", "类型", "变动数", "变动后余额", "关联预约ID", "操作人", "备注"] },
+        "miniapp": { "w": 343, "h": 64, "layout": "卡片式", "columns": ["时间 + 类型中文", "关联课程名+排期时间", "变动数 + 剩余数"] }
+      },
+      "text_style": { "aux": "12/400", "number": "14/600" },
+      "rule": "学员端不展示 operator_id 与 idempotency_key（AC8 / 红线 3）"
+    },
+    {
+      "name": "ConfirmDialog",
+      "purpose": "二次确认弹窗",
+      "variants": { "platform": ["admin", "miniapp"], "tone": ["default", "danger"] },
+      "platform_spec": {
+        "admin": { "w": 420, "h": "auto", "style": "Element Plus MessageBox", "title": "16/600", "body": "14/400", "buttons": ["确认", "取消"] },
+        "miniapp": { "w": 320, "h": "auto", "radius": 12, "buttons_layout": "vertical" }
+      },
+      "tone_map": { "danger": { "confirm_button": "#F56C6C" } }
+    },
+    {
+      "name": "EmptyState",
+      "purpose": "空态",
+      "size": { "w": 200, "h": 200 },
+      "variants": { "scene": ["no_card", "no_booking", "no_transaction", "no_result"] },
+      "elements": { "illustration": { "size": "120x120", "color": "#C0C4CC" }, "title": "14/400 #909399", "cta": "12/400 主色" }
+    },
+    {
+      "name": "ErrorState",
+      "purpose": "错误态",
+      "size": { "w": 200, "h": 200 },
+      "variants": { "code": ["403", "409", "500", "business"] },
+      "elements": { "illustration": "#F56C6C", "text": "14/400 #909399", "retry": "重试按钮" }
+    },
+    {
+      "name": "DecisionSticker",
+      "purpose": "决策便签",
+      "size": { "w": 120, "h": 80, "radius": 4, "rotate": "-2deg" },
+      "text_style": { "id": "text/sticker-id", "desc": "text/sticker-desc" },
+      "variants": {
+        "tone": ["pending", "confirmed"],
+        "id": ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"]
+      },
+      "tone_map": {
+        "pending": { "label": "黄 · 未确认", "bg": "#fffbe6", "border": "#faad14 1px dashed", "text": "#86592b", "ids": ["D2", "D6", "D7", "D8"] },
+        "confirmed": { "label": "绿 · 已确认", "bg": "#f0f9eb", "border": "#67c23a 1px solid", "text": "#4e7a35", "ids": ["D1", "D3", "D4", "D5", "D9"] }
+      },
+      "rule": "已确认（绿）→ 交互画成确定性；未确认（黄）→ 禁止画成确定交互（红线，见 §0.4 / §7.3）"
+    },
+    {
+      "name": "TabBar",
+      "purpose": "小程序底部导航",
+      "size": { "w": 375, "h": 50, "bg": "#FFF", "border_top": "#f5f5f5 1px" },
+      "variants": { "active": ["home", "schedule", "ai", "profile"] },
+      "tabs": [
+        { "key": "home", "label": "首页", "page": "P-M8", "icon": "tab-home", "route": "/pages/student/courses/index" },
+        { "key": "schedule", "label": "排期", "page": "P-M3", "icon": "tab-booking", "route": "/pages/student/schedule/index" },
+        { "key": "ai", "label": "AI 助手", "page": "P-M10", "icon": "ai-robot", "route": "/pages/student/ai/index" },
+        { "key": "profile", "label": "我的", "page": "P-M9", "icon": "tab-profile", "route": "/pages/student/profile/index" }
+      ],
+      "icon": { "size": "24x24", "type": "真实线性 SVG（原型 TAB_ICONS，经 figma.createNodeFromSvg 渲染为矢量）", "color_default": "#999", "color_active": "#8b7355" },
+      "text": { "size": "22rpx=11px", "color_default": "#999", "color_active": "#8b7355", "weight_active": 500 },
+      "indicator": { "class": ".tab-indicator", "gradient": "linear-gradient(90deg,#c9a66b,#d9a7b0)", "size": "20x2", "scope": "仅激活项" },
+      "display_scope": ["P-M8", "P-M3", "P-M10", "P-M10b", "P-M9"],
+      "hide_on_pushed_pages": ["P-M1", "P-M1c", "P-M1d", "P-M2", "P-M4", "P-M5", "P-M5b", "P-M6", "P-M6b"],
+      "prototype_source": "prototype/index.html TAB_DEFS(L1284) / TAB_ICONS(L1267)",
+      "note": "2026-10-18 第四轮：回归 HTML 原型口径 —— 4 个同级 Tab（首页 / 排期 / AI 助手 / 我的），AI 助手为第 3 个一级 Tab（无悬浮 FAB）。此前两轮曾按真实 apps/miniapp 改为 3 Tab + AiFab 悬浮组件，现已撤回；差异见 frames.json student_prototype_baseline。"
+    }
+  ]
+}

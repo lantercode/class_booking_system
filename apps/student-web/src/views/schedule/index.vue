@@ -46,7 +46,19 @@
     <div class="slots-section">
       <h3 v-if="selectedDate">{{ selectedDate }} 可约时段</h3>
 
-      <div v-if="todaySlots.length === 0" class="empty-slots">
+      <div v-if="loading && todaySlots.length === 0" v-loading="true" class="loading-slots">
+        <div style="height: 80px"></div>
+      </div>
+
+      <div v-else-if="loadError" class="error-slots">
+        <el-result icon="error" title="加载排期失败" :sub-title="loadError">
+          <template #extra>
+            <el-button type="primary" @click="fetchSchedules">重试</el-button>
+          </template>
+        </el-result>
+      </div>
+
+      <div v-else-if="todaySlots.length === 0" class="empty-slots">
         <el-empty description="当天暂无排期" :image-size="80" />
       </div>
 
@@ -55,9 +67,9 @@
           v-for="slot in todaySlots"
           :key="slot.id"
           class="slot-card"
-          :class="{ 
+          :class="{
             'is-full': slot.scheduleStatus === 0,
-            'is-booked': slot.bookingStatus === 1 
+            'is-booked': slot.bookingStatus === 1
           }"
         >
           <div class="slot-time">
@@ -208,6 +220,7 @@ const route = useRoute()
 const courseId = Number(route.params.id)
 const courseName = ref('课程排期')
 const loading = ref(false)
+const loadError = ref('')
 const bookingLoading = ref(false)
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
@@ -260,19 +273,23 @@ async function fetchCourse() {
 
 async function fetchSchedules() {
   loading.value = true
+  loadError.value = ''
   try {
     const [scheduleRes, bookingRes] = await Promise.all([
       scheduleApi.list({ course_id: courseId, page_size: 100, status: 1 }),
       bookingApi.list({ page_size: 100 })
     ])
     allSchedules.value = scheduleRes.data.items
-    
+
     const bookings: Record<number, number> = {}
     for (const booking of bookingRes.data.items) {
       bookings[booking.schedule_id] = booking.status
     }
     myBookings.value = bookings
-  } catch (_) {} finally {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载排期失败'
+    ElMessage.error(loadError.value)
+  } finally {
     loading.value = false
   }
 }
@@ -598,6 +615,12 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .loading-slots,
+  .error-slots {
+    padding: 20px 0;
+    min-height: 120px;
   }
 
   .slot-card {

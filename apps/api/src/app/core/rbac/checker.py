@@ -24,6 +24,7 @@ import logging
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.tenant_context import get_tenant_id, get_user_id
 from app.modules.auth.models import Permission, Role, RolePermission, UserRole
 
@@ -34,9 +35,14 @@ from .cache import (
 
 logger = logging.getLogger(__name__)
 
-# ⚠️ 临时开关：True = 跳过所有权限检查，所有用户拥有全部权限
-# 正式环境请改回 False
-PERMISSION_CHECK_BYPASS = True
+
+def _is_permission_check_bypassed() -> bool:
+    """
+    是否跳过权限检查（每次调用时实时读取配置，便于测试动态覆盖）。
+
+    生产环境必须保持 False（Settings 默认值）。
+    """
+    return get_settings().PERMISSION_CHECK_BYPASS
 
 
 async def query_permissions_from_db(
@@ -194,7 +200,7 @@ async def check_permission(
         >>> if has_perm:
         ...     await create_user(...)
     """
-    if PERMISSION_CHECK_BYPASS:
+    if _is_permission_check_bypassed():
         return True
 
     permissions = await get_user_permissions(db_session, redis_client, user_id, tenant_id)
@@ -242,7 +248,7 @@ async def check_permissions(
     if not required_permissions:
         return True  # 空列表视为通过
 
-    if PERMISSION_CHECK_BYPASS:
+    if _is_permission_check_bypassed():
         return True
 
     permissions_set = set(await get_user_permissions(db_session, redis_client, user_id, tenant_id))
@@ -286,6 +292,9 @@ async def check_role(
     Returns:
         True 表示拥有该角色，否则 False
     """
+    if _is_permission_check_bypassed():
+        return True
+
     _user_id = user_id or get_user_id()
     _tenant_id = tenant_id or get_tenant_id()
 
@@ -348,7 +357,7 @@ async def check_roles(
     if not required_role_codes:
         return True
 
-    if PERMISSION_CHECK_BYPASS:
+    if _is_permission_check_bypassed():
         return True
 
     _user_id = user_id or get_user_id()
@@ -392,3 +401,57 @@ async def check_roles(
     except Exception as e:
         logger.error(f"[RBAC Checker] 角色批量检查失败: {type(e).__name__}: {e}")
         return False
+
+
+async def get_user_role_codes(
+    db_session: AsyncSession,
+    user_id: int | None = None,
+    tenant_id: int | None = None,
+) -> set[str]:
+    """返回当前用户在指定租户下的角色 code 集合（含全局角色）。
+
+    供 Service 层做基于角色的数据归属分流（例如 booking 列表按 student/teacher/admin
+    过滤），非授权决策（授权仍走 check_permissions/check_roles 装饰器）。
+
+    复用 check_roles 的查询模式：JOIN user_roles + roles，匹配当前租户角色或全局角色
+    （Role.tenant_id IS NULL，如 super_admin）。单次查询。
+
+    Args:
+        db_session: 数据库会话（必须）
+        user_id: 用户ID（可选，默认从 ContextVar 获取）
+        tenant_id: 租户ID（可选，默认从 ContextVar 获取）
+
+    Returns:
+        角色 code 字符串集合，如 {'student'} / {'teacher'} / {'admin', 'super_admin'}；
+        用户无角色或查询异常时返回空集合（调用方按最小权限默认处理）。
+    """
+    _user_id = user_id or get_user_id()
+    _tenant_id = tenant_id or get_tenant_id()
+
+    if not _user_id or not _tenant_id:
+        logger.warning("[RBAC Checker] get_user_role_codes 缺少 user_id 或 tenant_id")
+        return set()
+
+    try:
+        stmt = (
+            select(Role.code)
+            .join(UserRole)
+            .where(
+                and_(
+                    UserRole.user_id == _user_id,
+                    or_(Role.tenant_id == _tenant_id, Role.tenant_id.is_(None)),
+                )
+            )
+        )
+
+        result = await db_session.execute(stmt)
+        role_codes = {row[0] for row in result.fetchall()}
+
+        logger.debug(
+            f"[RBAC Checker] 用户 {_user_id} 的角色集合: {role_codes}"
+        )
+        return role_codes
+
+    except Exception as e:
+        logger.error(f"[RBAC Checker] 角色集合查询失败: {type(e).__name__}: {e}")
+        return set()

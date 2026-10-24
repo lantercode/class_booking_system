@@ -45,7 +45,7 @@ async def test_distributed_lock():
     print("=" * 60)
 
     redis_client = await get_redis_client()
-    runtime = AgentRuntime(redis_client=redis_client, user_id=1)
+    runtime = AgentRuntime(redis_client=redis_client, user_id=1, tenant_id=1)
     session_id = "test_lock_session"
 
     print("\n📌 模拟并发场景：快速发送两个请求")
@@ -80,7 +80,7 @@ async def test_cancel_booking_confirmation():
     print("=" * 60)
 
     redis_client = await get_redis_client()
-    runtime = AgentRuntime(redis_client=redis_client, user_id=1)
+    runtime = AgentRuntime(redis_client=redis_client, user_id=1, tenant_id=1)
     session_id = "test_cancel_session"
 
     print("\n📌 第 1 轮：用户说「取消预约 1001」")
@@ -139,7 +139,7 @@ async def test_cancel_rejection():
     print("=" * 60)
 
     redis_client = await get_redis_client()
-    runtime = AgentRuntime(redis_client=redis_client, user_id=1)
+    runtime = AgentRuntime(redis_client=redis_client, user_id=1, tenant_id=1)
     session_id = "test_cancel_reject"
 
     print("\n📌 第 1 轮：触发取消流程")
@@ -171,7 +171,7 @@ async def test_error_code_mapping():
     print("🧪 测试 4：业务错误码友好提示")
     print("=" * 60)
 
-    runtime = AgentRuntime()
+    runtime = AgentRuntime(tenant_id=1)
 
     test_cases = [
         ("SCHEDULE_FULL", "该时段刚被约满"),
@@ -213,7 +213,7 @@ async def test_logging_output():
     )
 
     redis_client = await get_redis_client()
-    runtime = AgentRuntime(redis_client=redis_client, user_id=1)
+    runtime = AgentRuntime(redis_client=redis_client, user_id=1, tenant_id=1)
     session_id = "test_logging"
 
     print("\n📌 发送一个请求，观察日志输出")

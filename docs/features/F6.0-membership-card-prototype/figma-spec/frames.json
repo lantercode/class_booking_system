@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "feature": "F6.0-membership-card-prototype",
+    "artifact": "frames-and-pages",
+    "version": "v8",
+    "generated_at": "2026-10-18",
+    "counts": { "figma_pages": 11, "compacted_figma_pages": 3, "screen_frames": 19, "overlay_frames": 10 },
+    "note": "原指南「15 个 Screen Frame」有误；v8 实为 14 Screen Frame + 9 Overlay Frame；2026-10-18 按用户决策补登 5 个状态屏与 1 个选卡弹窗(OV-CARDSEL)，并对长页拆帧（19 Screen + 10 Overlay）。2026-10-18 第四轮：学员端视觉基准回归浏览器 HTML 原型 prototype/index.html（撤回第三轮「对齐真实 apps/miniapp」口径）。",
+    "figma_representation_notes": {
+      "starter_compact_mode": "目标文件 dance_v1 为 Starter 免费计划：Page 上限 3、无 Variables。实现上把 11 个逻辑 Page 归并到 3 个物理 Page（见 code.js SPEC.pageRemap），tokens 降级为 Color/Text/Effect Styles。",
+      "scroll_split": "小程序长页拆为「上半屏 + 滚动续帧」：P-M8 内容高 1300px（含 2 个视频卡）> 可视窗口 738px（812 − 24 状态栏 − 50 TabBar），续帧 P-M8b offset=738；P-M1 内容高 1016px > 窗口 744px（812 − 68 原生导航栏，本页无 TabBar），续帧 P-M1b offset=678（第 5 张卡开始处，避免卡片被折叠线切断）。续帧仅对源在 tabBarPages 中的页面保留 TabBar 实例。",
+      "overlay_landing_size": "overlay_frames 的 size=auto 在 Figma 中落为具体像素（见 code.js SPEC.overlayFrames），高度按已绘制内容 + 底部按钮区实测取值；OV-PRODUCT 因字段较多落为 420x620，P-A4 详情弹窗落为 660x520。OV-CARDSEL 落为 375x460。",
+      "added_state_screens": "P-M1c 无效课卡 / P-M1d 空状态 / P-M5b 预约失败(名额已满) / P-M6b 我的预约空状态 / P-M10b AI 对话态 —— 原型 index.html 存在但首版插件未绘制的状态，统一补画。",
+      "decision_stickers": "D1/D3/D4/D5/D9 已确认 → 绿色「已确认」便签；D2/D6/D7/D8 待确认 → 黄色「决策占位」便签。禁止把未确认规则画成确定交互。",
+      "student_prototype_baseline": {
+        "baseline": "学员小程序页以浏览器 HTML 原型 prototype/index.html 的 stuM1–stuM10 为唯一视觉基准；插件逐帧 1:1 复刻其全部元素与文案。2026-10-18 第四轮用户决策：撤回第三轮「对齐真实 apps/miniapp」口径。",
+        "tabbar": "4 个同级 Tab：首页 / 排期 / AI 助手 / 我的（原型 TAB_DEFS，index.html L1284）；激活 #8b7355、未激活 #999；图标 = 原型 TAB_ICONS(L1267) 的真实 SVG，插件经 figma.createNodeFromSvg 渲染为矢量；indicator 渐变 #c9a66b→#d9a7b0。显示于 P-M8 / P-M3 / P-M10 / P-M10b / P-M9（各自选中）。",
+        "ai_entry": "AI 助手 = 第 3 个一级 Tab（原型口径，无悬浮 FAB）。差异备案：真实 apps/miniapp 为 3 Tab + AiAssistant.vue 悬浮入口（已接入 POST /api/v1/ai/chat），二者不一致在此显式记录，不静默取舍。",
+        "ai_page": "P-M10 / P-M10b = 原型 stuM10 的完整 AI 聊天页，属原型 TAB_PAGES → 显示 TabBar 且自身选中；副标题「智能课程助手 · 模拟对话（未接入真实 AI）」（原型口径）。",
+        "icon_policy": "学员端图标统一改用真实 SVG 矢量（figma.createNodeFromSvg），不再使用单字方块占位。",
+        "gradient_policy": "所有 CSS linear-gradient 不再近似为纯色，统一用原生 GRADIENT_LINEAR 填充（GRAD 常量表，按 CSS 角度换算 Figma gradientTransform；覆盖金按钮 / 金卡 / 头像 / AI 气泡 / Banner / 封面 / 分类胶囊 / TabBar 下划线 / 页面背景等；管理端与教师端同步）。",
+        "prototype_source_map": {
+          "P-M8": "index.html stuM8() L1326-L1350（home-navbar + Banner + 师资团队 + 推荐课程 + 全部课程入口 + 舞蹈视频）",
+          "P-M9": "index.html stuM9() L1354-L1369（我的 + 个人信息 + 我的会员卡入口 + 预约记录 + 解绑微信 + 退出登录）",
+          "P-M1": "index.html stuM1() L1482-L1500 + stuCardItem L1505-L1550（返回条 + filter-tabs + 卡片列表）",
+          "P-M1c": "index.html stuM1() invalid 分支（无效区 EXPIRED / CANCELLED）",
+          "P-M1d": "index.html stuEmptyM1() L1552-L1568（空态：3D 金卡插画 + 前往办理 + 权益四宫格）",
+          "P-M2": "index.html stuM2() L1590-L1612（pendingBanner + 返回 + 卡详情 + 使用记录 + 去预约）",
+          "P-M3": "index.html stuM3() L1678-L1689 + stuSchedCard L1660-L1677（排期列表 + 分类/日期胶囊 + 排期卡）",
+          "P-M4": "index.html stuM4() L1713-L1789 + cardOptionRow L1771-L1785（课程信息 + 使用会员卡 + 注意事项 + 底栏 + 选卡弹窗）",
+          "P-M5": "index.html stuM5() L1811-L1824（成功/失败 + 期卡分支）",
+          "P-M6": "index.html stuM6() L1827-L1875（4 个筛选 Tab + 预约卡 + P-M7 取消确认弹窗）",
+          "P-M10": "index.html stuM10() L1447-L1478 + stuAiWelcome L1437-L1446",
+          "P-M10b": "index.html stuM10() 对话态（用户/AI 气泡 + 加载三点 + 错误气泡）"
+        },
+        "developed_flag": "真实 apps/miniapp 已开发：P-M8 / P-M9 / P-M1 / P-M1c / P-M1d / P-M3 / P-M4 / P-M6；仅原型规划：P-M2 / P-M5 / P-M5b / P-M6b / P-M10 / P-M10b。差异清单见 figma-implementation-plan.md §7.4。"
+      }
+    },
+    "frame_sizes": {
+      "admin-web": "1440x900",
+      "teacher-web": "1440x900",
+      "miniapp": "375x812",
+      "overlay": "按内容自适应"
+    },
+    "source_of_truth": [
+      "docs/features/F6.0-membership-card-prototype/prototype/index.html (v8)",
+      "docs/features/F6.0-membership-card-prototype/figma-creation-guide.md (§0.5 / §1 / §3)"
+    ]
+  },
+  "pages": [
+    { "id": "00", "name": "00-业务总览与状态机", "size": "1440x900", "frames": ["F-00-1 卡状态机图", "F-00-2 预约状态机图", "F-00-3 流程总览 A-G", "F-00-4 决策便签索引 D1-D9"] },
+    { "id": "01", "name": "01-管理后台-会员卡管理", "size": "1440x900", "frames": ["P-A1", "P-A2", "P-A3(Overlay)"] },
+    { "id": "02", "name": "02-管理后台-学员课卡详情", "size": "1440x900", "frames": ["P-A4(Overlay)", "产品新建/编辑(Overlay)", "批量删除(Overlay)", "冻结(Overlay)", "续卡提示(Overlay)", "冻结到期-课程冲突(Overlay)", "批量作废(Overlay)"] },
+    { "id": "03", "name": "03-管理后台-预约与考勤", "size": "1440x900", "frames": ["P-A5", "P-A6"] },
+    { "id": "04", "name": "04-学员小程序-首页·我的·会员卡", "size": "375x812", "frames": ["P-M8", "P-M8b(滚动续)", "P-M9", "P-M1", "P-M1b(滚动续)", "P-M1c", "P-M1d", "P-M2"] },
+    { "id": "05", "name": "05-学员小程序-预约·选卡·AI助手", "size": "375x812", "frames": ["P-M3", "P-M4", "P-M5", "P-M5b", "P-M6", "P-M6b", "P-M10", "P-M10b", "P-M7(Overlay)", "OV-CARDSEL(Overlay)"] },
+    { "id": "06", "name": "06-教师与前台-签到核销", "size": "1440x900", "frames": ["P-T1"] },
+    { "id": "07", "name": "07-核销历史与异常处理", "size": "混合", "frames": ["P-A4-Empty", "P-M2-Empty", "P-M6-Alert", "P-T1-Error", "P-A4-Error", "loading 变体（v8 补）"] },
+    { "id": "08", "name": "08-跨端端到端原型", "size": "混合", "frames": ["F-Flow-A", "F-Flow-B", "F-Flow-C", "F-Flow-D", "F-Flow-E", "F-Flow-F", "F-Flow-G"] },
+    { "id": "09", "name": "09-异常状态与边界场景", "size": "混合", "frames": ["P-M3-Full", "P-M4-NoCard", "P-M4-Conflict", "P-A6-PendingReject", "P-M1-PendingExpired"] },
+    { "id": "10", "name": "10-可复用组件", "size": "-", "frames": ["全部组件（见 components.json）"] }
+  ],
+  "screen_frames": [
+    { "id": "P-A1", "name": "P-A1 卡产品管理", "page": "01", "end": "admin-web", "size": "1440x900", "source": "existing-upgrade", "v8_changes": ["删除「每周上限」字段", "删除「回收站/恢复」入口与视图"] },
+    { "id": "P-A2", "name": "P-A2 会员卡管理列表", "page": "01", "end": "admin-web", "size": "1440x900", "source": "existing-upgrade", "v8_changes": ["状态文案改 未激活/正常/已过期/已冻结/已作废", "补搜索框 + 状态多选 + 冻结信息列", "删除「延期」入口"] },
+    { "id": "P-A5", "name": "P-A5 预约管理列表", "page": "03", "end": "admin-web", "size": "1440x900", "source": "planning", "v8_changes": ["改期/改派按钮仍灰置(D7)"] },
+    { "id": "P-A6", "name": "P-A6 排期签到点名", "page": "03", "end": "admin-web", "size": "1440x900", "source": "planning", "v8_changes": ["D1/D5/D9 已确认 → 绿色便签 + D9 拦截画成确定交互"] },
+    { "id": "P-M8", "name": "P-M8 首页·课程列表", "page": "04", "end": "miniapp", "size": "375x812", "source": "v8-new", "real_source": "apps/miniapp/src/pages/student/courses/index.vue", "prototype_source": "index.html stuM8()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["v8 新增：顶部地点 navbar → Banner → 师资横滑 → 推荐课程 → 舞蹈视频", "内容高 1300px → 拆帧：P-M8b 承接折叠线以下（offset=738）", "TabBar active=home；图标改真实 SVG 矢量"] },
+    { "id": "P-M9", "name": "P-M9 我的·个人中心", "page": "04", "end": "miniapp", "size": "375x812", "source": "v8-new", "real_source": "apps/miniapp/src/pages/student/profile/index.vue", "prototype_source": "index.html stuM9()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["v8 新增：个人信息 → 我的会员卡入口 → 预约记录 → 解绑/退出", "菜单行 = 图标 + 标题 + 描述 + 右箭头（预约记录 / 解绑微信 / 退出登录）", "TabBar active=profile"] },
+    { "id": "P-M1", "name": "P-M1 我的会员卡列表", "page": "04", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "real_source": "apps/miniapp/src/pages/student/membership/index.vue", "prototype_source": "index.html stuM1() + stuCardItem()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["返回条「‹ 返回」+ 筛选胶囊（原型口径）", "推送页，不显示 TabBar", "内容高 1016px → 拆帧：P-M1b 承接折叠线以下（offset=678）", "有效区 6 张（使用中/已用完/未激活/冻结中）+ 无效区 2 张", "卡片补复制卡号按钮；未激活卡「立即激活」；冻结卡「提前解冻」"] },
+    { "id": "P-M1c", "name": "P-M1c 我的会员卡·无效课卡", "page": "04", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "real_source": "apps/miniapp/src/pages/student/membership/index.vue", "prototype_source": "index.html stuM1() invalid 分支", "developed": true, "prototype_aligned": "2026-10-18", "added": "2026-10-18", "v8_changes": ["已过期(EXPIRED) / 已作废(CANCELLED) 两张卡的无效区分组视图"] },
+    { "id": "P-M1d", "name": "P-M1d 我的会员卡·空状态", "page": "04", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "real_source": "apps/miniapp/src/pages/student/membership/index.vue", "prototype_source": "index.html stuEmptyM1()", "developed": true, "prototype_aligned": "2026-10-18", "added": "2026-10-18", "v8_changes": ["无卡空态：3D 金卡插画 + 前往办理 + 权益四宫格"] },
+    { "id": "P-M2", "name": "P-M2 卡详情+使用记录", "page": "04", "end": "miniapp", "size": "375x812", "source": "planning", "prototype_source": "index.html stuM2()", "developed": false, "v8_changes": ["pendingBanner + 推送页，不显示 TabBar", "真实项目不存在该页（卡片不可点击）", "卡详情 + 使用记录 + 去预约"] },
+    { "id": "P-M3", "name": "P-M3 课程排期选择", "page": "05", "end": "miniapp", "size": "375x812", "source": "existing", "real_source": "apps/miniapp/src/pages/student/schedule/index.vue", "prototype_source": "index.html stuM3() + stuSchedCard()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["TabBar active=schedule", "日期栏 = 昨天/今日/明日/周X/周X（原型 stuDateList i=-1..+3），选中今日", "排期卡三态按钮（预约 / 已满 / 取消）+ 取消时限提示", "图标改真实 SVG 矢量"] },
+    { "id": "P-M4", "name": "P-M4 预约确认选卡", "page": "05", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "real_source": "apps/miniapp/src/pages/student/booking-confirm/index.vue", "prototype_source": "index.html stuM4() + cardOptionRow()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["课程信息卡 + 使用会员卡卡 + 注意事项卡 + 底部取消/确认预约", "使用会员卡 → 底部弹窗 OV-CARDSEL（原型 card-selector-popup，非内联列表）", "D9 预期有效期冲突校验画成确定交互"] },
+    { "id": "P-M5", "name": "P-M5 预约结果页", "page": "05", "end": "miniapp", "size": "375x812", "source": "planning", "prototype_source": "index.html stuM5()", "developed": false, "v8_changes": ["次卡「已预扣 1 次」/ 期卡「首次上课后激活」（D9 绿便签）", "同帧补期卡分支：不扣次 + 预期有效期", "真实小程序无独立结果页"] },
+    { "id": "P-M5b", "name": "P-M5b 预约失败（名额已满）", "page": "05", "end": "miniapp", "size": "375x812", "source": "planning", "prototype_source": "index.html stuM5() fail 分支", "developed": false, "added": "2026-10-18", "v8_changes": ["错误态：✕ 插画 + 「预约失败 · 名额已满」+ 重新选择/返回首页"] },
+    { "id": "P-M6", "name": "P-M6 我的预约", "page": "05", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "real_source": "apps/miniapp/src/pages/student/bookings/index.vue", "prototype_source": "index.html stuM6()", "developed": true, "prototype_aligned": "2026-10-18", "v8_changes": ["4 个筛选 Tab（全部/待上课/上课中/已完成）+ 预约卡", "推送页，不显示 TabBar", "计划卡失效警示条(D3 绿) + 改期灰置(D7)", "4 种记录态：可取消 / 警示 / 取消时限灰态 / 已取消含原因"] },
+    { "id": "P-M6b", "name": "P-M6b 我的预约·空状态", "page": "05", "end": "miniapp", "size": "375x812", "source": "existing-upgrade", "prototype_source": "index.html stuM6() 空态分支", "developed": false, "added": "2026-10-18", "v8_changes": ["list.length === 0 空态：筛选 Tab + 日历插画 + 「暂无预约记录」"] },
+    { "id": "P-M10", "name": "P-M10 AI 助手（一级 Tab）", "page": "05", "end": "miniapp", "size": "375x812", "source": "v8-new", "prototype_source": "index.html stuM10() + stuAiWelcome()", "developed": false, "v8_changes": ["原型 stuM10 的完整聊天页：头部（AI 助手 / 智能课程助手 · 模拟对话（未接入真实 AI））+ 清空", "欢迎态「您可以问我：」+ 4 张常用问题卡（如何预约课程？ / 我的课卡还剩多少次？ / 如何取消或改约课程？ / 我最近预约了哪些课程？）", "底部固定输入区；TabBar active=ai（AI 为第 3 个一级 Tab）"] },
+    { "id": "P-M10b", "name": "P-M10b AI 助手·对话态", "page": "05", "end": "miniapp", "size": "375x812", "source": "v8-new", "prototype_source": "index.html stuM10() 对话态", "developed": false, "added": "2026-10-18", "v8_changes": ["用户/AI 气泡 + 加载三点 + 错误气泡（原型「抱歉，本次请求出现异常（演示用错误状态）。请稍后重试。」）+ 固定输入区", "TabBar active=ai"] },
+    { "id": "P-T1", "name": "P-T1 教师排期名单签到", "page": "06", "end": "teacher-web", "size": "1440x900", "source": "existing-upgrade", "v8_changes": ["新增「完成」按钮", "D9 签到校验计划卡状态"] }
+  ],
+  "overlay_frames": [
+    { "id": "P-A3", "name": "P-A3 发卡弹窗", "page": "01", "attach_to": "P-A2", "size": "420xauto", "v8_changes": ["删除「重复发卡策略开关」", "重复发卡改由「续卡提示」弹窗（后端 409 驱动）"] },
+    { "id": "P-A4", "name": "P-A4 卡详情弹窗", "page": "02", "attach_to": "P-A2", "size": "660xauto", "v8_changes": ["由 1440x900 独立页改为 Overlay 弹窗（el-descriptions :column=2 border）", "流水为「原型扩展」，真实详情弹窗不含流水"] },
+    { "id": "OV-PRODUCT", "name": "产品新建/编辑弹窗", "page": "02", "attach_to": "P-A1", "size": "auto", "fields": ["产品名称", "计费方式(次卡·期卡)", "包含次数", "有效天数", "价格", "适用课程类型", "描述"] },
+    { "id": "OV-BATCH-DELETE", "name": "批量删除弹窗", "page": "02", "attach_to": "P-A1", "size": "auto", "rule": "仅已下架的卡类型可删除" },
+    { "id": "OV-FREEZE", "name": "冻结弹窗", "page": "02", "attach_to": "P-A2", "size": "auto", "fields": ["冻结天数 1-365(默认7)", "冻结原因 textarea"] },
+    { "id": "OV-RENEWAL", "name": "续卡提示弹窗", "page": "02", "attach_to": "P-A2", "size": "auto", "rule": "新卡生效时间须晚于旧卡到期次日；系统自动设最早生效日" },
+    { "id": "OV-CONFLICT", "name": "冻结到期-课程冲突弹窗", "page": "02", "attach_to": "P-A2", "size": "auto", "rule": "两种处理：解冻并作废冲突卡 / 解冻并冻结冲突卡(365天)；含 action/remark/conflict_card_ids" },
+    { "id": "OV-BATCH-CANCEL", "name": "批量作废弹窗", "page": "02", "attach_to": "P-A2", "size": "auto" },
+    { "id": "P-M7", "name": "P-M7 取消确认弹窗", "page": "05", "attach_to": "P-M6", "size": "320xauto", "v8_changes": ["次卡回补预览 +1；期卡不激活不回补"] },
+    { "id": "OV-CARDSEL", "name": "OV-CARDSEL 选择会员卡底部弹窗", "page": "05", "attach_to": "P-M4", "size": "375x460", "landing_size": "375x460", "added": "2026-10-18", "prototype_source": "index.html stuM4() card-selector-popup", "v8_changes": ["P-M4 选卡为底部弹窗(.card-selector-popup)，非内联列表", "含单选态 + 4 条禁用行（reason 来自 bookCardOptions）", "底部「确定」按钮"] }
+  ],
+  "overlay_notes": [
+    "以下为复用 ConfirmDialog 组件的即时 Overlay（不计入 10 个 Overlay Frame）：作废弹窗、解冻确认、签到拦截弹窗、无法激活弹窗。",
+    "Page 07 需补齐 v8 缺失的 loading 变体（原型实测 loading|skeleton 0 命中），使 19 页面 + 10 弹窗四态齐备（AC7）。",
+    "流程 G 在指南中保留，但原型流程向导仅内置 A-F。"
+  ]
+}

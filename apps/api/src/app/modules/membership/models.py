@@ -189,6 +189,11 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
     )
     valid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="生效时间")
     expire_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="过期时间")
+    validity_days: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="发卡时确定的有效天数快照（期卡激活用）",
+    )
     applicable_course_ids: Mapped[list[int] | None] = mapped_column(
         ARRAY(Integer),
         nullable=True,
@@ -215,6 +220,9 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         DateTime(timezone=True), comment="冻结到期时间（NULL表示无限期冻结）"
     )
     frozen_reason: Mapped[str | None] = mapped_column(String(255), comment="冻结原因")
+    frozen_remaining_days: Mapped[int | None] = mapped_column(
+        Integer, comment="冻结时剩余的有效天数（用于解冻时重新计算有效期）"
+    )
     operator_id: Mapped[int | None] = mapped_column(BigInteger, comment="操作人ID")
     cancelled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), comment="作废时间"
@@ -222,6 +230,10 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
     cancelled_reason: Mapped[str | None] = mapped_column(String(255), comment="作废原因")
 
     __table_args__ = (
+        CheckConstraint(
+            "status IN (0, 1, 2, 3, 6)",
+            name="ck_membership_cards_status",
+        ),
         Index("idx_cards_student", "tenant_id", "student_id", "status"),
         Index("idx_cards_product", "tenant_id", "product_id"),
         Index("idx_cards_expire", "tenant_id", "expire_at", "status"),

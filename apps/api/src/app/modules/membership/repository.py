@@ -204,27 +204,16 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         db: AsyncSession,
         student_id: int,
         tenant_id: int,
-    ) -> list[dict]:
-        """获取学员的有效会员卡（返回包含关联信息的字典）"""
-        from app.modules.membership.models import MembershipCardProduct
-        from app.modules.user.models import User
-
+    ) -> list[MembershipCard]:
+        """获取学员的有效会员卡（返回 ORM 对象列表）"""
         query = (
-            select(
-                MembershipCard,
-                User.nickname.label("student_nickname"),
-                User.phone.label("student_phone"),
-                MembershipCardProduct.name.label("product_name"),
-            )
-            .outerjoin(User, MembershipCard.student_id == User.id)
-            .outerjoin(MembershipCardProduct, MembershipCard.product_id == MembershipCardProduct.id)
+            select(MembershipCard)
             .where(
                 MembershipCard.student_id == student_id,
                 MembershipCard.tenant_id == tenant_id,
                 MembershipCard.status.in_(
                     [
-                        CardStatus.ACTIVE.value,  # 正常
-                        CardStatus.PENDING.value,  # 待激活
+                        CardStatus.ACTIVE.value,  # 正常（仅展示当前正在使用的卡）
                     ]
                 ),
                 # 排除已过期的卡（expire_at < now 的卡不应被视为有效卡）
@@ -235,44 +224,53 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         )
 
         result = await db.execute(query)
-        rows = result.all()
+        return list(result.scalars().all())
 
-        # 转换为字典格式
-        cards = []
-        for row in rows:
-            card = row[0]
-            card_dict = {
-                "id": card.id,
-                "public_id": card.public_id,
-                "card_no": card.card_no,
-                "student_id": card.student_id,
-                "product_id": card.product_id,
-                "card_type": card.card_type,
-                "total_credits": card.total_credits,
-                "used_credits": card.used_credits,
-                "remaining_credits": (card.total_credits or 0) - card.used_credits
-                if card.total_credits is not None
-                else None,
-                "valid_from": card.valid_from,
-                "expire_at": card.expire_at,
-                "applicable_course_ids": card.applicable_course_ids,
-                "applicable_course_type_code": card.applicable_course_type_code,
-                "max_weekly_usage": card.max_weekly_usage,
-                "status": card.status,
-                "frozen_at": card.frozen_at,
-                "frozen_until": card.frozen_until,
-                "frozen_reason": card.frozen_reason,
-                "cancelled_at": card.cancelled_at,
-                "cancelled_reason": card.cancelled_reason,
-                "created_at": card.created_at,
-                "updated_at": card.updated_at,
-                "student_nickname": row.student_nickname,
-                "student_phone": row.student_phone,
-                "product_name": row.product_name,
-            }
-            cards.append(card_dict)
+    async def get_cards_for_update_by_student(
+        self,
+        db: AsyncSession,
+        student_id: int,
+        tenant_id: int,
+        *,
+        statuses: tuple[int, ...] | None = None,
+    ) -> list[MembershipCard]:
+        """锁定学员卡集（SELECT ... FOR UPDATE，按 id ASC 排序）
 
-        return cards
+        F6.3：期卡预约窗口校验 / 首次激活冲突校验需要覆盖
+        ACTIVE、PENDING、FROZEN 三种有效状态；既有
+        ``get_active_cards_by_student`` 只取 ACTIVE，会漏判 PENDING/FROZEN
+        重叠，因此单独提供该方法。
+
+        - 多行加锁统一按 ``id ASC``，与 F4.3 的死锁规避约定一致。
+        - 显式带 tenant_id 条件，租户自动注入仍会叠加（不会放宽隔离）。
+        """
+        if statuses is None:
+            statuses = (
+                CardStatus.ACTIVE.value,
+                CardStatus.PENDING.value,
+                CardStatus.FROZEN.value,
+            )
+
+        query = (
+            select(MembershipCard)
+            .where(
+                MembershipCard.student_id == student_id,
+                MembershipCard.tenant_id == tenant_id,
+                MembershipCard.status.in_(statuses),
+            )
+            .order_by(MembershipCard.id.asc())
+            # FOR NO KEY UPDATE（SQLAlchemy key_share=True）：
+            # 1) 与并发 booking 插入时 FK 持有的 FOR KEY SHARE 兼容，避免
+            #    “先插 booking 拿 KEY SHARE、再升级 FOR UPDATE”造成死锁；
+            # 2) 与其它 NO KEY UPDATE 互斥，仍能串行化扣次/激活。
+            .with_for_update(key_share=True)
+            # 锁等待期间行可能已被并发事务修改；强制用最新行覆盖 identity map，
+            # 否则锁后重检会读到加锁前的陈旧状态（并发激活会重复写流水）。
+            .execution_options(populate_existing=True)
+        )
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
 
     async def get_active_cards_by_product(
         self,

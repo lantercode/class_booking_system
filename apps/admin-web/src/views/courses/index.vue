@@ -178,8 +178,16 @@
           </div>
         </div>
 
-        <div v-loading="loading" class="table-wrapper">
-          <el-table :data="courses" stripe style="width: 100%" :header-cell-style="headerCellStyle">
+        <div v-if="loadError" class="list-error-block">
+          <el-result icon="error" title="加载课程列表失败" :sub-title="loadError">
+            <template #extra>
+              <el-button type="primary" @click="fetchCourses">重试</el-button>
+            </template>
+          </el-result>
+        </div>
+
+        <div v-else v-loading="loading" class="table-wrapper">
+          <el-table :data="courses" stripe style="width: 100%" empty-text="暂无数据" :header-cell-style="headerCellStyle">
             <el-table-column type="index" label="序号" width="60" align="center" />
             <el-table-column label="课程名称">
               <template #default="{ row }">
@@ -772,6 +780,7 @@ async function handleDeleteCategory(row: CourseCategory) {
 
 // ==================== 课程相关 ====================
 const loading = ref(false)
+const loadError = ref('')
 const courseSubmitting = ref(false)
 const courses = ref<Course[]>([])
 const total = ref(0)
@@ -805,6 +814,7 @@ const courseRules = computed(() => ({
 
 async function fetchCourses() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await courseApi.list({
       page: currentPage.value,
@@ -818,7 +828,8 @@ async function fetchCourses() {
     courses.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载课程列表失败')
+    loadError.value = e?.response?.data?.msg || '加载课程列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -1002,6 +1013,13 @@ onMounted(() => {
   align-items: stretch;
   flex: 1;
   min-height: 0;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
 }
 
 /* ===== 左侧分类面板 ===== */

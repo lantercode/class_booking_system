@@ -57,6 +57,7 @@ class Order(Base, TenantMixin, TimestampMixin):
     expire_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     membership_card_id: Mapped[int | None] = mapped_column(
         BigInteger,
+        ForeignKey("membership_cards.id", ondelete="SET NULL"),
         nullable=True,
         comment="关联会员卡ID（购买次卡时生成）",
     )
@@ -64,4 +65,5 @@ class Order(Base, TenantMixin, TimestampMixin):
     __table_args__ = (
         Index("idx_orders_user", "tenant_id", "user_id", "status"),
         Index("idx_orders_status_created", "tenant_id", "status", text("created_at DESC")),
+        Index("ix_orders_membership_card_id", "membership_card_id"),
     )

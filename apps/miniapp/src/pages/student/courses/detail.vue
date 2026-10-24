@@ -164,8 +164,9 @@ const bookingLoading = reactive<Record<number, boolean>>({});
 
 const systemInfo = uni.getSystemInfoSync();
 const menuButton = uni.getMenuButtonBoundingClientRect();
+// 状态栏高度在 H5/部分设备可能为 undefined，缺省按 0 处理
 const navbarHeight =
-  systemInfo.statusBarHeight + Math.max(menuButton.height + 10, 44);
+  (systemInfo.statusBarHeight ?? 0) + Math.max(menuButton.height + 10, 44);
 const heroHeightPx = (380 / 750) * systemInfo.windowWidth;
 const footerBarHeightPx = 120; // 底部按钮区域高度
 const scrollViewHeight = ref(

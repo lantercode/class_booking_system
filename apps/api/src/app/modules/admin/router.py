@@ -116,14 +116,8 @@ async def get_user(
     current_user: dict = Depends(get_current_user),
 ):
     """获取用户详情"""
-    return success(
-        data={
-            "id": user_id,
-            "username": f"user_{user_id}",
-            "phone": "13800138000",
-            "roles": ["student"],
-        }
-    )
+    result = await admin_user_service.get_user(db, user_id)
+    return success(data=result)
 
 
 @router.put(
@@ -144,12 +138,15 @@ async def update_user(
     data: UserUpdate = ...,
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
+    redis_client=Depends(get_redis_client),
 ):
     """更新用户"""
     result = await admin_user_service.update_user(
+        db,
         user_id,
         data.model_dump(exclude_unset=True),
         current_user,
+        redis_client,
     )
     return success(data=result, msg=f"用户 {user_id} 更新成功")
 
@@ -323,15 +320,11 @@ async def admin_dashboard(
     summary="系统设置",
     description="""系统设置页面。
 
-**权限要求**: admin:all 或 super:manage（OR 逻辑）
-
-OR 逻辑说明：
-- 有 admin:all 权限的普通管理员可以访问
-- 有 super:manage 权限的超管也可以访问
-- 两者满足其一即可""",
+**角色要求**: admin 或 super_admin（OR 逻辑）""",
 )
-@require_permissions("admin:all", "super:manage", require_all=False)
+@require_roles("admin", "super_admin")
 async def system_settings(
+    db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
     """系统设置"""
@@ -375,21 +368,10 @@ async def assign_user_roles(
     redis_client=Depends(get_redis_client),
 ):
     """分配用户角色"""
-    import logging
-
-    logger = logging.getLogger(__name__)
-    logger.info(f"[Admin] 用户 {current_user['user_id']} 正在为用户 {user_id} 分配角色: {role_ids}")
-
-    from app.core.rbac import clear_user_permission_cache
-
-    if redis_client:
-        await clear_user_permission_cache(
-            redis_client,
-            current_user.get("tenant_id"),
-            user_id,
-        )
-
-    return success(data={"user_id": user_id, "role_ids": role_ids}, msg="角色分配成功")
+    result = await admin_user_service.assign_roles(
+        db, user_id, role_ids, current_user, redis_client
+    )
+    return success(data=result, msg="角色分配成功")
 
 
 # ============================================================
@@ -435,16 +417,12 @@ async def get_my_permissions(
 - 学校简介中的数字
 - 其他不敏感的聚合数据""",
 )
-async def public_stats():
-    """公开接口"""
-    return success(
-        data={
-            "total_students": 5000,
-            "total_teachers": 200,
-            "total_classes": 1000,
-            "total_bookings": 10000,
-        }
-    )
+async def public_stats(
+    db: AsyncSession = Depends(get_session),
+):
+    """公开接口（真实聚合统计，按当前租户范围）"""
+    result = await admin_user_service.get_public_stats(db)
+    return success(data=result)
 
 
 # ============================================================
@@ -458,19 +436,14 @@ async def public_stats():
     summary="批量删除用户（高危）",
     description="""批量删除多个用户（极度危险的操作！）。
 
-**角色要求**: super_admin AND security_admin（必须同时拥有两个角色）
-
-为什么用 AND 逻辑？
-- 单人误操作风险太高
-- 需要两种不同角色的确认
-- 类似银行转账需要两个U盾的场景
+**角色要求**: super_admin（仅超级管理员）
 
 ⚠️⚠️⚠️ 极度危险操作 ⚠️⚠️⚠️
-- 只有同时拥有 super_admin 和 security_admin 角色的用户才能执行
+- 只有超级管理员才能执行
 - 会触发审计日志告警
 - 建议增加二次确认机制""",
 )
-@require_roles("super_admin", "security_admin", require_all=True)
+@require_roles("super_admin")
 async def batch_delete_users(
     user_ids: list[int] = Query(..., description="要删除的用户ID列表"),
     db: AsyncSession = Depends(get_session),
@@ -478,24 +451,10 @@ async def batch_delete_users(
     redis_client=Depends(get_redis_client),
 ):
     """批量删除用户"""
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    logger.critical(
-        f"[ADMIN] 极危操作：用户 {current_user['user_id']} "
-        f"(roles={current_user.get('role_codes')}) "
-        f"正在批量删除用户: {user_ids}"
+    result = await admin_user_service.batch_delete_users(
+        db, user_ids, current_user, redis_client
     )
-
-    from app.core.rbac.cache import clear_user_permission_cache
-
-    tenant_id = current_user.get("tenant_id")
-    for uid in user_ids:
-        if redis_client:
-            await clear_user_permission_cache(redis_client, tenant_id, uid)
-
     return success(
-        data={"deleted_count": len(user_ids), "user_ids": user_ids},
-        msg=f"已批量删除 {len(user_ids)} 个用户",
+        data=result,
+        msg=f"已批量删除 {result['deleted_count']} 个用户",
     )

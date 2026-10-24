@@ -5,7 +5,15 @@
       <span style="color: #909399; font-size: 14px">最后更新：刚刚</span>
     </div>
 
-    <div class="dashboard-content">
+    <div v-if="loadError" class="dashboard-error-block">
+      <el-result icon="error" title="加载控制台数据失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchDashboard">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
+    <div v-else v-loading="loading" class="dashboard-content">
       <div class="stat-cards">
         <div class="stat-card">
           <div class="stat-card-header">
@@ -65,7 +73,7 @@
           <template #header>
             <span style="font-weight: 600">最近预约</span>
           </template>
-          <el-table :data="recentBookings" size="small" style="width: 100%">
+          <el-table :data="recentBookings" size="small" style="width: 100%" empty-text="暂无数据">
             <el-table-column prop="student" label="学员" />
             <el-table-column prop="course" label="课程" />
             <el-table-column prop="time" label="时间" width="160" />
@@ -83,7 +91,7 @@
           <template #header>
             <span style="font-weight: 600">禁用教师</span>
           </template>
-          <el-table :data="disabledTeachers" size="small" style="width: 100%">
+          <el-table :data="disabledTeachers" size="small" style="width: 100%" empty-text="暂无数据">
             <el-table-column prop="name" label="姓名" />
             <el-table-column prop="phone" label="手机号" />
             <el-table-column prop="speciality" label="专长" />
@@ -102,6 +110,7 @@
 <script setup lang="ts">
 import { apiClient } from '@dance-saas/api-client'
 import { Calendar, Checked, Reading, User } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
 const totalUsers = ref(0)
@@ -110,8 +119,12 @@ const monthlySchedules = ref(0)
 const monthlyBookings = ref(0)
 const recentBookings = ref<any[]>([])
 const disabledTeachers = ref<any[]>([])
+const loading = ref(false)
+const loadError = ref('')
 
 async function fetchDashboard() {
+  loading.value = true
+  loadError.value = ''
   try {
     const res = await apiClient.get('/admin/dashboard')
     const data = res.data
@@ -121,7 +134,12 @@ async function fetchDashboard() {
     monthlyBookings.value = data.monthly_bookings
     recentBookings.value = data.recent_bookings
     disabledTeachers.value = data.disabled_teachers
-  } catch (_) {}
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载控制台数据失败'
+    ElMessage.error(loadError.value)
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
@@ -150,6 +168,18 @@ onMounted(() => {
   &::-webkit-scrollbar-thumb:hover {
     background: #c0c4cc;
   }
+}
+
+.dashboard-error-block {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
+  margin-top: 16px;
+  padding: 40px 0;
 }
 
 .dashboard-content {

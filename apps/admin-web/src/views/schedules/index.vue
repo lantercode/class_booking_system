@@ -59,11 +59,21 @@
       </div>
     </div>
 
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载排期列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchSchedules">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
     <el-table
+      v-else
       v-loading="loading"
       :data="schedules"
       stripe
       style="width: 100%"
+      empty-text="暂无数据"
       @selection-change="handleSelectionChange"
     >
       <el-table-column type="selection" width="55" />
@@ -479,6 +489,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
 const loading = ref(false)
+const loadError = ref('')
 const submitting = ref(false)
 const batchDeleting = ref(false)
 const schedules = ref<Schedule[]>([])
@@ -564,11 +575,14 @@ async function fetchLookups() {
     for (const r of classrooms.value) classroomMap.value[r.id] = r.name
     teacherMap.value = {}
     for (const t of teachers.value) teacherMap.value[t.id] = t.nickname || t.phone
-  } catch (_) {}
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '加载课程/教室/教师数据失败')
+  }
 }
 
 async function fetchSchedules() {
   loading.value = true
+  loadError.value = ''
   try {
     const params: any = { page: page.value, page_size: pageSize.value }
     if (teacherFilter.value) {
@@ -594,7 +608,8 @@ async function fetchSchedules() {
     schedules.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载排期列表失败')
+    loadError.value = e?.response?.data?.msg || '加载排期列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -1126,5 +1141,12 @@ onMounted(() => {
 .filter-bar :deep(.el-date-editor--daterange .el-range-separator) {
   width: 16px !important;
   padding: 0 2px !important;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
 }
 </style>

@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F7.0 后台管理端增强与小程序首页配置 · 可交互原型</title>
+<style>
+:root{
+  --blue:#409EFF; --blue-d:#337ecc; --green:#67c23a; --green-d:#5daf34;
+  --brand:#667eea; --brand2:#764ba2;
+  --gold:#C9A66B; --gold-d:#B8956A; --gold-l:#DBC18A;
+  --gold-grad:linear-gradient(135deg,#C9A66B 0%,#D4AF77 50%,#E8D5B7 100%);
+  --gold-grad-btn:linear-gradient(135deg,#d4b896 0%,#c9a66b 100%);
+  --red:#f56c6c; --orange:#e6a23c; --gray:#909399; --gray-l:#c0c4cc;
+  --bg:#f0f2f5; --sidebar:#1a1a2e; --card:#fff; --border:#ebeef5; --border-d:#dcdfe6;
+  --text:#303133; --text-2:#606266; --text-3:#909399;
+  --shadow:0 2px 12px 0 rgba(0,0,0,.08); --shadow-d:0 2px 16px 0 rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+button{font-family:inherit;cursor:pointer;border:1px solid var(--border-d);background:#fff;color:var(--text-2);border-radius:4px;padding:7px 14px;font-size:13px;transition:.1s}
+.hide{display:none!important}
+
+/* ---------- 外壳：顶栏 + 舞台 + 面板（对齐 F6.0） ---------- */
+#topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:8px;padding:0 16px;height:48px;background:#fff;border-bottom:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.04)}
+#topbar .brand{font-weight:600;font-size:15px;margin-right:8px;color:var(--blue)}
+#topbar .brand small{font-weight:400;color:var(--text-3);font-size:12px;margin-left:6px}
+#topbar .spacer{flex:1}
+.view-tabs{display:flex;gap:2px;background:#f0f2f5;border-radius:6px;padding:2px}
+.view-tabs button{border:none;background:transparent;padding:6px 12px;border-radius:4px;color:var(--text-2)}
+.view-tabs button.active{background:#fff;color:var(--blue);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#stage{display:flex;gap:16px;padding:16px;align-items:flex-start}
+.panel{background:#fff;border-radius:8px;box-shadow:var(--shadow);overflow:hidden;flex-shrink:0}
+#admin-panel{width:1000px}
+.page-title{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:#fafafa}
+.page-title h2{font-size:15px;font-weight:600}
+.page-title .pid{font-size:11px;color:#fff;background:var(--blue);padding:2px 8px;border-radius:10px;margin-right:8px}
+.pt-right{display:flex;align-items:center;gap:10px}
+.admin-body{display:flex;height:620px}
+.admin-side{width:200px;background:#1a1a2e;border-right:none;padding:0 0 8px;overflow-y:auto;flex-shrink:0}
+.admin-side .logo{height:60px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:6px}
+.admin-side .logo .ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+.admin-side .logo .tt{color:#fff;font-weight:700;font-size:15px}
+.admin-side .nav-item{display:flex;align-items:center;padding:11px 18px;font-size:13px;cursor:pointer;color:#a0a0b8;border-left:3px solid transparent}
+.admin-side .nav-item .ni{display:inline-block;width:16px;margin-right:8px;opacity:.85}
+.admin-side .nav-item .ni svg{width:16px;height:16px;display:inline-block;vertical-align:middle;fill:currentColor}
+.admin-side .nav-item:hover{color:#fff;background:rgba(102,126,234,.12)}
+.admin-side .nav-item.active{color:#fff;font-weight:600;background:linear-gradient(90deg,rgba(102,126,234,.3),transparent);border-left-color:#667eea}
+.admin-side .badge-new{margin-left:auto;font-size:10px;background:var(--red);color:#fff;border-radius:8px;padding:1px 6px}
+.admin-main{flex:1;overflow:auto;padding:14px}
+
+.user-area{position:relative}
+.user-info{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;border-radius:8px}
+.user-info:hover{background:#f5f7fa}
+.user-info .uname{font-size:14px;color:var(--text)}
+.user-info .caret{color:var(--text-3)}
+.dropdown{display:none;position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-d);min-width:150px;padding:6px;z-index:30}
+.dropdown.open{display:block}
+.dropdown .di{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:6px;font-size:14px;color:var(--text-2)}
+.dropdown .di:hover{background:#f5f7fa;color:var(--blue)}
+.dropdown .di.danger:hover{background:#fef0f0;color:var(--red)}
+
+/* ---------- 通用 Element Plus 风格 ---------- */
+.btn{font-family:inherit;cursor:pointer;border:1px solid var(--border-d);background:#fff;color:var(--text-2);border-radius:4px;padding:7px 14px;font-size:13px;transition:.1s}
+.btn:hover{color:var(--blue);border-color:#c6e2ff;background:#ecf5ff}
+.btn.primary{background:linear-gradient(135deg,#409eff 0%,#3a8ee6 100%);border:none;color:#fff;box-shadow:0 2px 8px rgba(64,158,255,.3)}
+.btn.primary:hover{background:linear-gradient(135deg,#3a8ee6 0%,#337ecc 100%);color:#fff;box-shadow:0 4px 12px rgba(64,158,255,.4);transform:translateY(-1px)}
+.btn.primary:active{transform:translateY(0)}
+/* 面板标题区按钮对齐真实 admin-web 页头按钮规范（radius 8px / font-weight 500 / transition .2s） */
+.page-title .btn{border-radius:8px;font-weight:500;transition:all .2s ease}
+.btn.ghost{font-family:inherit;cursor:pointer;border:1px solid var(--border-d);background:#fff;color:var(--text-2);border-radius:4px;padding:7px 14px;font-size:13px;transition:.1s}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.link{border:none;background:transparent;color:var(--blue);padding:4px 8px}
+.btn.link:hover{background:transparent;color:var(--blue-d)}
+.btn.link.warn{color:var(--orange)}
+.btn.link.danger{color:var(--red)}
+.btn:disabled{cursor:not-allowed;color:var(--gray-l);background:#f5f7fa;border-color:#e4e7ed}
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.input{width:100%;padding:8px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px;font-family:inherit}
+.toolbar .input{padding:6px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px}
+.input:focus{border-color:var(--blue)}
+select.input{cursor:pointer}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;background:#f0f2f5;color:var(--text-2)}
+.tag.success{background:#f0f9eb;color:#67c23a;border:1px solid #c2e7b0}
+.tag.info{background:#f4f4f5;color:#909399;border:1px solid #e9e9eb}
+.tag.warn{background:#fdf6ec;color:#e6a23c;border:1px solid #f5dab1}
+.tag.danger{background:#fef0f0;color:#f56c6c;border:1px solid #fbc4c4}
+.tag.primary{background:#ecf5ff;color:#409eff;border:1px solid #b3d8ff}
+.pending{margin-left:6px;font-size:11px;color:#e6a23c;border:1px dashed #e6a23c;border-radius:4px;padding:0 5px}
+
+/* 表格 */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid #ebeef5;border-radius:8px;overflow:hidden}
+.tbl th{background:#f5f7fa;color:#303133;font-weight:600;text-align:left;padding:10px 8px;border-bottom:1px solid #ebeef5;white-space:nowrap}
+.tbl td{padding:10px 8px;border-bottom:1px solid #ebeef5;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#f5f7fa}
+.tbl tbody tr:nth-child(even) td{background:#fafafa}
+.tbl tbody tr:nth-child(even):hover td{background:#f0f2f5}
+.avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#f0f2f5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:600;overflow:hidden}
+.avatar.sm{width:32px;height:32px;font-size:12px}
+.avatar.lg{width:72px;height:72px;font-size:24px}
+.avatar.ph{background:linear-gradient(135deg,#c0c4cc,#909399)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.thumb{width:56px;height:36px;border-radius:6px;object-fit:cover;background:#f0f2f5;display:block}
+.cover-ph{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:repeating-linear-gradient(45deg,#f5f6f8,#f5f6f8 8px,#eceef1 8px,#eceef1 16px);color:var(--text-3);font-size:12px}
+
+/* 结果/空态 */
+.result{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center;color:var(--text-3)}
+.result .ico{font-size:40px;margin-bottom:10px}
+.result .rt{font-size:16px;color:var(--text);margin-top:10px}
+.result .rs{font-size:12px;color:var(--text-3)}
+.result.err .ico{color:var(--red)}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center;color:var(--text-3)}
+.empty .ico{font-size:40px;margin-bottom:10px}
+.empty .et{margin-bottom:12px;max-width:280px;font-size:14px}
+
+/* 卡片视图 */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.rcard{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;border:1px solid rgba(201,166,107,.14);overflow:hidden;display:flex;flex-direction:column}
+.rcard .rc-cover{height:140px;background:#f0f2f5;position:relative}
+.rcard .rc-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.rcard .rc-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.rcard .rc-title{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:600}
+.rcard .rc-line{display:flex;align-items:center;gap:8px;color:var(--text-2);font-size:13px}
+.rcard .rc-line svg{flex:none;color:var(--text-3)}
+.rcard .rc-actions{margin-top:auto;padding-top:10px;border-top:1px solid var(--border);display:flex;gap:12px}
+
+/* 抽屉 */
+.drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:none}
+.drawer-mask.show{display:block}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:560px;max-width:92vw;background:#fff;box-shadow:var(--shadow-d);z-index:61;transform:translateX(100%);transition:transform .25s;display:flex;flex-direction:column}
+.drawer.show{transform:translateX(0)}
+.drawer .dh{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.drawer .db{padding:20px;overflow:auto;flex:1}
+.drawer .df{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+/* 弹窗 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.mask.show{display:flex}
+.modal{background:#fff;border-radius:8px;width:480px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:var(--shadow-d)}
+.modal.wide{width:640px}
+.modal.slim{width:420px}
+.modal .mh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);font-size:16px;font-weight:600}
+.modal .mb{padding:18px;overflow:auto}
+.modal .mf{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.close-x{cursor:pointer;color:var(--text-3);font-size:18px}
+.field{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start}
+.field .lb{width:82px;flex:0 0 82px;text-align:right;color:var(--text-2);font-size:13px;padding-top:8px}
+.field .fc{flex:1;min-width:0}
+.field .fc .input,.field .fc select{width:100%;padding:8px 10px;border:1px solid var(--border-d);border-radius:4px;font-size:13px;font-family:inherit}
+.field .tip{font-size:12px;color:var(--text-3);margin-top:4px}
+.field .err{font-size:12px;color:var(--red);margin-top:6px}
+.readonly{background:#f5f7fa;color:var(--text-3)}
+
+/* 图片上传区 */
+.uploader{display:flex;gap:14px;align-items:flex-start}
+.up-box{width:104px;height:104px;border:1px dashed var(--border-d);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-3);cursor:pointer;background:#fafafa;position:relative;overflow:hidden}
+.up-box:hover{border-color:var(--blue);color:var(--blue)}
+.up-box img{width:100%;height:100%;object-fit:cover}
+.up-box.uploading{border-style:solid;border-color:var(--blue)}
+.spinner{width:22px;height:22px;border:2px solid #d9ecff;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.up-side{display:flex;flex-direction:column;gap:8px;flex:1}
+.up-side .hint{font-size:12px;color:var(--text-3)}
+.up-err{font-size:12px;color:var(--red)}
+.up-ok{font-size:12px;color:var(--green)}
+.up-actions{display:flex;gap:8px;flex-wrap:wrap}
+.demo-note{font-size:11px;color:var(--orange);background:#fdf6ec;border:1px dashed #f5d0a0;border-radius:6px;padding:4px 8px;display:inline-block}
+
+/* 手机预览（复刻真实 miniapp 学员端首页 apps/miniapp/src/pages/student/courses/index.vue） */
+.phone-wrap{display:flex;gap:28px;flex-wrap:wrap}
+.phone{position:relative;display:flex;flex-direction:column;width:340px;height:680px;background:#111;border-radius:34px;padding:10px;box-shadow:var(--shadow-d);flex:0 0 auto}
+.phone .screen{flex:1;overflow-y:auto;border-radius:26px;position:relative;background:linear-gradient(180deg,#faf6f0 0%,#f5ede3 100%)}
+/* 顶部导航栏（AppNavbar variant=default：纯白底 + 下边框） */
+.m-nav{position:sticky;top:0;z-index:6;display:flex;align-items:center;justify-content:space-between;height:46px;padding:0 12px;background:#fff;border-bottom:1px solid #ebeef5}
+.m-nav .loc{display:flex;align-items:center;gap:4px;color:#3d2e1f;font-size:14px;font-weight:500;cursor:pointer;min-width:0}
+.m-nav .loc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-nav .loc svg{color:#8b7355;flex-shrink:0}
+.m-nav .capsule{display:flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:13px;border:1px solid rgba(0,0,0,.08);background:rgba(0,0,0,.03);flex-shrink:0}
+.m-nav .capsule i{width:4px;height:4px;border-radius:50%;background:#333}
+.m-nav .capsule .sep{width:1px;height:14px;background:rgba(0,0,0,.14)}
+.m-nav .capsule .ring{width:12px;height:12px;border-radius:50%;border:1.5px solid #333}
+/* Banner 轮播（135deg 深→浅遮罩 + 金色指示点） */
+.m-banner{position:relative;width:100%;height:164px;overflow:hidden;background:#e8ddd0}
+.m-banner img{width:100%;height:100%;object-fit:cover;display:block}
+.m-banner .bov{position:absolute;inset:0;background:linear-gradient(135deg,rgba(30,22,16,.75) 0%,rgba(30,22,16,.4) 50%,rgba(30,22,16,.1) 100%)}
+.m-banner .bcap{position:absolute;left:16px;right:16px;bottom:26px}
+.m-banner .bcap b{display:block;font-size:20px;font-weight:700;color:#fff;line-height:1.35;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.35)}
+.m-banner .bcap span{display:block;font-size:12px;color:rgba(255,255,255,.9);line-height:1.5;text-shadow:0 .5px 2px rgba(0,0,0,.25)}
+.m-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:5px}
+.m-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4)}
+.m-dots i.on{background:#c9a66b}
+/* 通用 section 标题（金色线性图标 + 标题 + 更多） */
+.m-sec{padding:16px 14px 0}
+.m-sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.m-sh .mst{display:flex;align-items:center;gap:6px}
+.m-sh .mst svg{color:#c9a66b;flex-shrink:0}
+.m-sh .mst b{font-size:15px;font-weight:600;color:#3d2e1f}
+.m-sh .more{display:flex;align-items:center;gap:1px;font-size:11px;color:#8b7355;cursor:pointer}
+/* 师资（横向滚动 + 奶油渐变圆形头像 + 姓名/专长两行） */
+.m-trow{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px}
+.m-teacher{display:flex;flex-direction:column;align-items:center;width:64px;flex-shrink:0;cursor:pointer}
+.m-tav{width:54px;height:54px;border-radius:50%;overflow:hidden;border:1px solid rgba(201,166,107,.3);background:linear-gradient(135deg,#f5e6d3 0%,#e8d5c4 100%);display:flex;align-items:center;justify-content:center}
+.m-tav img{width:100%;height:100%;object-fit:cover}
+.m-tav span{font-size:20px;font-weight:600;color:#8b7355}
+.m-tn{display:block;font-size:12px;font-weight:500;color:#3d2e1f;margin-top:6px;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-ts{display:block;font-size:10px;color:#8b7355;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+/* 推荐课程（左图右文横向卡片） */
+.m-clist{display:flex;flex-direction:column;gap:10px}
+.m-course{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.92);border:1px solid rgba(201,166,107,.12);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.04);padding:8px;cursor:pointer}
+.m-cimg{width:62px;height:62px;border-radius:8px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,#2d2418 0%,#5a4632 100%)}
+.m-cimg img{width:100%;height:100%;object-fit:cover}
+.m-cinfo{display:flex;flex-direction:column;min-width:0}
+.m-cname{font-size:14px;font-weight:600;color:#3d2e1f;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-cdesc{font-size:11px;color:#8b7355;line-height:1.5}
+/* 舞蹈视频（封面 + 金色圆形播放按钮 + 时长胶囊） */
+.m-vcard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.05);border:1px solid rgba(201,166,107,.12)}
+.m-vcover{position:relative;width:100%;height:160px;overflow:hidden;background:#ddd}
+.m-vcover img{width:100%;height:100%;object-fit:cover;display:block}
+.m-vov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.4))}
+.m-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:rgba(201,166,107,.9);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.m-play svg{color:#fff}
+.m-vdur{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;line-height:1.4;padding:2px 6px;border-radius:10px}
+.m-vinfo{padding:10px 12px}
+.m-vtitle{font-size:14px;font-weight:600;color:#3d2e1f;display:block}
+.m-vdesc{font-size:11px;color:#8b7355;margin-top:4px;display:block;line-height:1.5}
+/* 公告 */
+.m-notice{background:#fff;border-radius:12px;border:1px solid rgba(201,166,107,.12);padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.04)}
+.m-notice b{font-size:13px;color:#3d2e1f;display:block}
+.m-notice p{font-size:11px;color:#8b7355;margin-top:4px;line-height:1.6}
+/* 底部 TabBar（对齐 F6.0 学员端原型口径 4 Tab：首页/排期/AI 助手/我的；AI 为第 3 个一级 Tab，激活 #8b7355，无悬浮 FAB） */
+.m-tabbar{position:sticky;bottom:0;z-index:6;display:flex;background:#fff;border-top:1px solid #f5f5f5;box-shadow:0 -2px 12px rgba(0,0,0,.04);padding:7px 0 11px;margin-top:16px}
+.m-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;color:#999;cursor:pointer}
+.m-tab svg{color:#999}
+.m-tab span{font-size:10px;color:#999}
+.m-tab.on svg{color:#8b7355}
+.m-tab.on span{color:#8b7355;font-weight:500}
+.m-tab .ind{position:absolute;bottom:-3px;width:20px;height:2px;border-radius:1px;background:linear-gradient(90deg,#c9a66b,#d9a7b0)}
+.ph-hidden-note{font-size:11px;color:var(--text-3);text-align:center;padding:14px}
+
+/* Toast */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:6px;z-index:200;font-size:13px;box-shadow:var(--shadow-d);display:none}
+.toast.show{display:block;animation:fade .3s}
+@keyframes fade{from{opacity:0;top:40px}to{opacity:1;top:60px}}
+.toast.success{color:#67c23a}
+.toast.error{color:#f56c6c}
+.toast.info{color:#fff}
+
+.note-bar{display:flex;gap:8px;align-items:flex-start;background:#fff8ec;border:1px dashed #e0b070;color:#a9702a;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6}
+.note-bar.warn{background:#f0f9eb;border:1px solid #c2e7b0;border-left:4px solid #67c23a;border-radius:4px;padding:8px 10px;font-size:12px;color:#4e7a35;margin:8px 0;line-height:1.6}
+.mock-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;font-size:10px;line-height:1.5;background:rgba(255,244,224,.14);color:#d0a35c;border:1px solid rgba(208,163,92,.4);vertical-align:middle}
+.switch{width:40px;height:22px;border-radius:11px;background:var(--gray-l);position:relative;cursor:pointer;transition:.2s;display:inline-block;vertical-align:middle}
+.switch.on{background:var(--green)}
+.switch i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}
+.switch.on i{left:20px}
+.mod-row{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.mod-row.dis{opacity:.6}
+.mod-row .mname{font-weight:600;font-size:15px}
+.mod-row .mtype{font-size:12px;color:var(--text-3)}
+.mod-row .mright{margin-left:auto;display:flex;align-items:center;gap:14px}
+.drag-handle{cursor:grab;color:var(--text-3);font-size:16px;letter-spacing:1px;user-select:none;padding:0 2px}
+.drag-handle:active{cursor:grabbing}
+.ord-no{min-width:22px;height:22px;border-radius:50%;background:#ecf5ff;color:var(--blue);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.mod-row.dragging{opacity:.45}
+.mod-row.drag-over{border-color:var(--blue);box-shadow:0 0 0 2px rgba(64,158,255,.25)}
+.multi{border:1px solid var(--border-d);border-radius:6px;padding:10px;max-height:180px;overflow:auto;background:#fff}
+.multi .mt{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:6px;cursor:pointer}
+.multi .mt:hover{background:#f5f7fa}
+.multi .mt.sel{background:#ecf5ff}
+.chk{width:16px;height:16px;border:1px solid var(--border-d);border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
+.chk.on{background:var(--blue);border-color:var(--blue)}
+.legend{font-size:12px;color:var(--text-3);margin-top:14px;line-height:1.9}
+.legend .k{color:var(--orange)}
+@media(max-width:1080px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="brand">约课管理系统 <small>F7.0 后台管理端增强 · 用户确认方案</small></div>
+  <div class="spacer"></div>
+  <button class="btn sm" onclick="resetData()">↺ 重置数据</button>
+  <div class="view-tabs" id="topbar-tabs"></div>
+</div>
+
+<div id="stage">
+  <div id="admin-panel" class="panel">
+    <div class="page-title">
+      <h2><span class="pid">ADMIN</span><span id="admin-ptitle">用户管理</span></h2>
+      <div class="pt-right">
+        <span id="admin-actions"></span>
+        <div class="user-area" id="admin-header"></div>
+      </div>
+    </div>
+    <div class="admin-body">
+      <div class="admin-side" id="admin-side"></div>
+      <div class="admin-main" id="admin-main"></div>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mask"><div class="modal" id="modal-box"></div></div>
+<div class="drawer-mask" id="drawer-mask"><div class="drawer" id="drawer-box"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+ * F7.0 原型脚本（单文件、Mock 数据、无真实后端）
+ * 说明：所有数据均为「原型模拟数据」；上传/发布/接口均为模拟，未接通后端。
+ * ========================================================================= */
+
+/* ---------- 图片工具：全部用内联 SVG dataURI，保证离线可运行 ---------- */
+function svgURI(inner){
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(inner);
+}
+function gradCover(a,b,label){
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="'+a+'"/><stop offset="1" stop-color="'+b+'"/></linearGradient></defs>' +
+    '<rect width="640" height="360" fill="url(#g)"/>' +
+    (label ? '<text x="32" y="300" font-family="sans-serif" font-size="26" fill="#ffffff" fill-opacity="0.92">'+label+'</text>' : '') +
+    '</svg>';
+  return svgURI(svg);
+}
+function initialsAvatar(name, color){
+  var ini = (name||'?').slice(0,1);
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">' +
+    '<rect width="120" height="120" fill="'+color+'"/>' +
+    '<text x="60" y="76" font-family="sans-serif" font-size="52" fill="#ffffff" text-anchor="middle">'+ini+'</text></svg>';
+  return svgURI(svg);
+}
+var IMG = {
+  BANNER1: gradCover('#C9A66B','#8b7355','让舞蹈成为生活的一部分'),
+  BANNER2: gradCover('#667eea','#764ba2','专业师资团队'),
+  VIDEO1:  gradCover('#5b7cfa','#8a5cf6','古典舞《身韵》教学'),
+  ROOM1:   gradCover('#6ea8fe','#3b82f6'),   // 教室占位封面：仅渐变，不叠文案
+  ROOM2:   gradCover('#f0a6ca','#c2578f'),   // 教室占位封面：仅渐变，不叠文案
+  BROKEN:  ''   // 未设置封面 / 图片失效 → 统一「暂无图片」占位
+};
+function imgSrc(key){ if(!key) return ''; return IMG[key]===undefined? key : IMG[key]; }
+
+/* ---------- Mock 业务数据（原型模拟数据） ---------- */
+function seedUsers(){
+  return [
+    {id:1, nickname:'林小雅', phone:'13800001234', teacher_code:'', student_code:'S2026001', status:1, wechat_bound:true, created_at:'2026-03-12', avatar_url: initialsAvatar('林','#C9A66B')},
+    {id:2, nickname:'王梓涵', phone:'13900002222', teacher_code:'T2026007', student_code:'', status:1, wechat_bound:true, created_at:'2026-02-08', avatar_url: initialsAvatar('王','#667eea')},
+    {id:3, nickname:'陈默',   phone:'13700003333', teacher_code:'', student_code:'S2026014', status:1, wechat_bound:false, created_at:'2026-04-01', avatar_url:''},
+    {id:4, nickname:'赵可可', phone:'13600004444', teacher_code:'', student_code:'S2026022', status:0, wechat_bound:false, created_at:'2026-04-18', avatar_url:'BROKEN'},
+    {id:5, nickname:'孙一鸣', phone:'13500005555', teacher_code:'T2026011', student_code:'', status:1, wechat_bound:true, created_at:'2026-01-20', avatar_url: initialsAvatar('孙','#5daf34')}
+  ];
+}
+function seedClassrooms(){
+  return [
+    {id:1, code:'R-001', name:'舞蹈教室 A', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','音响'], cover:'ROOM1'},
+    {id:2, code:'R-002', name:'舞蹈教室 B', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','投影仪'], cover:'ROOM2'},
+    {id:3, code:'R-003', name:'多功能排练厅', location:'舞蹈中心 1 楼', equipment:['音响','灯光'], cover:''},
+    {id:4, code:'R-004', name:'小班瑜伽室', location:'舞蹈中心 2 楼', equipment:['瑜伽垫','灯光'], cover:'BROKEN'}
+  ];
+}
+var MOCK_TEACHERS = [
+  {id:1, name:'王梓涵', specialty:'中国古典舞'},
+  {id:2, name:'李思彤', specialty:'现代舞'},
+  {id:3, name:'张浩',   specialty:'街舞'},
+  {id:4, name:'刘佳',   specialty:'芭蕾'},
+  {id:5, name:'陈曦',   specialty:'民族舞'}
+];
+var MOCK_COURSES = [
+  {id:1, name:'古典舞基础班', type:'常规课'},
+  {id:2, name:'街舞入门',     type:'特色课'},
+  {id:3, name:'芭蕾形体',     type:'常规课'},
+  {id:4, name:'现代舞进阶',   type:'特色课'},
+  {id:5, name:'私教一对一',   type:'私教课'}
+];
+
+/* ---------- 全局状态 ---------- */
+var STATE = {};
+function resetData(){
+  STATE = {
+    view:'admin',
+    adminPage:'P-F7-01',          // 当前管理端页面
+    userMenuOpen:false,           // 右上角下拉
+    profile:{ nickname:'林小雅', phone:'13800001234', avatar:initialsAvatar('林','#C9A66B'), roles:['admin'] },
+    profileUpload:{ state:'idle', preview:'', url:'', name:'' },
+    users: seedUsers(),
+    userDialog:{ open:false, mode:'create', form:{id:null,phone:'',nickname:'',password:'',roleCodes:[]}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    classrooms: seedClassrooms(),
+    classroomDialog:{ open:false, mode:'create', form:{id:null,code:'',name:'',location:'',equipment:[],cover:''}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    classroomSearch:'',
+    userSearch:'',
+    listLoading:false,
+    listError:'',
+    home:{
+      modules:[
+        {type:'banner',   name:'Banner 轮播',  title:'首页轮播', enabled:true,  sort:1,
+          items:[{image:'BANNER1', title:'让舞蹈成为生活的一部分', subtitle:'遇见更好的自己 · 从一堂舞蹈课开始', link:'none', order:1}]},
+        {type:'teachers', name:'师资团队',     title:'师资团队', enabled:true,  sort:2, limit:6, teacher_ids:[1,2,3]},
+        {type:'courses',  name:'推荐课程',     title:'推荐课程', enabled:true,  sort:3, limit:4, course_ids:[1,2], sort_rule:'manual'},
+        {type:'video',    name:'舞蹈视频',     title:'舞动 · 让生活更美好', enabled:true, sort:4,
+          items:[{title:'中国古典舞《身韵》基础教学', cover:'VIDEO1', url:'https://www.w3schools.com/html/mov_bbb.mp4', link:'none'}]},
+        {type:'notice',   name:'公告/活动',    title:'公告', enabled:false, sort:5,
+          noticeTitle:'2026 秋季招生开始啦', content:'新生报名享 8 折优惠，名额有限', image:'', valid_from:'2026-10-01', valid_to:'2026-11-30', status:'展示'}
+      ],
+      dirty:false,                // 草稿是否有未发布变更
+      publishedVersion:0,         // 线上版本号
+      draftVersion:1,
+      lastPublishedAt:'',
+      publishResult:''            // '' | 'success' | 'fail'
+    },
+    drawer:{ open:false, type:'', form:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    previewFail:false,            // 预览页模拟"接口失败"
+    publish:{ open:false, confirmFail:false, confirming:false },
+    modalOpen:false, modalHtml:'', modalSize:'',   // 通用弹窗（退出确认等）
+    dragType:null, dragOver:null,                  // 首页模块拖动排序态
+    toast:{ msg:'', type:'' }
+  };
+}
+resetData();
+
+/* ---------- 通用工具 ---------- */
+function q(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(msg, type){
+  STATE.toast = { msg: msg, type: type||'info' };
+  var t = q('toast');
+  t.className = 'toast show ' + (type||'info');
+  t.innerHTML = '<span>'+esc(msg)+'</span>';
+}
+function homeModule(type){
+  for(var i=0;i<STATE.home.modules.length;i++){ if(STATE.home.modules[i].type===type) return STATE.home.modules[i]; }
+  return null;
+}
+/* 头像/封面渲染：空或 BROKEN → 占位；否则渲染图片（含 onerror 回退占位） */
+function avatarTag(src, name, cls){
+  cls = cls || 'avatar';
+  var s = imgSrc(src);
+  var ph = '<div class="'+cls+' ph" title="默认头像">'+esc((name||'?').slice(0,1))+'</div>';
+  if(!s) return ph;
+  return '<div class="'+cls+'"><img src="'+s+'" alt="'+esc(name||'')+'" onerror="this.parentNode.classList.add(\'ph\');this.parentNode.innerHTML=\''+esc((name||'?').slice(0,1))+'\'"></div>';
+}
+function coverTag(src, label, cls){
+  var s = imgSrc(src);
+  if(!s) return '<div class="'+(cls==='thumb'?'cover-ph':'cover-ph')+'">暂无图片</div>';
+  return '<img class="'+cls+'" src="'+s+'" alt="'+esc(label||'')+'" onerror="this.outerHTML=\'<div class=&quot;cover-ph&quot;>图片加载失败</div>\'">';
+}
+
+/* ---------- 侧边导航 ---------- */
+/* 图标取自真实 admin-web 侧栏所用的 @element-plus/icons-vue（v2.3.2）SVG path，
+   与真实页面图标完全一致（非 emoji）；仅展示本次原型范围内的菜单。 */
+var ICON = {
+  user: ['M512 512a192 192 0 1 0 0-384 192 192 0 0 0 0 384m0 64a256 256 0 1 1 0-512 256 256 0 0 1 0 512m320 320v-96a96 96 0 0 0-96-96H288a96 96 0 0 0-96 96v96a32 32 0 1 1-64 0v-96a160 160 0 0 1 160-160h448a160 160 0 0 1 160 160v96a32 32 0 1 1-64 0'],
+  officeBuilding: ['M192 128v704h384V128zm-32-64h448a32 32 0 0 1 32 32v768a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V96a32 32 0 0 1 32-32','M256 256h256v64H256zm0 192h256v64H256zm0 192h256v64H256zm384-128h128v64H640zm0 128h128v64H640zM64 832h896v64H64z','M640 384v448h192V384zm-32-64h256a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H608a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32'],
+  homeFilled: ['M512 128 128 447.936V896h255.936V640H640v256h255.936V447.936z']
+};
+function iconSvg(key){
+  var ds = ICON[key] || [], out = '';
+  for(var i=0;i<ds.length;i++){ out += '<path fill="currentColor" d="'+ds[i]+'"/>'; }
+  return '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+out+'</svg>';
+}
+/* 小程序端线性图标（取自真实 miniapp src/static/icons/icon-map.ts，stroke=currentColor，viewBox 0 0 24 24），
+   用于 P-F7-14 预览页复刻真实学员端首页的标题/导航/TabBar 图标。 */
+var MINI = {
+  location: '<path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/>',
+  chevronDown: '<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  people: '<circle cx="9" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M3 21V19C3 16.7909 4.79086 15 7 15H11C13.2091 15 15 16.7909 15 19V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="17" cy="7" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M21 21V19.5C21 17.567 19.433 16 17.5 16H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  play: '<path d="M5 3L19 12L5 21V3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  tabHome: '<path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 22V12H15V22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  tabBooking: '<rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 10H21" stroke="currentColor" stroke-width="1.5"/><path d="M8 14H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 14H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 14H16.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 18H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 18H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  tabProfile: '<circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M20 21C20 17.134 16.4183 14 12 14C7.58172 14 4 17.134 4 21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+  robot: '<rect x="4" y="8" width="16" height="12" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="14" r="1.5" fill="currentColor"/><circle cx="15" cy="14" r="1.5" fill="currentColor"/><path d="M12 2V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="12" cy="2" r="1" fill="currentColor"/>',
+  equip: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/>'
+};
+function miniIcon(key, size){
+  var s = MINI[key] || '';
+  size = size || 15;
+  return '<svg viewBox="0 0 24 24" width="'+size+'" height="'+size+'" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'+s+'</svg>';
+}
+/* 仅保留本次 F7.0 原型覆盖的菜单（用户管理 / 教室管理 / 小程序首页），
+   其余（角色权限/教师管理/学员管理/课程管理/排期管理/卡产品管理/会员卡管理/机构设置）不在本次范围内，不展示。 */
+var MENU = [
+  {page:'P-F7-01', title:'用户管理', icon:'user'},
+  {page:'P-F7-05', title:'教室管理', icon:'officeBuilding'},
+  {page:'P-F7-08', title:'小程序首页', icon:'homeFilled', isNew:true}
+];
+function goAdmin(page){
+  STATE.adminPage = page;
+  STATE.userMenuOpen = false;
+  STATE.profileUpload = { state:'idle', preview:'', url:'', name:'' };
+  renderAll();
+}
+function renderAdminSide(){
+  var html = '<div class="logo"><div class="ic">☰</div><div class="tt">约课管理</div></div>';
+  MENU.forEach(function(m){
+    html += '<div class="nav-item '+(STATE.adminPage===m.page?'active':'')+'" onclick="goAdmin(\''+m.page+'\')">'+
+      '<span class="ni">'+iconSvg(m.icon)+'</span><span>'+m.title+'</span>'+
+      (m.isNew?'<span class="badge-new">NEW</span>':'')+'</div>';
+  });
+  q('admin-side').innerHTML = html;
+}
+
+/* ---------- 顶栏视图切换（对齐 F6.0 顶栏 .view-tabs） ---------- */
+function renderTopbar(){
+  var isMini = STATE.adminPage==='P-F7-14';
+  q('topbar-tabs').innerHTML =
+    '<button class="'+(isMini?'':'active')+'" onclick="goAdminEdit()">管理后台</button>'+
+    '<button class="'+(isMini?'active':'')+'" onclick="previewHome()">小程序预览</button>';
+}
+function goAdminEdit(){ if(STATE.adminPage==='P-F7-14'){ backToHomeEdit(); } else { renderAll(); } }
+
+/* ---------- 顶栏用户区（P-F7-03） ---------- */
+function toggleUserMenu(){ STATE.userMenuOpen = !STATE.userMenuOpen; renderHeader(); }
+function renderHeader(){
+  var p = STATE.profile;
+  var html = '<div class="user-info" onclick="toggleUserMenu()">'+
+    avatarTag(p.avatar, p.nickname, 'avatar sm')+
+    '<span class="uname">'+esc(p.nickname)+'</span><span class="caret">▾</span></div>';
+  html += '<div class="dropdown'+(STATE.userMenuOpen?' open':'')+'">'+
+    '<div class="di" onclick="openProfile()">📝 个人资料</div>'+
+    '<div class="di danger" onclick="handleLogout()">⏻ 退出登录</div></div>';
+  q('admin-header').innerHTML = html;
+}
+function handleLogout(){ STATE.userMenuOpen=false; openModal(renderLogoutConfirm(), 'slim'); }
+function doLogout(){ closeModal(); toast('已退出登录（原型模拟，未真正登出）','info'); }
+
+/* ---------- 路由：主区渲染 ---------- */
+var ADMIN_ACTIONS = '';
+function renderAdminPage(){
+  var page = STATE.adminPage, html='';
+  var titles = {'P-F7-01':'用户管理','P-F7-05':'教室管理','P-F7-08':'小程序首页 / 首页管理','P-F7-14':'小程序首页预览','roles':'角色权限','teachers':'教师管理','students':'学员管理','courses':'课程管理','schedules':'排期管理','card-types':'卡产品管理','membership':'会员卡管理','tenant':'机构设置'};
+  q('admin-ptitle').textContent = titles[page] || '用户管理';
+  ADMIN_ACTIONS = '';
+
+  if(page==='P-F7-01') html = renderUsersPage();
+  else if(page==='P-F7-05') html = renderClassroomsPage();
+  else if(page==='P-F7-08') html = renderHomePage();
+  else if(page==='P-F7-14') html = renderPreviewPage();
+  else html = '<div class="empty"><div class="ico">🚧</div><div class="et">「'+esc(titles[page]||page)+'」为项目现有页面，本原型未重绘（F7.0 范围外）</div></div>';
+  q('admin-actions').innerHTML = ADMIN_ACTIONS;
+  q('admin-main').innerHTML = html;
+}
+
+/* ================= P-F7-01 / P-F7-02 用户管理 ================= */
+function renderUsersPage(){
+  var rows = STATE.users.filter(function(u){
+    if(!STATE.userSearch) return true;
+    return (u.nickname||'').indexOf(STATE.userSearch)>=0 || (u.phone||'').indexOf(STATE.userSearch)>=0;
+  });
+  ADMIN_ACTIONS = '<button class="btn primary" onclick="openUserDialog(\'create\')">新增</button>';
+  var html = '';
+
+  html += '<div class="toolbar">'+
+    '<input class="input" style="width:240px" placeholder="搜索手机号/昵称" value="'+esc(STATE.userSearch)+'" oninput="onUserSearch(this.value)">'+
+    '<select class="input" style="width:140px"><option>全部角色</option><option>管理员</option><option>教师</option><option>学员</option></select>'+
+    '<select class="input" style="width:140px"><option>全部状态</option><option>正常</option><option>禁用</option></select>'+
+    '<span class="mock-tag">原型模拟数据（含新增「头像」列）</span></div>';
+
+  if(STATE.listError){
+    html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载用户列表失败</div><div class="rs">'+esc(STATE.listError)+'</div>'+
+      '<div style="margin-top:14px"><button class="btn primary" onclick="reloadUsers()">重试</button></div></div>';
+  } else if(rows.length===0){
+    html += '<div class="empty"><div class="ico">📭</div><div class="et">'+(STATE.users.length? '未找到匹配的用户':'暂无数据')+'</div>'+
+      (STATE.users.length? '<div style="margin-top:12px"><button class="btn" onclick="onUserSearch(\'\')">清空筛选</button></div>':'')+'</div>';
+  } else {
+    html += '<table class="tbl"><thead><tr>'+
+      '<th style="width:70px">头像</th><th>昵称</th><th style="width:140px">手机号</th><th style="width:150px">教师编号</th>'+
+      '<th style="width:150px">学员编号</th><th style="width:80px">状态</th><th style="width:100px">微信绑定</th>'+
+      '<th style="width:130px">注册时间</th><th style="width:230px">操作</th></tr></thead><tbody>';
+    rows.forEach(function(u){
+      html += '<tr>'+
+        '<td>'+avatarTag(u.avatar_url, u.nickname, 'avatar')+'</td>'+
+        '<td>'+(u.nickname||'-')+'</td>'+
+        '<td>'+esc(u.phone)+'</td>'+
+        '<td>'+(u.teacher_code||'-')+'</td>'+
+        '<td>'+(u.student_code||'-')+'</td>'+
+        '<td><span class="tag '+(u.status===1?'success':'danger')+'">'+(u.status===1?'正常':'禁用')+'</span></td>'+
+        '<td><span class="tag '+(u.wechat_bound?'success':'info')+'">'+(u.wechat_bound?'已绑定':'未绑定')+'</span></td>'+
+        '<td>'+esc(u.created_at)+'</td>'+
+        '<td>'+
+          '<button class="btn link" onclick="openUserDialog(\'edit\','+u.id+')">编辑</button>'+
+          '<button class="btn link warn" onclick="toast(\'重置密码（原型模拟）\',\'info\')">重置密码</button>'+
+          '<button class="btn link danger" onclick="toast(\'删除需二次确认（原型模拟）\',\'info\')">删除</button>'+
+        '</td></tr>';
+    });
+    html += '</tbody></table>';
+    html += '<div style="margin-top:16px;color:var(--text-3);font-size:13px">共 '+rows.length+' 条　分页：1（原型仅演示一页）</div>';
+  }
+  return html;
+}
+function onUserSearch(v){ STATE.userSearch = v; renderAdminPage(); }
+function reloadUsers(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
+
+/* --- 上传区渲染（用户/教室/资料/抽屉 共用） --- */
+function renderUploader(upload, ctx){
+  var u = upload, s = u.state;
+  var box = '';
+  if(s==='idle') box = '<div class="up-box" onclick="imageChoose(\''+ctx+'\',\'ok\')">＋<div style="font-size:12px">选择图片</div></div>';
+  else if(s==='preview') box = '<div class="up-box"><img src="'+imgSrc(u.preview)+'" alt="预览"></div>';
+  else if(s==='uploading') box = '<div class="up-box uploading"><div class="spinner"></div><div style="font-size:12px">上传中…</div></div>';
+  else if(s==='success') box = '<div class="up-box"><img src="'+imgSrc(u.url)+'" alt="头像"></div>';
+  else box = '<div class="up-box" style="border-style:solid;border-color:var(--red);color:var(--red)">✕</div>';
+
+  var side = '<div class="up-side">';
+  if(s==='idle'){
+    side += '<div class="hint">支持 JPG / PNG / WebP，≤ 5MB</div>';
+  } else if(s==='preview'){
+    side += '<div class="hint">已选择，尚未上传</div>'+
+      '<div class="up-actions"><button class="btn sm primary" onclick="imageUpload(\''+ctx+'\')">上传</button>'+
+      '<button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">更换</button>'+
+      '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">移除</button></div>';
+  } else if(s==='uploading'){
+    side += '<div class="hint">正在上传到对象存储…（原型模拟，未接通）</div>'+
+      '<div class="up-actions"><button class="btn sm" onclick="imageResolve(\''+ctx+'\',true)">模拟成功</button>'+
+      '<button class="btn sm" onclick="imageResolve(\''+ctx+'\',false)">模拟失败</button></div>';
+  } else if(s==='success'){
+    side += '<div class="up-ok">✓ 上传成功（原型模拟）</div>'+
+      '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">更换</button>'+
+      '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">移除</button></div>';
+  } else if(s==='format-error'){
+    side += '<div class="up-err">仅支持 JPG / PNG / WebP 格式</div>'+
+      '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">重新选择</button></div>';
+  } else if(s==='size-error'){
+    side += '<div class="up-err">文件超过 5MB，请压缩后重试</div>'+
+      '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">重新选择</button></div>';
+  } else if(s==='fail'){
+    side += '<div class="up-err">上传失败：网络异常</div>'+
+      '<div class="up-actions"><button class="btn sm primary" onclick="imageUpload(\''+ctx+'\')">重试</button>'+
+      '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">取消</button></div>';
+  }
+  side += '</div>';
+  return '<div class="uploader">'+box+side+'</div>';
+}
+function uploadHolder(ctx){
+  if(ctx==='user') return STATE.userDialog.upload;
+  if(ctx==='classroom') return STATE.classroomDialog.upload;
+  if(ctx==='profile') return STATE.profileUpload;
+  if(ctx==='drawer') return STATE.drawer.upload;
+  return STATE.userDialog.upload;
+}
+function imageChoose(ctx, kind){
+  var u = uploadHolder(ctx);
+  if(kind==='bad-format'){ u.state='format-error'; u.preview=''; toast('仅支持 JPG/PNG/WebP','error'); }
+  else if(kind==='big'){ u.state='size-error'; u.preview=''; toast('文件超过 5MB','error'); }
+  else { u.state='preview'; u.preview = ctx==='classroom'? 'ROOM1' : (ctx==='drawer' ? 'VIDEO1' : 'BANNER2'); u.name='demo.jpg'; }
+  renderAll();
+}
+function imageUpload(ctx){
+  var u = uploadHolder(ctx); u.state='uploading'; renderAll();
+}
+function imageResolve(ctx, ok){
+  var u = uploadHolder(ctx);
+  if(ok){ u.state='success'; u.url = u.preview; toast('上传成功（原型模拟）','success'); }
+  else { u.state='fail'; toast('上传失败，可重试','error'); }
+  renderAll();
+}
+function imageRemove(ctx){
+  var u = uploadHolder(ctx); u.state='idle'; u.preview=''; u.url=''; renderAll();
+}
+
+/* --- 新增/编辑用户弹窗（P-F7-02） --- */
+function openUserDialog(mode, id){
+  STATE.userDialog.mode = mode;
+  STATE.userDialog.errors = {};
+  STATE.userDialog.upload = {state:'idle', preview:'', url:'', name:''};
+  if(mode==='edit'){
+    var u = findUser(id);
+    STATE.userDialog.form = {id:u.id, phone:u.phone, nickname:u.nickname, password:'', roleCodes:['student']};
+    if(u.avatar_url && u.avatar_url!=='BROKEN'){ STATE.userDialog.upload.state='success'; STATE.userDialog.upload.url=u.avatar_url; }
+  } else {
+    STATE.userDialog.form = {id:null, phone:'', nickname:'', password:'', roleCodes:[]};
+  }
+  STATE.userDialog.open = true;
+  renderAll();
+}
+function findUser(id){ for(var i=0;i<STATE.users.length;i++){ if(STATE.users[i].id===id) return STATE.users[i]; } return null; }
+function closeUserDialog(){ STATE.userDialog.open=false; STATE.userDialog.upload={state:'idle',preview:'',url:'',name:''}; renderAll(); }
+function uf(k, v){ STATE.userDialog.form[k]=v; }
+
+function renderUserDialog(){
+  var d = STATE.userDialog, f = d.form, e = d.errors;
+  var isEdit = d.mode==='edit';
+  var html = '<div class="mh"><span>'+(isEdit?'编辑用户':'新增用户')+'</span><span class="close-x" onclick="closeUserDialog()">✕</span></div>';
+  html += '<div class="mb">';
+  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(d.upload,'user')+'<div class="tip">'+(isEdit?'取消不会覆盖原头像':'上传后随用户一起创建')+'</div></div></div>';
+  html += '<div class="field"><div class="lb">手机号</div><div class="fc">'+
+    (isEdit ? '<input class="input readonly" value="'+esc(f.phone)+'" disabled>'
+            : '<input class="input" value="'+esc(f.phone)+'" placeholder="请输入手机号" oninput="uf(\'phone\',this.value)">')+
+    (e.phone?'<div class="err">'+esc(e.phone)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" placeholder="请输入昵称" oninput="uf(\'nickname\',this.value)">'+
+    (e.nickname?'<div class="err">'+esc(e.nickname)+'</div>':'')+'</div></div>';
+  if(!isEdit){
+    html += '<div class="field"><div class="lb">密码</div><div class="fc"><input class="input" type="password" value="'+esc(f.password)+'" placeholder="至少6位" oninput="uf(\'password\',this.value)">'+
+      (e.password?'<div class="err">'+esc(e.password)+'</div>':'')+'</div></div>';
+  }
+  html += '<div class="field"><div class="lb">角色</div><div class="fc"><select class="input"><option>请选择角色（原型简化）</option><option>学员</option><option>教师</option><option>管理员</option></select>'+
+    (e.roleCodes?'<div class="err">'+esc(e.roleCodes)+'</div>':'')+'</div></div>';
+  html += '</div>';
+  html += '<div class="mf"><button class="btn" onclick="closeUserDialog()">取消</button>'+
+    '<button class="btn primary" onclick="saveUser()">确定</button></div>';
+  return '<div class="modal">'+html+'</div>';
+}
+function saveUser(){
+  var d = STATE.userDialog, f = d.form, e = {};
+  if(d.mode==='create'){
+    if(!/^1[3-9]\d{9}$/.test(f.phone)) e.phone='手机号格式不正确';
+    if(!f.password || f.password.length<6) e.password='密码至少6位';
+  }
+  if(!f.nickname) e.nickname='请输入昵称';
+  d.errors = e;
+  if(Object.keys(e).length){ toast('表单校验未通过','error'); renderAll(); return; }
+  var avatar = d.upload.state==='success' ? d.upload.url : '';
+  if(d.mode==='edit'){
+    var u = findUser(f.id); u.nickname=f.nickname; if(avatar) u.avatar_url=avatar;
+  } else {
+    STATE.users.push({id:Date.now(), nickname:f.nickname, phone:f.phone, teacher_code:'', student_code:'', status:1, wechat_bound:false, created_at:'2026-10-19', avatar_url:avatar});
+  }
+  closeUserDialog();
+  toast(d.mode==='edit'?'用户已更新（原型模拟）':'用户已创建（原型模拟）','success');
+}
+
+/* ================= P-F7-05 教室管理（仅卡片视图，无列表/表格视图） ================= */
+function onClassroomSearch(v){ STATE.classroomSearch=v; renderAdminPage(); }
+function renderClassroomsPage(){
+  var list = STATE.classrooms.filter(function(r){
+    if(!STATE.classroomSearch) return true;
+    return (r.name||'').indexOf(STATE.classroomSearch)>=0;
+  });
+  ADMIN_ACTIONS = '<button class="btn primary" onclick="openClassroomDialog(\'create\')">新增</button>';
+  var html = '';
+  html += '<div class="toolbar"><input class="input" style="width:240px" placeholder="搜索教室名称" value="'+esc(STATE.classroomSearch)+'" oninput="onClassroomSearch(this.value)">'+
+    '<span class="mock-tag">原型模拟数据（封面图/位置为待评审新增字段；教室编码为已确认新增字段）</span></div>';
+
+  if(STATE.listError){
+    html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载教室列表失败</div><div class="rs">'+esc(STATE.listError)+'</div>'+
+      '<div style="margin-top:14px"><button class="btn primary" onclick="reloadClassrooms()">重试</button></div></div>';
+    return html;
+  }
+  if(list.length===0){
+    html += '<div class="empty"><div class="ico">📭</div><div class="et">'+(STATE.classrooms.length?'未找到匹配的教室':'暂无数据')+'</div>'+
+      (STATE.classrooms.length?'<div style="margin-top:12px"><button class="btn" onclick="onClassroomSearch(\'\')">清空筛选</button></div>':'')+'</div>';
+    return html;
+  }
+  html += '<div class="grid">';
+  list.forEach(function(r){
+    html += '<div class="rcard"><div class="rc-cover">'+coverTag(r.cover, r.name, '')+'</div><div class="rc-body">'+
+      '<div class="rc-title"><span>'+esc(r.name)+'</span><span class="tag info">'+esc(r.code||'--')+'</span></div>'+
+      '<div class="rc-line">'+miniIcon('location',13)+' '+(r.location||'--')+' <span class="pending">待评审</span></div>'+
+      '<div class="rc-line">'+miniIcon('equip',13)+' '+esc((r.equipment||[]).join('、')||'--')+'</div>'+
+      '<div class="rc-actions"><button class="btn link" onclick="openClassroomDialog(\'edit\','+r.id+')">编辑</button>'+
+      '<button class="btn link danger" onclick="toast(\'删除需二次确认（原型模拟）\',\'info\')">删除</button></div></div></div>';
+  });
+  html += '</div>';
+  return html;
+}
+function reloadClassrooms(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
+function findRoom(id){ for(var i=0;i<STATE.classrooms.length;i++){ if(STATE.classrooms[i].id===id) return STATE.classrooms[i]; } return null; }
+function openClassroomDialog(mode, id){
+  STATE.classroomDialog.mode = mode;
+  STATE.classroomDialog.errors = {};
+  STATE.classroomDialog.upload = {state:'idle',preview:'',url:'',name:''};
+  if(mode==='edit'){
+    var r = findRoom(id);
+    STATE.classroomDialog.form = {id:r.id, code:r.code||'', name:r.name, location:r.location||'', equipment:(r.equipment||[]).slice(), cover:''};
+    if(r.cover && r.cover!=='BROKEN'){ STATE.classroomDialog.upload.state='success'; STATE.classroomDialog.upload.url=r.cover; }
+  } else {
+    STATE.classroomDialog.form = {id:null, code:'', name:'', location:'', equipment:[], cover:''};
+  }
+  STATE.classroomDialog.open = true;
+  renderAll();
+}
+function closeClassroomDialog(){ STATE.classroomDialog.open=false; renderAll(); }
+function cf(k,v){ STATE.classroomDialog.form[k]=v; }
+function renderClassroomDialog(){
+  var d = STATE.classroomDialog, f=d.form, e=d.errors, isEdit=d.mode==='edit';
+  var html = '<div class="mh"><span>'+(isEdit?'编辑教室':'新增教室')+'</span><span class="close-x" onclick="closeClassroomDialog()">✕</span></div><div class="mb">';
+  html += '<div class="field"><div class="lb">封面图</div><div class="fc">'+renderUploader(d.upload,'classroom')+'<div class="tip">建议 16:9 横图；缺失时显示占位图</div></div></div>';
+  html += '<div class="field"><div class="lb">教室编码</div><div class="fc"><input class="input" value="'+esc(f.code)+'" placeholder="如：R-001" oninput="cf(\'code\',this.value)">'+(e.code?'<div class="err">'+esc(e.code)+'</div>':'')+'<div class="tip">已确认字段：租户内唯一编号，必填</div></div></div>';
+  html += '<div class="field"><div class="lb">教室名称</div><div class="fc"><input class="input" value="'+esc(f.name)+'" placeholder="请输入教室名称" oninput="cf(\'name\',this.value)">'+(e.name?'<div class="err">'+esc(e.name)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">位置</div><div class="fc"><input class="input" value="'+esc(f.location)+'" placeholder="如：舞蹈中心 3 楼" oninput="cf(\'location\',this.value)"><div class="tip">新增字段，<span class="pending">待评审</span></div></div></div>';
+  html += '<div class="field"><div class="lb">设备</div><div class="fc"><select class="input" multiple size="4"><option selected>镜子</option><option>把杆</option><option selected>音响</option><option>投影仪</option><option>瑜伽垫</option><option>灯光</option></select><div class="tip">沿用现有预设设备（原型简化）</div></div></div>';
+  html += '</div><div class="mf"><button class="btn" onclick="closeClassroomDialog()">取消</button><button class="btn primary" onclick="saveClassroom()">确定</button></div>';
+  return '<div class="modal">'+html+'</div>';
+}
+function saveClassroom(){
+  var d = STATE.classroomDialog, f=d.form, e={};
+  if(!f.code) e.code='请输入教室编码';
+  else if(STATE.classrooms.some(function(r){ return r.id!==f.id && String(r.code||'').trim().toLowerCase()===String(f.code).trim().toLowerCase(); })) e.code='教室编码已存在';
+  if(!f.name) e.name='请输入教室名称';
+  d.errors=e;
+  if(Object.keys(e).length){ toast('请检查表单','error'); renderAll(); return; }
+  var cover = d.upload.state==='success' ? d.upload.url : '';
+  if(d.mode==='edit'){
+    var r=findRoom(f.id); r.code=f.code; r.name=f.name; r.location=f.location; if(cover) r.cover=cover;
+  } else {
+    STATE.classrooms.push({id:Date.now(), code:f.code, name:f.name, location:f.location, equipment:['镜子','音响'], cover:cover});
+  }
+  closeClassroomDialog();
+  toast(d.mode==='edit'?'教室已更新（原型模拟）':'教室已创建（原型模拟）','success');
+}
+
+/* ================= P-F7-03 / P-F7-04 个人资料 ================= */
+function openProfile(){
+  STATE.userMenuOpen=false;
+  STATE.profileUpload={state:'idle',preview:'',url:'',name:''};
+  STATE.profileEdit={ errors:{}, form:{nickname:STATE.profile.nickname} };
+  renderAll();
+}
+function closeProfile(){ STATE.profileEdit=null; renderAll(); }
+function pf(k,v){ STATE.profileEdit.form[k]=v; }
+function renderProfileDialog(){
+  if(!STATE.profileEdit) return '<div class="modal">（无）</div>';
+  var pe=STATE.profileEdit, f=pe.form, e=pe.errors, p=STATE.profile;
+  var html = '<div class="mh"><span>个人资料</span><span class="close-x" onclick="closeProfile()">✕</span></div><div class="mb">';
+  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(STATE.profileUpload,'profile')+'<div class="tip">保存后顶部头像同步更新</div></div></div>';
+  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" oninput="pf(\'nickname\',this.value)">'+(e.nickname?'<div class="err">'+esc(e.nickname)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">手机号</div><div class="fc"><input class="input readonly" value="'+esc(p.phone)+'" disabled><div class="tip">手机号只读，<span class="pending">待确认 D-F7-B2</span></div></div></div>';
+  html += '<div class="field"><div class="lb">角色</div><div class="fc"><span class="tag primary">'+esc((p.roles||[]).join(' / '))+'</span><div class="tip">角色/租户/权限不可在此修改</div></div></div>';
+  html += '</div><div class="mf"><button class="btn" onclick="closeProfile()">取消</button><button class="btn primary" onclick="saveProfile()">保存</button></div>';
+  return '<div class="modal">'+html+'</div>';
+}
+function saveProfile(){
+  var pe=STATE.profileEdit, e={};
+  if(!pe.form.nickname || !pe.form.nickname.trim()) e.nickname='昵称不能为空';
+  pe.errors=e;
+  if(Object.keys(e).length){ toast('保存失败：请检查表单','error'); renderAll(); return; }
+  if(STATE.profileUpload.state==='success') STATE.profile.avatar = STATE.profileUpload.url;
+  STATE.profile.nickname = pe.form.nickname.trim();
+  STATE.profileEdit=null; STATE.profileUpload={state:'idle',preview:'',url:'',name:''};
+  toast('个人资料已保存，顶部已同步','success');
+  renderAll();
+}
+
+/* ================= P-F7-08 ~ P-F7-13 首页管理 ================= */
+function renderHomePage(){
+  var h = STATE.home;
+  ADMIN_ACTIONS = '<button class="btn" onclick="previewHome()">预览小程序首页</button>'+
+    '<button class="btn primary" onclick="openPublish()">发布</button>';
+  var html = '';
+  html += '<div class="note-bar">小程序首页模块采用<b>固定模块配置</b>（非自由拖拽搭建）。可启用/停用、拖动排序、编辑内容；编辑后需<b>保存草稿</b>再<b>发布</b>，发布前不影响线上。</div>';
+  html += '<div class="toolbar" style="margin-bottom:12px"><span class="tag '+(h.publishedVersion===0?'info':'success')+'">线上版本：'+(h.publishedVersion===0?'未发布':'v'+h.publishedVersion)+'</span>'+
+    '<span class="tag '+(h.dirty?'warn':'info')+'">'+(h.dirty?'草稿有未发布变更':'草稿与线上一致')+'</span>'+
+    (h.lastPublishedAt?'<span style="color:var(--text-3);font-size:12px">最近发布：'+esc(h.lastPublishedAt)+'</span>':'')+
+    '<span class="mock-tag">原型模拟数据</span></div>';
+
+  if(STATE.listError){
+    html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载首页配置失败</div><div class="rs">'+esc(STATE.listError)+'</div><div style="margin-top:14px"><button class="btn primary" onclick="reloadHome()">重试</button></div></div>';
+    return html;
+  }
+  var mods = h.modules.slice().sort(function(a,b){return a.sort-b.sort;});
+  mods.forEach(function(m){
+    html += '<div class="mod-row '+(m.enabled?'':'dis')+'" draggable="true"'+
+      ' ondragstart="onModuleDragStart(event,\''+m.type+'\')" ondragover="onModuleDragOver(event,\''+m.type+'\')"'+
+      ' ondragleave="onModuleDragLeave(event)" ondrop="onModuleDrop(event,\''+m.type+'\')" ondragend="onModuleDragEnd(event)">'+
+      '<div class="drag-handle" title="按住拖动排序">⠿</div>'+
+      '<div class="ord-no" title="排序值（1 最靠前）">'+m.sort+'</div>'+
+      '<div><div class="mname">'+esc(m.name)+'</div><div class="mtype">'+moduleSummary(m)+'</div></div>'+
+      '<div class="mright">'+
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><span style="font-size:12px;color:var(--text-3)">启用</span>'+
+      '<span class="switch '+(m.enabled?'on':'')+'" onclick="toggleHomeModule(\''+m.type+'\')"><i></i></span></label>'+
+      '<button class="btn sm" onclick="openModuleDrawer(\''+m.type+'\')">编辑</button></div></div>';
+  });
+  html += '<div class="legend">排序：拖动 <b>⠿</b> 手柄调整模块顺序，左侧圆圈数字为<b>排序值</b>（1 最靠前，<span class="k">D-F7-D2</span>）· 启用开关：停用后小程序不渲染该模块（<span class="k">D-F7-E4</span>）· 编辑：右侧抽屉（P-F7-09~13）</div>';
+  return html;
+}
+function moduleIcon(t){ return {banner:'🖼',teachers:'👥',courses:'📚',video:'▶',notice:'📢'}[t]||'▦'; }
+function moduleSummary(m){
+  if(m.type==='banner') return '轮播组图 · '+((m.items||[]).length)+' 张 · 跳转 '+(m.items&&m.items[0]?linkLabel(m.items[0].link):'无');
+  if(m.type==='teachers') return '模块标题「'+esc(m.title)+'」· 展示 '+m.limit+' 位 · 已选 '+((m.teacher_ids||[]).length)+' 位';
+  if(m.type==='courses') return '模块标题「'+esc(m.title)+'」· 展示 '+m.limit+' 门 · 已选 '+((m.course_ids||[]).length)+' 门 · 排序 '+(m.sort_rule==='manual'?'手动顺序':'最新');
+  if(m.type==='video') return '模块标题「'+esc(m.title)+'」· '+((m.items||[]).length)+' 个视频';
+  if(m.type==='notice') return '标题「'+esc(m.noticeTitle||'')+'」· 有效期 '+(m.valid_from||'-')+' ~ '+(m.valid_to||'-')+' · '+(m.status||'展示');
+  return '';
+}
+function linkLabel(v){ return {course_detail:'课程详情',course_list:'课程列表',video:'视频',none:'无跳转'}[v]||v; }
+function reloadHome(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
+
+function toggleHomeModule(type){
+  var m=homeModule(type); m.enabled=!m.enabled; STATE.home.dirty=true;
+  toast((m.enabled?'已启用':'已停用')+'「'+m.name+'」（草稿）','success'); markDirtyRender();
+}
+/* 排序：以 sort 字段升序排列；拖动后重排并重写连续排序值 1..n */
+function sortedModules(){ return STATE.home.modules.slice().sort(function(a,b){return a.sort-b.sort;}); }
+function moduleIndex(type){ var mods=sortedModules(); for(var k=0;k<mods.length;k++){ if(mods[k].type===type) return k; } return -1; }
+function reorderHomeModule(fromType, toIndex){
+  var mods = sortedModules();
+  var from = moduleIndex(fromType); if(from<0) return;
+  if(toIndex<0) toIndex=0; if(toIndex>=mods.length) toIndex=mods.length-1;
+  if(from===toIndex) return;
+  var item = mods.splice(from,1)[0];
+  mods.splice(toIndex,0,item);
+  mods.forEach(function(m,i){ m.sort=i+1; });
+  STATE.home.dirty=true; toast('已调整模块顺序（草稿）','info'); markDirtyRender();
+}
+/* 保留程序化上/下移动（供键盘/无障碍与脚本驱动），底层复用 reorder */
+function moveHomeModule(type, dir){
+  var mods = sortedModules();
+  var i = moduleIndex(type); if(i<0) return;
+  var j = i+dir; if(j<0||j>=mods.length) return;
+  reorderHomeModule(type, j);
+}
+/* 拖动排序事件：不在拖动过程中整页重渲染，避免打断原生 drag；放下后由 reorder 统一重排 */
+function onModuleDragStart(e,type){
+  STATE.dragType=type;
+  if(e&&e.dataTransfer){ e.dataTransfer.effectAllowed='move'; }
+  if(e&&e.currentTarget&&e.currentTarget.classList){ e.currentTarget.classList.add('dragging'); }
+}
+function onModuleDragOver(e,type){
+  if(e&&e.preventDefault) e.preventDefault();
+  if(!STATE.dragType||STATE.dragType===type) return;
+  STATE.dragOver=type;
+  if(e&&e.currentTarget&&e.currentTarget.classList){ e.currentTarget.classList.add('drag-over'); }
+}
+function onModuleDragLeave(e){ if(e&&e.currentTarget&&e.currentTarget.classList){ e.currentTarget.classList.remove('drag-over'); } }
+function onModuleDrop(e,type){
+  if(e&&e.preventDefault) e.preventDefault();
+  var from=STATE.dragType; STATE.dragType=null; STATE.dragOver=null;
+  if(!from||from===type) return;
+  reorderHomeModule(from, moduleIndex(type));
+}
+function onModuleDragEnd(e){ STATE.dragType=null; STATE.dragOver=null; renderAdminPage(); }
+function markDirtyRender(){ STATE.home.dirty=true; renderAdminPage(); }
+
+/* --- 模块配置抽屉（P-F7-09 ~ P-F7-13） --- */
+function openModuleDrawer(type){
+  var m = homeModule(type);
+  STATE.drawer.open = true; STATE.drawer.type = type;
+  STATE.drawer.upload = {state:'idle',preview:'',url:'',name:''};
+  // 深拷贝一份草稿表单
+  STATE.drawer.form = JSON.parse(JSON.stringify(m));
+  if(type==='banner'){
+    var it=(STATE.drawer.form.items||[])[0] || {image:'',title:'',subtitle:'',link:'none',order:1};
+    STATE.drawer.form.items=[it];
+    if(it.image && it.image!=='BROKEN'){ STATE.drawer.upload.state='success'; STATE.drawer.upload.url=it.image; }
+  } else if(type==='video'){
+    var v=(STATE.drawer.form.items||[])[0] || {title:'',cover:'',url:'',link:'none'};
+    STATE.drawer.form.items=[v];
+    if(v.cover && v.cover!=='BROKEN'){ STATE.drawer.upload.state='success'; STATE.drawer.upload.url=v.cover; }
+  }
+  renderAll();
+}
+function closeModuleDrawer(){ STATE.drawer.open=false; renderAll(); }
+function df(k,v){ STATE.drawer.form[k]=v; }
+function drawerToggleTeacher(id){
+  var arr=STATE.drawer.form.teacher_ids||[];
+  var i=arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else { if(arr.length>=12){ toast('最多选择 12 位','error'); return; } arr.push(id); }
+  STATE.drawer.form.teacher_ids=arr; renderDrawer();
+}
+function drawerToggleCourse(id){
+  var arr=STATE.drawer.form.course_ids||[];
+  var i=arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else { if(arr.length>=12){ toast('最多选择 12 门','error'); return; } arr.push(id); }
+  STATE.drawer.form.course_ids=arr; renderDrawer();
+}
+function drawerImageField(field){
+  var f=STATE.drawer.form;
+  if(f.items && f.items[0]){ f.items[0][field] = STATE.drawer.upload.url; }
+}
+function renderDrawer(){
+  var d=STATE.drawer; if(!d.open) return;
+  var f=d.form, t=d.type;
+  var titles={banner:'Banner 轮播配置',teachers:'师资团队配置',courses:'推荐课程配置',video:'舞蹈视频配置',notice:'公告/活动配置'};
+  var html = '<div class="dh"><span>'+titles[t]+'</span><span class="close-x" onclick="closeModuleDrawer()">✕</span></div><div class="db">';
+
+  if(t==='banner'){
+    var it=(f.items||[])[0]||{};
+    html += '<div class="field"><div class="lb">轮播图</div><div class="fc">'+renderUploader(d.upload,'drawer')+'<div class="tip">点击「模拟成功」后写入轮播图</div></div></div>';
+    html += '<div class="field"><div class="lb">标题</div><div class="fc"><input class="input" value="'+esc(it.title||'')+'" oninput="drawerItem(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">副标题</div><div class="fc"><input class="input" value="'+esc(it.subtitle||'')+'" oninput="drawerItem(\'subtitle\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">跳转目标</div><div class="fc"><select class="input" onchange="drawerItem(\'link\',this.value)">'+linkOptions(it.link)+'</select><div class="tip">枚举：课程详情/课程列表/视频/无跳转（<span class="pending">D-F7-D6</span>）</div></div></div>';
+    html += '<div class="field"><div class="lb">展示顺序</div><div class="fc"><input class="input" value="'+esc(it.order||1)+'" oninput="drawerItem(\'order\',this.value)"></div></div>';
+  } else if(t==='teachers'){
+    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">展示数量</div><div class="fc"><input class="input" value="'+esc(f.limit)+'" oninput="df(\'limit\',Number(this.value))"><div class="tip">1 ~ 12</div></div></div>';
+    html += '<div class="field"><div class="lb">教师选择</div><div class="fc"><div class="multi">';
+    MOCK_TEACHERS.forEach(function(tc){
+      var sel=(f.teacher_ids||[]).indexOf(tc.id)>=0;
+      html += '<div class="mt '+(sel?'sel':'')+'" onclick="drawerToggleTeacher('+tc.id+')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+esc(tc.name)+' · '+esc(tc.specialty)+'</div>';
+    });
+    html += '</div><div class="tip">数据源为现有教师数据（<span class="pending">D-F7-D4</span>）</div></div></div>';
+  } else if(t==='courses'){
+    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">展示数量</div><div class="fc"><input class="input" value="'+esc(f.limit)+'" oninput="df(\'limit\',Number(this.value))"><div class="tip">1 ~ 12</div></div></div>';
+    html += '<div class="field"><div class="lb">课程选择</div><div class="fc"><div class="multi">';
+    MOCK_COURSES.forEach(function(c){
+      var sel=(f.course_ids||[]).indexOf(c.id)>=0;
+      html += '<div class="mt '+(sel?'sel':'')+'" onclick="drawerToggleCourse('+c.id+')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+esc(c.name)+' <span class="tag info">'+esc(c.type)+'</span></div>';
+    });
+    html += '</div><div class="tip">数据源为现有课程数据（<span class="pending">D-F7-D4</span>）</div></div></div>';
+    html += '<div class="field"><div class="lb">排序规则</div><div class="fc"><select class="input" onchange="df(\'sort_rule\',this.value)"><option value="manual"'+(f.sort_rule==='manual'?' selected':'')+'>手动顺序</option><option value="latest"'+(f.sort_rule==='latest'?' selected':'')+'>最新</option></select></div></div>';
+  } else if(t==='video'){
+    var v=(f.items||[])[0]||{};
+    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">封面图</div><div class="fc">'+renderUploader(d.upload,'drawer')+'</div></div>';
+    html += '<div class="field"><div class="lb">视频标题</div><div class="fc"><input class="input" value="'+esc(v.title||'')+'" oninput="drawerItem(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">视频地址</div><div class="fc"><input class="input" value="'+esc(v.url||'')+'" placeholder="https://..." oninput="drawerItem(\'url\',this.value)"><div class="tip">第一阶段用外链，不做视频文件托管（<span class="pending">D-F7-D5</span>）</div></div></div>';
+    html += '<div class="field"><div class="lb">跳转目标</div><div class="fc"><select class="input" onchange="drawerItem(\'link\',this.value)">'+linkOptions(v.link)+'</select></div></div>';
+  } else if(t==='notice'){
+    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">公告标题</div><div class="fc"><input class="input" value="'+esc(f.noticeTitle||'')+'" oninput="df(\'noticeTitle\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">内容</div><div class="fc"><textarea class="input" style="height:90px" oninput="df(\'content\',this.value)">'+esc(f.content||'')+'</textarea></div></div>';
+    html += '<div class="field"><div class="lb">图片</div><div class="fc">'+renderUploader(d.upload,'drawer')+'<div class="tip">可选</div></div></div>';
+    html += '<div class="field"><div class="lb">有效期</div><div class="fc" style="display:flex;gap:8px;align-items:center"><input class="input" type="date" value="'+esc(f.valid_from||'')+'" oninput="df(\'valid_from\',this.value)"><span>~</span><input class="input" type="date" value="'+esc(f.valid_to||'')+'" oninput="df(\'valid_to\',this.value)"></div></div>';
+    html += '<div class="field"><div class="lb">展示状态</div><div class="fc"><select class="input" onchange="df(\'status\',this.value)"><option'+(f.status==='展示'?' selected':'')+'>展示</option><option'+(f.status==='隐藏'?' selected':'')+'>隐藏</option></select></div></div>';
+  }
+  html += '<div class="legend">当前为<b>草稿编辑</b>，点「保存草稿」写回草稿；<b>点顶部「发布」后小程序才可见</b>（<span class="k">D-F7-E1</span>）。</div>';
+  html += '</div><div class="df"><button class="btn" onclick="closeModuleDrawer()">取消</button><button class="btn primary" onclick="saveDraft()">保存草稿</button></div>';
+  q('drawer-box').innerHTML = html;
+  q('drawer-box').className = 'drawer show';
+  q('drawer-mask').className = 'drawer-mask show';
+}
+function drawerItem(key,val){ var f=STATE.drawer.form; if(!f.items) f.items=[{}]; if(!f.items[0]) f.items[0]={}; f.items[0][key]=val; }
+function linkOptions(cur){
+  var opts=[['none','无跳转'],['course_detail','课程详情'],['course_list','课程列表'],['video','视频']];
+  return opts.map(function(o){ return '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+}
+function saveDraft(){
+  var d=STATE.drawer, f=d.form, t=d.type;
+  // 校验
+  if(t==='banner'){ var it=(f.items||[])[0]||{}; if(!it.title){ toast('请填写轮播标题','error'); return; } if(!d.upload.url && !it.image){ toast('请上传轮播图','error'); return; } }
+  if(t==='video'){ var v=(f.items||[])[0]||{}; if(!v.title){ toast('请填写视频标题','error'); return; } if(!(d.upload.url||v.cover)){ toast('请上传封面图','error'); return; } if(!v.url){ toast('请填写视频地址','error'); return; } }
+  if(t==='notice'){ if(!f.noticeTitle){ toast('请填写公告标题','error'); return; } if(!f.content){ toast('请填写公告内容','error'); return; } }
+  if(t==='teachers'||t==='courses'){ var lim=Number(f.limit); if(!lim||lim<1||lim>12){ toast('展示数量需在 1~12','error'); return; } }
+  // 图片写回
+  if(d.upload.state==='success'){ if(t==='banner') drawerImageField('image'); if(t==='video') drawerImageField('cover'); if(t==='notice') f.image=d.upload.url; }
+  // 写回草稿模块
+  var m=homeModule(t);
+  if(t==='banner'||t==='video'){ m.title=f.title; m.items=f.items; }
+  else { for(var k in f){ if(k!=='type'&&k!=='name'&&k!=='sort'&&k!=='enabled') m[k]=f[k]; } m.title=f.title||m.title; }
+  STATE.home.dirty=true;
+  STATE.drawer.open=false;
+  toast('草稿已保存（原型模拟）','success');
+  renderAll();
+}
+
+/* ================= P-F7-14 预览（学员端首页） ================= */
+var TENANT_NAME = '舞蹈艺术培训中心';   // 真实 miniapp 首页定位栏展示的机构名（原型模拟）
+function previewHome(){ STATE.adminPage='P-F7-14'; STATE.previewFail=false; renderAll(); }
+function backToHomeEdit(){ STATE.adminPage='P-F7-08'; renderAll(); }
+function togglePreviewFail(){ STATE.previewFail=!STATE.previewFail; renderAll(); }
+function renderPreviewPage(){
+  var mods = STATE.home.modules.filter(function(m){return m.enabled;}).sort(function(a,b){return a.sort-b.sort;});
+  ADMIN_ACTIONS = '<button class="btn" onclick="togglePreviewFail()">'+(STATE.previewFail?'恢复正常':'模拟接口失败')+'</button>'+
+    '<button class="btn primary" onclick="backToHomeEdit()">返回编辑</button>';
+  var html = '';
+  html += '<div class="note-bar warn">预览的是<b>草稿</b>，可能包含未发布修改；<span class="mock-tag">原型模拟数据 · 未接通真实后端</span>'+
+    (STATE.previewFail?'　当前：<b>模拟接口失败</b>（按降级规则渲染）':'')+'</div>';
+  html += '<div class="phone-wrap"><div class="phone"><div class="screen">';
+
+  /* 顶部导航栏（对齐真实 AppNavbar variant=default：白底 + 下边框；左侧定位 + 机构名 + 下拉） */
+  html += '<div class="m-nav"><div class="loc">'+miniIcon('location',16)+'<span>'+esc(TENANT_NAME)+'</span>'+miniIcon('chevronDown',14)+'</div>'+
+    '<div class="capsule"><i></i><i></i><i></i><span class="sep"></span><span class="ring"></span></div></div>';
+
+  if(STATE.previewFail){
+    html += '<div class="ph-hidden-note">接口请求失败 → 纯配置模块（Banner/视频/公告）无缓存，已隐藏；师资/课程回落真实 API</div>';
+  }
+  var shown=0;
+  mods.forEach(function(m){
+    if(m.type==='banner'){
+      if(STATE.previewFail){ return; }
+      var it=(m.items||[])[0]||{};
+      html += '<div class="m-banner">'+ (imgSrc(it.image)?'<img src="'+imgSrc(it.image)+'" alt="">':'<div class="cover-ph">图片失效 · 占位</div>') +
+        '<div class="bov"></div><div class="bcap"><b>'+esc(it.title||'')+'</b><span>'+esc(it.subtitle||'')+'</span></div>'+
+        '<div class="m-dots"><i class="on"></i><i></i><i></i></div></div>';
+      shown++;
+    } else if(m.type==='teachers'){
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('people',15)+'<b>'+esc(m.title||'师资团队')+'</b></div></div><div class="m-trow">';
+      MOCK_TEACHERS.filter(function(t){return (m.teacher_ids||[]).indexOf(t.id)>=0;}).slice(0,m.limit).forEach(function(t){
+        html += '<div class="m-teacher"><div class="m-tav"><span>'+esc((t.name||'?').charAt(0))+'</span></div><div class="m-tn">'+esc(t.name)+'</div><div class="m-ts">'+esc(t.specialty||'')+'</div></div>';
+      });
+      html += '</div></div>'; shown++;
+    } else if(m.type==='courses'){
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('star',15)+'<b>'+esc(m.title||'推荐课程')+'</b></div><span class="more">全部课程 ›</span></div><div class="m-clist">';
+      MOCK_COURSES.filter(function(c){return (m.course_ids||[]).indexOf(c.id)>=0;}).slice(0,m.limit).forEach(function(c){
+        html += '<div class="m-course"><div class="m-cimg"></div><div class="m-cinfo"><div class="m-cname">'+esc(c.name)+'</div><div class="m-cdesc">'+esc(c.type||'')+'</div></div></div>';
+      });
+      html += '</div></div>'; shown++;
+    } else if(m.type==='video'){
+      if(STATE.previewFail){ return; }
+      var v=(m.items||[])[0]||{};
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('play',15)+'<b>'+esc(m.title||'舞蹈视频')+'</b></div></div>'+
+        '<div class="m-vcard"><div class="m-vcover">'+(imgSrc(v.cover)?'<img src="'+imgSrc(v.cover)+'" alt="">':'<div class="cover-ph">封面失效</div>')+
+        '<div class="m-vov"></div><div class="m-play">'+miniIcon('play',18)+'</div><div class="m-vdur">03:28</div></div>'+
+        '<div class="m-vinfo"><span class="m-vtitle">'+esc(v.title||'')+'</span><span class="m-vdesc">'+esc(v.description||'')+'</span></div></div></div>';
+      shown++;
+    } else if(m.type==='notice'){
+      if(STATE.previewFail){ return; }
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('star',15)+'<b>'+esc(m.title||'公告')+'</b></div><span class="more">'+esc(m.valid_to||'')+' 截止</span></div>'+
+        '<div class="m-notice"><b>'+esc(m.noticeTitle||'')+'</b><p>'+esc(m.content||'')+'</p></div></div>';
+      shown++;
+    }
+  });
+  if(shown===0){ html += '<div class="ph-hidden-note">当前无已启用模块（模块被停用或接口失败），小程序首页为空</div>'; }
+
+  /* 底部 TabBar（对齐 F6.0 学员端原型口径 4 Tab：首页/排期/AI 助手/我的；AI 为第 3 个一级 Tab，无悬浮 FAB） */
+  html += '<div class="m-tabbar"><div class="m-tab on">'+miniIcon('tabHome',22)+'<span>首页</span><i class="ind"></i></div>'+
+    '<div class="m-tab">'+miniIcon('tabBooking',22)+'<span>排期</span></div>'+
+    '<div class="m-tab">'+miniIcon('robot',22)+'<span>AI 助手</span></div>'+
+    '<div class="m-tab">'+miniIcon('tabProfile',22)+'<span>我的</span></div></div>';
+  html += '</div></div>';
+  html += '<div class="legend" style="max-width:420px">渲染规则：预览按真实小程序首页（miniapp 学员端 Home）复刻；底部 TabBar 采用 <b>F6.0 学员端原型口径（4 Tab：首页/排期/AI 助手/我的，AI 为第 3 个一级 Tab）</b>——与真实 miniapp 当前「3 Tab + AI 悬浮入口」存在差异，已备案；仅渲染<b>已启用</b>模块并按排序展示；模块为空/停用则静默隐藏（<span class="k">D-F7-E4</span>）；图片失效显示占位（<span class="k">D-F7-E7</span>）；接口失败时师资/课程回落真实 API，纯配置模块无缓存则隐藏（<span class="k">D-F7-E3</span>）。</div>';
+  return html;
+}
+
+/* ================= P-F7-15 发布 ================= */
+function openPublish(){
+  STATE.publish.open = true;
+  STATE.publish.confirming = false;
+  STATE.publish.confirmFail = false;
+  renderAll();
+}
+function closePublish(){ STATE.publish.open=false; renderAll(); }
+function togglePublishFail(){ STATE.publish.confirmFail = !STATE.publish.confirmFail; renderAll(); }
+function renderPublishDialog(){
+  if(!STATE.publish.open) return '<div class="modal">（无）</div>';
+  var h=STATE.home, mods=h.modules.filter(function(m){return m.enabled;}).sort(function(a,b){return a.sort-b.sort;});
+  var html='<div class="mh"><span>发布确认</span><span class="close-x" onclick="closePublish()">✕</span></div><div class="mb">';
+  html += '<p style="color:var(--text-2)">将把当前<b>草稿</b>发布为线上版本，小程序下次进入首页即可见。发布为原子操作，失败不影响线上。</p>';
+  html += '<div style="margin-top:12px">';
+  mods.forEach(function(m){ html += '<div style="display:flex;gap:8px;padding:6px 0"><span class="tag success">启用</span>'+moduleIcon(m.type)+' '+esc(m.name)+'</div>'; });
+  var disabled = h.modules.filter(function(m){return !m.enabled;});
+  disabled.forEach(function(m){ html += '<div style="display:flex;gap:8px;padding:6px 0;opacity:.6"><span class="tag info">停用</span>'+moduleIcon(m.type)+' '+esc(m.name)+'</div>'; });
+  html += '</div>';
+  html += '<div style="margin-top:14px"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" '+(STATE.publish.confirmFail?'checked':'')+' onchange="togglePublishFail()"> <span class="demo-note">演示用：模拟发布失败</span></label></div>';
+  html += '</div><div class="mf"><button class="btn" onclick="closePublish()">取消</button><button class="btn primary" onclick="doPublish()">确认发布</button></div>';
+  return '<div class="modal">'+html+'</div>';
+}
+function doPublish(){
+  if(STATE.publish.confirmFail){
+    STATE.home.publishResult='fail';
+    STATE.publish.open=false;
+    toast('发布失败：草稿校验未通过。线上仍为旧版本 v'+STATE.home.publishedVersion,'error');
+    renderAll(); return;
+  }
+  STATE.home.publishedVersion = (STATE.home.publishedVersion||0)+1;
+  STATE.home.dirty=false;
+  STATE.home.publishResult='success';
+  STATE.home.lastPublishedAt='2026-10-19 18:20';
+  STATE.publish.open=false;
+  toast('发布成功：线上版本 v'+STATE.home.publishedVersion+'（原型模拟）','success');
+  renderAll();
+}
+
+/* ================= 弹窗/抽屉 统一渲染 ================= */
+function openModal(html, size){
+  STATE.modalOpen = true;
+  STATE.modalSize = size||'';
+  STATE.modalHtml = html.replace('<div class="modal">','').replace(/<\/div>$/,'').replace(/^<div class="modal[^>]*>/,'');
+  renderAll();
+}
+function closeModal(){ STATE.modalOpen=false; STATE.modalHtml=''; STATE.userDialog.open=false; STATE.classroomDialog.open=false; STATE.publish.open=false; STATE.profileEdit=null; renderAll(); }
+function renderLogoutConfirm(){
+  return '<div class="modal"><div class="mh"><span>退出确认</span><span class="close-x" onclick="closeModal()">✕</span></div>'+
+    '<div class="mb">确定要退出登录吗？（原型模拟）</div>'+
+    '<div class="mf"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="doLogout()">确定退出</button></div></div>';
+}
+
+/* ---------- 主渲染 ---------- */
+function renderAll(){
+  renderTopbar();
+  renderAdminSide();
+  renderHeader();
+  renderAdminPage();
+  // 抽屉
+  if(STATE.drawer.open){ renderDrawer(); } else { q('drawer-box').className='drawer'; q('drawer-mask').className='drawer-mask'; q('drawer-box').innerHTML=''; }
+  // 弹窗（互斥：用户弹窗 / 教室弹窗 / 个人资料 / 发布）
+  if(STATE.userDialog.open){ q('modal-box').className='modal'; q('modal-box').innerHTML=renderUserDialog(); q('mask').className='mask show'; }
+  else if(STATE.classroomDialog.open){ q('modal-box').className='modal'; q('modal-box').innerHTML=renderClassroomDialog(); q('mask').className='mask show'; }
+  else if(STATE.profileEdit){ q('modal-box').className='modal'; q('modal-box').innerHTML=renderProfileDialog(); q('mask').className='mask show'; }
+  else if(STATE.publish.open){ q('modal-box').className='modal'; q('modal-box').innerHTML=renderPublishDialog(); q('mask').className='mask show'; }
+  else if(STATE.modalOpen){ q('modal-box').className='modal '+(STATE.modalSize||''); q('modal-box').innerHTML=STATE.modalHtml; q('mask').className='mask show'; }
+  else { q('modal-box').className='modal'; q('modal-box').innerHTML=''; q('mask').className='mask'; }
+  // toast
+  var t=q('toast'); if(STATE.toast && STATE.toast.msg){ t.className='toast show '+(STATE.toast.type||'info'); } else { t.className='toast'; }
+}
+renderAll();
+</script>
+</body>
+</html>

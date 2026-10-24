@@ -10,6 +10,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    get_token_remaining_ttl,
     hash_password,
     is_token_blacklisted,
     verify_password,
@@ -250,42 +251,40 @@ class AuthService:
     async def logout(
         session: AsyncSession,
         user_id: int,
-        refresh_token: str,
+        refresh_token: str | None,
         redis_client,
+        access_token: str | None = None,
     ) -> None:
         """
          用户登出
 
         功能：
-        将 refresh_token 加入 Redis 黑名单，
-        使其无法再用于刷新新的 access_token
+        1. 将 access_token 加入 Redis 黑名单（TTL=token 剩余有效期），使其立即失效
+        2. 若提供 refresh_token，将其加入 Redis 黑名单（7 天），使其无法再刷新
 
         Args:
             session: 数据库会话（本方法可能不需要，但保持接口一致）
             user_id: 当前登录用户的 ID
-            refresh_token: 要吊销的刷新令牌
+            refresh_token: 要吊销的刷新令牌（可选）
             redis_client: Redis 客户端实例
-
-        Returns:
-            登出成功的消息字典
+            access_token: 要吊销的访问令牌（登出时由 Authorization 头提取）
 
         Raises:
-            AuthException: 如果 token 已经在黑名单中
+            AuthException: 如果 refresh_token 已经在黑名单中
         """
-        # TODO 1: 检查 token 是否已经在黑名单中
-        # 提示：调用 security.py 的 is_token_blacklisted() 函数
-        # 如果已存在 → raise AuthException("Token 已失效")
         if redis_client:
-            is_exist = await is_token_blacklisted(refresh_token, redis_client)
-            if is_exist:
-                raise AuthException("Token 已失效")
+            # 1. 拉黑 access_token（TTL=剩余有效期；已过期或解析失败则跳过）
+            if access_token:
+                ttl = get_token_remaining_ttl(access_token)
+                if ttl is not None:
+                    await add_token_to_blacklist(access_token, redis_client, ttl_seconds=ttl)
 
-        # TODO 2: 将 token 加入黑名单
-        # 提示：调用 security.py 的 add_token_to_blacklist() 函数
-        if redis_client:
-            await add_token_to_blacklist(refresh_token, redis_client)
-
-        # TODO 3: 返回成功消息
+            # 2. 若提供了 refresh_token，先检查再拉黑（保持 7 天默认 TTL）
+            if refresh_token:
+                is_exist = await is_token_blacklisted(refresh_token, redis_client)
+                if is_exist:
+                    raise AuthException("Token 已失效")
+                await add_token_to_blacklist(refresh_token, redis_client)
 
     @staticmethod
     async def refresh_token(

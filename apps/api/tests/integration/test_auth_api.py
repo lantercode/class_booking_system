@@ -26,10 +26,9 @@ settings = get_settings()
 
 
 def generate_unique_phone() -> str:
-    """生成唯一的手机号用于测试"""
-    # 使用时间戳 + 随机数确保唯一性
-    timestamp = int(time.time() * 1000) % 10000
-    random_num = random.randint(1000, 9999)
+    """生成唯一的手机号用于测试（保证 11 位且匹配 ^1[3-9]\\d{9}$）"""
+    timestamp = str(int(time.time() * 1000) % 10000).zfill(4)
+    random_num = str(random.randint(1000, 9999))
     return f"139{timestamp}{random_num}"
 
 
@@ -270,8 +269,8 @@ class TestGetMe:
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == 0
-        assert "user_id" in data["data"]
-        assert "tenant_id" in data["data"]
+        assert "id" in data["data"]
+        assert "phone" in data["data"]
 
         print("✅ 成功获取当前用户信息")
 
@@ -400,10 +399,13 @@ class TestLogout:
         access_token = auth_data["access_token"]
         refresh_token = auth_data["refresh_token"]
 
-        # 登出
+        # 登出（/auth/logout 不在租户跳过列表，需带 x-tenant-slug）
         logout_response = await client.post(
             "/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {access_token}"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
             json={"refresh_token": refresh_token},
         )
 
@@ -431,10 +433,13 @@ class TestLogout:
         reg_response = await client.post("/api/v1/auth/register", json=register_data)
         access_token = reg_response.json()["data"]["access_token"]
 
-        # 登出时不提供 refresh_token
+        # 登出时不提供 refresh_token（/auth/logout 不在租户跳过列表，需带 x-tenant-slug）
         logout_response = await client.post(
             "/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {access_token}"},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
             json={},  # 空请求体
         )
 
@@ -495,7 +500,7 @@ class TestCompleteAuthFlow:
         assert me_resp_1.status_code == 200, f"获取用户信息失败: {me_resp_1.text}"
 
         me_data_1 = me_resp_1.json()["data"]
-        assert me_data_1["user_id"] == user_id
+        assert me_data_1["id"] == user_id
 
         print("   ✅ 用户信息获取成功")
 
@@ -529,7 +534,10 @@ class TestCompleteAuthFlow:
         print("📝 Step 5: 登出...")
         logout_resp = await client.post(
             "/api/v1/auth/logout",
-            headers={"Authorization": f"Bearer {access_token_2}"},
+            headers={
+                "Authorization": f"Bearer {access_token_2}",
+                "x-tenant-slug": "dance-school",
+            },
             json={"refresh_token": refresh_token_2},
         )
         assert logout_resp.status_code == 200, f"登出失败: {logout_resp.text}"
@@ -614,6 +622,249 @@ class TestEdgeCases:
         assert response.status_code in [201, 400, 422]
 
         print("✅ SQL 注入防护正常工作")
+
+
+# ==================== F1.2 access_token 黑名单测试 ====================
+
+
+class TestAccessTokenBlacklist:
+    """
+    F1.2 - JWT Token 主动失效验收测试
+
+    核心验收：登出后 access_token 立即失效（调用任何受保护接口返回 401）
+    """
+
+    @pytest.mark.asyncio
+    async def test_logout_invalidates_access_token(self, client: AsyncClient, register_data: dict):
+        """
+        TC-01（主验收）：登出后旧 access_token 调用受保护接口返回 401
+        """
+        # 注册并获取 Token
+        reg_resp = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_resp.status_code == 201
+        auth_data = reg_resp.json()["data"]
+        access_token = auth_data["access_token"]
+        refresh_token = auth_data["refresh_token"]
+
+        # 登出前 token 正常可用
+        me_before = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert me_before.status_code == 200
+
+        # 登出
+        # 登出（/auth/logout 不在租户跳过列表，需带 x-tenant-slug）
+        logout_resp = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={"refresh_token": refresh_token},
+        )
+        assert logout_resp.status_code == 200
+
+        # 登出后旧 access_token 立即失效 → 401（统一信封，不泄露内部信息）
+        me_after = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert me_after.status_code == 401
+        body = me_after.json()
+        assert body["code"] == 401
+        assert "失效" in body["msg"] or "登录" in body["msg"]
+        # 安全：响应不包含 redis/blacklist/traceback 等内部信息
+        assert "redis" not in body["msg"].lower()
+        assert "blacklist" not in body["msg"].lower()
+
+        print("✅ 登出后 access_token 立即失效（401）")
+
+    @pytest.mark.asyncio
+    async def test_logout_without_refresh_token_still_invalidates_access(
+        self, client: AsyncClient, register_data: dict
+    ):
+        """
+        TC-04：登出时不带 refresh_token，access_token 仍被拉黑
+        """
+        reg_resp = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_resp.status_code == 201
+        access_token = reg_resp.json()["data"]["access_token"]
+
+        # 登出时不传 refresh_token
+        logout_resp = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={},
+        )
+        assert logout_resp.status_code == 200
+
+        # access_token 仍然失效
+        me_after = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert me_after.status_code == 401
+
+        print("✅ 无 refresh_token 登出时 access_token 仍被吊销")
+
+    @pytest.mark.asyncio
+    async def test_other_user_token_not_affected_by_logout(
+        self, client: AsyncClient, register_data: dict
+    ):
+        """
+        TC-03：未登出用户的 token 不受影响（黑名单按 token 隔离）
+        """
+        # 用户 A 注册
+        reg_a = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_a.status_code == 201
+        token_a = reg_a.json()["data"]["access_token"]
+        rt_a = reg_a.json()["data"]["refresh_token"]
+
+        # 用户 B 注册（独立 token）
+        phone_b = generate_unique_phone()
+        reg_b = await client.post(
+            "/api/v1/auth/register",
+            json={**register_data, "phone": phone_b},
+        )
+        assert reg_b.status_code == 201
+        token_b = reg_b.json()["data"]["access_token"]
+
+        # 用户 A 登出
+        logout_a = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {token_a}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={"refresh_token": rt_a},
+        )
+        assert logout_a.status_code == 200
+
+        # A 的 token 失效
+        assert (
+            await client.get(
+                "/api/v1/auth/me", headers={"Authorization": f"Bearer {token_a}"}
+            )
+        ).status_code == 401
+
+        # B 的 token 仍然有效
+        me_b = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {token_b}"}
+        )
+        assert me_b.status_code == 200
+
+        print("✅ 黑名单按 token 隔离，未登出用户不受影响")
+
+    @pytest.mark.asyncio
+    async def test_blacklisted_token_on_optional_endpoint(
+        self, client: AsyncClient, register_data: dict
+    ):
+        """
+        TC-08：可选认证端点（GET /teachers/）对黑名单 token 按匿名处理，不返回 401
+        """
+        reg_resp = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_resp.status_code == 201
+        access_token = reg_resp.json()["data"]["access_token"]
+
+        # 登出吊销 access_token
+        logout_resp = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={},
+        )
+        assert logout_resp.status_code == 200
+
+        # 可选认证端点：不应 401，应按匿名身份响应（/teachers 需租户头）
+        teachers_resp = await client.get(
+            "/api/v1/teachers",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+        )
+        assert teachers_resp.status_code != 401
+
+        print("✅ 可选认证端点对黑名单 token 按匿名处理")
+
+    @pytest.mark.asyncio
+    async def test_relogin_after_logout(self, client: AsyncClient, register_data: dict):
+        """
+        TC-10：登出后重新登录获得全新可用 token
+        """
+        reg_resp = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_resp.status_code == 201
+        old_access = reg_resp.json()["data"]["access_token"]
+        rt = reg_resp.json()["data"]["refresh_token"]
+
+        # 登出
+        logout_resp = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {old_access}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={"refresh_token": rt},
+        )
+        assert logout_resp.status_code == 200
+
+        # 重新登录
+        login_resp = await client.post(
+            "/api/v1/auth/login",
+            json={
+                "tenant_slug": "dance-school",
+                "phone": register_data["phone"],
+                "password": register_data["password"],
+            },
+        )
+        assert login_resp.status_code == 200
+        new_access = login_resp.json()["data"]["access_token"]
+        assert new_access != old_access
+
+        # 新 token 可用
+        me_resp = await client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {new_access}"}
+        )
+        assert me_resp.status_code == 200
+
+        print("✅ 登出后重新登录获得全新可用 token")
+
+    @pytest.mark.asyncio
+    async def test_repeat_logout_returns_401(self, client: AsyncClient, register_data: dict):
+        """
+        TC-09：重复登出第二次返回 401（token 已被吊销，认证先于处理）
+        """
+        reg_resp = await client.post("/api/v1/auth/register", json=register_data)
+        assert reg_resp.status_code == 201
+        access_token = reg_resp.json()["data"]["access_token"]
+        rt = reg_resp.json()["data"]["refresh_token"]
+
+        # 第一次登出
+        first = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={"refresh_token": rt},
+        )
+        assert first.status_code == 200
+
+        # 第二次用同一 token 登出 → 401（已吊销）
+        second = await client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "x-tenant-slug": "dance-school",
+            },
+            json={"refresh_token": rt},
+        )
+        assert second.status_code == 401
+
+        print("✅ 重复登出第二次返回 401（黑名单生效）")
 
 
 if __name__ == "__main__":

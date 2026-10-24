@@ -9,7 +9,6 @@ from app.core.database import get_session
 from app.core.rbac import require_permissions
 from app.core.response import success
 from app.deps.auth import get_current_user
-from app.modules.schedule.models import ScheduleStatus
 from app.modules.schedule.schemas import ScheduleCancel, ScheduleCreate, ScheduleUpdate
 from app.modules.schedule.service import ScheduleService
 
@@ -208,25 +207,7 @@ async def delete_schedule(
     current_user: dict = Depends(get_current_user),
 ):
     """删除排期"""
-    schedule = await schedule_service.repo.get_by_id(db, schedule_id)
-    if not schedule:
-        from app.core.exceptions import NotFoundException
-
-        raise NotFoundException("排期不存在")
-
-    # 仅对待上课状态的排期检查学员预约
-    if schedule.status == ScheduleStatus.NORMAL.value and schedule.booked_count > 0:
-        from app.core.exceptions import BusinessException
-
-        raise BusinessException("该排期仍有学员预约，请先取消排期后再删除", code=400)
-
-    # 删除关联的预约记录（避免外键约束冲突）
-    from app.modules.booking.repository import BookingRepository
-
-    booking_repo = BookingRepository()
-    await booking_repo.delete_by_schedule_id(db, schedule_id)
-
-    await schedule_service.repo.delete(db, schedule_id, hard_delete=True)
+    await schedule_service.delete_schedule(db, schedule_id)
     return success(msg="排期删除成功")
 
 

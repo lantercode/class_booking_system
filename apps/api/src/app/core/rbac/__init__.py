@@ -22,10 +22,12 @@ RBAC (基于角色的访问控制) 权限系统
 """
 
 from .cache import clear_user_permission_cache
+from .checker import get_user_role_codes
 from .decorator import require_permissions, require_roles
 
 __all__ = [
     "require_permissions",
     "require_roles",
     "clear_user_permission_cache",
+    "get_user_role_codes",
 ]

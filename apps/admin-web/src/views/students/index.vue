@@ -32,7 +32,15 @@
       </el-select>
     </div>
 
-    <el-table v-loading="loading" :data="tableData" stripe style="width: 100%">
+    <div v-if="loadError" class="list-error-block">
+      <el-result icon="error" title="加载学员列表失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchUsers">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
+    <el-table v-else v-loading="loading" :data="tableData" stripe style="width: 100%" empty-text="暂无数据">
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="头像" width="80" align="center">
         <template #default="{ row }">
@@ -182,6 +190,7 @@ import { computed, onMounted, ref } from 'vue'
 const search = ref('')
 const statusFilter = ref('')
 const loading = ref(false)
+const loadError = ref('')
 const editLoading = ref(false)
 const toggleLoading = ref<number | null>(null)
 const deleteLoading = ref<number | null>(null)
@@ -231,6 +240,7 @@ const tableData = computed(() => {
 
 async function fetchUsers() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await userApi.list({
       page: page.value,
@@ -242,7 +252,8 @@ async function fetchUsers() {
     users.value = res.data.items
     total.value = res.data.total
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '加载用户列表失败')
+    loadError.value = e?.response?.data?.msg || '加载学员列表失败'
+    ElMessage.error(loadError.value)
   } finally {
     loading.value = false
   }
@@ -393,6 +404,13 @@ onMounted(() => {
 <style scoped>
 .search-icon:hover {
   color: #409eff;
+}
+
+.list-error-block {
+  padding: 40px 0;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #ebeef5;
 }
 
 .avatar-uploader :deep(.el-upload) {

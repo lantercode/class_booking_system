@@ -19,17 +19,26 @@ class IntentRecognizer:
     """
 
     # 意图 → 关键词映射（按优先级排序）
+    # 注意：create_booking 的动作关键词（"帮我预约"）必须在 query_schedules 之前匹配，
+    # 因为"帮我预约明天"包含"明天"但意图是操作而非查询。
+    # "可以预约"是查询意图，放在 query_schedules 中。
     INTENTS = [
         ("cancel_booking", ["取消", "退课", "退订", "不去了", "取消预约"]),
-        ("create_booking", ["预约", "报名", "我要上", "帮我约", "我想约", "预定"]),
-        ("get_my_balance", ["余额", "还剩多少", "课时余额", "还有多少课", "剩余课时"]),
-        ("get_my_bookings", ["我的预约", "我报了什么", "我的课", "预约记录", "报名记录"]),
+        ("get_my_balance", ["余额", "还剩多少", "课时余额", "还有多少课", "剩余课时", "还有多少课时"]),
+        ("get_my_bookings", [
+            "我的预约", "我报了什么", "我的课", "预约记录", "报名记录",
+            "几节课", "还有几节", "还有多少节", "上了几节", "几节没上",
+        ]),
+        ("create_booking", ["帮我预约", "帮我约", "我想约", "我要上", "我要约", "预约", "预定", "报名"]),
         (
             "query_schedules",
-            ["排期", "明天", "今天", "这周", "下周", "时间表", "什么时候", "几点", "有什么课"],
+            ["排期", "明天", "今天", "这周", "下周", "时间表", "什么时候", "几点", "有什么课", "可以预约", "可以约"],
         ),
         ("query_courses", ["课程", "有什么", "搜索", "找", "查"]),
     ]
+
+    # upcoming 关键词 — 意图"还有几节课"应只返回未来未完成的预约
+    UPCOMING_KEYWORDS = ["还有", "还剩", "即将", "未来", "没上", "未上", "几节没上"]
 
     # 日期关键词提取
     DATE_PATTERNS = {
@@ -80,6 +89,11 @@ class IntentRecognizer:
 
     def _match_intent(self, text: str) -> tuple:
         """按优先级匹配意图"""
+        # "可以预约"/"可以约"/"可预约" 是查询可用性，不是下单动作；
+        # 必须在 create_booking 的"预约"关键词之前判定，否则会被误判为预约。
+        if any(kw in text for kw in ("可以预约", "可以约", "可预约")):
+            return "query_schedules", 0.8
+
         for intent, keywords in self.INTENTS:
             for kw in keywords:
                 if kw in text:
@@ -95,13 +109,15 @@ class IntentRecognizer:
             if kw:
                 params["keyword"] = kw
 
-        if intent == "query_schedules":
+        if intent in ("query_schedules", "create_booking"):
             date = self._extract_date(text)
             if date:
                 params["date"] = date
 
         if intent in ("get_my_bookings",):
             params["status"] = self._extract_booking_status(text)
+            if any(w in text for w in self.UPCOMING_KEYWORDS):
+                params["upcoming"] = True
 
         if intent == "cancel_booking":
             booking_id = self._extract_booking_id(text)

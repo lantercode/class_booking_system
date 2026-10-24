@@ -7,7 +7,7 @@ Membership Card Schemas - 会员卡模块数据模型
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def _uuid_to_str(v) -> str | None:
@@ -150,6 +150,12 @@ class MembershipCardCreate(BaseModel):
                 return v
         return v
 
+    @model_validator(mode="after")
+    def validate_student_id_required(self):
+        if self.student_id is None or self.student_id <= 0:
+            raise ValueError("student_id 必填且必须为正整数")
+        return self
+
 
 class MembershipCardResponse(BaseModel):
     """会员卡响应体"""
@@ -181,6 +187,10 @@ class MembershipCardResponse(BaseModel):
     student_nickname: str | None = None
     student_phone: str | None = None
     product_name: str | None = None
+
+    # 冲突检查相关字段（学员端冻结卡专用）
+    has_conflict: bool | None = None
+    conflict_count: int | None = None
 
     model_config = {"from_attributes": True}
 

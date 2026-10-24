@@ -15,7 +15,15 @@
       </el-select>
     </div>
 
-    <div class="calendar-card">
+    <div v-if="loadError" class="calendar-error">
+      <el-result icon="error" title="加载排期失败" :sub-title="loadError">
+        <template #extra>
+          <el-button type="primary" @click="fetchSchedules">重试</el-button>
+        </template>
+      </el-result>
+    </div>
+
+    <div v-else v-loading="loading" class="calendar-card">
       <div class="month-nav">
         <el-button text :icon="ArrowLeft" @click="prevMonth" />
         <span class="month-label">{{ currentYear }}年{{ currentMonth + 1 }}月</span>
@@ -90,6 +98,7 @@ const courses = ref<{ id: number; name: string }[]>([])
 const selectedCourseId = ref<number | null>(null)
 const allSchedules = ref<Schedule[]>([])
 const loading = ref(false)
+const loadError = ref('')
 
 const currentYear = ref(new Date().getFullYear())
 const currentMonth = ref(new Date().getMonth())
@@ -113,6 +122,7 @@ async function fetchCourses() {
 async function fetchSchedules() {
   if (!selectedCourseId.value) return
   loading.value = true
+  loadError.value = ''
   try {
     const res = await scheduleApi.list({
       course_id: selectedCourseId.value,
@@ -120,7 +130,11 @@ async function fetchSchedules() {
       status: 1,
     })
     allSchedules.value = res.data.items
-  } catch (_) {} finally {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载排期失败'
+    ElMessage.error(loadError.value)
+    allSchedules.value = []
+  } finally {
     loading.value = false
   }
 }
@@ -419,5 +433,13 @@ onMounted(() => {
 
 .empty-state {
   padding: 20px 0;
+}
+
+.calendar-error {
+  margin: 0 16px 16px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 </style>

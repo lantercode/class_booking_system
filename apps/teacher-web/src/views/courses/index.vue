@@ -54,6 +54,13 @@
       <div v-if="loading" class="loading-wrapper">
         <el-skeleton :rows="3" animated />
       </div>
+      <div v-else-if="loadError" class="error-wrapper">
+        <el-result icon="error" title="加载课程列表失败" :sub-title="loadError">
+          <template #extra>
+            <el-button type="primary" @click="fetchCourses">重试</el-button>
+          </template>
+        </el-result>
+      </div>
       <div v-else-if="courses.length === 0" class="empty-wrapper">
         <el-empty description="还没有课程">
           <el-button type="primary" @click="$router.push('/courses/create')">创建第一门课程</el-button>
@@ -163,9 +170,11 @@ function getDifficultyLabel(d: string): string {
 const authStore = useAuthStore()
 const courses = ref<CourseView[]>([])
 const loading = ref(false)
+const loadError = ref('')
 
 async function fetchCourses() {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await courseApi.list({ page_size: 50 })
     courses.value = (res.data.items || []).map((c: Course) => ({
@@ -182,7 +191,9 @@ async function fetchCourses() {
       studentCount: 0,
       scheduleCount: 0,
     }))
-  } catch {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载课程列表失败'
+    ElMessage.error(loadError.value)
     courses.value = []
   } finally {
     loading.value = false
@@ -307,6 +318,7 @@ onMounted(() => {
 
 .loading-wrapper { padding: 40px 0; }
 .empty-wrapper { padding: 80px 0; }
+.error-wrapper { padding: 60px 0; }
 
 .courses-grid {
   display: grid;

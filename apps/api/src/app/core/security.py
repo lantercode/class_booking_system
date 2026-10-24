@@ -110,12 +110,29 @@ def create_refresh_token(data: dict) -> str:
 # ==================== Token 黑名单相关（新增）====================
 
 
-async def add_token_to_blacklist(token: str, redis) -> None:
-    """将令牌加入黑名单"""
+async def add_token_to_blacklist(
+    token: str, redis, ttl_seconds: int | None = None
+) -> None:
+    """将令牌加入黑名单
+
+    Args:
+        token: 令牌字符串
+        redis: Redis 客户端
+        ttl_seconds: 黑名单 TTL（秒）。
+            None  -> 使用 refresh_token 默认 7 天（兼容既有调用）
+            > 0   -> 使用传入秒数（access_token 按剩余有效期写入）
+            <= 0  -> 跳过写入（token 已过期，无需拉黑）
+    """
     if not settings.ENABLE_TOKEN_BLACKLIST:
         return
+    if ttl_seconds is not None and ttl_seconds <= 0:
+        return
     key = f"{settings.REDIS_TOKEN_BLACKLIST_PREFIX}{token}"
-    ttl = timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    ttl = (
+        timedelta(seconds=ttl_seconds)
+        if ttl_seconds is not None
+        else timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
+    )
     await redis.setex(key, ttl, "1")
 
 
@@ -125,3 +142,24 @@ async def is_token_blacklisted(token: str, redis) -> bool:
         return False
     key = f"{settings.REDIS_TOKEN_BLACKLIST_PREFIX}{token}"
     return await redis.exists(key) == 1
+
+
+def get_token_remaining_ttl(token: str) -> int | None:
+    """获取令牌剩余有效期（秒）
+
+    Returns:
+        剩余秒数（可能为负，表示已过期）；
+        解码失败或 payload 中无 exp 字段时返回 None
+    """
+    payload = decode_token(token)
+    if payload is None:
+        return None
+    exp = payload.get("exp")
+    if exp is None:
+        return None
+    try:
+        exp_ts = int(exp)
+    except (TypeError, ValueError):
+        return None
+    now_ts = int(datetime.now(UTC).timestamp())
+    return exp_ts - now_ts

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.rbac import require_roles
 from app.core.response import success
 from app.deps.auth import get_current_user, get_redis_client
 from app.modules.auth.schemas import (
@@ -87,14 +88,17 @@ async def logout(
     except Exception:
         refresh_token = None
 
-    # 如果提供了 refresh_token，将其加入黑名单
-    if refresh_token:
-        await AuthService.logout(
-            db,
-            current_user["user_id"],
-            refresh_token,
-            redis_client,
-        )
+    # 从 Authorization 头提取当前 access_token（登出时必须一并吊销）
+    auth_header = request.headers.get("authorization", "")
+    access_token = auth_header[7:] if auth_header.startswith("Bearer ") else None
+
+    await AuthService.logout(
+        db,
+        current_user["user_id"],
+        refresh_token,
+        redis_client,
+        access_token=access_token,
+    )
 
     return success(msg="登出成功")
 
@@ -154,6 +158,7 @@ async def get_me(
         400: {"description": "没有可更新的字段"},
     },
 )
+@require_roles("student", "teacher", "admin", "super_admin")
 async def update_me(
     data: dict = Body(...),
     current_user: dict = Depends(get_current_user),

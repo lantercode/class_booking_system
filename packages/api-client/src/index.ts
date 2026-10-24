@@ -183,3 +183,6 @@ export type {
   MembershipCardTransaction,
   MembershipCardTransactionListResponse,
 } from './membership'
+
+export { tenantApi } from './tenant'
+export type { TenantSettings, TenantSettingsUpdate, TenantInfo, TenantInfoUpdate } from './tenant'

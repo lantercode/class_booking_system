@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.rbac import require_roles
 from app.core.response import success
 from app.core.tenant_context import get_tenant_id
 from app.deps.auth import get_current_user, get_optional_user
@@ -42,6 +43,7 @@ async def list_teachers(
     summary="获取当前教师信息",
     description="获取当前登录教师的详细信息",
 )
+@require_roles("teacher")
 async def get_current_teacher(
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
@@ -57,6 +59,7 @@ async def get_current_teacher(
     summary="更新教师信息",
     description="更新当前教师的个人信息",
 )
+@require_roles("teacher")
 async def update_current_teacher(
     data: dict = Body(...),
     db: AsyncSession = Depends(get_session),

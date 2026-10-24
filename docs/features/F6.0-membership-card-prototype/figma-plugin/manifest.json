@@ -1,0 +1,9 @@
+{
+  "name": "F6.0 会员卡原型生成器",
+  "id": "f60-membership-card-prototype-builder",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}

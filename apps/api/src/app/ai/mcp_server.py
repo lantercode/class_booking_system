@@ -16,6 +16,8 @@ from fastmcp import FastMCP
 from sqlalchemy import func, select
 
 from app.core.database import SessionLocal
+from app.core.exceptions import BusinessException
+from app.core.rbac import get_user_role_codes
 from app.modules.booking.models import BookingStatus
 from app.modules.booking.schemas import BookingCreate
 from app.modules.booking.service import BookingService
@@ -38,6 +40,30 @@ STATUS_LABELS = {
     BookingStatus.COMPLETED.value: "已完成",
     BookingStatus.NO_SHOW.value: "未到场",
 }
+
+
+# ============================================================
+# 四关校验辅助（Authentication → Authorization → Tenant → Input）
+# ============================================================
+
+
+async def _require_student_role(db, user_id: int, action: str) -> None:
+    """第二关 Authorization：写操作仅学员角色可用。
+
+    Tool 层独立完成授权判断（mcp.md 第 2 关），不依赖 HTTP 装饰器。
+    """
+    roles = await get_user_role_codes(db, user_id=user_id)
+    if "student" not in roles:
+        raise BusinessException(
+            f"当前账号没有学员身份，无法{action}。请使用学员账号登录后再试。",
+            code=403,
+        )
+
+
+def _validate_id(value, name: str) -> None:
+    """第四关 Input Validation：ID 必须为正整数。"""
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise BusinessException(f"{name}无效，请重新选择", code=400)
 
 
 @mcp.tool()
@@ -243,24 +269,25 @@ async def create_booking(
         schedule_id: 排期 ID
         user_id: 用户 ID（后续从 MCP 会话自动注入）
     """
+    # 第一关 Authentication
     if user_id is None:
-        return "请提供 user_id 参数（后续版本将从登录会话自动获取）"
+        raise BusinessException("未提供用户身份，请先登录", code=401)
 
-    try:
-        async with SessionLocal() as db:
-            service = BookingService()
-            booking_data = BookingCreate(schedule_id=schedule_id)
-            result = await service.create_booking(
-                db,
-                data=booking_data,
-                student_id=user_id,
-            )
-            time_str = ""
-            if result.start_at:
-                time_str = result.start_at.strftime("%m/%d %H:%M")
-            return f"预约成功！\n课程：{result.course_name}\n时间：{time_str}\n预约ID：{result.id}"
-    except Exception as e:
-        return f"预约失败：{str(e)}"
+    # 第二关 Authorization + 第四关 Input Validation（第三关 Tenant 由 ORM 租户事件保证）
+    async with SessionLocal() as db:
+        await _require_student_role(db, user_id, "预约课程")
+        _validate_id(schedule_id, "排期")
+        service = BookingService()
+        booking_data = BookingCreate(schedule_id=schedule_id)
+        result = await service.create_booking(
+            db,
+            data=booking_data,
+            student_id=user_id,
+        )
+        time_str = ""
+        if result.start_at:
+            time_str = result.start_at.strftime("%m/%d %H:%M")
+        return f"预约成功！\n课程：{result.course_name}\n时间：{time_str}\n预约ID：{result.id}"
 
 
 @mcp.tool()
@@ -277,21 +304,26 @@ async def cancel_booking(
         user_id: 用户 ID（后续从 MCP 会话自动注入）
         reason: 取消原因
     """
+    # 第一关 Authentication
     if user_id is None:
-        return "请提供 user_id 参数（后续版本将从登录会话自动获取）"
+        raise BusinessException("未提供用户身份，请先登录", code=401)
 
-    try:
-        async with SessionLocal() as db:
-            service = BookingService()
-            result = await service.cancel_booking(
-                db,
-                booking_id=booking_id,
-                student_id=user_id,
-                reason=reason,
-            )
-            return f"取消成功！\n课程：{result.course_name}\n预约ID：{result.id}"
-    except Exception as e:
-        return f"取消失败：{str(e)}"
+    # 第二关 Authorization + 第四关 Input Validation（第三关 Tenant 由 ORM 租户事件保证）
+    async with SessionLocal() as db:
+        await _require_student_role(db, user_id, "取消预约")
+        _validate_id(booking_id, "预约")
+        if reason is not None and not isinstance(reason, str):
+            raise BusinessException("取消原因格式无效", code=400)
+        if reason is not None and len(reason) > 200:
+            raise BusinessException("取消原因过长，请精简后重试", code=400)
+        service = BookingService()
+        result = await service.cancel_booking(
+            db,
+            booking_id=booking_id,
+            student_id=user_id,
+            reason=reason,
+        )
+        return f"取消成功！\n课程：{result.course_name}\n预约ID：{result.id}"
 
 
 if __name__ == "__main__":

@@ -148,6 +148,21 @@ class AuthRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_role_by_id(session: AsyncSession, role_id: int) -> Role | None:
+        """
+        根据 ID 查询角色
+
+        Args:
+            session: 数据库会话
+            role_id: 角色 ID
+
+        Returns:
+            角色对象，不存在则返回 None
+        """
+        result = await session.execute(select(Role).where(Role.id == role_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def get_wechat_account_by_openid(
         session: AsyncSession, openid: str, appid: str
     ) -> WechatAccount | None:

@@ -28,7 +28,7 @@ async def test_multi_turn_booking():
     print("🧪 Day 4 测试：多轮对话预约流程")
     print("=" * 60)
 
-    runtime = AgentRuntime(user_id=1)
+    runtime = AgentRuntime(user_id=1, tenant_id=1)
     session_id = "test_session_001"
 
     print("\n📌 第 1 轮：用户说「帮我约明天下午的瑜伽课」")
@@ -87,7 +87,7 @@ async def test_invalid_selection():
     print("🧪 补充测试：无效选择的处理")
     print("=" * 60)
 
-    runtime = AgentRuntime(user_id=1)
+    runtime = AgentRuntime(user_id=1, tenant_id=1)
     session_id = "test_session_002"
 
     print("\n📌 第 1 轮：触发多轮状态")
@@ -121,7 +121,7 @@ async def test_parse_user_selection():
     print("🧪 单元测试：_parse_user_selection()")
     print("=" * 60)
 
-    runtime = AgentRuntime()
+    runtime = AgentRuntime(tenant_id=1)
 
     test_cases = [
         ("1", 3, 1, "纯数字"),

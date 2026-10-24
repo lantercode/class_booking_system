@@ -23,16 +23,29 @@
     </div>
 
     <div class="booking-list">
-      <div v-if="filteredBookings.length === 0" class="empty-wrapper">
+      <div v-if="loading && filteredBookings.length === 0" v-loading="true" class="loading-wrapper">
+        <div style="height: 80px"></div>
+      </div>
+
+      <div v-else-if="loadError" class="error-wrapper">
+        <el-result icon="error" title="加载预约列表失败" :sub-title="loadError">
+          <template #extra>
+            <el-button type="primary" @click="fetchBookings">重试</el-button>
+          </template>
+        </el-result>
+      </div>
+
+      <div v-else-if="filteredBookings.length === 0" class="empty-wrapper">
         <el-empty description="暂无预约记录" />
       </div>
 
-      <div
-        v-for="booking in filteredBookings"
-        :key="booking.id"
-        class="booking-card"
-        @click="goToCourse(booking.courseId)"
-      >
+      <template v-else>
+        <div
+          v-for="booking in filteredBookings"
+          :key="booking.id"
+          class="booking-card"
+          @click="goToCourse(booking.courseId)"
+        >
         <div class="booking-info">
           <div class="booking-header">
             <span class="booking-name">{{ booking.courseName }}</span>
@@ -62,6 +75,7 @@
           </div>
         </div>
       </div>
+      </template>
     </div>
 
     <el-dialog
@@ -85,7 +99,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Calendar, Clock, User, Location } from '@element-plus/icons-vue'
-import { bookingApi, scheduleApi, courseApi, type Booking } from '@dance-saas/api-client'
+import { bookingApi, scheduleApi, courseApi } from '@dance-saas/api-client'
 
 const router = useRouter()
 
@@ -113,6 +127,7 @@ const STATUS_MAP: Record<number, { key: string; label: string }> = {
 
 const bookings = ref<BookingView[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const activeTab = ref<string>('all')
 const cancelVisible = ref(false)
 const cancelTarget = ref<BookingView | null>(null)
@@ -136,6 +151,7 @@ function getStatusTagType(status: string) {
 
 async function fetchBookings() {
   loading.value = true
+  loadError.value = ''
   try {
     const [bRes, sRes, cRes] = await Promise.all([
       bookingApi.list({ page_size: 100 }),
@@ -167,7 +183,11 @@ async function fetchBookings() {
         scheduleId: b.schedule_id,
       }
     })
-  } catch (_) {} finally {
+  } catch (e: any) {
+    loadError.value = e?.response?.data?.msg || '加载预约列表失败'
+    ElMessage.error(loadError.value)
+    bookings.value = []
+  } finally {
     loading.value = false
   }
 }
@@ -258,8 +278,12 @@ onMounted(() => {
   padding: 16px;
 }
 
+.loading-wrapper,
+.error-wrapper,
 .empty-wrapper {
   padding: 60px 0;
+  background: #fff;
+  border-radius: 12px;
 }
 
 .booking-card {

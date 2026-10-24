@@ -109,6 +109,9 @@ async def create_permissions(session: AsyncSession) -> list[Permission]:
         {"code": "course:create", "name": "创建课程", "module": "course"},
         {"code": "course:update", "name": "编辑课程", "module": "course"},
         {"code": "course:delete", "name": "删除课程", "module": "course"},
+        # 系统级权限 (2个)
+        {"code": "admin:all", "name": "管理员全部权限", "module": "admin"},
+        {"code": "super:manage", "name": "超级管理", "module": "admin"},
         # 排课管理 (4个)
         {"code": "schedule:create", "name": "创建排课", "module": "schedule"},
         {"code": "schedule:update", "name": "编辑排课", "module": "schedule"},
@@ -176,6 +179,7 @@ async def assign_role_permissions(
     admin_permission_codes = {
         "course:create",
         "course:update",
+        "course:delete",
         "schedule:create",
         "schedule:update",
         "schedule:cancel",
@@ -185,11 +189,17 @@ async def assign_role_permissions(
         "user:create",
         "user:read",
         "user:update",
+        "user:delete",
         "user:manage",
+        "user:reset_password",
         "classroom:create",
         "classroom:read",
         "classroom:update",
+        "classroom:delete",
+        "role:create",
         "role:read",
+        "role:update",
+        "role:delete",
         "role:read_permissions",
         "role:assign",
         "stats:view",
@@ -279,7 +289,28 @@ async def create_teacher_user(session: AsyncSession, tenant_id: int, roles: list
 
     teacher_role = next(r for r in roles if r.code == "teacher")
     session.add(UserRole(user_id=user.id, role_id=teacher_role.id))
+
+    from datetime import UTC, datetime
+    import random
+
+    from app.modules.teacher.models import TeacherProfile, TeacherStatus
+
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
+    teacher_code = f"T{date_str}{''.join([str(random.randint(0, 9)) for _ in range(6)])}"
+    teacher_profile = TeacherProfile(
+        user_id=user.id,
+        tenant_id=tenant_id,
+        teacher_code=teacher_code,
+        title="高级舞蹈讲师",
+        bio="专注舞蹈教学 10 年，擅长爵士舞和拉丁舞。",
+        specialties=["jazz", "latin"],
+        years_of_experience=10,
+        status=TeacherStatus.ACTIVE.value,
+    )
+    session.add(teacher_profile)
+
     await session.flush()
+    print(f"  → 教师编号: {teacher_code}")
     return user
 
 
@@ -309,7 +340,25 @@ async def create_student_user(session: AsyncSession, tenant_id: int, roles: list
 
     student_role = next(r for r in roles if r.code == "student")
     session.add(UserRole(user_id=user.id, role_id=student_role.id))
+
+    from datetime import UTC, datetime
+    import random
+
+    from app.modules.student.models import StudentProfile
+
+    date_str = datetime.now(UTC).strftime("%Y%m%d")
+    student_code = f"S{date_str}{''.join([str(random.randint(0, 9)) for _ in range(6)])}"
+    student_profile = StudentProfile(
+        user_id=user.id,
+        tenant_id=tenant_id,
+        student_code=student_code,
+        level="中级",
+        status=StudentProfile.status.default.arg,
+    )
+    session.add(student_profile)
+
     await session.flush()
+    print(f"  → 学员编号: {student_code}")
     return user
 
 

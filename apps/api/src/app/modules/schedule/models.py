@@ -63,6 +63,10 @@ class CourseSchedule(Base, TenantMixin, TimestampMixin):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
+        CheckConstraint(
+            "status IN (1, 2, 3)",
+            name="ck_course_schedules_status",
+        ),
         CheckConstraint("end_at > start_at", name="chk_schedule_time"),
         CheckConstraint(
             "booked_count <= capacity AND booked_count >= 0",
