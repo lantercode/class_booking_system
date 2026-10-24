@@ -642,6 +642,36 @@
 - **Acceptance 概要**：学员只能看自己的卡与流水；他人卡 403/404；流水字段与 admin 口径一致但无 operator/幂等键；空态/loading/error 齐全；两端构建通过。
 - **交付物**：`docs/features/F6.11-student-card-detail/`。
 
+### Feature 6.12：学员端 AI 助手升级为一级 Tab（原型 P-M10）
+
+- **Status**：READY（纯前端，无阻塞）
+- **Priority**：P1
+- **Goal**：落实 F6.0 原型 v5 产品需求《将学员小程序端 AI 助手改为一级 Tab 页面》——`HomeTabBar` 扩为 4 Tab（首页/排期/**AI 助手**/我的，AI 为第 3 个一级 Tab），AI 对话从悬浮 FAB 弹窗改为独立整页。
+- **Scope**：`HomeTabBar.vue` 扩 4 Tab（复用 `ai-robot` 图标、激活色 `#8b7355`）；新建 `pages/student/ai-assistant/index.vue` 整页聊天（香槟金主题、结构对齐原型 P-M10）；`AiAssistant.vue` 支持页面模式/拆分复用；学员端页面移除 FAB 引用；**教师端 FAB 不动**；对话沿用真实 `POST /api/v1/ai/chat`（R6 Gate：禁止假流式）。
+- **Out of Scope**：后端任何改动；教师端导航改造；模拟对话/「未接入真实 AI」标注（真实端必须接真实接口）；历史持久化增强。
+- **Dependencies**：无（`/ai/chat` 契约已就绪且已被 AiAssistant 消费）。
+- **Current Code Gaps**：真实端 3 Tab（`HomeTabBar.vue`），AI 为悬浮 FAB（`AiAssistant.vue:6-11` `.ai-fab`）+ 650×800rpx 弹窗；学员端 schedule/profile/bookings 页均挂载 FAB；原型 4 Tab（`prototype/index.html:1390` `TAB_DEFS`）。
+- **Tasks**：T6.12.1 HomeTabBar 4 Tab；T6.12.2 整页聊天页 + pages.json；T6.12.3 AiAssistant 页面模式与学员端 FAB 下线；T6.12.4 构建自验。
+- **Required Agents**：frontend-engineer
+- **Definition of Ready**：是（原型 TAB_DEFS/P-M10 规格冻结）。
+- **Acceptance 概要**：4 Tab 结构与原型一致；整页聊天走真实接口、错误/加载态齐全；学员端无 FAB 残留、教师端不受影响；`vue-tsc` + `build:mp-weixin` 通过。
+- **交付物**：`docs/features/F6.12-ai-assistant-tab/`（requirement 已建，2026-10-24）。
+
+### Feature 6.13：预约结果页与取消回补预览（原型 P-M5/P-M7）
+
+- **Status**：READY（纯前端，无阻塞）
+- **Priority**：P2
+- **Goal**：补齐原型 P-M5 预约结果页（成功含扣次反馈/失败分类建议）与 P-M7 取消确认弹窗（回补预览）。
+- **Scope**：新建 `pages/student/booking-result/index.vue`（成功态：次卡「已预扣 1 次·剩余 N 次」、期卡「首次上课后激活」；失败态按 400/409 + 后端 msg 分类建议）；`booking-confirm` 成功/失败后跳转结果页；`bookings` 取消改为回补预览确认弹窗（按 `card_type` 推导回补文案，纯展示、后端权威）。
+- **Out of Scope**：后端任何改动；改期 UI；退款；预约列表其它改造（F6.7 已交付不动）。
+- **Dependencies**：F6.6（选卡推荐，已交付）。
+- **Current Code Gaps**：预约成功仅 toast（`booking-confirm/index.vue:458`）；取消无回补预览弹窗。
+- **Tasks**：T6.13.1 结果页 + 路由注册；T6.13.2 booking-confirm 跳转改造；T6.13.3 取消回补预览弹窗；T6.13.4 构建自验。
+- **Required Agents**：frontend-engineer
+- **Definition of Ready**：是（原型 P-M5/P-M7 规格冻结）。
+- **Acceptance 概要**：成功/余额不足/名额满三分支齐全；扣次反馈与实际余额一致；取消有回补预览与二次确认；`vue-tsc` + `build:mp-weixin` 通过。
+- **交付物**：`docs/features/F6.13-booking-result-cancel-preview/`（requirement 已建，2026-10-24）。
+
 ### Epic 6 推荐实施顺序与依赖图
 
 ```
@@ -654,6 +684,8 @@ F6.3（P0，后端状态机）
 F6.1（FUTURE）─→ F6.9（P2，退款占位）
 F6.3/F6.4/F6.5/F6.7 ─→ F6.10（P1/P2，admin UI）
 F6.3/F6.8 + 归属校验 ─→ F6.11（P2，学员端卡详情）
+F6.12（P1，AI 助手一级 Tab，独立无依赖）
+F6.6 ─→ F6.13（P2，预约结果页与取消回补预览）
 ```
 
 **顺序理由**：F6.3 是所有卡语义的权威来源，先落地可避免前端/F6.6/F6.7 基于旧行为做兼容；F6.4 与 F6.3 同改 `create_booking`，先合并小改动降低冲突；F6.5 依赖 F6.4 的重叠校验作为改期目标校验；F6.7 必须复用 F6.5 的事务骨架才不会再造第二套改派逻辑。
