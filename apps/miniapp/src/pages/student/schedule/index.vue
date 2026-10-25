@@ -140,13 +140,11 @@
     </view>
 
     <HomeTabBar currentRoute="/pages/student/schedule/index" />
-    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { bookingApi, courseTypeApi, membershipApi, scheduleApi, tenantApi } from "@/api";
-import AiAssistant from "@/components/AiAssistant.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";
 import { iconSvgMap } from "@/static/icons/icon-map";
@@ -712,7 +710,7 @@ const loadBookings = async () => {
   isLoadingBookings = true;
 
   try {
-    const result = await bookingApi.list({ status: 1 });
+    const result = await bookingApi.list({ status: 1, upcoming: true });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;

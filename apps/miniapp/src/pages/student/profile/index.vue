@@ -116,15 +116,11 @@
     </view>
 
     <HomeTabBar currentRoute="/pages/student/profile/index" />
-
-    <!-- AI 智能助手 -->
-    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { clearAuthData } from "@/api";
-import AiAssistant from "@/components/AiAssistant.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";

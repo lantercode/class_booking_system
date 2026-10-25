@@ -200,15 +200,11 @@
 
     <!-- 底部导航栏 -->
     <HomeTabBar currentRoute="/pages/student/courses/index" />
-
-    <!-- AI 智能助手 -->
-    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { studentApi, teacherApi, tenantApi } from "@/api";
-import AiAssistant from "@/components/AiAssistant.vue";
 import AppEmpty from "@/components/AppEmpty.vue";
 import AppLoading from "@/components/AppLoading.vue";
 import AppNavbar from "@/components/AppNavbar.vue";

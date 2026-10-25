@@ -104,6 +104,13 @@
       }
     },
     {
+      "path": "pages/student/ai-assistant/index",
+      "style": {
+        "navigationStyle": "custom",
+        "disableScroll": true
+      }
+    },
+    {
       "path": "pages/student/bookings/index",
       "style": {
         "navigationStyle": "custom",

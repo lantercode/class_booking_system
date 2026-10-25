@@ -32,6 +32,21 @@
     </view>
     <view
       class="tab-item"
+      :class="{ active: currentRoute === 'ai' }"
+      @tap="goTo('/pages/student/ai-assistant/index')"
+    >
+      <AppIcon
+        name="ai-robot"
+        :size="48"
+        :color="currentRoute === 'ai' ? '#8b7355' : '#999'"
+      />
+      <text class="tab-text" :class="{ active: currentRoute === 'ai' }"
+        >AI 助手</text
+      >
+      <view v-if="currentRoute === 'ai'" class="tab-indicator" />
+    </view>
+    <view
+      class="tab-item"
       :class="{ active: currentRoute === 'profile' }"
       @tap="goTo('/pages/student/profile/index')"
     >
@@ -64,6 +79,7 @@ const currentRoute = computed(() => {
     "/pages/student/courses/detail": "home",
     "/pages/student/bookings/index": "schedule",
     "/pages/student/schedule/index": "schedule",
+    "/pages/student/ai-assistant/index": "ai",
     "/pages/student/profile/index": "profile",
     "/pages/student/profile/edit": "profile",
     "/pages/student/profile/settings": "profile",

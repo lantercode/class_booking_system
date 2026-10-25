@@ -138,15 +138,11 @@
         <text class="footer-btn-text">立即预约</text>
       </button>
     </view>
-
-    <!-- AI 智能助手 -->
-    <AiAssistant :session-id="'student_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { bookingApi, courseApi, scheduleApi } from "@/api";
-import AiAssistant from "@/components/AiAssistant.vue";
 import AppLoading from "@/components/AppLoading.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import { formatDate, formatTime } from "@/utils/date";
@@ -336,7 +332,7 @@ const loadSchedules = async () => {
 
 const loadMyBookings = async () => {
   try {
-    const result = await bookingApi.list({ status: 1 });
+    const result = await bookingApi.list({ status: 1, upcoming: true });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;
