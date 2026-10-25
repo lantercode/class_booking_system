@@ -75,7 +75,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="计划卡" min-width="170">
+        <el-table-column label="会员卡" min-width="170">
           <template #default="{ row }">
             <div v-if="row.card_no" class="card-cell">
               <span class="card-no">{{ row.card_no }}</span>
@@ -244,7 +244,7 @@ async function handleCheckIn(row: Booking) {
   const studentName = row.student_nickname || `学员#${row.student_id}`
   const abnormal = cardAbnormalStatusText(row.card_status)
   const message = abnormal
-    ? `确认为学员「${studentName}」代签到？该学员计划卡状态异常（${abnormal}），签到可能被拒绝。`
+    ? `确认为学员「${studentName}」代签到？该学员会员卡状态异常（${abnormal}），签到可能被拒绝。`
     : `确认为学员「${studentName}」代签到？`
   try {
     await ElMessageBox.confirm(message, '代签到确认', {

@@ -36,6 +36,8 @@ export interface BookingListParams {
   student_id?: number
   status?: string | number
   display_status?: number
+  /** 仅查询未开始的排期（学员端"待上课"语义）；不传则按状态全量查询 */
+  upcoming?: boolean
   keyword?: string
 }
 

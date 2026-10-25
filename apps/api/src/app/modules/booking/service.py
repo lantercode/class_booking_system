@@ -1205,7 +1205,7 @@ class BookingService:
             # 无已知角色 → 最小权限默认（仅自己作为学员的预约）
             forced_student_id = user_id
 
-        items, total = await self.repo.search(
+        items, db_total = await self.repo.search(
             db,
             schedule_id=schedule_id,
             student_id=forced_student_id,
@@ -1251,7 +1251,13 @@ class BookingService:
                 item for item in response_items if item.display_status == display_status
             ]
 
-        total = len(response_items)
+        # 分页总数：默认用 DB 层真实 count（与 page_size 无关）。
+        # 仅当发生内存过滤（display_status 为计算字段 / exclude_cancelled）时，
+        # DB count 与过滤结果不一致，退化为当前页计数（历史行为，小程序端单页场景不受影响）。
+        if display_status is not None or exclude_cancelled:
+            total = len(response_items)
+        else:
+            total = db_total
 
         return BookingListResponse(
             total=total,

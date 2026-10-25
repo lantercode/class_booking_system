@@ -100,8 +100,9 @@ async def list_bookings(
         if not statuses:
             statuses = None
 
-    # 当 status=1（待上课）时，自动启用 upcoming 筛选
-    is_upcoming = upcoming or (statuses == [1])
+    # upcoming 仅由调用方显式声明（学员端"待上课"场景）；管理端 status=1 表示全量「已预约」，
+    # 不再隐式附加"仅未来排期"过滤，避免过去排期未收口的 BOOKED 在筛选中消失
+    is_upcoming = upcoming
 
     result = await booking_service.list_bookings(
         db,

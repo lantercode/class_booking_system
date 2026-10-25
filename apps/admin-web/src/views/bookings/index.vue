@@ -79,7 +79,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="计划卡" min-width="200">
+      <el-table-column label="会员卡" min-width="200">
         <template #default="{ row }">
           <div v-if="row.card_no" class="card-cell">
             <div class="card-main">
@@ -134,7 +134,15 @@
           >
             完成
           </el-button>
-          <el-button type="primary" size="small" text @click="goRollCall(row)">点名</el-button>
+          <el-button
+            v-if="[1, 3, 4].includes(row.status)"
+            type="primary"
+            size="small"
+            text
+            @click="goRollCall(row)"
+          >
+            点名
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -189,6 +197,7 @@ const statusOptions = [
   { label: '已取消', value: 2 },
   { label: '已签到', value: 3 },
   { label: '已完成', value: 4 },
+  { label: '未到场', value: 5 },
 ]
 
 function goRollCall(row: Booking) {
