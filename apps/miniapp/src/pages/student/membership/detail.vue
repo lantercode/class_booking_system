@@ -116,11 +116,8 @@
 
       <!-- 入口操作 -->
       <view class="action-bar">
-        <view class="action-btn secondary" @tap="goTransactions">
-          <text class="action-text secondary-text">查看使用记录</text>
-        </view>
-        <view class="action-btn primary" @tap="goSchedule">
-          <text class="action-text primary-text">去预约</text>
+        <view class="action-btn primary" @tap="goTransactions">
+          <text class="action-text primary-text">查看使用记录</text>
         </view>
       </view>
     </template>
@@ -252,10 +249,6 @@ function goTransactions() {
   uni.navigateTo({
     url: `/pages/student/membership/transactions?card_id=${card.value.id}`,
   });
-}
-
-function goSchedule() {
-  uni.redirectTo({ url: "/pages/student/schedule/index" });
 }
 
 onLoad((options) => {
@@ -579,11 +572,6 @@ onLoad((options) => {
     box-shadow: $shadow-button;
   }
 
-  &.secondary {
-    background: rgba(255, 255, 255, 0.9);
-    border: 1rpx solid $primary-border;
-  }
-
   .action-text {
     font-size: $font-size-body;
     font-weight: $font-weight-medium;
@@ -591,10 +579,6 @@ onLoad((options) => {
 
   .primary-text {
     color: #fff;
-  }
-
-  .secondary-text {
-    color: #c9a66b;
   }
 }
 </style>

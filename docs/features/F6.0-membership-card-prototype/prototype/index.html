@@ -611,20 +611,22 @@ const BASE_CARDS=[
   {id:'C7',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P3',productName:'私教课期限卡',type:'period',status:'PENDING',used:0,total:null,remaining:null,valid_from:null,expire_at:null,validity_days:30,cardNo:'MC20261012007',issueDate:'2026-10-12',applicable_course_type_code:'private',created_at:'2026-10-12 10:00:00',updated_at:'2026-10-12 10:00:00',frozenReason:null,cancelReason:null},
   {id:'C8',student:'张小明',studentId:'U1',student_phone:'138****8888',productId:'P2',productName:'拉丁舞期限卡',type:'period',status:'ACTIVE',used:0,total:null,remaining:null,valid_from:'2026-10-05',expire_at:'2026-11-04',validity_days:30,cardNo:'MC20261005008',issueDate:'2026-10-05',applicable_course_type_code:'regular',created_at:'2026-10-05 10:00:00',updated_at:'2026-10-06 19:00:00'},
 ];
+/* 流水类型对齐真实 TransactionType 枚举中文(issue 发放/consume 扣次/restore 回补/recharge 充值/refund 退款/adjust 调整/expire 过期清零);
+   bookingId=关联预约 id(流水不展示课程名);delta 为数值,正/负/零着色;冻结/作废/激活为卡状态变更,不产生流水记录 */
 const BASE_TXNS={
   C2:[
-    {time:'2026-09-10 10:02',type:'发放',delta:'+0',balance:10,booking:'',note:'线下发卡 ISSUE'},
-    {time:'2026-10-05 19:30',type:'消费',delta:'-1',balance:9,booking:'拉丁舞基础 10-05',note:'预约预扣'},
-    {time:'2026-10-08 20:00',type:'消费',delta:'-1',balance:8,booking:'拉丁舞基础 10-08',note:'排期COMPLETED确认'},
-    {time:'2026-10-10 09:00',type:'消费',delta:'-1',balance:7,booking:'拉丁舞基础 10-10',note:'预约预扣(B1)'},
+    {time:'2026-09-10 10:02',type:'发放',delta:10,balance:10,bookingId:null,note:'线下发卡 ISSUE'},
+    {time:'2026-10-05 19:30',type:'扣次',delta:-1,balance:9,bookingId:null,note:'预约预扣'},
+    {time:'2026-10-08 19:00',type:'扣次',delta:-1,balance:8,bookingId:'B4',note:'预约预扣'},
+    {time:'2026-10-10 09:00',type:'扣次',delta:-1,balance:7,bookingId:'B1',note:'预约预扣(B1)'},
   ],
-  C1:[{time:'2026-10-09 10:02',type:'发放',delta:'+0',balance:'-',booking:'',note:'期卡PENDING待激活'}],
-  C3:[{time:'2026-07-01 10:00',type:'发放',delta:'+0',balance:10,note:'线下发卡'},{time:'2026-09-29 23:59',type:'过期',delta:'清零',balance:0,note:'expire_at过期,次卡清零'}],
-  C4:[{time:'2026-08-10 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡PENDING'},{time:'2026-09-09 23:59',type:'过期',delta:'-',balance:'-',note:'PENDING遗留卡标EXPIRED'}],
-  C5:[{time:'2026-09-20 10:00',type:'发放',delta:'+0',balance:10,note:'线下发卡'},{time:'2026-09-25 10:00',type:'消费',delta:'-1',balance:9,note:'排期COMPLETED'},{time:'2026-09-28 10:00',type:'消费',delta:'-1',balance:8,note:'排期COMPLETED'},{time:'2026-09-28 11:00',type:'冻结',delta:'-',balance:8,note:'学员请假外出'}],
-  C6:[{time:'2026-09-01 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡PENDING'},{time:'2026-09-20 10:00',type:'作废',delta:'-',balance:'-',note:'学员退课'}],
-  C7:[{time:'2026-10-12 10:00',type:'发放',delta:'+0',balance:'-',note:'线下发卡 私教课期卡PENDING'}],
-  C8:[{time:'2026-10-05 10:00',type:'发放',delta:'+0',balance:'-',note:'期卡首发,预约阶段不激活'},{time:'2026-10-06 19:00',type:'激活',delta:'-',balance:'-',note:'排期COMPLETED,写入有效期 2026-10-05~2026-11-04'}],
+  C1:[{time:'2026-10-09 10:02',type:'发放',delta:0,balance:'-',bookingId:null,note:'期卡PENDING待激活'}],
+  C3:[{time:'2026-07-01 10:00',type:'发放',delta:10,balance:10,bookingId:null,note:'线下发卡'},{time:'2026-09-29 23:59',type:'过期清零',delta:0,balance:0,bookingId:null,note:'expire_at过期,次卡清零'}],
+  C4:[{time:'2026-08-10 10:00',type:'发放',delta:0,balance:'-',bookingId:null,note:'期卡PENDING'},{time:'2026-09-09 23:59',type:'过期清零',delta:0,balance:'-',bookingId:null,note:'PENDING遗留卡标EXPIRED'}],
+  C5:[{time:'2026-09-20 10:00',type:'发放',delta:10,balance:10,bookingId:null,note:'线下发卡'},{time:'2026-09-25 10:00',type:'扣次',delta:-1,balance:9,bookingId:null,note:'预约预扣'},{time:'2026-09-28 10:00',type:'扣次',delta:-1,balance:8,bookingId:null,note:'预约预扣'}],
+  C6:[{time:'2026-09-01 10:00',type:'发放',delta:0,balance:'-',bookingId:null,note:'期卡PENDING'}],
+  C7:[{time:'2026-10-12 10:00',type:'发放',delta:0,balance:'-',bookingId:null,note:'线下发卡 私教课期卡PENDING'}],
+  C8:[{time:'2026-10-05 10:00',type:'发放',delta:0,balance:'-',bookingId:null,note:'期卡首发,预约阶段不激活'}],
 };
 /* course_type_code/name 对应真实 courseTypeApi 与 getCourseTypeLabel 的 private/regular/special */
 const BASE_SCHEDULES=[
@@ -883,7 +885,7 @@ function renderAdminSide(){
   const items=[
     {id:'P-A1',t:'卡产品管理',s:'产品模板·软删除',ic:'collection'},
     {id:'P-A2',t:'会员卡管理',s:'卡实例·状态·操作',ic:'creditCard'},
-    {id:'P-A5',t:'预约管理',s:'计划卡失效警示',ic:'ticket',added:true},
+    {id:'P-A5',t:'预约管理',s:'关键词筛选·按状态显隐',ic:'ticket'},
     {id:'P-A6',t:'排期签到点名',s:'代签到·完成',ic:'calendar'},
   ];
   document.getElementById('admin-side').innerHTML=
@@ -1215,10 +1217,11 @@ function openCardDetail(id){
   <div class="m-body" style="max-height:560px">
     <div class="desc-grid">${grid}</div>
     ${c.status==='PENDING'&&code==='period'?confirmedNote(9,'期卡PENDING:valid_from/expire_at 待首次排期 COMPLETED 时写入'):''}
-    <div class="muted" style="margin:12px 0 6px">原型扩展 · 真实详情弹窗不含流水（真实有 getTransactions 端点未接入）</div>
-    <table class="el"><thead><tr><th>时间</th><th>类型</th><th>变动</th><th>余额</th><th>关联课程</th><th>备注</th></tr></thead><tbody>
-    ${txns.length?txns.map(t=>`<tr><td>${t.time}</td><td>${t.type}</td><td>${t.delta}</td><td>${t.balance}</td><td>${t.booking||'—'}</td><td>${t.note}</td></tr>`).join(''):`<tr><td colspan="6">${emptyState('暂无使用记录')}</td></tr>`}
+    <div class="muted" style="margin:12px 0 6px">课时流水（F6.10 已接入 GET /membership/transactions；列对齐真实：操作类型/变动金额/时间，带分页器）</div>
+    <table class="el"><thead><tr><th>操作类型</th><th>变动金额</th><th>时间</th></tr></thead><tbody>
+    ${txns.length?txns.map(t=>`<tr><td>${t.type}</td><td style="color:${t.delta>0?'#7cb986':t.delta<0?'#d4847a':'#909399'};font-weight:600">${t.delta>0?'+':''}${t.delta}</td><td>${t.time}</td></tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:#909399">暂无流水记录</td></tr>`}
     </tbody></table>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:8px;font-size:12px;color:#909399"><span>共 ${txns.length} 条</span><span class="btn-sm" disabled style="opacity:.5">‹</span><span class="btn-sm" style="border:1px solid var(--gold);color:var(--gold)">1</span><span class="btn-sm" disabled style="opacity:.5">›</span></div>
     <div style="margin-top:14px">
       <button class="btn-sm" disabled style="opacity:.5">申请退款</button>
       ${sticky(8,'退款依赖 F6.1 支付渠道,本版仅入口占位(灰置)')}
@@ -1227,27 +1230,29 @@ function openCardDetail(id){
   <div class="m-foot"><button onclick="closeModal()">关闭</button><button class="btn-text" onclick="closeModal();toast('跳转关联预约(演示)')">查看关联预约</button></div>`,true);
 }
 
-/* ---------- P-A5 预约管理 ---------- */
+/* ---------- P-A5 预约管理(F6.10 已交付:对齐 admin-web/views/bookings/index.vue) ---------- */
 function adminA5(){
-  let rows=BOOKINGS.map(b=>{
+  let rows=BOOKINGS.map((b,i)=>{
     const cardFail=['CANCELLED','EXPIRED','FROZEN','USED_UP'].includes(b.cardStatus);
     return `<tr>
+      <td>${i+1}</td>
       <td>${b.student}</td><td>${b.course}<br><span class="muted">${b.date} ${b.time}</span></td>
       <td>${bookBadge(b)}</td>
       <td>${b.cardNo}<br>${badge(b.cardStatus)}${b.cardCancelReason?`<div class="muted">${b.cardCancelReason}</div>`:''}</td>
       <td>${b.source==='SELF'?'本人':b.source==='TEACHER'?'教师':'管理员'}</td>
       <td>${b.cancelReason||'—'}</td>
       <td>
-        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="toast(\'代取消(演示):仅已预约可代取消,需填取消原因,课时回补\')">代取消</button>':''}
+        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" style="color:#f56c6c" onclick="toast(\'代取消(演示):仅已预约可代取消,需填取消原因,课时回补\')">代取消</button>':''}
+        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名:代签到\')">签到</button>':''}
+        ${b.status==='CHECKED_IN'?'<button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名:完成\')">完成</button>':''}
         ${['BOOKED','CHECKED_IN','COMPLETED'].includes(b.status)?'<button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名\')">点名</button>':'<span class="muted">—</span>'}
       </td>
     </tr>`;
   }).join('');
-  return pendingBanner('管理后台预约管理页：真实 admin 菜单无此页（会员卡管理/排期管理之外未实现预约管理列表）')
-  +`<div class="toolbar"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option><option>未到场</option></select><input placeholder="学员/排期筛选"><span class="muted">计划卡失效行高亮警示(D3)</span></div>
-  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>课程/排期</th><th>状态</th><th>会员卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+  return `<div class="toolbar"><input placeholder="学员/排期筛选" style="width:240px"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option><option>未到场</option></select><span class="muted">计划卡失效行高亮警示(D3)</span></div>
+  <div class="scroll-x"><table class="el"><thead><tr><th>序号</th><th>学员</th><th>课程/排期</th><th>状态</th><th>会员卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
   <div class="muted" style="margin-top:8px;line-height:1.8">
-    <b>操作显示规则</b>：代取消＝仅「已预约」（取消后课时回补）；点名＝「已预约/已签到/已完成」（分别进入排期点名页做代签到/完成/查看名单）；「已取消/未到场」无操作（流程已终结，D5 缺席自动消解）。<br>
+    <b>操作显示规则</b>（对齐真实 bookings/index.vue 按状态显隐）：代取消＝仅「已预约」（取消后课时回补）；签到＝「已预约」；完成＝「已签到」；点名＝「已预约/已签到/已完成」（进入 P-A6）；「已取消/未到场」无操作（流程已终结，D5 缺席自动消解）。筛选为关键词框 + 状态下拉，无独立「查询/重置」按钮。<br>
     <b>测试数据构造</b>（对应真实系统，详见 interaction-spec P-A5）：①已预约＝学员端用有效卡预约未来排期；②已签到＝点名页代签到（两窗口并发同点可测重复签到拦截）；③已完成＝已签到后点完成（验证扣次流水）；④未到场＝预约后不签到、教师端对排期点完成（自动消解）；⑤卡失效警示(D3)＝对已有有效预约的卡在会员卡管理执行作废；⑥签到卡异常拦截(D9)＝作废后进点名页代签到，确认弹窗出现警示、后端拒绝。
   </div>`;
 }
@@ -1303,7 +1308,7 @@ function adminComplete(bId){
 /* ============================================================
    STUDENT MINI-APP
 ============================================================ */
-const STU_TITLE={P_M1:'我的会员卡',P_M2:'卡详情',P_M3:'课程排期',P_M4:'预约确认',P_M5:'预约结果',P_M6:'我的预约',P_M7:'取消确认',P_M8:'首页',P_M9:'我的',P_M10:'AI 助手'};
+const STU_TITLE={P_M1:'我的会员卡',P_M2:'卡详情',P_M3:'课程排期',P_M4:'预约确认',P_M5:'预约结果',P_M6:'我的预约',P_M7:'取消确认',P_M8:'首页',P_M9:'我的',P_M10:'AI 助手',P_M11:'使用记录'};
 /* 底部导航:严格复刻 components/HomeTabBar.vue 的样式;AI 助手为本次新增的一级 Tab
    四 Tab 首页/排期/AI 助手/我的(图标 tab-home/tab-booking/tab-profile + ai-robot);激活色 #8b7355,非激活 #999 */
 const TAB_ICONS={
@@ -1417,6 +1422,7 @@ function renderStuPage(){
   else if(STATE.stuPage==='P-M10')el.innerHTML=stuM10();
   else if(STATE.stuPage==='P-M1')el.innerHTML=stuM1();
   else if(STATE.stuPage==='P-M2')el.innerHTML=stuM2();
+  else if(STATE.stuPage==='P-M11')el.innerHTML=stuM11();
   else if(STATE.stuPage==='P-M3')el.innerHTML=stuM3();
   else if(STATE.stuPage==='P-M4')el.innerHTML=stuM4();
   else if(STATE.stuPage==='P-M5')el.innerHTML=stuM5();
@@ -1636,7 +1642,7 @@ function stuCardItem(c){
   }else if(st==='FROZEN'){
     usageBlock+=`<div style="margin-top:10px"><button class="stu-mini-btn" style="color:#4a7bd4;border-color:rgba(100,149,237,.5)" onclick="event.stopPropagation();toast('提前解冻需冲突检查(演示)')">提前解冻</button></div>`;
   }
-  return `<div class="card-item ${cardCls(c)}">
+  return `<div class="card-item ${cardCls(c)}" style="cursor:pointer" onclick="STATE.selCardId='${c.id}';goStu('P-M2')">
     <div class="card-content">
       <div class="card-main">
         <div class="card-header">
@@ -1690,28 +1696,56 @@ function doActivate(id){
   toast('已激活');renderStuPage();
 }
 
-/* P-M2 卡详情+使用记录 */
+/* P-M2 卡详情(F6.11 已交付) —— 对齐 pages/student/membership/detail.vue
+   卡面(产品名+状态徽标/卡号/类型) → 有效期(生效/到期) → 次卡课时(总次数/已使用/剩余)
+   → 冻结信息(FROZEN) / 作废信息(CANCELLED) → 底部唯一主按钮「查看使用记录」→ P-M11
+   (真实详情页无「去预约」按钮,流水已拆为独立页 P-M11) */
 function stuM2(){
-  const c=STATE.selCardId?cardById(STATE.selCardId):CARDS.find(x=>x.studentId==='U1'&&x.status==='ACTIVE');
+  const c=STATE.selCardId?cardById(STATE.selCardId):CARDS.find(x=>x.studentId==='U1'&&x.status==='ACTIVE')||CARDS.find(x=>x.studentId==='U1');
+  if(!c)return emptyState('卡不存在','返回','goStu(\'P-M1\')');
+  let html='<div class="stu-backbar" onclick="goStu(\'P-M1\')"><span>‹</span><span>返回</span></div>';
+  html+=`<div class="stu-card ${cardCls(c)}"><div class="hd"><div><div class="nm">${c.product_name}</div><div class="cardnoline">卡号 ${c.card_no}</div></div><div>${mCardBadge(c)}</div></div>
+    <div class="bd"><div class="line"><span class="k">类型</span><span>${ctText(c.card_type)}</span></div></div></div>`;
+  html+=`<div class="stu-section">有效期</div><div class="stu-card"><div class="bd">
+    <div class="line"><span class="k">生效时间</span><span>${c.valid_from||'—'}</span></div>
+    <div class="line"><span class="k">到期时间</span><span>${c.expire_at||'—'}</span></div></div></div>`;
+  if(c.card_type==='count'){
+    html+=`<div class="stu-section">课时</div><div class="stu-card"><div class="bd">
+      <div class="line"><span class="k">总次数</span><span>${c.total_credits==null?0:c.total_credits}</span></div>
+      <div class="line"><span class="k">已使用</span><span>${c.used_credits==null?0:c.used_credits}</span></div>
+      <div class="line"><span class="k">剩余</span><span>${c.remaining_credits==null?0:c.remaining_credits}</span></div></div></div>`;
+  }
+  if(c.status==='FROZEN'){
+    html+=`<div class="stu-section">冻结信息</div><div class="stu-card"><div class="bd">
+      <div class="line"><span class="k">冻结时间</span><span>${c.frozen_at||'—'}</span></div>
+      <div class="line"><span class="k">预计解冻</span><span>${c.frozen_until||'未设置'}</span></div>
+      <div class="line"><span class="k">冻结原因</span><span>${c.frozen_reason||'—'}</span></div></div></div>`;
+  }
+  if(c.status==='CANCELLED'){
+    html+=`<div class="stu-section">作废信息</div><div class="stu-card"><div class="bd">
+      <div class="line"><span class="k">作废时间</span><span>${c.updated_at||'—'}</span></div>
+      <div class="line"><span class="k">作废原因</span><span>${c.cancelReason||'—'}</span></div></div></div>`;
+  }
+  if(c.status==='PENDING'&&c.card_type==='period')html+=confirmedNote(9,'期卡PENDING:首次排期完成上课后自动激活并写入有效期');
+  html+=`<button class="stu-btn" style="margin-top:14px" onclick="goStu('P-M11')">查看使用记录</button>`;
+  return html;
+}
+
+/* P-M11 使用记录(F6.11 已交付,独立流水页) —— 对齐 pages/student/membership/transactions.vue
+   字段:类型中文(发放/扣次/回补/充值/退款/调整/过期清零) + 变动金额(正绿#7cb986/负红#d4847a/零灰)
+   + 时间 + 变动后余额 + 备注 + 关联预约 #id;不展示课程名/operator_id/幂等键;底部「没有更多了」 */
+function stuM11(){
+  const c=STATE.selCardId?cardById(STATE.selCardId):CARDS.find(x=>x.studentId==='U1'&&x.status==='ACTIVE')||CARDS.find(x=>x.studentId==='U1');
   if(!c)return emptyState('卡不存在','返回','goStu(\'P-M1\')');
   const txns=TXNS[c.id]||[];
-  const bal=c.type==='credits'?(c.remaining+'/'+c.total):'不限次';
-  const vrange=c.valid_from?`${c.valid_from} ~ ${c.expire_at}`:'待激活(首次上课后起算)';
-  let html=pendingBanner('会员卡详情/使用记录页：真实小程序我的会员卡页无此页，卡片也不可点击');
-  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button class="btn-text" onclick="goStu('P-M1')">‹ 返回</button></div>`;
-  html+=`<div class="stu-card ${cardCls(c)}"><div class="hd"><div><div class="nm">${c.productName}</div><div class="cardnoline">卡号 ${c.cardNo}</div></div><div>${mCardBadge(c)}</div></div>
-    <div class="bd"><div class="line"><span class="k">类型</span><span>${c.type==='credits'?'次卡':'期限卡'}</span></div>
-    <div class="line"><span class="k">余额</span><span>${bal}</span></div>
-    <div class="line"><span class="k">有效期</span><span>${vrange}</span></div>
-    <div class="line"><span class="k">发卡日</span><span>${c.issueDate}</span></div>
-    ${c.frozenReason?`<div class="line"><span class="k">冻结原因</span><span>${c.frozenReason}</span></div>`:''}
-    ${c.cancelReason?`<div class="line"><span class="k">作废原因</span><span>${c.cancelReason}</span></div>`:''}
-    </div></div>`;
-  if(c.status==='PENDING'&&c.type==='period')html+=confirmedNote(9,'期卡PENDING:首次排期完成上课后自动激活并写入有效期');
-  html+=`<div class="stu-section">使用记录 <span class="muted">(只显示业务字段)</span></div>`;
+  let html='<div class="stu-backbar" onclick="goStu(\'P-M2\')"><span>‹</span><span>返回</span></div>';
+  html+=`<div class="stu-section">使用记录 <span class="muted">${c.card_no}</span></div>`;
   if(!txns.length)html+=emptyState('暂无使用记录');
-  else html+=txns.map(t=>`<div class="stu-list-item"><div class="l"><div class="t">${t.type}</div><div class="d">${t.time}${t.booking?' · '+t.booking:''}</div></div><div>${t.delta}</div></div>`).join('');
-  html+=`<button class="stu-btn" style="margin-top:14px" onclick="goStu('P-M3')">去预约</button>`;
+  else html+=txns.map(t=>{
+    const color=t.delta>0?'#7cb986':t.delta<0?'#d4847a':'#909399';
+    return `<div class="stu-list-item"><div class="l"><div class="t">${t.type} <span style="color:${color};font-weight:600">${t.delta>0?'+':''}${t.delta}</span></div><div class="d">${t.time} · 余额 ${t.balance}</div>${t.note?`<div class="d">${t.note}</div>`:''}${t.bookingId?`<div class="d">关联预约 #${t.bookingId}</div>`:''}</div></div>`;
+  }).join('');
+  html+=`<div class="muted" style="text-align:center;margin-top:10px;font-size:11px">没有更多了</div>`;
   return html;
 }
 
@@ -1906,29 +1940,48 @@ function submitBooking(){
 function doBooking(){
   const s=schedById(STATE.selSchedId);const c=cardById(STATE.bookCardId);
   closeModal();
-  if(c.type==='credits'){c.remaining-=1;c.used+=1;TXNS[c.id].push({time:TODAY+' 19:00',type:'消费',delta:'-1',balance:c.remaining,booking:s.course+' '+s.date,note:'预约预扣'});STATE.bookResult={schedId:s.id,cardId:c.id,after:c.remaining,kind:'credits'}}
-  else{STATE.bookResult={schedId:s.id,cardId:c.id,kind:'period',expFrom:s.date,expTo:addDays(s.date,c.validity_days)}}
-  // 创建新预约
+  // 创建新预约(先建预约再记流水,流水回填关联预约 id,对齐真实 transactions.booking_id)
   const nb={id:'B'+(BOOKINGS.length+1),student:'张小明',studentId:'U1',scheduleId:s.id,cardId:c.id,cardNo:c.cardNo,cardStatus:c.status,cardType:c.type,status:'BOOKED',source:'SELF',course:s.course,date:s.date,time:s.time,room:s.room,teacher:s.teacher,cancelReason:null};
   BOOKINGS.push(nb);
+  if(c.type==='credits'){c.remaining-=1;c.used+=1;TXNS[c.id].push({time:TODAY+' 19:00',type:'扣次',delta:-1,balance:c.remaining,bookingId:nb.id,note:'预约预扣'});STATE.bookResult={schedId:s.id,cardId:c.id,after:c.remaining,kind:'credits'}}
+  else{STATE.bookResult={schedId:s.id,cardId:c.id,kind:'period',expFrom:s.date,expTo:addDays(s.date,c.validity_days)}}
   s.booked+=1;
   toast('预约成功');goStu('P-M5');renderAdminPage();
 }
 
-/* P-M5 预约结果 */
+/* P-M5 预约结果(F6.13 已交付) —— 对齐 pages/student/booking-result/index.vue
+   成功:三卡型标题/副标题 + 排期信息(课程/日期/时间/教师/教室) + 扣次信息(deductText) + 出口(查看我的预约/返回首页)
+   失败:按分类 full/conflict/balance/card/generic 给建议 + 返回重选/查看我的预约 */
 function stuM5(){
   const r=STATE.bookResult||{};const s=schedById(r.schedId);const c=cardById(r.cardId);
-  const ban=pendingBanner('预约结果页：真实小程序无独立结果页，预约成功直接进入我的预约');
-  if(r.fail)return ban+errorState(r.fail==='full'?'该排期名额已满,无法预约':'预约失败,请重试','重新选择',`STATE.bookResult=null;goStu('P-M3')`);
-  if(!s)return ban+emptyState('无预约结果','返回首页',`goStu('P-M3')`);
-  let info;
-  if(r.kind==='credits')info=`<div class="result-info"><div class="line"><span class="k">课程</span><span>${s.course}</span></div><div class="line"><span class="k">时间</span><span>${s.date} ${s.time}</span></div><div class="line"><span class="k">已预扣</span><span>1 次</span></div><div class="line"><span class="k">剩余</span><span>${r.after} 次</span></div></div>`;
-  else info=`<div class="result-info"><div class="line"><span class="k">课程</span><span>${s.course}</span></div><div class="line"><span class="k">时间</span><span>${s.date} ${s.time}</span></div><div class="line"><span class="k">期卡</span><span>不扣次</span></div><div class="line"><span class="k">预期有效期</span><span>${r.expFrom} ~ ${r.expTo}</span></div></div>`;
-  return ban+`<div class="result-box"><div class="big">${ri('check-circle','var(--green)',42)}</div><h3>${r.kind==='credits'?'预约成功 · 已预扣 1 次':'预约成功 · 首次上课后激活'}</h3>
-    <div class="muted">${r.kind==='credits'?'排期完成后确认扣次,取消将回补':'期卡 PENDING,排期 COMPLETED 时激活并写入有效期'}</div>${info}
-    ${r.kind==='period'?confirmedNote(9,'期卡 PENDING:首次排期 COMPLETED 才激活,在此之前不消耗有效期'):''}
+  if(r.fail){
+    const FAIL_MSG={full:'该排期名额已满,无法预约',conflict:'该时间段与您已有的预约重叠,无法预约',balance:'当前会员卡余额不足,无法预约',card:'当前会员卡不可用,无法预约',generic:'预约失败,请稍后重试'};
+    const FAIL_SUGGEST={full:'该排期名额已满，请选择其他时间段的排期',conflict:'该时间段与您已有的预约重叠，请选择其他排期',balance:'当前会员卡余额不足，请返回更换其他会员卡重试',card:'当前会员卡不可用，请返回更换其他会员卡重试',generic:'请稍后重试；如多次失败，请联系机构前台处理'};
+    const k=FAIL_MSG[r.fail]?r.fail:'generic';
+    return `<div class="result-box"><div class="big">${ri('alert','#c97a5e',42)}</div><h3>预约失败</h3>
+      <div class="muted">${FAIL_MSG[k]}</div>
+      <div class="result-info"><div class="line"><span class="k">建议</span><span style="max-width:230px;text-align:right">${FAIL_SUGGEST[k]}</span></div></div>
+      <button class="stu-btn" style="margin-top:14px" onclick="STATE.bookResult=null;goStu('P-M3')">返回重选</button>
+      <button class="stu-btn outline" style="margin-top:10px" onclick="STATE.bookResult=null;goStu('P-M6')">查看我的预约</button></div>`;
+  }
+  if(!s)return emptyState('无预约结果','返回首页',`goStu('P-M8')`);
+  const kind=r.kind;   /* credits/period/unlimited */
+  const title=kind==='credits'?'预约成功 · 已预扣 1 次':kind==='period'?'预约成功 · 首次上课后激活':'预约成功';
+  const sub=kind==='credits'?'排期完成后确认扣次,取消将回补':kind==='period'?'期卡在首次上课完成后激活并写入有效期':'';
+  const deduct=kind==='credits'?(r.after!=null?`已预扣 1 次 · 剩余 ${r.after} 次`:'已预扣 1 次')
+    :kind==='period'?'期卡不扣次，首次上课后激活':kind==='unlimited'?'不限次卡，不涉及扣次':'本次预约不涉及次数扣减';
+  const info=`<div class="result-info">
+    <div class="line"><span class="k">课程</span><span>${s.course}</span></div>
+    <div class="line"><span class="k">日期</span><span>${s.date}</span></div>
+    <div class="line"><span class="k">时间</span><span>${s.time}</span></div>
+    <div class="line"><span class="k">教师</span><span>${s.teacher||'未知教师'}</span></div>
+    <div class="line"><span class="k">教室</span><span>${s.room||'未安排教室'}</span></div></div>
+    <div class="result-info"><div class="line"><span class="k">扣次</span><span>${deduct}</span></div>${kind==='period'?`<div class="line"><span class="k">预期有效期</span><span>${r.expFrom} ~ ${r.expTo}</span></div>`:''}</div>`;
+  return `<div class="result-box"><div class="big">${ri('check-circle','var(--green)',42)}</div><h3>${title}</h3>
+    <div class="muted">${sub}</div>${info}
+    ${kind==='period'?confirmedNote(9,'期卡 PENDING:首次排期 COMPLETED 才激活,在此之前不消耗有效期'):''}
     <button class="stu-btn" style="margin-top:14px" onclick="goStu('P-M6')">查看我的预约</button>
-    <button class="stu-btn outline" style="margin-top:10px" onclick="goStu('P-M3')">返回首页</button></div>`;
+    <button class="stu-btn outline" style="margin-top:10px" onclick="goStu('P-M8')">返回首页</button></div>`;
 }
 
 /* P-M6 我的预约 —— 严格复刻 pages/student/bookings/index.vue
@@ -1973,19 +2026,23 @@ function bookingCardItem(b){
 function openCancelModal(){
   const b=bookingById(STATE.cancelBId);if(!b)return;
   const c=cardById(b.cardId);
-  let refund='';
-  if(b.cardType==='credits')refund=`<div class="confirm-box"><div class="row"><span class="k">排期</span><span>${b.course} ${b.date}</span></div><div class="row"><span class="k">原卡</span><span>${b.cardNo}</span></div><div class="row"><span class="k">当前剩余</span><span>${c?c.remaining:'—'} 次</span></div><div class="row" style="color:var(--green)"><span class="k">取消后回补</span><span>+1 次 → ${c?c.remaining+1:'—'} 次</span></div></div>`;
-  else refund=`<div class="confirm-box"><div class="row"><span class="k">排期</span><span>${b.course} ${b.date}</span></div><div class="row"><span class="k">期卡</span><span>不扣次,取消不回补,保持 PENDING</span></div></div>`;
+  /* 回补预览对齐真实 getRefundPreviewText(F6.13):次卡回补/期卡·无限卡不扣次不回补/无卡兜底 */
+  let refundText;
+  if(b.cardType==='credits')refundText='取消后将回补 1 次到原卡'+(c?`（+1 次 → ${c.remaining+1} 次）`:'');
+  else if(b.cardType==='period')refundText='期卡预约不扣次，取消不涉及次数回补';
+  else if(b.cardType==='unlimited')refundText='不限次卡不扣次，取消不涉及次数回补';
+  else refundText='如预约时已扣次，取消后将按实际结果回补';
+  const box=`<div class="confirm-box"><div class="row"><span class="k">课程</span><span>${b.course}</span></div><div class="row"><span class="k">时间</span><span>${b.date} ${b.time||''}</span></div><div class="row" style="color:var(--green)"><span class="k">回补预览</span><span style="max-width:230px;text-align:right">${refundText}</span></div></div>`;
   openModal(`<div class="m-head"><h3>取消预约确认 <span class="muted">P-M7</span></h3><button class="btn-text" onclick="closeModal()">✕</button></div>
-  <div class="m-body">${refund}${confirmedNote(1,'次卡:取消立即回补(RESTORE),行锁保护;期卡:不激活不回补')}<div class="form-row"><label>取消原因</label><textarea id="cancel-reason" placeholder="选填" rows="2"></textarea></div></div>
+  <div class="m-body">${box}${confirmedNote(1,'次卡:取消立即回补(RESTORE),行锁保护;期卡/不限次卡:不扣次不回补')}<div class="form-row"><label>取消原因（选填）</label><textarea id="cancel-reason" placeholder="请输入取消原因" maxlength="200" rows="2"></textarea></div></div>
   <div class="m-foot"><button onclick="closeModal()">再想想</button><button class="btn-danger" onclick="doCancel()">确认取消</button></div>`);
 }
 function doCancel(){
   const b=bookingById(STATE.cancelBId);if(!b){closeModal();return}
   if(b.status!=='BOOKED'){toast('已签到/已完成,不可取消');closeModal();return}
   b.status='CANCELLED';b.cancelReason=document.getElementById('cancel-reason').value.trim()||'临时取消';
-  if(b.cardType==='credits'&&b.cardId){const c=cardById(b.cardId);if(c){c.remaining+=1;c.used-=1;TXNS[c.id].push({time:TODAY+' 19:30',type:'回补',delta:'+1',balance:c.remaining,booking:b.course+' '+b.date,note:'取消回补 RESTORE'})}}
-  closeModal();toast('已取消,次卡已回补 +1');goStu('P-M1');renderAdminPage();
+  if(b.cardType==='credits'&&b.cardId){const c=cardById(b.cardId);if(c){c.remaining+=1;c.used-=1;TXNS[c.id].push({time:TODAY+' 19:30',type:'回补',delta:1,balance:c.remaining,bookingId:b.id,note:'取消回补 RESTORE'})}}
+  closeModal();toast(b.cardType==='credits'?'已取消,次卡已回补 +1':'已取消');goStu('P-M1');renderAdminPage();
 }
 
 /* ============================================================

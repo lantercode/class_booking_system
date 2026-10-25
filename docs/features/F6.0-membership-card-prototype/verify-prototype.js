@@ -83,7 +83,7 @@ ok('B3 写操作弹二次确认', $('mask').classList.contains('show') && $('mod
 api.doBooking();
 ok('B4 次卡预扣 remaining 7->6', api.cardById('C2').remaining === 6, 'got ' + api.cardById('C2').remaining);
 ok('B5 used 3->4', api.cardById('C2').used === 4, 'got ' + api.cardById('C2').used);
-ok('B6 生成 CONSUME 流水', api.TXNS.C2[api.TXNS.C2.length - 1].type === '消费');
+ok('B6 生成 CONSUME 流水(类型中文对齐真实枚举 consume=扣次)', api.TXNS.C2[api.TXNS.C2.length - 1].type === '扣次');
 ok('B7 新增预约 BOOKED', api.BOOKINGS.length === 6 && api.BOOKINGS[5].status === 'BOOKED', 'len=' + api.BOOKINGS.length);
 ok('B8 跳转结果页 P-M5', api.STATE.stuPage === 'P-M5');
 ok('B9 期卡 PENDING 可选(角标待激活)', api.CARDS.some(c => c.status === 'PENDING'));
@@ -140,7 +140,7 @@ ok('G1 P-M1 双胶囊 Tab(有效课卡 N / 无效课卡 N)', sc.includes('filter
 ok('G2 P-M1 卡面含复制图标 + 竖线分隔', sc.includes('copy-icon-btn') && sc.includes('usage-divider-line'));
 ok('G3 P-M1 次卡余额 {remaining}/{total}次 同排', sc.includes('credits-remaining') && sc.includes('credits-separator') && sc.includes('credits-total') && sc.includes('credits-unit'));
 ok('G4 P-M1 待激活卡行走行内"立即激活"', sc.includes('usage-with-activate') && sc.includes('activate-btn-inline'));
-ok('G5 P-M1 卡片不可点击(无 P-M2 跳转入口)', !sc.includes("goStu('P-M2')"));
+ok('G5 P-M1 卡片可点击进入详情(对齐真实 goDetail→P-M2,F6.11 已交付)', sc.includes("goStu('P-M2')"));
 api.goStu('P-M3');
 sc = html('stu-content');
 ok('G6 P-M3 有分类筛选栏 + 日期栏', sc.includes('filter-pill') && sc.includes('date-pill') && sc.includes('pill-day-name') && sc.includes('pill-day-date'));
@@ -154,12 +154,27 @@ api.goStu('P-M6');
 sc = html('stu-content');
 ok('G11 P-M6 四个筛选 Tab(全部/待上课/上课中/已完成)', ['全部', '待上课', '上课中', '已完成'].every(t => sc.includes(t)) && sc.includes('filter-tabs'));
 ok('G12 P-M6 取消受限展示"开课前 90 分钟内不可取消"', sc.includes('开课前 90 分钟内不可取消'));
-api.goStu('P-M2');
-ok('G13 P-M2 标注「待新增 · 真实项目不存在」', html('stu-content').includes('待新增 · 真实项目不存在'));
-api.goStu('P-M5'); api.STATE.bookResult = null; api.renderStuPage();
-ok('G14 P-M5 标注「待新增 · 真实项目不存在」', html('stu-content').includes('待新增 · 真实项目不存在'));
-api.goAdmin('P-A5');
-ok('G15 P-A5 标注「待新增」且侧边栏入口灰置', html('admin-main').includes('待新增 · 真实项目不存在') && html('admin-side').includes('nav-added') && html('admin-side').includes('chip-added'));
+api.STATE.selCardId = 'C2'; api.goStu('P-M2');
+sc = html('stu-content');
+ok('G13 P-M2 卡详情页(F6.11 已交付):有效期+课时+唯一主按钮「查看使用记录」,无「去预约」/待新增标注',
+  sc.includes('有效期') && sc.includes('生效时间') && sc.includes('到期时间') &&
+  sc.includes('课时') && sc.includes('总次数') && sc.includes('已使用') && sc.includes('剩余') &&
+  sc.includes('查看使用记录') && sc.includes("goStu('P-M11')") &&
+  !sc.includes('去预约') && !sc.includes('待新增 · 真实项目不存在'));
+api.goStu('P-M11');
+sc = html('stu-content');
+ok('G13b P-M11 使用记录页(F6.11 已交付):类型/变动金额着色/余额/关联预约 #id,无课程名字段',
+  sc.includes('使用记录') && sc.includes('余额') && sc.includes('关联预约 #') && sc.includes('没有更多了') &&
+  (sc.includes('#7cb986') || sc.includes('#d4847a')) && !sc.includes('拉丁舞基础'));
+api.goStu('P-M5'); api.STATE.bookResult = { fail: 'full' }; api.renderStuPage();
+sc = html('stu-content');
+ok('G14 P-M5 预约结果页(F6.13 已交付):失败态按分类给建议+双出口,无待新增标注',
+  sc.includes('预约失败') && sc.includes('建议') && sc.includes('请选择其他时间段的排期') &&
+  sc.includes('返回重选') && sc.includes('查看我的预约') && !sc.includes('待新增 · 真实项目不存在'));
+api.STATE.bookResult = null; api.goAdmin('P-A5');
+ok('G15 P-A5 预约管理(F6.10 已交付):序号列+关键词筛选+按状态显隐,侧边栏入口不再灰置',
+  html('admin-main').includes('序号') && html('admin-main').includes('学员/排期筛选') && html('admin-main').includes('代取消') &&
+  !html('admin-main').includes('待新增 · 真实项目不存在') && !html('admin-side').includes('nav-added') && !html('admin-side').includes('chip-added'));
 
 /* ---- 流程 H 底部导航(复刻 components/HomeTabBar.vue) + 首页/我的两页 ---- */
 console.log('[H] 底部导航 + 首页/我的');
@@ -313,7 +328,7 @@ ok('K18 冻结弹窗: 冻结天数(1-365天) + 冻结原因(请输入冻结原�
 
 api.openCardDetail('C2'); mb = $('modal-box').innerHTML;
 ok('K19 详情弹窗为 el-descriptions 两列 border 网格(desc-grid)且字段完整', mb.includes('desc-grid') && ['会员卡号', '产品名称', '计费方式', '学员', '手机号', '总次数', '已用次数', '剩余次数', '状态', '有效期', '创建时间', '更新时间'].every(f => mb.includes(f)));
-ok('K20 详情弹窗含流水原型扩展标注(真实详情弹窗不含流水)', mb.includes('原型扩展') && mb.includes('getTransactions'));
+ok('K20 详情弹窗含课时流水(F6.10 已接入 transactions):列=操作类型/变动金额/时间+分页器', mb.includes('课时流水') && mb.includes('操作类型') && mb.includes('变动金额') && /共 \d+ 条/.test(mb));
 api.openCardDetail('C5'); mb = $('modal-box').innerHTML;
 ok('K21 冻结卡详情含 冻结时间/冻结到期/剩余冻结天数/冻结原因', ['冻结时间', '冻结到期', '剩余冻结天数', '冻结原因'].every(f => mb.includes(f)) && mb.includes('span2'));
 
