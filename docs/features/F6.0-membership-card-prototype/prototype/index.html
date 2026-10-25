@@ -1238,15 +1238,18 @@ function adminA5(){
       <td>${b.source==='SELF'?'本人':b.source==='TEACHER'?'教师':'管理员'}</td>
       <td>${b.cancelReason||'—'}</td>
       <td>
-        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="toast(\'代取消(演示)\')">代取消</button>':''}
-        <button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名\')">点名</button>
+        ${b.status==='BOOKED'?'<button class="btn-text btn-sm" onclick="toast(\'代取消(演示):仅已预约可代取消,需填取消原因,课时回补\')">代取消</button>':''}
+        ${['BOOKED','CHECKED_IN','COMPLETED'].includes(b.status)?'<button class="btn-text btn-sm" onclick="goAdmin(\'P-A6\');toast(\'进入排期点名\')">点名</button>':'<span class="muted">—</span>'}
       </td>
     </tr>`;
   }).join('');
   return pendingBanner('管理后台预约管理页：真实 admin 菜单无此页（会员卡管理/排期管理之外未实现预约管理列表）')
-  +`<div class="toolbar"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option></select><input placeholder="学员/排期筛选"><span class="muted">计划卡失效行高亮警示(D3)</span></div>
-  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>课程/排期</th><th>状态</th><th>计划卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
-  <div class="muted" style="margin-top:8px">可找出"计划卡已作废的有效预约"演示场景(B3)</div>`;
+  +`<div class="toolbar"><select><option>全部状态</option><option>已预约</option><option>已取消</option><option>已签到</option><option>已完成</option><option>未到场</option></select><input placeholder="学员/排期筛选"><span class="muted">计划卡失效行高亮警示(D3)</span></div>
+  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>课程/排期</th><th>状态</th><th>会员卡</th><th>来源</th><th>取消原因</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="muted" style="margin-top:8px;line-height:1.8">
+    <b>操作显示规则</b>：代取消＝仅「已预约」（取消后课时回补）；点名＝「已预约/已签到/已完成」（分别进入排期点名页做代签到/完成/查看名单）；「已取消/未到场」无操作（流程已终结，D5 缺席自动消解）。<br>
+    <b>测试数据构造</b>（对应真实系统，详见 interaction-spec P-A5）：①已预约＝学员端用有效卡预约未来排期；②已签到＝点名页代签到（两窗口并发同点可测重复签到拦截）；③已完成＝已签到后点完成（验证扣次流水）；④未到场＝预约后不签到、教师端对排期点完成（自动消解）；⑤卡失效警示(D3)＝对已有有效预约的卡在会员卡管理执行作废；⑥签到卡异常拦截(D9)＝作废后进点名页代签到，确认弹窗出现警示、后端拒绝。
+  </div>`;
 }
 
 /* ---------- P-A6 排期签到点名 ---------- */
@@ -1263,7 +1266,7 @@ function adminA6(){
   </tr>`).join('');
   return `<div class="toolbar">排期:<select onchange="STATE.teacherSched=this.value;renderAdminPage();renderTeacher()">${opts}</select>
     <span class="muted">D9: 签到校验计划卡状态,非 ACTIVE 拦截</span></div>
-  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>预约状态</th><th>计划卡</th><th>签到时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="scroll-x"><table class="el"><thead><tr><th>学员</th><th>预约状态</th><th>会员卡</th><th>签到时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>
   ${confirmedNote(5,'缺席(NO_SHOW)自动消解:排期COMPLETED即扣,是否到场不影响扣次,无需手动标记缺席(D5)')}
   ${confirmedNote(1,'签到/完成不再扣次,扣次在预约时已发生(预扣);此处签到仅推进预约状态')}`;
 }
