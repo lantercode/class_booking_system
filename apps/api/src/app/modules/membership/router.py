@@ -217,8 +217,9 @@ async def list_cards(
     keyword: str | None = Query(None),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
+    redis_client=Depends(get_redis_client),
 ):
-    """获取会员卡列表"""
+    """获取会员卡列表（admin 可查全租户；学员仅本人卡）"""
     tenant_id = current_user.get("tenant_id")
     # 解析多选状态：将逗号分隔的字符串转为整数列表
     status_list: list[int] | None = None
@@ -228,9 +229,11 @@ async def list_cards(
         except ValueError:
             status_list = None
 
-    result = await membership_card_service.list_cards(
+    result = await membership_card_service.list_cards_for_requester(
         db,
         tenant_id,
+        requester_user_id=current_user.get("user_id"),
+        redis_client=redis_client,
         student_id=student_id,
         product_id=product_id,
         card_type=card_type,
@@ -282,10 +285,17 @@ async def get_card(
     card_id: int = Path(...),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
+    redis_client=Depends(get_redis_client),
 ):
-    """获取会员卡详情"""
+    """获取会员卡详情（admin 可查本租户任意卡；学员仅本人卡）"""
     tenant_id = current_user.get("tenant_id")
-    result = await membership_card_service.get_card(db, card_id, tenant_id)
+    result = await membership_card_service.get_card_for_requester(
+        db,
+        card_id,
+        tenant_id,
+        current_user.get("user_id"),
+        redis_client=redis_client,
+    )
     return success(data=MembershipCardResponse.model_validate(result))
 
 
@@ -543,12 +553,15 @@ async def list_transactions(
     operation_type: str | None = Query(None),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
+    redis_client=Depends(get_redis_client),
 ):
-    """获取消费流水列表"""
+    """获取消费流水列表（admin 可查全租户；学员仅本人卡流水）"""
     tenant_id = current_user.get("tenant_id")
-    result = await membership_card_service.list_transactions(
+    result = await membership_card_service.list_transactions_for_requester(
         db,
         tenant_id,
+        requester_user_id=current_user.get("user_id"),
+        redis_client=redis_client,
         card_id=card_id,
         operation_type=operation_type,
         page=page,

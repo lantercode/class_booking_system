@@ -468,6 +468,7 @@ class MembershipCardTransactionRepository(TenantAwareRepository[MembershipCardTr
         db: AsyncSession,
         *,
         card_id: int | None = None,
+        card_ids: list[int] | None = None,
         operation_type: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -479,6 +480,11 @@ class MembershipCardTransactionRepository(TenantAwareRepository[MembershipCardTr
         if card_id is not None:
             base_query = base_query.where(MembershipCardTransaction.card_id == card_id)
             count_query = count_query.where(MembershipCardTransaction.card_id == card_id)
+
+        # F6.11 T6.11.1：按卡集合过滤（学员本人全部卡流水；纯增量，不影响既有 card_id 调用方）
+        if card_ids is not None:
+            base_query = base_query.where(MembershipCardTransaction.card_id.in_(card_ids))
+            count_query = count_query.where(MembershipCardTransaction.card_id.in_(card_ids))
 
         if operation_type is not None:
             base_query = base_query.where(

@@ -16,6 +16,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import PermissionException
+from app.core.rbac.checker import check_roles
 from app.modules.membership.models import (
     CardStatus,
     CardType,
@@ -498,6 +500,33 @@ class MembershipCardService:
         # 多租户隔离验证
         if card.tenant_id != tenant_id:
             raise HTTPException(status_code=403, detail="无权访问此会员卡")
+        return card
+
+    async def get_card_for_requester(
+        self,
+        db: AsyncSession,
+        card_id: int,
+        tenant_id: int,
+        requester_user_id: int,
+        redis_client=None,
+    ) -> MembershipCard:
+        """获取会员卡详情（带请求者归属校验，F6.11 T6.11.1）
+
+        归属规则（Service 层强制，端点不挂角色装饰器）：
+          - admin / super_admin（check_roles 判定）：可查本租户任意卡
+          - 其余角色：仅本人卡（card.student_id == requester_user_id），否则 403
+        卡不存在 / 跨租户：复用 ``get_card`` → 404（不泄露卡存在性）。
+        """
+        card = await self.get_card(db, card_id, tenant_id)
+        is_admin = await check_roles(
+            db,
+            ["admin", "super_admin"],
+            redis_client=redis_client,
+            user_id=requester_user_id,
+            tenant_id=tenant_id,
+        )
+        if not is_admin and card.student_id != requester_user_id:
+            raise PermissionException("无权查看该会员卡")
         return card
 
     async def get_card_with_lock(
@@ -997,6 +1026,51 @@ class MembershipCardService:
         # items 已经是 dict 格式（包含关联字段），直接返回
         return {"total": total, "page": page, "page_size": page_size, "items": items}
 
+    async def list_cards_for_requester(
+        self,
+        db: AsyncSession,
+        tenant_id: int,
+        *,
+        requester_user_id: int,
+        redis_client=None,
+        student_id: int | None = None,
+        product_id: int | None = None,
+        card_type: str | None = None,
+        status: list[int] | None = None,
+        keyword: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        """获取会员卡列表（带请求者归属校验，F6.11 T6.11.1）
+
+        - admin / super_admin：与 ``list_cards`` 行为一致（可查全租户、可按 student_id 筛选）
+        - 其余角色：显式传他人 student_id → 403；未传则强制为本人，
+          其余筛选参数原样透传。
+        """
+        is_admin = await check_roles(
+            db,
+            ["admin", "super_admin"],
+            redis_client=redis_client,
+            user_id=requester_user_id,
+            tenant_id=tenant_id,
+        )
+        if not is_admin:
+            if student_id is not None and student_id != requester_user_id:
+                raise PermissionException("无权查看其他学员的会员卡")
+            student_id = requester_user_id
+
+        return await self.list_cards(
+            db,
+            tenant_id,
+            student_id=student_id,
+            product_id=product_id,
+            card_type=card_type,
+            status=status,
+            keyword=keyword,
+            page=page,
+            page_size=page_size,
+        )
+
     async def get_student_all_cards(
         self,
         db: AsyncSession,
@@ -1144,6 +1218,69 @@ class MembershipCardService:
         items, total = await self.txn_repo.list_transactions(
             db,
             card_id=card_id,
+            operation_type=operation_type,
+            page=page,
+            page_size=page_size,
+        )
+        return {"total": total, "page": page, "page_size": page_size, "items": items}
+
+    async def list_transactions_for_requester(
+        self,
+        db: AsyncSession,
+        tenant_id: int,
+        *,
+        requester_user_id: int,
+        redis_client=None,
+        card_id: int | None = None,
+        operation_type: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict:
+        """获取消费流水列表（带请求者归属校验，F6.11 T6.11.1）
+
+        - admin / super_admin：与 ``list_transactions`` 完全一致（card_id 可选、全租户）
+        - 其余角色且传了 card_id：先经 ``get_card_for_requester`` 校验归属
+          （他人卡 403、跨租户/不存在 404），再按该 card_id 查询
+        - 其余角色未传 card_id：聚合本人全部卡的流水（card_ids 仅内部使用，
+          不作为 query 参数对外暴露）；本人无卡时返回空页，不报错
+        """
+        is_admin = await check_roles(
+            db,
+            ["admin", "super_admin"],
+            redis_client=redis_client,
+            user_id=requester_user_id,
+            tenant_id=tenant_id,
+        )
+        if is_admin:
+            return await self.list_transactions(
+                db,
+                tenant_id,
+                card_id=card_id,
+                operation_type=operation_type,
+                page=page,
+                page_size=page_size,
+            )
+
+        if card_id is not None:
+            await self.get_card_for_requester(
+                db,
+                card_id,
+                tenant_id,
+                requester_user_id,
+                redis_client=redis_client,
+            )
+            card_ids = [card_id]
+        else:
+            cards = await self.card_repo.get_all_cards_by_student(
+                db, requester_user_id, tenant_id
+            )
+            card_ids = [card["id"] for card in cards]
+            if not card_ids:
+                return {"total": 0, "page": page, "page_size": page_size, "items": []}
+
+        items, total = await self.txn_repo.list_transactions(
+            db,
+            card_ids=card_ids,
             operation_type=operation_type,
             page=page,
             page_size=page_size,
