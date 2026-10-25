@@ -435,6 +435,15 @@ const handleCancel = () => {
   uni.navigateBack();
 };
 
+// 构造预约结果页 URL（成功/失败共用；字段经 encodeURIComponent，结果页 safeDecode 解码）
+const buildResultUrl = (params: Record<string, string>) => {
+  const query = Object.entries(params)
+    .filter(([, v]) => v !== "")
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&");
+  return `/pages/student/booking-result/index?${query}`;
+};
+
 // 确认预约
 const handleConfirm = async () => {
   // 提前固化已选中的卡片 ID（number），避免在弹窗回调中把 number | null 传入请求
@@ -455,16 +464,40 @@ const handleConfirm = async () => {
             membership_card_id: cardId,
           });
           if (result.code === 0 || result.code === 200) {
-            uni.showToast({ title: "预约成功", icon: "success" });
-            setTimeout(() => {
-              uni.$emit("bookingSuccess");
-              uni.navigateBack();
-            }, 1500);
+            uni.$emit("bookingSuccess");
+            // F6.13：成功跳结果页（携带排期摘要与所选卡类型；
+            // remaining_credits 由结果页经卡详情接口拉取，后端权威）
+            uni.redirectTo({
+              url: buildResultUrl({
+                result: "success",
+                schedule_id: String(scheduleId.value),
+                card_id: String(cardId),
+                card_type: selectedCard.value?.card_type || "",
+                course_name: schedule.value.course_name || "",
+                start_at: schedule.value.start_at || "",
+                end_at: schedule.value.end_at || "",
+                teacher_name: schedule.value.teacher_name || "",
+                classroom_name: schedule.value.classroom_name || "",
+              }),
+            });
           } else {
             uni.showToast({ title: result.msg || "预约失败", icon: "none" });
           }
         } catch (error: any) {
-          // API层已显示错误提示，此处无需重复显示
+          // 401 登录态失效由 API 层统一跳转登录页，此处不再跳转结果页
+          if (error?.statusCode === 401 || error?.message === "登录已过期") {
+            return;
+          }
+          // F6.13：失败跳结果页失败态（按 statusCode + msg 分类给建议）；
+          // 隐藏 API 层已弹出的 toast，避免与结果页文案重复
+          uni.hideToast();
+          uni.redirectTo({
+            url: buildResultUrl({
+              result: "fail",
+              msg: error?.message || "预约失败，请稍后重试",
+              code: error?.statusCode ? String(error.statusCode) : "",
+            }),
+          });
         }
       }
     },

@@ -659,7 +659,7 @@
 
 ### Feature 6.13：预约结果页与取消回补预览（原型 P-M5/P-M7）
 
-- **Status**：READY（纯前端，无阻塞）
+- **Status**：✅ DONE（2026-10-25，待人工验收；任务记录 `docs/engineering/task-records/20261025-F6.13-booking-result-cancel-preview.md`）
 - **Priority**：P2
 - **Goal**：补齐原型 P-M5 预约结果页（成功含扣次反馈/失败分类建议）与 P-M7 取消确认弹窗（回补预览）。
 - **Scope**：新建 `pages/student/booking-result/index.vue`（成功态：次卡「已预扣 1 次·剩余 N 次」、期卡「首次上课后激活」；失败态按 400/409 + 后端 msg 分类建议）；`booking-confirm` 成功/失败后跳转结果页；`bookings` 取消改为回补预览确认弹窗（按 `card_type` 推导回补文案，纯展示、后端权威）。

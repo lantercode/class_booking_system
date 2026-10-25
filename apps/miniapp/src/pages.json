@@ -164,6 +164,13 @@
       }
     },
     {
+      "path": "pages/student/booking-result/index",
+      "style": {
+        "navigationBarTitleText": "预约结果",
+        "disableScroll": false
+      }
+    },
+    {
       "path": "pages/student/videos/player",
       "style": {
         "navigationStyle": "custom",

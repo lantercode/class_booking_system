@@ -214,6 +214,64 @@
         </view>
       </view>
     </view>
+
+    <!-- F6.13 取消确认弹窗（P-M7：回补预览 + 原因输入 + 二次确认） -->
+    <view v-if="showCancelPopup" class="swap-mask" @tap="closeCancelPopup">
+      <view class="swap-popup" @tap.stop>
+        <view class="swap-header">
+          <text class="swap-title">取消预约确认</text>
+          <view class="swap-close" @tap="closeCancelPopup">
+            <text class="close-icon">×</text>
+          </view>
+        </view>
+
+        <view class="cancel-body">
+          <!-- 排期信息 -->
+          <view class="cancel-info-box">
+            <view class="cancel-info-row">
+              <text class="cancel-info-label">课程</text>
+              <text class="cancel-info-value">{{
+                cancelTarget?.course_name || "未知课程"
+              }}</text>
+            </view>
+            <view class="cancel-info-row">
+              <text class="cancel-info-label">时间</text>
+              <text class="cancel-info-value">{{
+                formatBookingDate(cancelTarget?.start_at)
+              }}</text>
+            </view>
+            <view class="cancel-info-row">
+              <text class="cancel-info-label">回补预览</text>
+              <text class="cancel-info-value refund">{{
+                getRefundPreviewText(cancelTarget)
+              }}</text>
+            </view>
+          </view>
+
+          <!-- 取消原因（选填，保持现有接口参数） -->
+          <view class="cancel-reason">
+            <text class="cancel-reason-label">取消原因（选填）</text>
+            <textarea
+              v-model="cancelReason"
+              class="cancel-reason-input"
+              placeholder="请输入取消原因"
+              maxlength="200"
+              :disabled="cancelSubmitting"
+            />
+          </view>
+        </view>
+
+        <view class="swap-footer">
+          <button
+            class="swap-confirm-btn cancel-confirm-btn"
+            :disabled="cancelSubmitting"
+            @tap="confirmCancel"
+          >
+            {{ cancelSubmitting ? "提交中..." : "确认取消" }}
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -565,26 +623,56 @@ const canCancelBooking = (booking: any): boolean => {
   return minutesBefore > cancelMinutes.value;
 };
 
-const handleCancel = async (booking: any) => {
-  uni.showModal({
-    title: "确认取消",
-    content: "确定要取消此预约吗？",
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          const result = await bookingApi.cancel(booking.id);
-          if (result.code === 0 || result.code === 200) {
-            uni.showToast({ title: "取消成功", icon: "success" });
-            loadBookings();
-          } else {
-            uni.showToast({ title: result.msg || "取消失败", icon: "none" });
-          }
-        } catch {
-          uni.showToast({ title: "取消失败", icon: "none" });
-        }
-      }
-    },
-  });
+// ===== F6.13 取消确认弹窗（P-M7 回补预览） =====
+const showCancelPopup = ref(false);
+const cancelTarget = ref<any>(null);
+const cancelReason = ref("");
+const cancelSubmitting = ref(false);
+
+// 回补预览（纯展示推导，后端权威：次卡取消 RESTORE +1，期卡/无限卡不扣次不回补）
+const getRefundPreviewText = (booking: any): string => {
+  const cardType = booking?.card_type;
+  if (cardType === "count") return "取消后将回补 1 次到原卡";
+  if (cardType === "period") return "期卡预约不扣次，取消不涉及次数回补";
+  if (cardType === "unlimited") return "不限次卡不扣次，取消不涉及次数回补";
+  // 列表项未关联到卡信息（无卡预约或卡已解关联）时的兜底文案
+  return "如预约时已扣次，取消后将按实际结果回补";
+};
+
+const handleCancel = (booking: any) => {
+  cancelTarget.value = booking;
+  cancelReason.value = "";
+  showCancelPopup.value = true;
+};
+
+const closeCancelPopup = () => {
+  if (cancelSubmitting.value) return;
+  showCancelPopup.value = false;
+  cancelTarget.value = null;
+};
+
+// 二次确认后调取消接口（保持现有接口参数：bookingId + 选填 reason）
+const confirmCancel = async () => {
+  const booking = cancelTarget.value;
+  if (!booking || cancelSubmitting.value) return;
+
+  cancelSubmitting.value = true;
+  try {
+    const reason = cancelReason.value.trim();
+    const result = await bookingApi.cancel(booking.id, reason || undefined);
+    if (result.code === 0 || result.code === 200) {
+      uni.showToast({ title: "取消成功", icon: "success" });
+      showCancelPopup.value = false;
+      cancelTarget.value = null;
+      loadBookings();
+    } else {
+      uni.showToast({ title: result.msg || "取消失败", icon: "none" });
+    }
+  } catch {
+    // API 层已 toast 后端 msg；停留弹窗允许修正后重试
+  } finally {
+    cancelSubmitting.value = false;
+  }
 };
 </script>
 
@@ -1058,5 +1146,74 @@ const handleCancel = async (booking: any) => {
   &:active {
     opacity: 0.85;
   }
+}
+
+// ===== F6.13 取消确认弹窗 =====
+.cancel-body {
+  padding: 0 32rpx;
+}
+
+.cancel-info-box {
+  background: rgba(201, 166, 107, 0.06);
+  border: 1rpx solid rgba(201, 166, 107, 0.15);
+  border-radius: 20rpx;
+  padding: 24rpx;
+}
+
+.cancel-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.cancel-info-label {
+  font-size: 26rpx;
+  color: #a09080;
+  flex-shrink: 0;
+  width: 112rpx;
+}
+
+.cancel-info-value {
+  flex: 1;
+  font-size: 26rpx;
+  color: #5a4a3a;
+  line-height: 1.5;
+
+  &.refund {
+    color: #c9a66b;
+    font-weight: 600;
+  }
+}
+
+.cancel-reason {
+  margin-top: 24rpx;
+}
+
+.cancel-reason-label {
+  font-size: 26rpx;
+  color: #8a7a6a;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.cancel-reason-input {
+  width: 100%;
+  min-height: 140rpx;
+  box-sizing: border-box;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(201, 166, 107, 0.2);
+  background: #fff;
+  font-size: 26rpx;
+  color: #5a4a3a;
+}
+
+.cancel-confirm-btn {
+  background: linear-gradient(135deg, #e74c3c, #d44637);
 }
 </style>
