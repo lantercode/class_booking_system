@@ -25,6 +25,22 @@ interface ApiResponse<T = any> {
 }
 
 /**
+ * 构造可携带 HTTP 状态码的错误对象（F6.11）。
+ * 仅增量附加 statusCode 属性，不改变 reject 类型与其他方法行为：
+ * 页面可据此区分 403（无权查看）/ 404（不存在）等分支展示不同文案。
+ */
+function createRequestError(
+  message: string,
+  statusCode?: number,
+): Error & { statusCode?: number } {
+  const error = new Error(message) as Error & { statusCode?: number };
+  if (statusCode !== undefined) {
+    error.statusCode = statusCode;
+  }
+  return error;
+}
+
+/**
  * miniapp 实际使用的 HTTP 动词。
  * 后端契约含 PATCH（users / courses / schedules / teachers 更新接口），
  * 而 @dcloudio/types 的 RequestOptions.method 内联联合
@@ -334,7 +350,10 @@ async function request<T>(
             if (showError) {
               uni.showToast({ title: result.msg || "请求失败", icon: "none" });
             }
-            reject(new Error(result.msg || "请求失败"));
+            // 附加 HTTP 状态码，供页面区分 403 / 404 等分支（F6.11）
+            reject(
+              createRequestError(result.msg || "请求失败", res.statusCode),
+            );
             return;
           }
           resolve(result);

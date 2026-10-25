@@ -74,6 +74,7 @@
             v-for="card in activeCards"
             :key="card.id"
             class="card-item card-active"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -166,6 +167,7 @@
             v-for="card in usedUpCards"
             :key="card.id"
             class="card-item card-used-up"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -261,6 +263,7 @@
             v-for="card in pendingCards"
             :key="card.id"
             class="card-item card-pending"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -457,6 +460,7 @@
             v-for="card in frozenCards"
             :key="card.id"
             class="card-item card-frozen"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -551,6 +555,7 @@
             v-for="card in expiredCards"
             :key="card.id"
             class="card-item card-expired"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -639,6 +644,7 @@
             v-for="card in voidedCards"
             :key="card.id"
             class="card-item card-voided"
+            @tap="goDetail(card)"
           >
             <view class="card-content">
               <!-- 中间内容 -->
@@ -939,6 +945,20 @@ const copyCardNo = (cardNo: string | undefined) => {
     success: () => {
       uni.showToast({ title: "卡号已复制", icon: "success" });
     },
+  });
+};
+
+// 进入会员卡详情（F6.11）：card_id 必传，卡号/产品名作为详情接口未回填时的兜底
+const goDetail = (card: MembershipCard) => {
+  const params = [`card_id=${card.id}`];
+  if (card.card_no) {
+    params.push(`card_no=${encodeURIComponent(card.card_no)}`);
+  }
+  if (card.product_name) {
+    params.push(`product_name=${encodeURIComponent(card.product_name)}`);
+  }
+  uni.navigateTo({
+    url: `/pages/student/membership/detail?${params.join("&")}`,
   });
 };
 

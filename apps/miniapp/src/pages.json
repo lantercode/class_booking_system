@@ -143,6 +143,20 @@
       }
     },
     {
+      "path": "pages/student/membership/detail",
+      "style": {
+        "navigationBarTitleText": "会员卡详情",
+        "disableScroll": false
+      }
+    },
+    {
+      "path": "pages/student/membership/transactions",
+      "style": {
+        "navigationBarTitleText": "使用记录",
+        "disableScroll": false
+      }
+    },
+    {
       "path": "pages/student/booking-confirm/index",
       "style": {
         "navigationStyle": "custom",

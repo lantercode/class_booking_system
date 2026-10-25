@@ -44,6 +44,24 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '我的预约', requiresAuth: true },
   },
   {
+    path: '/membership',
+    name: 'Membership',
+    component: () => import('@/views/membership/index.vue'),
+    meta: { title: '我的会员卡', requiresAuth: true },
+  },
+  {
+    path: '/membership/:id',
+    name: 'MembershipDetail',
+    component: () => import('@/views/membership/detail.vue'),
+    meta: { title: '会员卡详情', requiresAuth: true },
+  },
+  {
+    path: '/membership/:id/transactions',
+    name: 'MembershipTransactions',
+    component: () => import('@/views/membership/transactions.vue'),
+    meta: { title: '使用记录', requiresAuth: true },
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/profile/index.vue'),

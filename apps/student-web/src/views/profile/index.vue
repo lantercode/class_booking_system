@@ -72,7 +72,7 @@
         </div>
       </div>
 
-      <div class="menu-item">
+      <div class="menu-item" @click="goToMembership">
         <div class="menu-left">
           <div class="menu-icon" style="background: #f0f9eb">
             <el-icon :size="20" color="#67c23a"><Star /></el-icon>
@@ -230,6 +230,10 @@ onMounted(() => {
 
 function goToMyBookings() {
   router.push('/my-bookings')
+}
+
+function goToMembership() {
+  router.push('/membership')
 }
 
 function openEditDialog() {

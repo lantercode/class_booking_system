@@ -626,7 +626,7 @@
 
 ### Feature 6.11：学员端卡详情与流水（miniapp + student-web）
 
-- **Status**：READY（安全前置 T6.11.1 已于 2026-10-25 完成；T6.11.2/3 前端页面未开始）
+- **Status**：✅ DONE（2026-10-25，待人工验收；T6.11.1 安全前置 e0a10c1 + T6.11.2/3 前端页面）
 - **Priority**：P2
 - **Goal**：学员可查看单卡详情、有效期、余额与使用记录；student-web 补齐会员卡入口。
 - **Scope**：miniapp 新增卡详情/流水页（消费 `getCardDetail` / `getTransactions`）；student-web 新增会员卡列表/详情/流水页；预约选卡复用 F6.6 推荐。
