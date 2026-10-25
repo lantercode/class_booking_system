@@ -608,7 +608,7 @@
 
 ### Feature 6.10：管理端预约管理与卡详情/流水 UI
 
-- **Status**：READY（依赖后端能力）
+- **Status**：✅ DONE（2026-10-25；184ef56 分页/筛选/操作显隐修复，浏览器冒烟通过）
 - **Priority**：P1（预约管理）/ P2（卡详情流水）
 - **Goal**：补齐 admin-web 预约管理入口、排期名单代签到/完成、会员卡详情与流水、受影响预约影响面。
 - **Scope**：新增 `/bookings` 路由与页面（按排期/学员/状态筛选，代签到/完成，复用 `booking:manage`）；会员卡详情抽屉增加流水（`GET /membership/transactions`）；接入 F6.7 影响面。
@@ -644,7 +644,7 @@
 
 ### Feature 6.12：学员端 AI 助手升级为一级 Tab（原型 P-M10）
 
-- **Status**：READY（纯前端，无阻塞）
+- **Status**：✅ DONE（2026-10-25，b3c84a9；4 Tab + 整页聊天 + 学员端 FAB 下线，构建通过）
 - **Priority**：P1
 - **Goal**：落实 F6.0 原型 v5 产品需求《将学员小程序端 AI 助手改为一级 Tab 页面》——`HomeTabBar` 扩为 4 Tab（首页/排期/**AI 助手**/我的，AI 为第 3 个一级 Tab），AI 对话从悬浮 FAB 弹窗改为独立整页。
 - **Scope**：`HomeTabBar.vue` 扩 4 Tab（复用 `ai-robot` 图标、激活色 `#8b7355`）；新建 `pages/student/ai-assistant/index.vue` 整页聊天（香槟金主题、结构对齐原型 P-M10）；`AiAssistant.vue` 支持页面模式/拆分复用；学员端页面移除 FAB 引用；**教师端 FAB 不动**；对话沿用真实 `POST /api/v1/ai/chat`（R6 Gate：禁止假流式）。
@@ -689,6 +689,15 @@ F6.6 ─→ F6.13（P2，预约结果页与取消回补预览）
 ```
 
 **顺序理由**：F6.3 是所有卡语义的权威来源，先落地可避免前端/F6.6/F6.7 基于旧行为做兼容；F6.4 与 F6.3 同改 `create_booking`，先合并小改动降低冲突；F6.5 依赖 F6.4 的重叠校验作为改期目标校验；F6.7 必须复用 F6.5 的事务骨架才不会再造第二套改派逻辑。
+
+### Epic 6 收官记录（2026-10-25）
+
+- **已交付**：F6.3/F6.4/F6.5/F6.6/F6.7/F6.8（后端状态机与小程序交互）、F6.10（admin 预约管理+卡详情流水）、F6.11（学员端卡详情/流水 + 归属校验安全前置）、F6.12（AI 助手一级 Tab）、F6.13（预约结果页与取消回补预览）。
+- **未交付**：F6.1 支付渠道（FUTURE_PHASE）、F6.9 退款入口占位（BLOCKED，依赖 F6.1）；Epic 6 范围内无其他遗留开发项。
+- **整体验收（2026-10-25）**：后端回归 47 passed；四端构建通过（miniapp/student-web/admin-web/teacher-web）；原型验证 PASS 129 / FAIL 0；admin 浏览器冒烟通过（预约管理分页/筛选/操作显隐、卡详情弹窗+课时流水）；F6.13 全链路 API 冒烟通过（推荐卡→预约预扣 10→9→取消回补→10，consume/restore 流水完整关联预约）；学员归属校验实测（他人卡 403/不存在 404）。
+- **原型基线同步**：`prototype/index.html` 已对齐 F6.10-F6.13 真实实现（P-M2 拆页+P-M11 流水、P-M5 结果页、P-M7 回补预览、P-A4/P-A5 管理端），verify-prototype.js 断言同步修订。
+- **待人工**：miniapp 真机/微信开发者工具走查（卡详情、预约选卡、结果页、取消弹窗、AI Tab）。
+- **数据修复备案**：测试课程 27（回滚测试课程e707d5）缺 `course_type_code` 导致类型受限卡被正确排除，已通过 `PATCH /courses/27` 补为 private（走 Service 层，非直接改库）。
 
 ---
 
