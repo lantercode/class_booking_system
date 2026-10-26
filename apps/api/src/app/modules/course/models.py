@@ -20,6 +20,9 @@ class Classroom(Base, TenantMixin, TimestampMixin):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(String(50), nullable=False)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, comment="教室编码")
+    location: Mapped[str | None] = mapped_column(String(200), comment="位置，如 A栋301")
+    cover_image_url: Mapped[str | None] = mapped_column(String(500), comment="封面 object_key")
     equipment: Mapped[list[str] | None] = mapped_column(ARRAY(String))
     status: Mapped[int] = mapped_column(
         SmallInteger,
@@ -27,7 +30,10 @@ class Classroom(Base, TenantMixin, TimestampMixin):
         default=ClassroomStatus.ACTIVE.value,
     )
 
-    __table_args__ = (Index("uq_classrooms_tenant_name", "tenant_id", "name", unique=True),)
+    __table_args__ = (
+        Index("uq_classrooms_tenant_name", "tenant_id", "name", unique=True),
+        Index("uq_classrooms_tenant_code", "tenant_id", "code", unique=True),
+    )
 
 
 class CourseStatus(Enum):

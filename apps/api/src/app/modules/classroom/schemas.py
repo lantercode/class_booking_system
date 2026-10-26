@@ -13,6 +13,9 @@ class ClassroomCreate(BaseModel):
     """创建教室请求体"""
 
     name: str = Field(..., min_length=1, max_length=50, description="教室名称")
+    code: str | None = Field(None, min_length=1, max_length=50, description="教室编码（不传则自动生成）")
+    location: str | None = Field(None, max_length=200, description="位置，如 A栋301")
+    cover_image_url: str | None = Field(None, max_length=500, description="封面 object_key")
     equipment: list[str] | None = Field(default=[], description="设备列表")
 
 
@@ -20,6 +23,9 @@ class ClassroomUpdate(BaseModel):
     """更新教室请求体（部分更新）"""
 
     name: str | None = Field(None, min_length=1, max_length=50, description="教室名称")
+    code: str | None = Field(None, min_length=1, max_length=50, description="教室编码")
+    location: str | None = Field(None, max_length=200, description="位置，如 A栋301")
+    cover_image_url: str | None = Field(None, max_length=500, description="封面 object_key")
     equipment: list[str] | None = Field(None, description="设备列表")
     status: int | None = Field(None, ge=0, le=1, description="状态：0禁用/1启用")
 
@@ -30,6 +36,9 @@ class ClassroomResponse(BaseModel):
     id: int
     tenant_id: int
     name: str
+    code: str
+    location: str | None = None
+    cover_image_url: str | None = None
     equipment: list[str] | None = None
     status: int
     created_at: datetime

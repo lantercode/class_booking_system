@@ -4,6 +4,9 @@ export interface Classroom {
   id: number
   tenant_id: number
   name: string
+  code: string
+  location: string | null
+  cover_image_url: string | null
   equipment: string[]
   status: number
   created_at: string
@@ -19,11 +22,17 @@ export interface ClassroomListParams {
 
 export interface ClassroomCreateParams {
   name: string
+  code?: string
+  location?: string
+  cover_image_url?: string
   equipment?: string[]
 }
 
 export interface ClassroomUpdateParams {
   name?: string
+  code?: string
+  location?: string
+  cover_image_url?: string
   equipment?: string[]
   status?: number
 }

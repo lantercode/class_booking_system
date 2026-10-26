@@ -10,7 +10,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundException, ValidationException
+from app.core.exceptions import BusinessException, NotFoundException, ValidationException
 from app.modules.classroom.repository import ClassroomRepository
 from app.modules.classroom.schemas import (
     ClassroomCreate,
@@ -41,18 +41,35 @@ class ClassroomService:
         if await self.repo.exists_by_name(db, data.name):
             raise ValidationException("教室名称已存在")
 
+        code = (data.code or "").strip() if data.code else ""
+        auto_code = not code
+        if code:
+            from app.core.tenant_context import get_tenant_id
+
+            tenant_id = get_tenant_id()
+            if await self.repo.exists(db, filters={"tenant_id": tenant_id, "code": code}):
+                raise BusinessException("租户内教室编码已存在", code=409)
+
         classroom_data: dict[str, Any] = {
             "name": data.name,
+            "code": code or "R-000",  # placeholder if auto-generate
             "status": ClassroomStatus.ACTIVE.value,
         }
+        if data.location:
+            classroom_data["location"] = data.location.strip()
+        if data.cover_image_url:
+            classroom_data["cover_image_url"] = data.cover_image_url.strip()
         if data.equipment:
             classroom_data["equipment"] = data.equipment
 
         classroom = await self.repo.create(db, classroom_data)
-        await db.commit()
-        await db.refresh(classroom)
+        if auto_code:
+            generated_code = f"R-{classroom.id:03d}"
+            classroom.code = generated_code
+            await db.commit()
+            await db.refresh(classroom)
 
-        logger.info(f"[ClassroomService] ✅ 教室创建成功: id={classroom.id}")
+        logger.info(f"[ClassroomService] ✅ 教室创建成功: id={classroom.id}, code={classroom.code}")
         return self._to_response(classroom)
 
     async def update_classroom(
@@ -74,6 +91,25 @@ class ClassroomService:
             if await self.repo.exists_by_name(db, data.name, exclude_id=classroom_id):
                 raise ValidationException("教室名称已存在")
             update_data["name"] = data.name
+        if data.code is not None:
+            new_code = data.code.strip()
+            if new_code != classroom.code:
+                from app.core.tenant_context import get_tenant_id
+
+                tenant_id = get_tenant_id()
+                if await self.repo.exists(
+                    db,
+                    filters={"tenant_id": tenant_id, "code": new_code},
+                    exclude_id=classroom_id,
+                ):
+                    raise BusinessException("租户内教室编码已存在", code=409)
+                update_data["code"] = new_code
+        if data.location is not None:
+            update_data["location"] = data.location.strip() if data.location else None
+        if data.cover_image_url is not None:
+            update_data["cover_image_url"] = (
+                data.cover_image_url.strip() if data.cover_image_url else None
+            )
         if data.equipment is not None:
             update_data["equipment"] = data.equipment
         if data.status is not None:
@@ -171,6 +207,9 @@ class ClassroomService:
             id=classroom.id,
             tenant_id=classroom.tenant_id,
             name=classroom.name,
+            code=classroom.code,
+            location=getattr(classroom, "location", None),
+            cover_image_url=getattr(classroom, "cover_image_url", None),
             equipment=classroom.equipment,
             status=classroom.status,
             created_at=classroom.created_at,

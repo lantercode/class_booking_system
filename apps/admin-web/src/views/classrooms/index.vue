@@ -33,26 +33,50 @@
       <el-row :gutter="20" style="row-gap: 16px">
         <el-col v-for="room in classrooms" :key="room.id" :span="8">
           <el-card shadow="hover" class="classroom-card">
-            <div class="room-header">
-              <span class="room-name">{{ room.name }}</span>
-              <el-tag :type="room.status === 1 ? 'success' : 'warning'" size="small">
-                {{ room.status === 1 ? '正常' : '维护中' }}
-              </el-tag>
-            </div>
-            <div class="room-info">
-              <div v-if="room.equipment?.length" class="info-item">
-                <el-icon><Setting /></el-icon>
-                <el-tooltip
-                  :content="room.equipment.join('、')"
-                  placement="top"
-                  :disabled="room.equipment.join('、').length <= 15"
-                >
-                  <span class="equipment-text">{{ room.equipment.join('、') }}</span>
-                </el-tooltip>
+            <div class="card-body">
+              <!-- 封面图 (左上) -->
+              <div class="cover-wrapper">
+                <img
+                  v-if="room.cover_image_url"
+                  :src="resolveCoverUrl(room.cover_image_url)"
+                  class="cover-image"
+                />
+                <div v-else class="cover-placeholder">
+                  <el-icon :size="28" color="#c0c4cc"><Picture /></el-icon>
+                </div>
               </div>
-              <div v-else class="info-item">
-                <el-icon><Setting /></el-icon>
-                <span style="color: #c0c4cc">--</span>
+              <!-- 右侧信息 -->
+              <div class="info-wrapper">
+                <div class="room-header">
+                  <span class="room-name">{{ room.name }}</span>
+                  <el-tag :type="room.status === 1 ? 'success' : 'warning'" size="small">
+                    {{ room.status === 1 ? '正常' : '维护中' }}
+                  </el-tag>
+                </div>
+                <div class="room-code" v-if="room.code">
+                  <span class="code-label">编码</span>
+                  <span class="code-value">{{ room.code }}</span>
+                </div>
+                <div class="room-location" v-if="room.location">
+                  <el-icon><Location /></el-icon>
+                  <span>{{ room.location }}</span>
+                </div>
+                <div class="room-info">
+                  <div v-if="room.equipment?.length" class="info-item">
+                    <el-icon><Setting /></el-icon>
+                    <el-tooltip
+                      :content="room.equipment.join('、')"
+                      placement="top"
+                      :disabled="room.equipment.join('、').length <= 15"
+                    >
+                      <span class="equipment-text">{{ room.equipment.join('、') }}</span>
+                    </el-tooltip>
+                  </div>
+                  <div v-else class="info-item">
+                    <el-icon><Setting /></el-icon>
+                    <span style="color: #c0c4cc">--</span>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="room-actions">
@@ -80,13 +104,56 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑' : '新增'"
-      width="500px"
+      :title="isEdit ? '编辑教室' : '新增教室'"
+      width="560px"
       :close-on-click-modal="false"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="教室名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入教室名称" />
+          <el-input v-model="form.name" placeholder="请输入教室名称" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="教室编码">
+          <el-input
+            v-model="form.code"
+            placeholder="留空自动生成 R-000 格式"
+            maxlength="50"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="位置">
+          <el-input
+            v-model="form.location"
+            placeholder="如：A栋301"
+            maxlength="200"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="封面">
+          <el-upload
+            class="cover-uploader"
+            :show-file-list="false"
+            :before-upload="beforeCoverUpload"
+            :http-request="handleCoverUpload"
+          >
+            <img
+              v-if="coverPreviewUrl"
+              :src="coverPreviewUrl"
+              class="cover-uploader-img"
+            />
+            <div v-else class="cover-uploader-placeholder">
+              <el-icon :size="24" color="#8c939d"><Plus /></el-icon>
+              <span class="upload-tip">点击上传封面</span>
+            </div>
+          </el-upload>
+          <div class="upload-hint">支持 JPG/PNG/WEBP，最大 5MB，建议 4:3 比例</div>
+          <div
+            v-if="form.cover_image_url"
+            class="clear-cover"
+            @click="clearCover"
+          >
+            <el-icon><Delete /></el-icon>
+            <span>移除封面</span>
+          </div>
         </el-form-item>
         <el-form-item label="设备">
           <el-select
@@ -121,8 +188,10 @@ import {
   classroomApi,
   type ClassroomCreateParams,
   type ClassroomUpdateParams,
+  commonApi,
 } from '@dance-saas/api-client'
-import { Search, Setting } from '@element-plus/icons-vue'
+import { Delete, Location, Picture, Plus, Search, Setting } from '@element-plus/icons-vue'
+import type { UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 
@@ -139,11 +208,27 @@ const formRef = ref()
 
 const form = ref<ClassroomCreateParams>({
   name: '',
+  code: '',
+  location: '',
+  cover_image_url: '',
   equipment: [],
 })
 
+// 上传时临时保存的可访问 URL（用于预览）
+const coverPreviewUrl = ref('')
+
 const rules = {
   name: [{ required: true, message: '请输入教室名称', trigger: 'blur' }],
+}
+
+/** object_key / url 都能解析显示 */
+function resolveCoverUrl(val: string | null | undefined): string {
+  if (!val) return ''
+  // 如果已经是 http(s) URL 直接返回
+  if (val.startsWith('http://') || val.startsWith('https://')) return val
+  // object_key：假设带 /avatars/ 或 /classrooms/ 路径，这里返回占位
+  // 如果后端有 CDN 前缀，可在此拼接
+  return val
 }
 
 async function fetchClassrooms() {
@@ -170,7 +255,8 @@ function onSearch() {
 function openCreateDialog() {
   isEdit.value = false
   editingId.value = null
-  form.value = { name: '', equipment: [] }
+  form.value = { name: '', code: '', location: '', cover_image_url: '', equipment: [] }
+  coverPreviewUrl.value = ''
   dialogVisible.value = true
   formRef.value?.clearValidate()
 }
@@ -180,10 +266,56 @@ function openEditDialog(row: Classroom) {
   editingId.value = row.id
   form.value = {
     name: row.name,
+    code: row.code || '',
+    location: row.location || '',
+    cover_image_url: row.cover_image_url || '',
     equipment: row.equipment || [],
   }
+  coverPreviewUrl.value = resolveCoverUrl(row.cover_image_url)
   dialogVisible.value = true
   formRef.value?.clearValidate()
+}
+
+/** 封面上传前校验 */
+const beforeCoverUpload: UploadProps['beforeUpload'] = file => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  const isAllowed = allowedTypes.includes(file.type)
+  const isLt5M = file.size / 1024 / 1024 < 5
+
+  if (!isAllowed) {
+    ElMessage.error('封面只能是 JPG/PNG/WEBP 格式')
+    return false
+  }
+  if (!isLt5M) {
+    ElMessage.error('封面大小不能超过 5MB')
+    return false
+  }
+  return true
+}
+
+/** 封面上传 */
+const handleCoverUpload = async (options: any) => {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'classroom_cover')
+    if (result.code === 0 || result.code === 200) {
+      // 存 object_key 到后端字段
+      form.value.cover_image_url = result.data.object_key
+      // 用 url 做本地预览
+      coverPreviewUrl.value = result.data.url
+      ElMessage.success('封面上传成功')
+    } else {
+      ElMessage.error(result.msg || '封面上传失败')
+    }
+  } catch (e: any) {
+    const msg = e?.response?.data?.msg || e?.message || '封面上传失败'
+    ElMessage.error(msg)
+  }
+}
+
+function clearCover() {
+  form.value.cover_image_url = ''
+  coverPreviewUrl.value = ''
 }
 
 async function handleSubmit() {
@@ -192,17 +324,41 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
+    // 构造 payload：空字符串转 undefined
+    const payload: Record<string, any> = {
+      name: form.value.name,
+      equipment: form.value.equipment,
+    }
+    if (form.value.code?.trim()) payload.code = form.value.code.trim()
+    else if (isEdit.value) payload.code = '' as any // edit 时清空可能有问题，保持原逻辑
+    if (form.value.location?.trim()) payload.location = form.value.location.trim()
+    if (form.value.cover_image_url?.trim()) payload.cover_image_url = form.value.cover_image_url.trim()
+    else if (!isEdit.value) { /* create 允许空 */ }
+
     if (isEdit.value && editingId.value) {
-      await classroomApi.update(editingId.value, form.value as ClassroomUpdateParams)
+      // update 走 patch，只传非空字段
+      const updatePayload: Record<string, any> = {}
+      if (payload.name !== undefined) updatePayload.name = payload.name
+      if (form.value.code !== undefined) updatePayload.code = form.value.code || ''
+      if (form.value.location !== undefined) updatePayload.location = form.value.location || ''
+      if (form.value.cover_image_url !== undefined) updatePayload.cover_image_url = form.value.cover_image_url || ''
+      if (form.value.equipment !== undefined) updatePayload.equipment = form.value.equipment
+
+      await classroomApi.update(editingId.value, updatePayload as ClassroomUpdateParams)
       ElMessage.success('教室更新成功')
     } else {
-      await classroomApi.create(form.value)
+      await classroomApi.create(payload as ClassroomCreateParams)
       ElMessage.success('教室创建成功')
     }
     dialogVisible.value = false
     fetchClassrooms()
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.msg || '操作失败')
+    const status = e?.response?.status
+    if (status === 409) {
+      ElMessage.error(e?.response?.data?.msg || '教室编码已存在，请修改')
+    } else {
+      ElMessage.error(e?.response?.data?.msg || '操作失败')
+    }
   } finally {
     submitting.value = false
   }
@@ -291,33 +447,109 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 14px 20px;
+    padding: 14px 16px;
+  }
+
+  .card-body {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .cover-wrapper {
+    flex-shrink: 0;
+    width: 80px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f5f7fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .cover-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .cover-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  .info-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .room-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    flex-shrink: 0;
+    gap: 8px;
 
     .room-name {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       color: #1a1a2e;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .room-code {
+    font-size: 12px;
+    color: #909399;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .code-label {
+      background: #ecf5ff;
+      color: #409eff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .code-value {
+      font-family: 'Menlo', monospace;
+    }
+  }
+
+  .room-location {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: #606266;
+
+    .el-icon {
+      font-size: 14px;
+      color: #909399;
     }
   }
 
   .room-info {
-    margin-bottom: 6px;
+    margin-top: auto;
 
     .info-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       color: #606266;
-      font-size: 13px;
-      margin-bottom: 4px;
+      font-size: 12px;
       min-width: 0;
 
       .equipment-text {
@@ -334,12 +566,78 @@ onMounted(() => {
     padding-top: 8px;
     border-top: 1px solid #ebeef5;
     flex-shrink: 0;
-    margin-top: auto;
+    margin-top: 8px;
 
     .el-button {
       padding: 4px 0;
       font-size: 13px;
     }
+  }
+}
+
+/* 上传组件 */
+.cover-uploader {
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  width: 160px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: #409eff;
+  }
+
+  :deep(.el-upload) {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.cover-uploader-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.cover-uploader-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #8c939d;
+
+  .upload-tip {
+    font-size: 12px;
+  }
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
+}
+
+.clear-cover {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #f56c6c;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 </style>
