@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiClient } from '@dance-saas/api-client'
+import { apiClient, authApi, commonApi } from '@dance-saas/api-client'
+import type { UpdateCurrentUserParams } from '@dance-saas/api-client'
 import router from '@/router'
 
 interface AdminInfo {
@@ -9,6 +10,18 @@ interface AdminInfo {
   nickname: string
   avatar?: string
   roles?: string[]
+}
+
+/**
+ * 头像 URL 解析：后端 object_key → 前端可访问 URL。
+ * 后端存的是 object_key（如 "t/1/avatar/uuid.png"），
+ * 但也兼容完整 URL 或以 "/" 开头的绝对路径。
+ */
+export function resolveAvatarUrl(key?: string | null): string {
+  if (!key) return ''
+  if (key.startsWith('http://') || key.startsWith('https://')) return key
+  if (key.startsWith('/')) return key
+  return `/uploads/${key}`
 }
 
 interface LoginParams {

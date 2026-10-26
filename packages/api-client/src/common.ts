@@ -1,23 +1,25 @@
 import { apiClient } from './index'
 
 export interface UploadImageResponse {
+  object_key: string
   url: string
-  filename: string
+  mime: string
   size: number
-  content_type: string
+  biz_type: string
 }
 
 export const commonApi = {
   /**
    * 上传图片
    * @param file - 图片文件
-   * @returns 上传结果，包含图片URL
+   * @param bizType - 业务场景：avatar | classroom_cover | banner | video_cover | notice
    */
-  uploadImage(file: File): Promise<{ code: number; msg: string; data: UploadImageResponse }> {
+  uploadImage(file: File, bizType: string = 'avatar'): Promise<{ code: number; msg: string; data: UploadImageResponse }> {
     const formData = new FormData()
     formData.append('file', file)
-    
-    return apiClient.post('/common/upload/image', formData, {
+    formData.append('biz_type', bizType)
+
+    return apiClient.post('/upload/image', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

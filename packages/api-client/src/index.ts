@@ -169,6 +169,9 @@ export type { TeacherInfo, TeacherUpdateParams } from './teachers'
 export { commonApi } from './common'
 export type { UploadImageResponse } from './common'
 
+export { authApi } from './auth'
+export type { CurrentUserResponse, UpdateCurrentUserParams } from './auth'
+
 export { cardTypeApi, membershipCardApi } from './membership'
 export type {
   MembershipCardProduct,

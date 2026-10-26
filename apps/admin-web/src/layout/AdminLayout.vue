@@ -58,13 +58,21 @@
         <div class="header-right">
           <el-dropdown trigger="click">
             <div class="user-info">
-              <el-avatar :size="32" icon="UserFilled" />
+              <el-avatar :size="32" :src="authAvatarPreview" icon="UserFilled" />
               <span class="user-name">{{ authStore.adminInfo?.nickname || '管理员' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleLogout">
+                <el-dropdown-item @click="openProfileDialog">
+                  <el-icon><User /></el-icon>
+                  个人资料
+                </el-dropdown-item>
+                <el-dropdown-item disabled>
+                  <el-icon><Lock /></el-icon>
+                  修改密码（FUTURE）
+                </el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">
                   <el-icon><SwitchButton /></el-icon>
                   退出登录
                 </el-dropdown-item>
@@ -105,11 +113,50 @@
         </footer>
       </div>
     </el-container>
+
+    <!-- 个人资料弹窗 -->
+    <el-dialog
+      v-model="profileDialogVisible"
+      title="个人资料"
+      width="480px"
+      :close-on-click-modal="false"
+      top="12vh"
+    >
+      <el-form ref="profileFormRef" :model="{ nickname: profileNickname }" :rules="profileRules" label-width="80px">
+        <el-form-item label="头像">
+          <div class="profile-avatar-row">
+            <el-avatar :size="64" :src="profileAvatarPreview" icon="UserFilled" />
+            <el-upload
+              class="profile-avatar-uploader"
+              v-bind="avatarUploadProps"
+            >
+              <el-button type="primary" :loading="profileUploading" size="small">
+                上传头像
+              </el-button>
+            </el-upload>
+            <span class="profile-avatar-tip">支持 JPG / PNG / WEBP，最大 5MB</span>
+          </div>
+        </el-form-item>
+        <el-form-item label="昵称" prop="nickname">
+          <el-input v-model="profileNickname" maxlength="20" placeholder="请输入昵称" />
+        </el-form-item>
+        <el-form-item label="手机号">
+          <el-input :model-value="authStore.adminInfo?.phone || ''" disabled />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profileDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="profileLoading" @click="handleProfileSave">
+          保存
+        </el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from '@/stores/auth'
+import { authApi, commonApi } from '@dance-saas/api-client'
+import type { UploadProps } from 'element-plus'
 import {
   ArrowDown,
   Avatar,
@@ -119,6 +166,7 @@ import {
   Expand,
   Fold,
   Key,
+  Lock,
   Management,
   OfficeBuilding,
   Reading,
@@ -127,9 +175,11 @@ import {
   User,
   UserFilled,
 } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { resolveAvatarUrl, useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
   path: string
@@ -142,6 +192,103 @@ const route = useRoute()
 const authStore = useAuthStore()
 const isCollapse = ref(false)
 
+// --- 个人资料弹窗 ---
+const profileDialogVisible = ref(false)
+const profileLoading = ref(false)
+const profileUploading = ref(false)
+const profileNickname = ref('')
+const profileAvatarKey = ref<string | null>(null)
+const profileAvatarPreview = computed(() => resolveAvatarUrl(profileAvatarKey.value))
+const authAvatarPreview = computed(() => resolveAvatarUrl(authStore.adminInfo?.avatar))
+
+const profileRules: FormRules = {
+  nickname: [
+    { required: true, message: '请输入昵称', trigger: 'blur' },
+    { min: 2, max: 20, message: '昵称长度 2-20 个字符', trigger: 'blur' },
+  ],
+}
+const profileFormRef = ref<FormInstance>()
+
+function openProfileDialog() {
+  profileNickname.value = authStore.adminInfo?.nickname || ''
+  profileAvatarKey.value = authStore.adminInfo?.avatar || null
+  profileDialogVisible.value = true
+}
+
+/** 头像上传：使用自定义 http-request，走 api-client 拦截器注入的 token + tenant-slug */
+async function handleAvatarUpload(file: File) {
+  profileUploading.value = true
+  try {
+    const res = await commonApi.uploadImage(file, 'avatar')
+    profileAvatarKey.value = res.data.object_key
+    ElMessage.success('头像上传成功')
+  } catch (e: any) {
+    ElMessage.error(e?.msg || '头像上传失败')
+  } finally {
+    profileUploading.value = false
+  }
+  return false // 阻止 el-upload 默认行为
+}
+
+const avatarUploadProps: Partial<UploadProps> = {
+  showFileList: false,
+  accept: 'image/jpeg,image/png,image/webp',
+  limit: 1,
+  beforeUpload: (file) => {
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      ElMessage.error('图片大小不能超过 5MB')
+      return false
+    }
+    return true
+  },
+  httpRequest: async (opts) => {
+    if (opts.file) await handleAvatarUpload(opts.file as File)
+  },
+}
+
+async function handleProfileSave() {
+  const valid = await profileFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  profileLoading.value = true
+  try {
+    const payload: { nickname?: string; avatar_url?: string } = {}
+    const currentNickname = authStore.adminInfo?.nickname || ''
+    const currentAvatar = authStore.adminInfo?.avatar || null
+
+    if (profileNickname.value !== currentNickname) {
+      payload.nickname = profileNickname.value
+    }
+    if (profileAvatarKey.value !== currentAvatar) {
+      payload.avatar_url = profileAvatarKey.value || undefined
+    }
+    if (Object.keys(payload).length === 0) {
+      ElMessage.info('没有需要保存的变更')
+      profileDialogVisible.value = false
+      return
+    }
+
+    const res = await authApi.patchMe(payload)
+    // 同步更新 Pinia store
+    const updated = res.data
+    authStore.setAdminInfo({
+      id: authStore.adminInfo?.id ?? updated.id,
+      phone: authStore.adminInfo?.phone ?? updated.phone,
+      nickname: updated.nickname,
+      avatar: updated.avatar ?? undefined,
+      roles: updated.roles || authStore.adminInfo?.roles,
+    })
+    ElMessage.success('个人资料更新成功')
+    profileDialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.msg || '保存失败')
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+// --- 菜单 ---
 const menuItems: MenuItem[] = [
   // { path: '/dashboard', title: '控制台', icon: Odometer },
   { path: '/users', title: '用户管理', icon: User },
@@ -334,5 +481,16 @@ async function handleLogout() {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .profile-avatar-tip {
+    font-size: 12px;
+    color: #909399;
+  }
 }
 </style>

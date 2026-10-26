@@ -390,7 +390,7 @@ const handleAvatarUpload = async (options: any) => {
   const { file } = options
 
   try {
-    const result = await commonApi.uploadImage(file)
+    const result = await commonApi.uploadImage(file, 'avatar')
 
     if (result.code === 0 || result.code === 200) {
       form.value.avatar_url = result.data.url
