@@ -25,6 +25,7 @@ SKIP_TENANT_PATHS = [
     "/docs",
     "/redoc",
     "/openapi.json",
+    "/uploads",  # StaticFiles 挂载的本地存储资源
     "/api/v1/common/health",
     "/api/v1/auth/register",
     "/api/v1/auth/login",

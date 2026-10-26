@@ -2,7 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -68,6 +70,57 @@ class Settings(BaseSettings):
     # F6.3：PENDING 期卡超期未激活自动作废
     PENDING_CARD_CANCEL_ENABLED: bool = True
     PENDING_CARD_CANCEL_DAYS: int = 90
+
+    # ============================================================
+    # F7：文件存储配置
+    # ============================================================
+    STORAGE_BACKEND: Literal["local", "oss"] = "local"
+
+    # 本地存储（开发期降级方案）
+    LOCAL_UPLOAD_DIR: str = str(PROJECT_ROOT / ".uploads")
+    LOCAL_UPLOAD_PUBLIC_URL_PREFIX: str = "/uploads"
+
+    # 阿里云 OSS（生产推荐）
+    OSS_ENDPOINT: str = ""            # e.g. oss-cn-hangzhou.aliyuncs.com
+    OSS_REGION: str = ""              # e.g. cn-hangzhou
+    OSS_ACCESS_KEY_ID: str = ""
+    OSS_ACCESS_KEY_SECRET: str = ""
+    OSS_BUCKET: str = ""
+    OSS_PUBLIC_BASE_URL: str = ""     # 可选；留空则 Service 按 endpoint+bucket 拼接
+
+    @model_validator(mode="after")
+    def validate_storage_backend(self) -> "Settings":
+        """存储配置校验：生产禁用 local；oss 模式必填 OSS_*."""
+        is_production = self.APP_ENV.strip().lower() == "production"
+
+        if self.STORAGE_BACKEND == "local" and is_production:
+            raise RuntimeError(
+                "生产环境禁止 STORAGE_BACKEND=local；请配置阿里云 OSS 并设置 STORAGE_BACKEND=oss"
+            )
+
+        if self.STORAGE_BACKEND == "oss":
+            missing: list[str] = []
+            if not self.OSS_ENDPOINT:
+                missing.append("OSS_ENDPOINT")
+            if not self.OSS_REGION:
+                missing.append("OSS_REGION")
+            if not self.OSS_ACCESS_KEY_ID:
+                missing.append("OSS_ACCESS_KEY_ID")
+            if not self.OSS_ACCESS_KEY_SECRET:
+                missing.append("OSS_ACCESS_KEY_SECRET")
+            if not self.OSS_BUCKET:
+                missing.append("OSS_BUCKET")
+            if missing:
+                raise ValueError(
+                    f"STORAGE_BACKEND=oss 时以下配置项必填: {', '.join(missing)}"
+                )
+
+        return self
+
+    @property
+    def is_production(self) -> bool:
+        """便捷属性：是否运行在生产环境。"""
+        return self.APP_ENV.strip().lower() == "production"
 
     @property
     def cors_origins_list(self) -> list[str]:

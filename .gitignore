@@ -54,3 +54,5 @@ coverage/
 *.db
 pgdata/
 redisdata/
+# Local upload temp dir (STORAGE_BACKEND=local)
+.uploads/
