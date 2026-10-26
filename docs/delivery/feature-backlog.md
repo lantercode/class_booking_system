@@ -725,13 +725,19 @@ F6.6 ─→ F6.13（P2，预约结果页与取消回补预览）
 
 ### Feature 7.3：CI 测试覆盖
 
+- **Status**：✅ DONE（2026-10-26，5467ff9）
+- **Priority**：P1（Epic 7 首个实施项，立即价值）
 - **Goal**：CI 运行 integration 测试，类型检查阻塞
-- **Scope**：ci.yml 增加 integration 测试；mypy 改为阻塞
-- **Required Agents**：backend-engineer
-- **Tasks**：
-  - T7.3.1：ci.yml 加 `pytest tests/integration`
-  - T7.3.2：mypy `continue-on-error: false`
-  - T7.3.3：前端三端 + miniapp 类型检查加入 CI
+- **Scope**：ci.yml 增加 integration 测试；mypy 改为基线 ratchet（不做存量全量修复，仅挡新增）；miniapp `vue-tsc --noEmit` 入 CI
+- **Out of Scope**：修复 234 个存量 mypy 错误；修复 15 个存量 integration 失败（登记为 D-F7.3-1~5）
+- **Dependencies**：无
+- **Changed Files**：
+  - `.github/workflows/ci.yml`（+36/-4：ratchet 步骤替换 continue-on-error、integration 步骤、miniapp type-check）
+  - 新增 `apps/api/scripts/mypy_baseline_check.sh`
+  - 新增 `apps/api/scripts/mypy-baseline.txt`（基线 234 errors / 32 files）
+- **本地验证**：ratchet 正向 PASS（234≤234）、负向 exit=1（基线临时改 233 失败并提示更新方法）；空库全流程 integration 254 passed（排除 5 项债务）；YAML 语法 OK；miniapp vue-tsc exit=0
+- **风险**：GitHub Actions 真实运行未验证（postgres 16 与本地 postgres 15 的差异、uv 环境下 ratchet 路径）；首次 CI 跑通需复核
+- **交付物**：`docs/engineering/task-records/20261026-F7.3-ci-test-coverage.md`
 
 ---
 
@@ -762,3 +768,20 @@ F6.6 ─→ F6.13（P2，预约结果页与取消回补预览）
 ### F4.5 评审 LOW 项（非技术债，随版本已知项发布，见 release-note）
 
 非 40001 异常统一转 500 文案略宽泛（L1）；commit 后 refresh 理论"成功报失败"窗口（L2）；重试无 backoff/jitter、rollback 依赖上游无写约定（L3）；教室状态事务外校验 TOCTOU（L4，存量行为）；并发测试缺教室维度/跨租户/连接池复位/混跑隔离级别用例（L5）。
+
+---
+
+## 附录：F7.3 实施期间确认的技术债（2026-10-26 登记）
+
+> 以下来自 F7.3 CI 接入期间的空库实测，不属于 F7.3 Scope。已按策略排除出 CI，但逐条登记便于后续清偿。
+
+| # | 债务项 | 风险 | 来源 | 建议归属 |
+|---|--------|------|------|---------|
+| D-F7.3-1 | `tests/integration/test_admin_user_real.py`（10 个）+ `test_booking_ownership.py` fixture —— `user:create` 403，疑似依赖运行中服务与特定种子数据（CI 空库下 conftest 种子不含 user:create 权限分配到 admin 角色） | 中 | F7.3 空库 integration 实测 | 独立 Feature，核对 RBAC 种子 fixture 权限分配（conftest 自建种子的角色权限映射是否覆盖 user:create） |
+| D-F7.3-2 | `tests/integration/test_tenant_isolation.py`（3 个）—— asyncpg 事件循环冲突 "attached to a different loop" | 中 | 老问题（记忆条目已登记） | 独立 Feature；F7.3 实施前已存在 |
+| D-F7.3-3 | `tests/integration/test_user_api.py::TestUserCRUD::test_create_user_success` —— 405（路由方法不匹配） | 低 | F7.3 integration 实测 | 核对 router.py 方法，修复 fixture 或测试断言 |
+| D-F7.3-4 | 同 D-F7.3-1（booking_ownership 依赖 user:create） | 中 | 同 D-F7.3-1 | 同 D-F7.3-1 |
+| D-F7.3-5 | 2 项 migration 回归断言依赖 dev 库预存量业务数据（bookings/membership_cards 非空）：<br/>- `test_booking_fk_membership_card.py::...::test_migration_cleanup_clears_orphan_and_readds_fk`<br/>- `test_status_check_constraints.py::TestExistingDataIntact`（整类） | 低（纵深防御缺位） | F7.3 空库 integration 实测（超出原拍板清单的 4 项） | 独立 Feature：改造为测试内自建 bookings/membership_cards 数据后再断言；或拆分 migration 回归测试到独立 pipeline |
+| D-F7.3-6 | mypy 存量错误 234 / 32 files——当前以 ratchet 机制挡新增，不做全量修复 | 中低（类型安全） | F7.3 摸底 | 专项 DBA/后端 Feature：按模块逐步清偿（优先 core/ai/deps），ratchet 基线随清偿进度下调 |
+
+**排除策略说明**：上述债务通过 `--ignore`/`--deselect` 排除出 CI integration 步骤，修复后需**同步移除 ci.yml 中对应条目与债务注释**，避免遗忘。ratchet 基线（`apps/api/scripts/mypy-baseline.txt`）随 D-F7.3-6 清偿进度下调，下调即代表类型安全收敛。
