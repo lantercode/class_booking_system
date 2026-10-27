@@ -177,10 +177,16 @@ class HomeConfigService:
             return object_key
         settings = get_settings()
         if settings.STORAGE_BACKEND == "oss":
-            base = settings.OSS_PUBLIC_BASE_URL or (
-                f"https://{settings.OSS_BUCKET}.{settings.OSS_ENDPOINT}"
-            )
-            return f"{base.rstrip('/')}/{object_key}"
+            if settings.OSS_PUBLIC_BASE_URL:
+                base = settings.OSS_PUBLIC_BASE_URL.rstrip("/")
+            else:
+                host = (
+                    settings.OSS_ENDPOINT.replace("https://", "")
+                    .replace("http://", "")
+                    .rstrip("/")
+                )
+                base = f"https://{settings.OSS_BUCKET}.{host}"
+            return f"{base}/{object_key}"
         return f"{settings.LOCAL_UPLOAD_PUBLIC_URL_PREFIX.rstrip('/')}/{object_key}"
 
     @classmethod

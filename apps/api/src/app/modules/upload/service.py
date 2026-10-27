@@ -256,8 +256,8 @@ class UploadService:
     ) -> str:
         """上传到阿里云 OSS（alibabacloud-oss-v2.aio）."""
         try:
-            import alibabacloud_oss_v2.aio as oss_aio  # type: ignore[import-untyped]
-            from alibabacloud_oss_v2 import models as oss_models  # type: ignore[import-untyped]
+            import alibabacloud_oss_v2 as oss  # type: ignore[import-untyped]
+            from alibabacloud_oss_v2.aio import AsyncClient  # type: ignore[import-untyped]
         except ImportError as exc:
             logger.error("[UploadService] alibabacloud-oss-v2 未安装: %s", exc)
             raise HTTPException(
@@ -265,19 +265,21 @@ class UploadService:
                 detail="OSS SDK 未安装，请执行 uv add alibabacloud-oss-v2",
             ) from exc
 
-        # OSS V2 配置
-        cfg = oss_aio.Config(
-            endpoint=self.settings.OSS_ENDPOINT,
+        # OSS V2 配置（Config / credentials 均在 SDK 顶层，aio 只提供 AsyncClient）
+        cfg = oss.Config(
             region=self.settings.OSS_REGION,
-            credentials_provider=oss_aio.StaticCredentialsProvider(
+            endpoint=self.settings.OSS_ENDPOINT,
+            credentials_provider=oss.credentials.StaticCredentialsProvider(
                 access_key_id=self.settings.OSS_ACCESS_KEY_ID,
                 access_key_secret=self.settings.OSS_ACCESS_KEY_SECRET,
             ),
+            connect_timeout=10,
+            readwrite_timeout=30,
         )
 
-        client = oss_aio.Client(cfg)
+        client = AsyncClient(cfg)
         try:
-            request = oss_models.PutObjectRequest(
+            request = oss.models.PutObjectRequest(
                 bucket=self.settings.OSS_BUCKET,
                 key=object_key,
                 content_type=mime,
@@ -299,6 +301,13 @@ class UploadService:
             base = self.settings.OSS_PUBLIC_BASE_URL.rstrip("/")
             url = f"{base}/{object_key}"
         else:
-            url = f"https://{self.settings.OSS_BUCKET}.{self.settings.OSS_ENDPOINT}/{object_key}"
+            # endpoint 可能带 https:// 前缀，拼接虚拟主机名时需剥掉
+            host = (
+                self.settings.OSS_ENDPOINT
+                .replace("https://", "")
+                .replace("http://", "")
+                .rstrip("/")
+            )
+            url = f"https://{self.settings.OSS_BUCKET}.{host}/{object_key}"
 
         return url
