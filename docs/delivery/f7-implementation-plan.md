@@ -27,9 +27,14 @@
 **已完成部分的实现偏差备案**：
 - 路由前缀采用 `/home-config/`（非方案文档的 `/miniapp-home/`），与项目 `/<snake_case>/` 模块风格一致。
 - OSS SDK 采用 `alibabacloud-oss-v2`（原生 async，配 aiohttp），非 V1 `oss2` 的线程池包装。
+- **OSS 凭证与访问方式（2026-10-27 修订）**：
+  - 生产 Bucket 已开启「阻止公共访问」，因此**不再返回未签名裸 URL**，改为签发预签名 GET URL（有效期上限 7 天）
+  - 凭证模式由 `OSS_CREDENTIALS_MODE` 控制：`ecs_role`（ECS 实例 RAM 角色，经 `alibabacloud-credentials` 取 STS 并自动刷新，AK/SK 不落盘）或 `static`（本地开发/CI）
+  - 新增 `GET /api/v1/upload/url/{object_key}` 供前端在签名过期后换链，带租户命名空间校验
+  - `core/oss_client.py` 持有 AsyncClient 单例，upload 与 home_config 共用，lifespan 关闭时释放
 - `modules[].type` 枚举以 solution-design.md payload 结构为准：`banner / teachers / courses / video / notice`。
-- `GET /home-config/published` 在 Service 层把 `image_key` / `cover_key` 解析为完整 URL；draft 保持原始 object_key 供管理端编辑回填。
-- 业务表图片字段统一存 `object_key`；前端拼 `/uploads/{object_key}`（admin-web 已加 `/uploads` dev 代理 + 该路径在租户中间件白名单内）。
+- `GET /home-config/published` 在 Service 层把 `image_key` / `cover_key` 解析为可访问 URL；draft 保持原始 object_key 供管理端编辑回填。
+- 业务表图片字段统一存 `object_key`；本地模式前端拼 `/uploads/{object_key}`（admin-web 已加 `/uploads` dev 代理 + 该路径在租户中间件白名单内）。
 
 **可并行的项**：F7.0.2、F7.0.3、F7.0.4 三者均可在 F7.0.1 完成后并行启动；F7.0.5 需等 F7.0.4 接口就绪，但 admin-web 模块列表的 UI 骨架可提前并行开发。
 
