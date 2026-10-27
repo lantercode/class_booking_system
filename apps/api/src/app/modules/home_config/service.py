@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.tenant_context import get_tenant_id
 from app.modules.home_config.models import HomeConfig
 from app.modules.home_config.repository import HomeConfigRepository
@@ -164,15 +165,56 @@ class HomeConfigService:
             raise
 
     # ------------------------------------------------------------
+    # 媒体 URL 解析
+    # ------------------------------------------------------------
+
+    @staticmethod
+    def _build_media_url(object_key: str) -> str:
+        """object_key → 完整可访问 URL（local 走 StaticFiles 前缀，oss 走公网域名）"""
+        if object_key.startswith("http://") or object_key.startswith("https://"):
+            return object_key
+        if object_key.startswith("/"):
+            return object_key
+        settings = get_settings()
+        if settings.STORAGE_BACKEND == "oss":
+            base = settings.OSS_PUBLIC_BASE_URL or (
+                f"https://{settings.OSS_BUCKET}.{settings.OSS_ENDPOINT}"
+            )
+            return f"{base.rstrip('/')}/{object_key}"
+        return f"{settings.LOCAL_UPLOAD_PUBLIC_URL_PREFIX.rstrip('/')}/{object_key}"
+
+    @classmethod
+    def _resolve_media_urls(cls, value):
+        """递归把 payload 中的 image_key / cover_key 由 object_key 换成完整 URL
+
+        冻结约定（solution-design.md L565/L597）：published 返回给小程序的内容
+        必须是可以直接渲染的完整 URL，小程序不关心存储细节。
+        draft 不做转换，管理端编辑时仍使用原始 object_key。
+        """
+        if isinstance(value, dict):
+            resolved = {}
+            for k, v in value.items():
+                if k in ("image_key", "cover_key") and isinstance(v, str) and v:
+                    resolved[k] = cls._build_media_url(v)
+                else:
+                    resolved[k] = cls._resolve_media_urls(v)
+            return resolved
+        if isinstance(value, list):
+            return [cls._resolve_media_urls(v) for v in value]
+        return value
+
+    # ------------------------------------------------------------
     # 4. get_published_for_miniapp
     # ------------------------------------------------------------
 
     async def get_published_for_miniapp(self) -> HomeConfigResponse:
-        """给小程序/管理端读取最新 published"""
+        """给小程序/管理端读取最新 published（媒体字段已解析为完整 URL）"""
         published = await self.repo.get_latest_published(self.db)
         if published is None:
             raise HTTPException(status_code=404, detail="首页尚未发布")
-        return self._to_response(published)
+        response = self._to_response(published)
+        response.payload = self._resolve_media_urls(response.payload)
+        return response
 
     # ------------------------------------------------------------
     # 5. list_published_versions
