@@ -15,14 +15,21 @@
 
 按**后端基础先行、前端按依赖跟进、单向依赖不循环、每个子 Feature 可独立交付并具备冒烟路径**的原则，将 F7.0 拆为 6 个子 Feature：
 
-| 子 Feature | 代号 | 端 | 核心交付 | 前置依赖 |
-|------------|------|----|----------|----------|
-| DB Migration + Upload 模块 | F7.0.1 | api | 3 份迁移 + upload 四件套 | 无 |
-| Classroom 扩展 | F7.0.2 | api + admin-web | 字段迁移 + admin-web 卡片/弹窗 | F7.0.1 |
-| User Avatar + Personal Profile | F7.0.3 | admin-web | 用户头像列/上传 + 右上角菜单 + 个人资料弹窗 | F7.0.1 |
-| Home Config 后端 | F7.0.4 | api | home-config 四件套 + draft/published 流程 | F7.0.1 |
-| Home Config admin-web 前端 | F7.0.5 | admin-web | 模块列表 + 5 种配置抽屉 + 预览 + 发布 | F7.0.1、F7.0.4 |
-| Miniapp 首页改造 | F7.0.6 | miniapp | 从硬编码切到 published API + 降级逻辑 | F7.0.4 |
+| 子 Feature | 代号 | 端 | 核心交付 | 前置依赖 | 状态 |
+|------------|------|----|----------|----------|------|
+| DB Migration + Upload 模块 | F7.0.1 | api | 3 份迁移 + upload 四件套 | 无 | ✅ DONE（16a1720） |
+| Classroom 扩展 | F7.0.2 | api + admin-web | 字段迁移 + admin-web 卡片/弹窗 | F7.0.1 | ✅ DONE（9f3e02b / c29341d） |
+| User Avatar + Personal Profile | F7.0.3 | admin-web | 用户头像列/上传 + 右上角菜单 + 个人资料弹窗 | F7.0.1 | ✅ DONE（17e13e4） |
+| Home Config 后端 | F7.0.4 | api | home-config 四件套 + draft/published 流程 | F7.0.1 | ✅ DONE（a89352a / 16dd2c5） |
+| Home Config admin-web 前端 | F7.0.5 | admin-web | 模块列表 + 5 种配置抽屉 + 预览 + 发布 | F7.0.1、F7.0.4 | ⬜ TODO |
+| Miniapp 首页改造 | F7.0.6 | miniapp | 从硬编码切到 published API + 降级逻辑 | F7.0.4 | ⬜ TODO |
+
+**已完成部分的实现偏差备案**：
+- 路由前缀采用 `/home-config/`（非方案文档的 `/miniapp-home/`），与项目 `/<snake_case>/` 模块风格一致。
+- OSS SDK 采用 `alibabacloud-oss-v2`（原生 async，配 aiohttp），非 V1 `oss2` 的线程池包装。
+- `modules[].type` 枚举以 solution-design.md payload 结构为准：`banner / teachers / courses / video / notice`。
+- `GET /home-config/published` 在 Service 层把 `image_key` / `cover_key` 解析为完整 URL；draft 保持原始 object_key 供管理端编辑回填。
+- 业务表图片字段统一存 `object_key`；前端拼 `/uploads/{object_key}`（admin-web 已加 `/uploads` dev 代理 + 该路径在租户中间件白名单内）。
 
 **可并行的项**：F7.0.2、F7.0.3、F7.0.4 三者均可在 F7.0.1 完成后并行启动；F7.0.5 需等 F7.0.4 接口就绪，但 admin-web 模块列表的 UI 骨架可提前并行开发。
 
