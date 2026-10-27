@@ -16,14 +16,18 @@ Upload Service - 文件上传核心业务逻辑层
 
 import logging
 import uuid
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Final
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.exceptions import ValidationException
 from app.core.oss_client import get_oss_client, resolve_object_url
+from app.core.tenant_context import get_tenant_id
 from app.modules.upload.image_probe import ImageInfo, ImageValidationError, probe_image
 from app.modules.upload.repository import FileObjectRepository
 from app.modules.upload.schemas import UploadImageResponse
@@ -54,6 +58,92 @@ MAX_SIZE_BY_BIZ: Final[dict[str, int]] = {
     "video_cover": 5 * 1024 * 1024,
     "notice": 5 * 1024 * 1024,
 }
+
+# object_key 中禁止出现的片段（防路径穿越，避免预签名越出本租户命名空间）
+_INVALID_KEY_FRAGMENTS: Final[tuple[str, ...]] = ("..", "\\")
+
+
+def _strip_storage_url(value: str, settings: Settings) -> str | None:
+    """若 value 是本系统存储地址，剥离前缀还原为 object_key；否则返回 None。
+
+    支持两种历史/展示形态：
+    - 本地静态路径：``/uploads/t/1/avatar/x.png``
+    - 本桶 OSS 地址（预签名或被 CDN 包装）：``https://{bucket}.{endpoint}/t/1/avatar/x.png?...``
+    """
+    prefix = settings.LOCAL_UPLOAD_PUBLIC_URL_PREFIX.rstrip("/")
+    if prefix and value.startswith(f"{prefix}/"):
+        return value[len(prefix) + 1 :]
+
+    if not value.lower().startswith(("http://", "https://")):
+        return None
+
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return None
+
+    path = parsed.path.lstrip("/")
+    if not path:
+        return None
+
+    if settings.STORAGE_BACKEND == "oss" and settings.OSS_BUCKET and settings.OSS_ENDPOINT:
+        expected_host = f"{settings.OSS_BUCKET}.{settings.OSS_ENDPOINT}".lower()
+        if parsed.netloc.lower() == expected_host:
+            return path
+
+    if prefix and f"{prefix}/" in f"/{path}":
+        return path.split(f"{prefix}/", 1)[1]
+    return None
+
+
+def normalize_object_key(
+    value: str | None,
+    biz_types: Iterable[str],
+    *,
+    allow_external_url: bool = False,
+    field_name: str = "图片地址",
+) -> str | None:
+    """校验并归一化业务表图片字段（object_key 语义），供各业务 Service 复用。
+
+    - 只接受本租户命名空间下的 ``t/{tenant_id}/{biz_type}/...`` key
+    - 同时接受本系统签发的等价 URL（本地 ``/uploads/...`` 或本桶 OSS URL），
+      自动剥离前缀还原为 object_key，保证前端回传展示值不会污染入库数据
+    - ``allow_external_url=True`` 时额外允许 http(s) 外部链接（课程封面）
+    - 空字符串视为「清空」，返回 None
+
+    Raises:
+        ValidationException: 跨租户 key / 非预期 biz_type / 路径穿越 / 非白名单外部链接
+    """
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise ValidationException("租户上下文缺失，无法校验图片地址")
+
+    settings = get_settings()
+    prefixes = tuple(f"t/{tenant_id}/{biz}/" for biz in biz_types)
+
+    candidates = [cleaned]
+    stripped = _strip_storage_url(cleaned, settings)
+    if stripped and stripped != cleaned:
+        candidates.append(stripped)
+
+    for candidate in candidates:
+        if not candidate.startswith(prefixes):
+            continue
+        if any(fragment in candidate for fragment in _INVALID_KEY_FRAGMENTS):
+            raise ValidationException(f"{field_name}格式非法")
+        return candidate
+
+    if allow_external_url and cleaned.lower().startswith(("http://", "https://")):
+        return cleaned
+
+    allowed_hint = "，或 http(s) 外部链接" if allow_external_url else ""
+    raise ValidationException(f"{field_name}必须是本租户上传的文件{allowed_hint}")
 
 
 class UploadService:
@@ -98,8 +188,6 @@ class UploadService:
         mime = file.content_type or "application/octet-stream"
 
         # --- 生成 object_key ---
-        from app.core.tenant_context import get_tenant_id
-
         tenant_id = get_tenant_id()
         if not tenant_id:
             raise HTTPException(status_code=500, detail="租户上下文缺失，无法生成 object_key")

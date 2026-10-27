@@ -5,13 +5,16 @@ Upload Router - 文件上传路由
 目前只暴露图片上传（多业务场景用 biz_type 区分）。
 """
 
+from typing import Final
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_session
+from app.core.exceptions import PermissionException
 from app.core.oss_client import OSS_PRESIGN_EXPIRES_SECONDS, resolve_object_url
-from app.core.rbac import require_roles
+from app.core.rbac import get_user_role_codes, require_roles
 from app.core.response import success
 from app.core.tenant_context import get_tenant_id
 from app.deps.auth import get_current_user
@@ -23,6 +26,19 @@ router = APIRouter(prefix="/upload", tags=["文件上传"])
 # 预签名默认有效期来自配置（默认 1 小时），上限为 OSS 允许的 7 天
 DEFAULT_PRESIGN_TTL_SECONDS = get_settings().OSS_PRESIGN_TTL_SECONDS
 
+# 可上传非头像类资源的角色（运营/管理类）
+ADMIN_ROLES: Final[frozenset[str]] = frozenset({"admin", "super_admin"})
+
+
+def enforce_biz_type_permission(role_codes: set[str], biz_type: str) -> None:
+    """按 biz_type 分级授权：avatar 允许所有登录角色，其余仅管理员。
+
+    Raises:
+        PermissionException: 非管理员尝试上传非 avatar 资源（403）
+    """
+    if biz_type != "avatar" and not (role_codes & ADMIN_ROLES):
+        raise PermissionException("仅管理员可上传该类型文件")
+
 
 @router.post(
     "/image",
@@ -32,9 +48,11 @@ DEFAULT_PRESIGN_TTL_SECONDS = get_settings().OSS_PRESIGN_TTL_SECONDS
     description=(
         "上传图片文件（JPG/PNG/WEBP，最大 5MB），支持多业务场景。"
         "返回 object_key（业务表应存此值）和完整可访问 URL。"
+        "权限分级：avatar 允许所有登录角色（本人头像）；"
+        "其余业务场景（课程/教室封面、轮播、视频封面、公告）仅管理员可上传。"
     ),
 )
-@require_roles("admin", "super_admin")
+@require_roles("admin", "super_admin", "teacher", "student")
 async def upload_image(
     file: UploadFile = File(..., description="图片文件 (multipart/form-data)"),
     biz_type: str = Form(
@@ -48,6 +66,16 @@ async def upload_image(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     """上传图片（带审计）."""
+    # 四关顺序：认证（依赖）→ 授权（装饰器）→ 租户（ContextVar）→ 入参（Service）
+    # 此处补 biz_type 细粒度授权：非 avatar 场景仅管理员可上传
+    if biz_type != "avatar":
+        role_codes = await get_user_role_codes(
+            db,
+            user_id=current_user.get("user_id"),
+            tenant_id=current_user.get("tenant_id"),
+        )
+        enforce_biz_type_permission(role_codes, biz_type)
+
     uploader_id = current_user.get("user_id") if current_user else None
 
     service = UploadService(db=db)

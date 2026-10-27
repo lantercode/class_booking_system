@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessException, NotFoundException, ValidationException
+from app.core.oss_client import resolve_object_url
 from app.modules.course.models import (
     Course,
     CourseCategory,
@@ -40,6 +41,7 @@ from app.modules.course.schemas import (
     CourseTypeUpdate,
     CourseUpdate,
 )
+from app.modules.upload.service import normalize_object_key
 
 logger = logging.getLogger(__name__)
 
@@ -433,7 +435,10 @@ class CourseService:
         }
 
         if data.cover_url is not None:
-            course_data["cover_url"] = data.cover_url
+            # 双重语义：本租户 course_cover object_key，或外部 http(s) 链接
+            course_data["cover_url"] = normalize_object_key(
+                data.cover_url, ("course_cover",), allow_external_url=True, field_name="课程封面"
+            )
         if data.description is not None:
             course_data["description"] = data.description
 
@@ -475,7 +480,9 @@ class CourseService:
         if data.level is not None:
             update_data["level"] = data.level
         if data.cover_url is not None:
-            update_data["cover_url"] = data.cover_url
+            update_data["cover_url"] = normalize_object_key(
+                data.cover_url, ("course_cover",), allow_external_url=True, field_name="课程封面"
+            )
         if data.description is not None:
             update_data["description"] = data.description
         if data.duration_minutes is not None:
@@ -571,7 +578,9 @@ class CourseService:
             category_name=category_name,
             course_type_code=course.course_type_code,
             level=course.level,
-            cover_url=course.cover_url,
+            cover_url=(
+                await resolve_object_url(course.cover_url) if course.cover_url else None
+            ),
             description=course.description,
             duration_minutes=course.duration_minutes,
             price=float(course.price),

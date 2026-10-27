@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundException
+from app.core.oss_client import resolve_object_url
 from app.modules.teacher.models import TeacherProfile, TeacherStatus
 from app.modules.user.models import User
 
@@ -47,7 +48,9 @@ class TeacherService:
                 {
                     "id": user.id,
                     "nickname": user.nickname,
-                    "avatar_url": user.avatar_url,
+                    "avatar_url": await resolve_object_url(user.avatar_url)
+                    if user.avatar_url
+                    else None,
                     "title": profile.title,
                     "bio": profile.bio,
                     "specialties": profile.specialties,
@@ -78,7 +81,7 @@ class TeacherService:
             "user_id": user.id,
             "nickname": user.nickname,
             "phone": user.phone,
-            "avatar": user.avatar_url,
+            "avatar": await resolve_object_url(user.avatar_url) if user.avatar_url else None,
             "title": profile.title if profile else None,
             "intro": profile.bio if profile else None,
             "specialties": profile.specialties if profile else None,
@@ -141,7 +144,7 @@ class TeacherService:
             "user_id": user.id,
             "nickname": user.nickname,
             "phone": user.phone,
-            "avatar": user.avatar_url,
+            "avatar": await resolve_object_url(user.avatar_url) if user.avatar_url else None,
             "title": profile.title,
             "intro": profile.bio,
             "specialties": profile.specialties,

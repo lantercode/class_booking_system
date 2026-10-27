@@ -5,6 +5,9 @@
 - 仅允许 JPEG / PNG / WEBP
 - 像素上限（解压炸弹）
 - 按 biz_type 区分的大小上限
+
+覆盖 S2 加固项：
+- 业务表图片字段（object_key 语义）归属校验与 URL 归一化
 """
 
 import io
@@ -14,9 +17,13 @@ from PIL import Image
 from pydantic import ValidationError
 from starlette.datastructures import Headers, UploadFile
 
+from app.core import tenant_context
 from app.core.config import Settings
+from app.core.exceptions import ValidationException
 from app.modules.upload import image_probe, service
 from app.modules.upload.image_probe import ImageValidationError, probe_image
+from app.modules.upload.router import enforce_biz_type_permission
+from app.modules.upload.service import normalize_object_key
 
 
 def _image_bytes(fmt: str = "PNG", size: tuple[int, int] = (64, 64)) -> bytes:
@@ -164,3 +171,128 @@ def test_presign_ttl_must_be_within_oss_limit() -> None:
 def test_presign_ttl_accepts_one_hour() -> None:
     settings = Settings(OSS_PRESIGN_TTL_SECONDS=3600)
     assert settings.OSS_PRESIGN_TTL_SECONDS == 3600
+
+
+# ============================================================
+# normalize_object_key（S2：业务字段归属校验）
+# ============================================================
+
+TENANT_ID = 7
+_OSS_SETTINGS = Settings(
+    STORAGE_BACKEND="oss",
+    OSS_ENDPOINT="oss-cn-shanghai.aliyuncs.com",
+    OSS_REGION="cn-shanghai",
+    OSS_BUCKET="class-booking-system-prod",
+    OSS_CREDENTIALS_MODE="static",
+    OSS_ACCESS_KEY_ID="test-ak",
+    OSS_ACCESS_KEY_SECRET="test-sk",
+)
+
+
+@pytest.fixture
+def tenant_ctx():
+    token = tenant_context.tenant_id.set(TENANT_ID)
+    yield TENANT_ID
+    tenant_context.tenant_id.reset(token)
+
+
+@pytest.fixture
+def local_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
+    settings = Settings(
+        APP_ENV="development",
+        STORAGE_BACKEND="local",
+        LOCAL_UPLOAD_PUBLIC_URL_PREFIX="/uploads",
+    )
+    monkeypatch.setattr(service, "get_settings", lambda: settings)
+    return settings
+
+
+@pytest.fixture
+def oss_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
+    monkeypatch.setattr(service, "get_settings", lambda: _OSS_SETTINGS)
+    return _OSS_SETTINGS
+
+
+def test_normalize_accepts_own_object_key(tenant_ctx, local_settings) -> None:
+    key = "t/7/avatar/abc.png"
+    assert normalize_object_key(key, ("avatar",)) == key
+
+
+def test_normalize_accepts_and_strips_local_url(tenant_ctx, local_settings) -> None:
+    """前端回传展示值（/uploads/...）也应归一化为 object_key，保证幂等。"""
+    normalized = normalize_object_key("/uploads/t/7/avatar/abc.png", ("avatar",))
+    assert normalized == "t/7/avatar/abc.png"
+
+
+def test_normalize_accepts_and_strips_oss_presigned_url(tenant_ctx, oss_settings) -> None:
+    url = (
+        "https://class-booking-system-prod.oss-cn-shanghai.aliyuncs.com/"
+        "t/7/avatar/abc.png?Expires=1&Signature=x"
+    )
+    assert normalize_object_key(url, ("avatar",)) == "t/7/avatar/abc.png"
+
+
+def test_normalize_rejects_cross_tenant_key(tenant_ctx, local_settings) -> None:
+    with pytest.raises(ValidationException):
+        normalize_object_key("t/8/avatar/abc.png", ("avatar",))
+
+
+def test_normalize_rejects_unexpected_biz_type(tenant_ctx, local_settings) -> None:
+    with pytest.raises(ValidationException):
+        normalize_object_key("t/7/course_cover/abc.png", ("avatar",))
+
+
+def test_normalize_rejects_path_traversal(tenant_ctx, local_settings) -> None:
+    with pytest.raises(ValidationException):
+        normalize_object_key("t/7/avatar/../9/avatar/abc.png", ("avatar",))
+
+
+def test_normalize_rejects_external_url_for_avatar(tenant_ctx, local_settings) -> None:
+    with pytest.raises(ValidationException):
+        normalize_object_key("https://evil.example.com/a.png", ("avatar",))
+
+
+def test_normalize_allows_external_url_for_course_cover(tenant_ctx, local_settings) -> None:
+    external = "https://cdn.example.com/cover.png"
+    assert (
+        normalize_object_key(
+            external, ("course_cover",), allow_external_url=True
+        )
+        == external
+    )
+
+
+def test_normalize_requires_tenant_context(local_settings) -> None:
+    with pytest.raises(ValidationException):
+        normalize_object_key("t/7/avatar/abc.png", ("avatar",))
+
+
+def test_normalize_empty_means_clear(tenant_ctx, local_settings) -> None:
+    assert normalize_object_key("", ("avatar",)) is None
+    assert normalize_object_key("   ", ("avatar",)) is None
+    assert normalize_object_key(None, ("avatar",)) is None
+
+
+# ============================================================
+# biz_type 分级授权（S2）
+# ============================================================
+
+
+@pytest.mark.parametrize("role", ["student", "teacher"])
+def test_avatar_upload_allowed_for_all_roles(role: str) -> None:
+    enforce_biz_type_permission({role}, "avatar")
+
+
+@pytest.mark.parametrize("role", ["admin", "super_admin"])
+@pytest.mark.parametrize("biz_type", ["banner", "course_cover", "classroom_cover", "notice"])
+def test_admin_can_upload_non_avatar(role: str, biz_type: str) -> None:
+    enforce_biz_type_permission({role}, biz_type)
+
+
+@pytest.mark.parametrize("role", ["student", "teacher"])
+@pytest.mark.parametrize("biz_type", ["banner", "course_cover", "classroom_cover", "notice"])
+def test_non_admin_cannot_upload_non_avatar(role: str, biz_type: str) -> None:
+    from app.core.exceptions import PermissionException
+
+    with pytest.raises(PermissionException):
+        enforce_biz_type_permission({role}, biz_type)

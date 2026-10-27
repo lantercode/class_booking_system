@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.exceptions import AuthException, ValidationException
+from app.core.oss_client import resolve_object_url
 from app.core.security import (
     add_token_to_blacklist,
     create_access_token,
@@ -25,6 +26,7 @@ from app.modules.auth.schemas import (
     WechatLoginResponse,
 )
 from app.modules.auth.wechat_service import WechatService
+from app.modules.upload.service import normalize_object_key
 from app.modules.user.models import UserStatus
 
 settings = get_settings()
@@ -63,6 +65,12 @@ class AuthService:
         allowed_fields = ["nickname", "avatar_url"]
         update_data = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
 
+        # 头像必须是本人上传到本租户 avatar 命名空间的对象（或本系统签发的等价 URL）
+        if "avatar_url" in update_data:
+            update_data["avatar_url"] = normalize_object_key(
+                update_data["avatar_url"], ("avatar",), field_name="头像"
+            )
+
         if not update_data:
             raise ValidationException("没有可更新的字段")
 
@@ -74,7 +82,7 @@ class AuthService:
             id=user.id,
             phone=user.phone,
             nickname=user.nickname or "",
-            avatar=user.avatar_url,
+            avatar=await resolve_object_url(user.avatar_url) if user.avatar_url else None,
             status=user.status,
             created_at=user.created_at,
         )
@@ -113,7 +121,7 @@ class AuthService:
             id=user.id,
             phone=user.phone,
             nickname=user.nickname or "",
-            avatar=user.avatar_url,
+            avatar=await resolve_object_url(user.avatar_url) if user.avatar_url else None,
             status=user.status,
             roles=roles,
             created_at=user.created_at,

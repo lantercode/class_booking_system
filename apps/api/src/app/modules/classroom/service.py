@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessException, NotFoundException, ValidationException
+from app.core.oss_client import resolve_object_url
 from app.modules.classroom.repository import ClassroomRepository
 from app.modules.classroom.schemas import (
     ClassroomCreate,
@@ -19,6 +20,7 @@ from app.modules.classroom.schemas import (
     ClassroomUpdate,
 )
 from app.modules.course.models import Classroom, ClassroomStatus
+from app.modules.upload.service import normalize_object_key
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,9 @@ class ClassroomService:
         if data.location:
             classroom_data["location"] = data.location.strip()
         if data.cover_image_url:
-            classroom_data["cover_image_url"] = data.cover_image_url.strip()
+            classroom_data["cover_image_url"] = normalize_object_key(
+                data.cover_image_url, ("classroom_cover",), field_name="教室封面"
+            )
         if data.equipment:
             classroom_data["equipment"] = data.equipment
 
@@ -70,7 +74,7 @@ class ClassroomService:
             await db.refresh(classroom)
 
         logger.info(f"[ClassroomService] ✅ 教室创建成功: id={classroom.id}, code={classroom.code}")
-        return self._to_response(classroom)
+        return await self._to_response(classroom)
 
     async def update_classroom(
         self,
@@ -107,8 +111,8 @@ class ClassroomService:
         if data.location is not None:
             update_data["location"] = data.location.strip() if data.location else None
         if data.cover_image_url is not None:
-            update_data["cover_image_url"] = (
-                data.cover_image_url.strip() if data.cover_image_url else None
+            update_data["cover_image_url"] = normalize_object_key(
+                data.cover_image_url, ("classroom_cover",), field_name="教室封面"
             )
         if data.equipment is not None:
             update_data["equipment"] = data.equipment
@@ -122,7 +126,7 @@ class ClassroomService:
         await db.refresh(classroom)
 
         logger.info(f"[ClassroomService] ✅ 教室更新成功: id={classroom_id}")
-        return self._to_response(classroom)
+        return await self._to_response(classroom)
 
     async def delete_classroom(
         self,
@@ -174,7 +178,7 @@ class ClassroomService:
         classroom = await self.repo.get_by_id(db, classroom_id)
         if not classroom:
             raise NotFoundException("教室不存在")
-        return self._to_response(classroom)
+        return await self._to_response(classroom)
 
     async def list_classrooms(
         self,
@@ -198,18 +202,19 @@ class ClassroomService:
             total=total,
             page=page,
             page_size=page_size,
-            items=[self._to_response(c) for c in items],
+            items=[await self._to_response(c) for c in items],
         )
 
-    def _to_response(self, classroom: Classroom) -> ClassroomResponse:
-        """将 ORM 模型转换为响应对象"""
+    async def _to_response(self, classroom: Classroom) -> ClassroomResponse:
+        """将 ORM 模型转换为响应对象（封面 object_key 解析为可访问 URL）"""
+        cover = getattr(classroom, "cover_image_url", None)
         return ClassroomResponse(
             id=classroom.id,
             tenant_id=classroom.tenant_id,
             name=classroom.name,
             code=classroom.code,
             location=getattr(classroom, "location", None),
-            cover_image_url=getattr(classroom, "cover_image_url", None),
+            cover_image_url=await resolve_object_url(cover) if cover else None,
             equipment=classroom.equipment,
             status=classroom.status,
             created_at=classroom.created_at,

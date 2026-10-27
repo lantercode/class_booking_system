@@ -21,11 +21,13 @@ from app.core.exceptions import (
     NotFoundException,
     ValidationException,
 )
+from app.core.oss_client import resolve_object_url
 from app.core.rbac.cache import clear_user_permission_cache
 from app.core.security import hash_password, verify_password
 from app.modules.auth.models import UserRole
 from app.modules.auth.repository import AuthRepository
 from app.modules.teacher.models import TeacherProfile
+from app.modules.upload.service import normalize_object_key
 from app.modules.user.models import User, UserStatus
 from app.modules.user.repository import UserRepository
 from app.modules.user.schemas import (
@@ -37,6 +39,11 @@ from app.modules.user.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def resolve_avatar_url(avatar: str | None) -> str | None:
+    """头像入库值（object_key）→ 前端可访问 URL；空值原样返回 None。"""
+    return await resolve_object_url(avatar) if avatar else None
 
 
 class UserService:
@@ -168,7 +175,9 @@ class UserService:
         if data.real_name:
             user_data["real_name"] = data.real_name
         if data.avatar_url:
-            user_data["avatar_url"] = data.avatar_url
+            user_data["avatar_url"] = normalize_object_key(
+                data.avatar_url, ("avatar",), field_name="头像"
+            )
         if data.gender is not None:
             user_data["gender"] = data.gender
         if data.birthday:
@@ -258,7 +267,7 @@ class UserService:
             email=user.email,
             nickname=user.nickname,
             real_name=user.real_name,
-            avatar_url=user.avatar_url,
+            avatar_url=await resolve_avatar_url(user.avatar_url),
             gender=user.gender,
             birthday=user.birthday,
             status=user.status,
@@ -321,7 +330,9 @@ class UserService:
         if data.real_name is not None:
             update_data["real_name"] = data.real_name
         if data.avatar_url is not None:
-            update_data["avatar_url"] = data.avatar_url
+            update_data["avatar_url"] = normalize_object_key(
+                data.avatar_url, ("avatar",), field_name="头像"
+            )
         if data.gender is not None:
             update_data["gender"] = data.gender
         if data.birthday is not None:
@@ -424,7 +435,7 @@ class UserService:
             email=user.email,
             nickname=user.nickname,
             real_name=user.real_name,
-            avatar_url=user.avatar_url,
+            avatar_url=await resolve_avatar_url(user.avatar_url),
             gender=user.gender,
             birthday=user.birthday,
             status=user.status,
@@ -543,7 +554,7 @@ class UserService:
             email=user.email,
             nickname=user.nickname,
             real_name=user.real_name,
-            avatar_url=user.avatar_url,
+            avatar_url=await resolve_avatar_url(user.avatar_url),
             gender=user.gender,
             birthday=user.birthday,
             status=user.status,
@@ -620,7 +631,7 @@ class UserService:
                     email=user.email,
                     nickname=user.nickname,
                     real_name=user.real_name,
-                    avatar_url=user.avatar_url,
+                    avatar_url=await resolve_avatar_url(user.avatar_url),
                     gender=user.gender,
                     birthday=user.birthday,
                     status=user.status,
