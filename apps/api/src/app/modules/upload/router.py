@@ -97,6 +97,49 @@ async def upload_image(
     )
 
 
+@router.delete(
+    "/{object_key:path}",
+    response_model=dict,
+    summary="删除文件",
+    description=(
+        "删除已上传文件：先软删 file_objects 审计记录，再删除存储实体。"
+        "被业务表（头像/课程封面/教室封面/分类图标）引用时拒绝删除（409）；"
+        "管理员可删除本租户任意文件，其他角色只能删除自己上传的文件。"
+        "仅允许操作当前租户命名空间（t/{tenant_id}/）下的对象。"
+    ),
+)
+@require_roles("admin", "super_admin", "teacher", "student")
+async def delete_object(
+    object_key: str = Path(..., description="上传时返回的 object_key"),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """按 object_key 删除文件（含租户命名空间校验与引用保护）。"""
+    # 四关顺序：认证（依赖）→ 授权（装饰器 + 归属校验）→ 租户 → 入参
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="租户上下文缺失")
+
+    expected_prefix = f"t/{tenant_id}/"
+    if not object_key.startswith(expected_prefix):
+        raise HTTPException(status_code=403, detail="无权操作该文件")
+
+    role_codes = await get_user_role_codes(
+        db,
+        user_id=current_user.get("user_id"),
+        tenant_id=current_user.get("tenant_id"),
+    )
+
+    service = UploadService(db=db)
+    await service.delete_object(
+        object_key,
+        requester_id=current_user.get("user_id"),
+        is_admin=bool(role_codes & ADMIN_ROLES),
+    )
+
+    return success(data={"object_key": object_key}, msg="文件已删除")
+
+
 @router.get(
     "/url/{object_key:path}",
     response_model=dict,

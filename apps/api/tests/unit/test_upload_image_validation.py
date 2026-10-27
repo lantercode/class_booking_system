@@ -296,3 +296,149 @@ def test_non_admin_cannot_upload_non_avatar(role: str, biz_type: str) -> None:
 
     with pytest.raises(PermissionException):
         enforce_biz_type_permission({role}, biz_type)
+
+
+# ============================================================
+# delete_object（S3：删除 + 引用保护 + 归属校验）
+# ============================================================
+
+
+class _StubRepo:
+    """仅替换 Repository 的两个只读方法，避免依赖数据库。"""
+
+    def __init__(self, record, ref_count: int = 0) -> None:
+        self.record = record
+        self.ref_count = ref_count
+
+    async def get_by_object_key(self, db, object_key: str, *, include_deleted: bool = False):
+        return self.record
+
+    async def count_references(self, db, object_key: str) -> int:
+        return self.ref_count
+
+
+class _StubSession:
+    def __init__(self) -> None:
+        self.committed = False
+        self.rolled_back = False
+        self.fail_commit = False
+
+    async def commit(self) -> None:
+        if self.fail_commit:
+            raise RuntimeError("commit failed")
+        self.committed = True
+
+    async def rollback(self) -> None:
+        self.rolled_back = True
+
+
+def _delete_service(record, *, ref_count: int = 0, session: _StubSession | None = None):
+    svc = service.UploadService(db=session or _StubSession())  # type: ignore[arg-type]
+    svc.repo = _StubRepo(record, ref_count)  # type: ignore[assignment]
+    svc.storage_deleted = []  # type: ignore[attr-defined]
+
+    async def _fake_delete(object_key: str) -> None:
+        svc.storage_deleted.append(object_key)  # type: ignore[attr-defined]
+
+    svc._delete_storage_quietly = _fake_delete  # type: ignore[method-assign]
+    return svc
+
+
+def _record(uploader_id: int | None = 1):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(uploader_id=uploader_id, deleted_at=None)
+
+
+@pytest.mark.anyio
+async def test_delete_object_soft_deletes_and_removes_storage() -> None:
+    record = _record(uploader_id=1)
+    session = _StubSession()
+    svc = _delete_service(record, session=session)
+
+    await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=False)
+
+    assert record.deleted_at is not None
+    assert session.committed is True
+    assert svc.storage_deleted == ["t/7/avatar/a.png"]  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_delete_object_rejects_referenced_file() -> None:
+    from app.core.exceptions import BusinessException
+
+    svc = _delete_service(_record(), ref_count=1)
+    with pytest.raises(BusinessException) as excinfo:
+        await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=True)
+
+    assert excinfo.value.code == 409
+    assert svc.storage_deleted == []  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_delete_object_rejects_other_users_file() -> None:
+    from app.core.exceptions import PermissionException
+
+    svc = _delete_service(_record(uploader_id=2))
+    with pytest.raises(PermissionException):
+        await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=False)
+
+
+@pytest.mark.anyio
+async def test_admin_can_delete_other_users_file() -> None:
+    svc = _delete_service(_record(uploader_id=2))
+    await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=True)
+    assert svc.storage_deleted == ["t/7/avatar/a.png"]  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_delete_object_missing_record_raises_not_found() -> None:
+    from app.core.exceptions import NotFoundException
+
+    svc = _delete_service(None)
+    with pytest.raises(NotFoundException):
+        await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=True)
+
+
+@pytest.mark.anyio
+async def test_delete_object_commit_failure_rolls_back() -> None:
+    session = _StubSession()
+    session.fail_commit = True
+    svc = _delete_service(_record(), session=session)
+
+    with pytest.raises(Exception) as excinfo:
+        await svc.delete_object("t/7/avatar/a.png", requester_id=1, is_admin=False)
+
+    assert "删除文件元数据失败" in str(excinfo.value)
+    assert session.rolled_back is True
+    assert svc.storage_deleted == []  # type: ignore[attr-defined]
+
+
+@pytest.mark.anyio
+async def test_upload_audit_failure_removes_stored_object(
+    tenant_ctx, local_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """审计表写入失败时必须回删已落存储的对象，避免孤儿文件。"""
+    svc = service.UploadService(db=_StubSession(), settings=local_settings)  # type: ignore[arg-type]
+    removed: list[str] = []
+    stored: list[str] = []
+
+    async def _fake_store(object_key: str, content: bytes) -> None:
+        stored.append(object_key)
+
+    async def _fake_remove(object_key: str) -> None:
+        removed.append(object_key)
+
+    async def _fail_create(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(svc, "_store_local", _fake_store)
+    monkeypatch.setattr(svc, "_delete_storage_quietly", _fake_remove)
+    monkeypatch.setattr(svc.repo, "create", _fail_create)
+    monkeypatch.setattr(service, "resolve_object_url", _fake_remove)
+
+    with pytest.raises(Exception) as excinfo:
+        await svc.upload_image(_upload(_image_bytes("PNG")), "avatar", uploader_id=1)
+
+    assert "文件元数据记录失败" in str(excinfo.value)
+    assert stored and removed == stored

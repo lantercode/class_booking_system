@@ -17,6 +17,7 @@ Upload Service - 文件上传核心业务逻辑层
 import logging
 import uuid
 from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 from urllib.parse import urlsplit
@@ -25,7 +26,12 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.exceptions import ValidationException
+from app.core.exceptions import (
+    BusinessException,
+    NotFoundException,
+    PermissionException,
+    ValidationException,
+)
 from app.core.oss_client import get_oss_client, resolve_object_url
 from app.core.tenant_context import get_tenant_id
 from app.modules.upload.image_probe import ImageInfo, ImageValidationError, probe_image
@@ -225,6 +231,8 @@ class UploadService:
         except Exception as exc:
             await self.db.rollback()
             logger.error("[UploadService] 审计表写入失败: %s", exc, exc_info=True)
+            # 补偿：审计失败则回删已落存储的对象，避免产生无元数据的孤儿文件
+            await self._delete_storage_quietly(object_key)
             raise HTTPException(status_code=500, detail="文件元数据记录失败") from exc
 
         # --- 生成访问 URL（local=静态路径；oss=预签名，私有桶必需）---
@@ -242,10 +250,56 @@ class UploadService:
             biz_type=biz_type,
         )
 
+    async def delete_object(
+        self,
+        object_key: str,
+        *,
+        requester_id: int | None = None,
+        is_admin: bool = False,
+    ) -> None:
+        """删除对象（软删审计记录 + 删除存储实体）。
+
+        保护规则：
+        - 只能删除本租户命名空间 ``t/{tenant_id}/`` 下的对象（由 Router 预校验）
+        - 非管理员只能删除自己上传的文件
+        - 仍被业务表（头像/课程封面/教室封面/分类图标）引用时拒绝删除（409）
+
+        存储删除为尽力而为：软删已提交后存储删除失败只记日志，避免把已删除的
+        元数据回滚造成更大不一致；残留对象可由后续 OSS 生命周期规则清理。
+
+        Raises:
+            NotFoundException: 审计记录不存在（含已删除）
+            PermissionException: 非本人文件且非管理员
+            BusinessException: 文件仍被业务引用（code=409）
+            HTTPException: 元数据提交失败（500）
+        """
+        record = await self.repo.get_by_object_key(self.db, object_key)
+        if record is None:
+            raise NotFoundException("文件不存在或已删除")
+
+        if not is_admin and record.uploader_id != requester_id:
+            raise PermissionException("只能删除自己上传的文件")
+
+        ref_count = await self.repo.count_references(self.db, object_key)
+        if ref_count > 0:
+            raise BusinessException(
+                f"该文件仍被 {ref_count} 处业务数据引用，请先解除引用后再删除",
+                code=409,
+            )
+
+        record.deleted_at = datetime.now(UTC)
+        try:
+            await self.db.commit()
+        except Exception as exc:
+            await self.db.rollback()
+            logger.error("[UploadService] 软删除失败 key=%s err=%s", object_key, exc, exc_info=True)
+            raise HTTPException(status_code=500, detail="删除文件元数据失败") from exc
+
+        await self._delete_storage_quietly(object_key)
+
     # ============================================================
     # 私有：校验
     # ============================================================
-
     @staticmethod
     def _validate_biz_type(biz_type: str) -> None:
         if biz_type not in ALLOWED_BIZ_TYPES:
@@ -353,3 +407,37 @@ class UploadService:
                 exc,
             )
             raise HTTPException(status_code=500, detail="OSS 上传失败") from exc
+
+    # ============================================================
+    # 私有：存储删除（补偿 / 删除接口共用，尽力而为）
+    # ============================================================
+
+    async def _delete_storage_quietly(self, object_key: str) -> None:
+        """删除存储实体，失败只记日志（不向上抛，避免掩盖主流程结果）。"""
+        try:
+            if self.settings.STORAGE_BACKEND == "local":
+                target = Path(self.settings.LOCAL_UPLOAD_DIR) / object_key
+                target.unlink(missing_ok=True)
+            elif self.settings.STORAGE_BACKEND == "oss":
+                import alibabacloud_oss_v2 as oss  # type: ignore[import-untyped]
+
+                client = await get_oss_client(self.settings)
+                await client.delete_object(
+                    oss.models.DeleteObjectRequest(
+                        bucket=self.settings.OSS_BUCKET,
+                        key=object_key,
+                    )
+                )
+            else:
+                logger.warning(
+                    "[UploadService] 未知 STORAGE_BACKEND=%s，跳过实体删除 key=%s",
+                    self.settings.STORAGE_BACKEND,
+                    object_key,
+                )
+        except Exception as exc:  # noqa: BLE001 - 删除失败不应影响主流程
+            logger.error(
+                "[UploadService] 存储实体删除失败 key=%s err=%s",
+                object_key,
+                exc,
+                exc_info=True,
+            )
