@@ -2,7 +2,14 @@
   <view class="container">
     <view class="profile-header">
       <view class="avatar-wrapper">
-        <view class="avatar">
+        <image
+          v-if="avatarUrl"
+          class="avatar-image"
+          :src="avatarUrl"
+          mode="aspectFill"
+          @error="handleAvatarError"
+        />
+        <view v-else class="avatar">
           <text class="avatar-text">{{
             userInfo?.nickname?.charAt(0) || "?"
           }}</text>
@@ -75,6 +82,8 @@ import { onMounted, onUnmounted, ref } from "vue";
 
 const userInfo = ref<any>(null);
 const userId = ref("");
+// 头像预签名地址（私有桶过期后通过接口换新链接）
+const avatarUrl = ref("");
 const stats = ref({
   courses: 0,
   schedules: 0,
@@ -87,6 +96,7 @@ let isUnmounted = false;
 onMounted(() => {
   if (!checkLogin("teacher")) return;
   loadUserInfo();
+  loadProfile();
   loadStats();
 });
 
@@ -100,7 +110,25 @@ const loadUserInfo = () => {
     const parsed = JSON.parse(info);
     userInfo.value = parsed;
     userId.value = parsed.id || "";
+    avatarUrl.value = parsed.avatar || "";
   }
+};
+
+// 从后端取最新头像（预签名 URL 每次重新签发）
+const loadProfile = async () => {
+  try {
+    const res = await teacherApi.getInfo();
+    if (isUnmounted) return;
+    const data: any = res.data || {};
+    avatarUrl.value = data.avatar || "";
+  } catch {
+    // 忽略：回退到本地缓存
+  }
+};
+
+// 头像加载失败（签名过期）时重新取一次
+const handleAvatarError = () => {
+  loadProfile();
 };
 
 const loadStats = async () => {
@@ -320,6 +348,13 @@ const handleUnbindWechat = () => {
   @include text-display; // ✅ 使用Design System字体
   color: #fff;
   text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15); // ✅ 文字阴影增强可读性
+}
+
+.avatar-image {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
 }
 
 .user-info {

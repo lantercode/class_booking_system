@@ -20,6 +20,7 @@
             class="avatar"
             :src="userInfo.avatar"
             mode="aspectFill"
+            @error="handleAvatarError"
           />
         </view>
         <view class="user-info-section">
@@ -120,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { clearAuthData } from "@/api";
+import { authApi, clearAuthData } from "@/api";
 import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";
@@ -158,6 +159,26 @@ const loadUserInfo = () => {
 
 const getMembershipLevel = () => {
   return userInfo.value?.membership_level || "普通会员";
+};
+
+// 头像加载失败（预签名地址过期）时，重新拉取一次最新地址并回写缓存
+const handleAvatarError = async () => {
+  try {
+    const res = await authApi.getMe();
+    const data: any = res.data || {};
+    if (isUnmounted || !data.avatar) return;
+    userInfo.value = { ...(userInfo.value || {}), avatar: data.avatar };
+    const info = uni.getStorageSync("user_info");
+    if (info) {
+      const parsed = JSON.parse(info);
+      uni.setStorageSync(
+        "user_info",
+        JSON.stringify({ ...parsed, avatar: data.avatar }),
+      );
+    }
+  } catch {
+    // 忽略：保持占位
+  }
 };
 
 const getUserInitial = () => {

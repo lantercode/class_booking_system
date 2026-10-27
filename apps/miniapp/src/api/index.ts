@@ -376,6 +376,89 @@ async function request<T>(
   );
 }
 
+/** 图片上传结果 POST /upload/image（业务字段应保存 object_key） */
+export interface UploadImageResult {
+  object_key: string;
+  url: string;
+  mime: string;
+  size: number;
+  biz_type: string;
+}
+
+/**
+ * multipart 上传封装（uni.uploadFile）。
+ * 与 request 保持一致的身份/租户头注入；401 时刷新一次 token 后重放。
+ */
+async function uploadFile<T>(
+  url: string,
+  filePath: string,
+  formData: Record<string, string>,
+  retryCount = 0,
+): Promise<ApiResponse<T>> {
+  const token = uni.getStorageSync("token");
+  const tenantSlug = uni.getStorageSync("tenant_slug") || "dance-school";
+
+  const result = await new Promise<ApiResponse<T>>((resolve, reject) => {
+    uni.uploadFile({
+      url: `${BASE_URL}${url}`,
+      filePath,
+      name: "file",
+      formData,
+      header: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        "x-tenant-slug": tenantSlug,
+      },
+      timeout: 60000,
+      success: (res) => {
+        let parsed: ApiResponse<T>;
+        try {
+          parsed = JSON.parse(res.data as string) as ApiResponse<T>;
+        } catch {
+          reject(createRequestError("上传响应解析失败", res.statusCode));
+          return;
+        }
+        resolve(parsed);
+      },
+      fail: (err) => {
+        console.error(`上传失败: ${url}`, JSON.stringify(err));
+        reject(createRequestError("上传失败，请检查网络连接"));
+      },
+    });
+  });
+
+  if (result.code === 401 && retryCount === 0) {
+    const refreshed = await refreshToken();
+    if (refreshed) {
+      return uploadFile<T>(url, filePath, formData, retryCount + 1);
+    }
+  }
+
+  if (result.code !== 0 && result.code !== 200) {
+    throw createRequestError(result.msg || "上传失败");
+  }
+  return result;
+}
+
+export const uploadApi = {
+  /**
+   * 上传图片（JPG/PNG/WEBP，≤5MB）。
+   * biz_type: avatar | course_cover | classroom_cover | banner | video_cover | notice
+   * 其中非 avatar 类型仅管理员可上传。
+   */
+  uploadImage(filePath: string, bizType = "avatar") {
+    return uploadFile<UploadImageResult>("/upload/image", filePath, {
+      biz_type: bizType,
+    });
+  },
+
+  /** 按 object_key 换取新签名地址（图片加载失败 / 签名过期时调用） */
+  getUrl(objectKey: string) {
+    return request<{ object_key: string; url: string; expires_seconds: number }>(
+      `/upload/url/${objectKey}`,
+    );
+  },
+};
+
 export function resetAuthState() {
   hasLoggedOut = false;
   isHandling401 = false;
@@ -582,7 +665,13 @@ export const teacherApi = {
     return request("/teachers/me");
   },
 
-  updateInfo(data: { title?: string; bio?: string; specialties?: string[] }) {
+  updateInfo(data: {
+    nickname?: string;
+    intro?: string;
+    avatar?: string;
+    title?: string;
+    specialties?: string[];
+  }) {
     return request("/teachers/me", "PATCH", data);
   },
 

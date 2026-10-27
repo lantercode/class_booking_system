@@ -13,7 +13,14 @@
         <view class="form-item avatar-item">
           <text class="label">头像</text>
           <view class="avatar-wrapper" @tap="changeAvatar">
-            <view class="avatar">
+            <image
+              v-if="avatarPreviewUrl"
+              class="avatar-image"
+              :src="avatarPreviewUrl"
+              mode="aspectFill"
+              @error="handleAvatarImageError"
+            />
+            <view v-else class="avatar">
               <text class="avatar-text">{{ form.nickname?.charAt(0) || '?' }}</text>
             </view>
             <view class="camera-icon">
@@ -74,15 +81,20 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { userApi } from '@/api'
+import { teacherApi, uploadApi } from '@/api'
 
 const isLoading = ref(false)
 
 const form = reactive({
   nickname: '',
   phone: '',
-  bio: ''
+  bio: '',
+  avatar: ''
 })
+
+// 头像预览 URL（业务字段 avatar 只存 object_key）
+const avatarPreviewUrl = ref('')
+const avatarObjectKey = ref('')
 
 const errors = reactive({
   nickname: ''
@@ -96,13 +108,24 @@ onMounted(() => {
   loadUserInfo()
 })
 
-const loadUserInfo = () => {
+const loadUserInfo = async () => {
   const info = uni.getStorageSync('user_info')
   if (info) {
     const user = JSON.parse(info)
     form.nickname = user.nickname || ''
     form.phone = user.phone || ''
     form.bio = user.bio || ''
+    avatarPreviewUrl.value = user.avatar || ''
+  }
+  // 头像/简介以后端为准（私有桶下预签名 URL 每次重新签发）
+  try {
+    const res = await teacherApi.getInfo()
+    const data: any = res.data || {}
+    form.nickname = data.nickname || form.nickname
+    form.bio = data.intro ?? form.bio
+    avatarPreviewUrl.value = data.avatar || ''
+  } catch {
+    // 忽略：回退到本地缓存
   }
 }
 
@@ -110,8 +133,49 @@ const validateNickname = () => {
   errors.nickname = form.nickname.trim() ? '' : '请输入姓名'
 }
 
-const changeAvatar = () => {
-  uni.showToast({ title: '头像上传功能开发中', icon: 'none' })
+const changeAvatar = async () => {
+  let chooseResult: UniApp.ChooseImageSuccessCallbackResult
+  try {
+    chooseResult = await uni.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      sourceType: ['album', 'camera']
+    })
+  } catch {
+    return
+  }
+
+  const tempFile = (chooseResult.tempFiles as any)?.[0]
+  const filePath = chooseResult.tempFilePaths?.[0]
+  if (!filePath) return
+  if (tempFile && tempFile.size / 1024 / 1024 >= 2) {
+    uni.showToast({ title: '头像大小不能超过 2MB', icon: 'none' })
+    return
+  }
+
+  uni.showLoading({ title: '上传中...', mask: true })
+  try {
+    const result = await uploadApi.uploadImage(filePath, 'avatar')
+    avatarObjectKey.value = result.data.object_key
+    avatarPreviewUrl.value = result.data.url
+    form.avatar = result.data.object_key
+    uni.showToast({ title: '头像已上传，保存后生效', icon: 'none' })
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '头像上传失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+// 预签名地址过期导致图片加载失败时，按 object_key 换新链接
+const handleAvatarImageError = async () => {
+  if (!avatarObjectKey.value) return
+  try {
+    const res = await uploadApi.getUrl(avatarObjectKey.value)
+    avatarPreviewUrl.value = res.data?.url || ''
+  } catch {
+    // 忽略：保持占位
+  }
 }
 
 const handleSubmit = async () => {
@@ -121,15 +185,18 @@ const handleSubmit = async () => {
 
   isLoading.value = true
   try {
-    const result = await userApi.update({
+    const result = await teacherApi.updateInfo({
       nickname: form.nickname,
-      bio: form.bio
+      intro: form.bio,
+      ...(form.avatar ? { avatar: form.avatar } : {})
     })
 
     if (result.code === 0 || result.code === 200) {
-      const userInfo = JSON.parse(uni.getStorageSync('user_info'))
-      userInfo.nickname = form.nickname
-      userInfo.bio = form.bio
+      const data: any = result.data || {}
+      const userInfo = JSON.parse(uni.getStorageSync('user_info') || '{}')
+      userInfo.nickname = data.nickname ?? form.nickname
+      userInfo.bio = data.intro ?? form.bio
+      userInfo.avatar = data.avatar ?? avatarPreviewUrl.value
       uni.setStorageSync('user_info', JSON.stringify(userInfo))
 
       uni.showToast({ title: '保存成功', icon: 'success' })
@@ -137,8 +204,8 @@ const handleSubmit = async () => {
     } else {
       uni.showToast({ title: result.msg || '保存失败', icon: 'none' })
     }
-  } catch {
-    uni.showToast({ title: '保存失败', icon: 'none' })
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || '保存失败', icon: 'none' })
   } finally {
     isLoading.value = false
   }
@@ -252,6 +319,12 @@ const goBack = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 
 .avatar-text {
