@@ -52,6 +52,14 @@ jobs:
               cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
             fi
 
+            # 4.1 校验文件存储必填项（缺失会导致 api 容器启动即退出）
+            for key in STORAGE_BACKEND OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
+              grep -q "^${key}=.\+" .env.prod || { echo "❌ .env.prod 缺少必填项: $key"; exit 1; }
+            done
+            if grep -q '^OSS_CREDENTIALS_MODE=ecs_role' .env.prod; then
+              grep -q '^OSS_ROLE_NAME=.\+' .env.prod || { echo "❌ ecs_role 模式缺少 OSS_ROLE_NAME"; exit 1; }
+            fi
+
             # 5. 构建前端（pnpm workspace 项目）
             echo "🔨 Building frontend..."
 
