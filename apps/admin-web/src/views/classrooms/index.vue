@@ -221,14 +221,12 @@ const rules = {
   name: [{ required: true, message: '请输入教室名称', trigger: 'blur' }],
 }
 
-/** object_key / url 都能解析显示 */
+/** object_key / url 都能解析显示（业务表存 object_key，需拼本地存储前缀） */
 function resolveCoverUrl(val: string | null | undefined): string {
   if (!val) return ''
-  // 如果已经是 http(s) URL 直接返回
   if (val.startsWith('http://') || val.startsWith('https://')) return val
-  // object_key：假设带 /avatars/ 或 /classrooms/ 路径，这里返回占位
-  // 如果后端有 CDN 前缀，可在此拼接
-  return val
+  if (val.startsWith('/')) return val
+  return `/uploads/${val}`
 }
 
 async function fetchClassrooms() {
