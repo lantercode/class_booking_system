@@ -32,6 +32,9 @@ from app.modules.membership.models import (
 # 文件上传（依赖 users 表先注册）
 from app.modules.upload.models import FileObject
 
+# 首页配置（FK operator_id → users.id，依赖 User 先注册）
+from app.modules.home_config.models import HomeConfig
+
 __all__ = [
     # 核心
     "Tenant",
@@ -59,4 +62,6 @@ __all__ = [
     "AuditLog",
     "WechatAccount",
     "FileObject",
+    # 首页配置
+    "HomeConfig",
 ]

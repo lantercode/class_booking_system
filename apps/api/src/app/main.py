@@ -47,6 +47,7 @@ from app.modules.schedule.scheduler import (
 from app.modules.teacher.router import router as teacher_router  # 教师路由
 from app.modules.tenant.router import router as tenant_router  # 租户配置路由
 from app.modules.upload.router import router as upload_router  # ⭐ 文件上传路由（F7.0.1）
+from app.modules.home_config.router import router as home_config_router  # ⭐ 首页配置路由（F7.0.4）
 from app.modules.user.router import router as user_router  # 用户管理路由
 
 settings = get_settings()
@@ -219,6 +220,7 @@ app.include_router(teacher_router, prefix=API_V1_PREFIX)  # 教师路由
 app.include_router(tenant_router, prefix=API_V1_PREFIX)  # 租户配置路由
 app.include_router(membership_router, prefix=API_V1_PREFIX)  # 会员卡路由
 app.include_router(upload_router, prefix=API_V1_PREFIX)  # ⭐ 文件上传路由（F7.0.1）
+app.include_router(home_config_router, prefix=API_V1_PREFIX)  # ⭐ 首页配置路由（F7.0.4）
 app.include_router(ai_router)  # AI 智能助手路由（已在 router.py 中定义前缀 /api/v1/ai）
 
 # ⭐ 挂载静态文件服务（本地存储降级方案）；生产模式强制 STORAGE_BACKEND=oss 不走这里
