@@ -14,6 +14,7 @@ export interface TeacherInfo {
 export interface TeacherUpdateParams {
   nickname?: string
   intro?: string
+  avatar?: string
   title?: string
   specialties?: string[]
   years_of_experience?: number

@@ -158,7 +158,7 @@
             :before-upload="beforeAvatarUpload"
             :http-request="handleAvatarUpload"
           >
-            <img v-if="editForm.avatar_url" :src="editForm.avatar_url" class="avatar-image" />
+            <img v-if="editForm.avatar_url" :src="avatarPreviewUrl || editForm.avatar_url" class="avatar-image" />
             <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
           </el-upload>
           <div class="upload-tip">支持 JPG/PNG 格式，文件大小不超过 2MB，建议尺寸 200x200 像素</div>
@@ -220,6 +220,9 @@ const editForm = ref({
   avatar_url: '',
   status: 1 as number,
 })
+
+// 头像预览 URL（业务字段存 object_key，预览需要可访问地址）
+const avatarPreviewUrl = ref('')
 
 const editRules: FormRules = {
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
@@ -299,6 +302,7 @@ function handleEdit(row: {
     avatar_url: row.avatar_url || '',
     status: row.status === 'active' ? 1 : 0,
   }
+  avatarPreviewUrl.value = row.avatar_url || ''
   editFormRef.value?.resetFields()
   editVisible.value = true
   editFormRef.value?.clearValidate()
@@ -383,7 +387,9 @@ const handleAvatarUpload = async (options: any) => {
     const result = await commonApi.uploadImage(file, 'avatar')
 
     if (result.code === 0 || result.code === 200) {
-      editForm.value.avatar_url = result.data.url
+      // 业务字段只存 object_key，URL 仅用于预览
+      editForm.value.avatar_url = result.data.object_key
+      avatarPreviewUrl.value = result.data.url
       ElMessage.success('头像上传成功')
       editFormRef.value?.validateField('avatar_url')
     } else {

@@ -48,6 +48,19 @@
     </div>
     <div class="form-card">
       <el-form label-position="top" size="large">
+        <el-form-item label="头像">
+          <el-upload
+            class="avatar-uploader"
+            :show-file-list="false"
+            :before-upload="beforeAvatarUpload"
+            :http-request="handleAvatarUpload"
+          >
+            <img v-if="profileForm.avatar" :src="avatarPreviewUrl" class="avatar-image" />
+            <div v-else class="avatar-placeholder">
+              <el-icon :size="22"><Plus /></el-icon>
+            </div>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="姓名">
           <el-input v-model="profileForm.nickname" placeholder="请输入姓名" />
         </el-form-item>
@@ -81,16 +94,52 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { ArrowLeft, UserFilled, Edit, Collection, Calendar, SwitchButton } from '@element-plus/icons-vue'
+import type { UploadProps } from 'element-plus'
+import { ArrowLeft, UserFilled, Edit, Collection, Calendar, Plus, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { courseApi, scheduleApi, teacherApi } from '@dance-saas/api-client'
+import { commonApi, courseApi, scheduleApi, teacherApi } from '@dance-saas/api-client'
 
 const authStore = useAuthStore()
 
 const profileForm = reactive({
   nickname: '',
   intro: '',
+  avatar: '',
 })
+
+// 头像预览 URL（业务字段存 object_key）
+const avatarPreviewUrl = ref('')
+
+/** 头像上传前校验 */
+const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('头像只能是 JPG/PNG/WEBP 格式')
+    return false
+  }
+  if (file.size / 1024 / 1024 >= 2) {
+    ElMessage.error('头像大小不能超过 2MB')
+    return false
+  }
+  return true
+}
+
+/** 头像上传：业务字段存 object_key，url 仅用于预览 */
+async function handleAvatarUpload(options: any) {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'avatar')
+    if (result.code === 0 || result.code === 200) {
+      profileForm.avatar = result.data.object_key
+      avatarPreviewUrl.value = result.data.url
+      ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error(result.msg || '头像上传失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || e?.message || '头像上传失败')
+  }
+}
 
 const totalCourses = ref(0)
 const totalSchedules = ref(0)
@@ -100,12 +149,15 @@ async function fetchTeacherInfo() {
     const res = await teacherApi.getInfo()
     profileForm.nickname = res.data.nickname || ''
     profileForm.intro = res.data.intro || ''
+    profileForm.avatar = res.data.avatar || ''
+    avatarPreviewUrl.value = res.data.avatar || ''
     // 更新store中的教师信息
     authStore.teacherInfo = {
       id: authStore.teacherInfo?.id ?? 0,
       phone: authStore.teacherInfo?.phone ?? '',
       nickname: res.data.nickname ?? '',
       intro: res.data.intro ?? '',
+      avatar: res.data.avatar ?? undefined,
     }
   } catch (_) {}
 }
@@ -131,6 +183,7 @@ async function handleSave() {
     const res = await teacherApi.updateInfo({
       nickname: profileForm.nickname,
       intro: profileForm.intro,
+      avatar: profileForm.avatar || undefined,
     })
     // 更新store中的教师信息
     authStore.teacherInfo = {
@@ -138,6 +191,7 @@ async function handleSave() {
       phone: authStore.teacherInfo?.phone ?? '',
       nickname: res.data.nickname ?? '',
       intro: res.data.intro ?? '',
+      avatar: res.data.avatar ?? undefined,
     }
     ElMessage.success('保存成功')
   } catch (e: any) {
@@ -337,6 +391,37 @@ async function handleLogout() {
     background: linear-gradient(135deg, #667eea, #764ba2);
     border: none;
   }
+}
+
+.avatar-uploader :deep(.el-upload) {
+  width: 64px;
+  height: 64px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: #667eea;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #c0c4cc;
 }
 
 .logout-section {

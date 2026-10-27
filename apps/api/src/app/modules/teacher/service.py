@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundException
 from app.core.oss_client import resolve_object_url
 from app.modules.teacher.models import TeacherProfile, TeacherStatus
+from app.modules.upload.service import normalize_object_key
 from app.modules.user.models import User
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,11 @@ class TeacherService:
         # 更新用户表字段
         if "nickname" in data:
             user.nickname = data["nickname"]
+        # 头像必须指向本人上传到本租户 avatar 命名空间的对象（或本系统签发的等价 URL）
+        if "avatar" in data:
+            user.avatar_url = normalize_object_key(
+                data["avatar"], ("avatar",), field_name="头像"
+            )
 
         # 更新教师档案表
         profile_result = await db.execute(

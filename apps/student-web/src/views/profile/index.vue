@@ -162,13 +162,26 @@
 
     <el-dialog v-model="showEditDialog" title="编辑资料" width="400px">
       <el-form :model="editForm" label-width="80px">
+        <el-form-item label="头像">
+          <el-upload
+            class="avatar-uploader"
+            :show-file-list="false"
+            :before-upload="beforeAvatarUpload"
+            :http-request="handleAvatarUpload"
+          >
+            <img v-if="editForm.avatar" :src="avatarPreviewUrl" class="avatar-image" />
+            <div v-else class="avatar-placeholder">
+              <el-icon :size="22"><Plus /></el-icon>
+            </div>
+          </el-upload>
+        </el-form-item>
         <el-form-item label="昵称">
           <el-input v-model="editForm.nickname" placeholder="请输入昵称" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -192,10 +205,12 @@ import {
   Collection,
   User,
   Lock,
+  Plus,
   SwitchButton,
 } from '@element-plus/icons-vue'
+import type { UploadProps } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { bookingApi, apiClient } from '@dance-saas/api-client'
+import { bookingApi, apiClient, commonApi } from '@dance-saas/api-client'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -205,9 +220,44 @@ const completedCount = ref(0)
 const totalCount = ref(0)
 
 const showEditDialog = ref(false)
+const saving = ref(false)
 const editForm = ref({
   nickname: '',
+  avatar: '',
 })
+// 头像预览 URL（业务字段存 object_key）
+const avatarPreviewUrl = ref('')
+
+/** 头像上传前校验 */
+const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('头像只能是 JPG/PNG/WEBP 格式')
+    return false
+  }
+  if (file.size / 1024 / 1024 >= 2) {
+    ElMessage.error('头像大小不能超过 2MB')
+    return false
+  }
+  return true
+}
+
+/** 头像上传：业务字段存 object_key，url 仅用于预览 */
+async function handleAvatarUpload(options: any) {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'avatar')
+    if (result.code === 0 || result.code === 200) {
+      editForm.value.avatar = result.data.object_key
+      avatarPreviewUrl.value = result.data.url
+      ElMessage.success('头像上传成功')
+    } else {
+      ElMessage.error(result.msg || '头像上传失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || e?.message || '头像上传失败')
+  }
+}
 
 async function fetchStats() {
   try {
@@ -239,20 +289,26 @@ function goToMembership() {
 function openEditDialog() {
   editForm.value = {
     nickname: userStore.userInfo?.nickname || '',
+    avatar: userStore.userInfo?.avatar || '',
   }
+  avatarPreviewUrl.value = userStore.userInfo?.avatar || ''
   showEditDialog.value = true
 }
 
 async function handleSave() {
+  saving.value = true
   try {
     await apiClient.patch('/auth/me', {
       nickname: editForm.value.nickname,
+      avatar: editForm.value.avatar || undefined,
     })
     await userStore.fetchUserInfo()
     showEditDialog.value = false
     ElMessage.success('修改成功')
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || '修改失败')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -535,6 +591,37 @@ async function handleLogout() {
       }
     }
   }
+}
+
+.avatar-uploader :deep(.el-upload) {
+  width: 64px;
+  height: 64px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: #667eea;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #c0c4cc;
 }
 
 .logout-section {

@@ -55,7 +55,7 @@
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="avatar_url" label="头像" width="80">
         <template #default="{ row }">
-          <el-avatar :size="40" :src="resolveAvatarUrl(row.avatar_url)" icon="UserFilled" />
+          <el-avatar :size="40" :src="resolveImageUrl(row.avatar_url)" icon="UserFilled" />
         </template>
       </el-table-column>
       <el-table-column prop="nickname" label="昵称">
@@ -214,7 +214,7 @@ import { Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
-import { resolveAvatarUrl } from '@/stores/auth'
+import { resolveImageUrl } from '@/utils/image'
 
 const loading = ref(false)
 const loadError = ref('')

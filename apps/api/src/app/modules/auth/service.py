@@ -63,6 +63,9 @@ class AuthService:
 
         # 只允许修改的字段
         allowed_fields = ["nickname", "avatar_url"]
+        # 前端契约字段名为 avatar，这里兼容映射到 avatar_url
+        if "avatar" in data and "avatar_url" not in data:
+            data = {**data, "avatar_url": data["avatar"]}
         update_data = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
 
         # 头像必须是本人上传到本租户 avatar 命名空间的对象（或本系统签发的等价 URL）

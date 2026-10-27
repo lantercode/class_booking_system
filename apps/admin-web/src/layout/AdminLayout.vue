@@ -179,7 +179,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { resolveAvatarUrl, useAuthStore } from '@/stores/auth'
+import { resolveImageUrl } from '@/utils/image'
+import { useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
   path: string
@@ -198,8 +199,8 @@ const profileLoading = ref(false)
 const profileUploading = ref(false)
 const profileNickname = ref('')
 const profileAvatarKey = ref<string | null>(null)
-const profileAvatarPreview = computed(() => resolveAvatarUrl(profileAvatarKey.value))
-const authAvatarPreview = computed(() => resolveAvatarUrl(authStore.adminInfo?.avatar))
+const profileAvatarPreview = computed(() => resolveImageUrl(profileAvatarKey.value))
+const authAvatarPreview = computed(() => resolveImageUrl(authStore.adminInfo?.avatar))
 
 const profileRules: FormRules = {
   nickname: [

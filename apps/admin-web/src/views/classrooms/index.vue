@@ -38,7 +38,7 @@
               <div class="cover-wrapper">
                 <img
                   v-if="room.cover_image_url"
-                  :src="resolveCoverUrl(room.cover_image_url)"
+                  :src="resolveImageUrl(room.cover_image_url)"
                   class="cover-image"
                 />
                 <div v-else class="cover-placeholder">
@@ -194,6 +194,7 @@ import { Delete, Location, Picture, Plus, Search, Setting } from '@element-plus/
 import type { UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
+import { resolveImageUrl } from '@/utils/image'
 
 const loading = ref(false)
 const loadError = ref('')
@@ -219,14 +220,6 @@ const coverPreviewUrl = ref('')
 
 const rules = {
   name: [{ required: true, message: '请输入教室名称', trigger: 'blur' }],
-}
-
-/** object_key / url 都能解析显示（业务表存 object_key，需拼本地存储前缀） */
-function resolveCoverUrl(val: string | null | undefined): string {
-  if (!val) return ''
-  if (val.startsWith('http://') || val.startsWith('https://')) return val
-  if (val.startsWith('/')) return val
-  return `/uploads/${val}`
 }
 
 async function fetchClassrooms() {
@@ -269,7 +262,7 @@ function openEditDialog(row: Classroom) {
     cover_image_url: row.cover_image_url || '',
     equipment: row.equipment || [],
   }
-  coverPreviewUrl.value = resolveCoverUrl(row.cover_image_url)
+  coverPreviewUrl.value = resolveImageUrl(row.cover_image_url)
   dialogVisible.value = true
   formRef.value?.clearValidate()
 }

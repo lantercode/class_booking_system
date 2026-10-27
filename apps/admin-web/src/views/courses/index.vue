@@ -435,6 +435,33 @@
             style="width: 100%"
           />
         </el-form-item>
+        <el-form-item label="课程封面" prop="cover_url">
+          <div class="cover-field">
+            <el-upload
+              class="cover-uploader"
+              :show-file-list="false"
+              :before-upload="beforeCoverUpload"
+              :http-request="handleCoverUpload"
+            >
+              <img
+                v-if="courseForm.cover_url"
+                :src="coverPreviewUrl || resolveImageUrl(courseForm.cover_url)"
+                class="cover-image"
+              />
+              <div v-else class="cover-placeholder">
+                <el-icon :size="22" color="#c0c4cc"><Plus /></el-icon>
+                <span>上传封面</span>
+              </div>
+            </el-upload>
+            <el-input
+              v-model="courseForm.cover_url"
+              placeholder="或直接填写外部图片 URL"
+              clearable
+              @input="coverPreviewUrl = ''"
+            />
+          </div>
+          <div class="form-tip">支持 JPG/PNG/WEBP，最大 5MB；也可保留外部图片 URL</div>
+        </el-form-item>
         <el-form-item label="课程描述" prop="description">
           <el-input
             v-model="courseForm.description"
@@ -459,6 +486,7 @@ import {
   courseApi,
   courseCategoryApi,
   courseTypeApi,
+  commonApi,
   type Course,
   type CourseCategory,
   type CourseCategoryCreateParams,
@@ -475,12 +503,15 @@ import {
   Folder,
   Medal,
   Microphone,
+  Plus,
   Search,
   Star,
   User,
 } from '@element-plus/icons-vue'
+import type { UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
+import { resolveImageUrl } from '@/utils/image'
 
 // ==================== 课程类型相关 ====================
 const typeLoading = ref(false)
@@ -802,7 +833,42 @@ const courseForm = ref<CourseCreateParams>({
   level: undefined,
   duration_minutes: 60,
   description: '',
+  cover_url: '',
 })
+
+// 封面上传后的临时预览 URL（业务字段存 object_key）
+const coverPreviewUrl = ref('')
+
+/** 封面上传前校验 */
+const beforeCoverUpload: UploadProps['beforeUpload'] = file => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('封面只能是 JPG/PNG/WEBP 格式')
+    return false
+  }
+  if (file.size / 1024 / 1024 >= 5) {
+    ElMessage.error('封面大小不能超过 5MB')
+    return false
+  }
+  return true
+}
+
+/** 封面上传：业务字段存 object_key，url 仅用于预览 */
+const handleCoverUpload = async (options: any) => {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'course_cover')
+    if (result.code === 0 || result.code === 200) {
+      courseForm.value.cover_url = result.data.object_key
+      coverPreviewUrl.value = result.data.url
+      ElMessage.success('封面上传成功')
+    } else {
+      ElMessage.error(result.msg || '封面上传失败')
+    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || e?.message || '封面上传失败')
+  }
+}
 
 const courseRules = computed(() => ({
   name: [{ required: true, message: '请输入课程名称', trigger: 'blur' }],
@@ -920,7 +986,9 @@ function openCourseCreateDialog() {
     level: undefined,
     duration_minutes: 60,
     description: '',
+    cover_url: '',
   }
+  coverPreviewUrl.value = ''
   courseDialogVisible.value = true
   courseFormRef.value?.clearValidate()
 }
@@ -935,7 +1003,9 @@ function openCourseEditDialog(row: Course) {
     level: row.level || undefined,
     duration_minutes: row.duration_minutes,
     description: row.description || '',
+    cover_url: row.cover_url || '',
   }
+  coverPreviewUrl.value = ''
   courseDialogVisible.value = true
   courseFormRef.value?.clearValidate()
 }
@@ -950,11 +1020,19 @@ async function handleCourseSubmit() {
 
   courseSubmitting.value = true
   try {
+    const coverUrl = courseForm.value.cover_url?.trim() || ''
     if (isCourseEdit.value && editingCourseId.value) {
-      await courseApi.update(editingCourseId.value, courseForm.value as CourseUpdateParams)
+      // 空字符串表示清空封面（后端会归一化为 None）
+      await courseApi.update(editingCourseId.value, {
+        ...courseForm.value,
+        cover_url: coverUrl,
+      } as CourseUpdateParams)
       ElMessage.success('课程更新成功')
     } else {
-      await courseApi.create(courseForm.value)
+      await courseApi.create({
+        ...courseForm.value,
+        cover_url: coverUrl || undefined,
+      })
       ElMessage.success('课程创建成功')
     }
     courseDialogVisible.value = false
@@ -1369,5 +1447,45 @@ onMounted(() => {
   font-size: 12px;
   color: #909399;
   line-height: 1.5;
+}
+
+/* 课程封面上传 */
+.cover-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+
+.cover-uploader :deep(.el-upload) {
+  width: 160px;
+  height: 120px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.cover-uploader :deep(.el-upload:hover) {
+  border-color: #409eff;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #909399;
 }
 </style>
