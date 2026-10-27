@@ -15,6 +15,7 @@ from app.core.config import get_settings
 # from starlette.middleware.sessions import Session
 from app.core.database import SessionLocal
 from app.core.exceptions import DanceSaasException
+from app.core.oss_client import close_oss_client
 from app.core.tenant_query import setup_tenant_query_injection
 from app.deps.auth import get_redis_client
 from app.middleware.error_handler import (
@@ -167,6 +168,11 @@ async def lifespan(app: FastAPI):
     yield
 
     # 关闭时清理
+    try:
+        await close_oss_client()
+    except Exception as e:
+        logger.warning(f"关闭 OSS 客户端时出错: {e}")
+
     try:
         if scheduler.running:
             scheduler.shutdown(wait=False)

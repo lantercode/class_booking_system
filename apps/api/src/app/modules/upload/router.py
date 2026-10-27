@@ -5,12 +5,14 @@ Upload Router - 文件上传路由
 目前只暴露图片上传（多业务场景用 biz_type 区分）。
 """
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
+from app.core.oss_client import OSS_PRESIGN_EXPIRES_SECONDS, resolve_object_url
 from app.core.rbac import require_roles
 from app.core.response import success
+from app.core.tenant_context import get_tenant_id
 from app.deps.auth import get_current_user
 from app.modules.upload.schemas import UploadImageResponse
 from app.modules.upload.service import UploadService
@@ -58,3 +60,37 @@ async def upload_image(
         },
         msg="图片上传成功",
     )
+
+
+@router.get(
+    "/url/{object_key:path}",
+    response_model=dict,
+    summary="换取文件访问地址",
+    description=(
+        "根据 object_key 返回可访问 URL。私有 OSS Bucket 下返回预签名临时地址，"
+        "前端在图片加载失败（签名过期）时调用本接口换新链接。"
+        "仅允许访问当前租户命名空间（t/{tenant_id}/）下的对象。"
+    ),
+)
+async def get_object_url(
+    object_key: str = Path(..., description="上传时返回的 object_key"),
+    expires_seconds: int = Query(
+        OSS_PRESIGN_EXPIRES_SECONDS,
+        ge=60,
+        le=OSS_PRESIGN_EXPIRES_SECONDS,
+        description="签名有效期（秒），仅 OSS 模式生效",
+    ),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """按 object_key 换取访问 URL（含租户命名空间校验）。"""
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise HTTPException(status_code=400, detail="租户上下文缺失")
+
+    # 只允许访问本租户前缀下的对象，防止跨租户猜 key
+    expected_prefix = f"t/{tenant_id}/"
+    if not object_key.startswith(expected_prefix):
+        raise HTTPException(status_code=403, detail="无权访问该文件")
+
+    url = await resolve_object_url(object_key, expires_seconds=expires_seconds)
+    return success(data={"object_key": object_key, "url": url, "expires_seconds": expires_seconds})

@@ -24,6 +24,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.core.oss_client import get_oss_client, resolve_object_url
 from app.modules.upload.repository import FileObjectRepository
 from app.modules.upload.schemas import UploadImageResponse
 
@@ -126,9 +127,9 @@ class UploadService:
         # --- 存储：策略模式 ---
         try:
             if self.settings.STORAGE_BACKEND == "local":
-                url = await self._store_local(object_key, content)
+                await self._store_local(object_key, content)
             elif self.settings.STORAGE_BACKEND == "oss":
-                url = await self._store_oss(object_key, content, mime)
+                await self._store_oss(object_key, content, mime)
             else:
                 raise HTTPException(status_code=500, detail="未知的 STORAGE_BACKEND 配置")
         except HTTPException:
@@ -155,6 +156,13 @@ class UploadService:
             await self.db.rollback()
             logger.error("[UploadService] 审计表写入失败: %s", exc, exc_info=True)
             raise HTTPException(status_code=500, detail="文件元数据记录失败") from exc
+
+        # --- 生成访问 URL（local=静态路径；oss=预签名，私有桶必需）---
+        try:
+            url = await resolve_object_url(object_key, settings=self.settings)
+        except Exception as exc:
+            logger.error("[UploadService] 生成访问 URL 失败 key=%s err=%s", object_key, exc)
+            raise HTTPException(status_code=500, detail="生成文件访问地址失败") from exc
 
         return UploadImageResponse(
             object_key=object_key,
@@ -226,8 +234,8 @@ class UploadService:
     # 私有：local 存储
     # ============================================================
 
-    async def _store_local(self, object_key: str, content: bytes) -> str:
-        """写本地磁盘并返回可访问 URL."""
+    async def _store_local(self, object_key: str, content: bytes) -> None:
+        """写本地磁盘（访问 URL 统一由 resolve_object_url 生成）."""
         base_dir = Path(self.settings.LOCAL_UPLOAD_DIR)
         target = base_dir / object_key
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -241,9 +249,6 @@ class UploadService:
             logger.error("[UploadService] 本地写盘失败 path=%s err=%s", target, exc)
             raise HTTPException(status_code=500, detail="本地存储写入失败") from exc
 
-        url_prefix = self.settings.LOCAL_UPLOAD_PUBLIC_URL_PREFIX.rstrip("/")
-        return f"{url_prefix}/{object_key}"
-
     # ============================================================
     # 私有：OSS 存储（alibabacloud-oss-v2 async）
     # ============================================================
@@ -253,61 +258,24 @@ class UploadService:
         object_key: str,
         content: bytes,
         mime: str,
-    ) -> str:
-        """上传到阿里云 OSS（alibabacloud-oss-v2.aio）."""
-        try:
-            import alibabacloud_oss_v2 as oss  # type: ignore[import-untyped]
-            from alibabacloud_oss_v2.aio import AsyncClient  # type: ignore[import-untyped]
-        except ImportError as exc:
-            logger.error("[UploadService] alibabacloud-oss-v2 未安装: %s", exc)
-            raise HTTPException(
-                status_code=500,
-                detail="OSS SDK 未安装，请执行 uv add alibabacloud-oss-v2",
-            ) from exc
+    ) -> None:
+        """上传到阿里云 OSS（客户端单例由 core.oss_client 统一管理）."""
+        import alibabacloud_oss_v2 as oss  # type: ignore[import-untyped]
 
-        # OSS V2 配置（Config / credentials 均在 SDK 顶层，aio 只提供 AsyncClient）
-        cfg = oss.Config(
-            region=self.settings.OSS_REGION,
-            endpoint=self.settings.OSS_ENDPOINT,
-            credentials_provider=oss.credentials.StaticCredentialsProvider(
-                access_key_id=self.settings.OSS_ACCESS_KEY_ID,
-                access_key_secret=self.settings.OSS_ACCESS_KEY_SECRET,
-            ),
-            connect_timeout=10,
-            readwrite_timeout=30,
+        client = await get_oss_client(self.settings)
+        request = oss.models.PutObjectRequest(
+            bucket=self.settings.OSS_BUCKET,
+            key=object_key,
+            content_type=mime,
+            body=content,
         )
-
-        client = AsyncClient(cfg)
         try:
-            request = oss.models.PutObjectRequest(
-                bucket=self.settings.OSS_BUCKET,
-                key=object_key,
-                content_type=mime,
-                body=content,
-            )
             await client.put_object(request)
         except Exception as exc:
-            logger.error("[UploadService] OSS put_object 失败 bucket=%s key=%s err=%s",
-                         self.settings.OSS_BUCKET, object_key, exc)
-            raise HTTPException(status_code=500, detail="OSS 上传失败") from exc
-        finally:
-            try:
-                await client.close()
-            except Exception:
-                pass
-
-        # 拼 URL：优先 OSS_PUBLIC_BASE_URL，否则按 endpoint + bucket 合成
-        if self.settings.OSS_PUBLIC_BASE_URL:
-            base = self.settings.OSS_PUBLIC_BASE_URL.rstrip("/")
-            url = f"{base}/{object_key}"
-        else:
-            # endpoint 可能带 https:// 前缀，拼接虚拟主机名时需剥掉
-            host = (
-                self.settings.OSS_ENDPOINT
-                .replace("https://", "")
-                .replace("http://", "")
-                .rstrip("/")
+            logger.error(
+                "[UploadService] OSS put_object 失败 bucket=%s key=%s err=%s",
+                self.settings.OSS_BUCKET,
+                object_key,
+                exc,
             )
-            url = f"https://{self.settings.OSS_BUCKET}.{host}/{object_key}"
-
-        return url
+            raise HTTPException(status_code=500, detail="OSS 上传失败") from exc

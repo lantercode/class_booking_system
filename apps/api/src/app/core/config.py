@@ -81,12 +81,15 @@ class Settings(BaseSettings):
     LOCAL_UPLOAD_PUBLIC_URL_PREFIX: str = "/uploads"
 
     # 阿里云 OSS（生产推荐）
-    OSS_ENDPOINT: str = ""            # e.g. oss-cn-hangzhou.aliyuncs.com
-    OSS_REGION: str = ""              # e.g. cn-hangzhou
-    OSS_ACCESS_KEY_ID: str = ""
-    OSS_ACCESS_KEY_SECRET: str = ""
+    OSS_ENDPOINT: str = ""            # e.g. oss-cn-shanghai.aliyuncs.com
+    OSS_REGION: str = ""              # e.g. cn-shanghai
+    # 凭证模式：static=静态 AK/SK；ecs_role=ECS 实例 RAM 角色（STS 临时凭证，自动刷新）
+    OSS_CREDENTIALS_MODE: Literal["static", "ecs_role"] = "static"
+    OSS_ROLE_NAME: str = ""           # ecs_role 模式必填，e.g. class-booking-oss-role
+    OSS_ACCESS_KEY_ID: str = ""       # 仅 static 模式使用
+    OSS_ACCESS_KEY_SECRET: str = ""   # 仅 static 模式使用
     OSS_BUCKET: str = ""
-    OSS_PUBLIC_BASE_URL: str = ""     # 可选；留空则 Service 按 endpoint+bucket 拼接
+    OSS_PUBLIC_BASE_URL: str = ""     # 可选；仅本地/公读场景直链使用，私有桶走预签名
 
     @model_validator(mode="after")
     def validate_storage_backend(self) -> "Settings":
@@ -104,12 +107,19 @@ class Settings(BaseSettings):
                 missing.append("OSS_ENDPOINT")
             if not self.OSS_REGION:
                 missing.append("OSS_REGION")
-            if not self.OSS_ACCESS_KEY_ID:
-                missing.append("OSS_ACCESS_KEY_ID")
-            if not self.OSS_ACCESS_KEY_SECRET:
-                missing.append("OSS_ACCESS_KEY_SECRET")
             if not self.OSS_BUCKET:
                 missing.append("OSS_BUCKET")
+
+            if self.OSS_CREDENTIALS_MODE == "ecs_role":
+                # ECS RAM 角色模式：AK/SK 由实例元数据服务签发，不应落盘
+                if not self.OSS_ROLE_NAME:
+                    missing.append("OSS_ROLE_NAME")
+            else:
+                if not self.OSS_ACCESS_KEY_ID:
+                    missing.append("OSS_ACCESS_KEY_ID")
+                if not self.OSS_ACCESS_KEY_SECRET:
+                    missing.append("OSS_ACCESS_KEY_SECRET")
+
             if missing:
                 raise ValueError(
                     f"STORAGE_BACKEND=oss 时以下配置项必填: {', '.join(missing)}"

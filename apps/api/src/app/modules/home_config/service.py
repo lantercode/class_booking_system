@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
+from app.core.oss_client import resolve_object_url
 from app.core.tenant_context import get_tenant_id
 from app.modules.home_config.models import HomeConfig
 from app.modules.home_config.repository import HomeConfigRepository
@@ -168,45 +168,27 @@ class HomeConfigService:
     # 媒体 URL 解析
     # ------------------------------------------------------------
 
-    @staticmethod
-    def _build_media_url(object_key: str) -> str:
-        """object_key → 完整可访问 URL（local 走 StaticFiles 前缀，oss 走公网域名）"""
-        if object_key.startswith("http://") or object_key.startswith("https://"):
-            return object_key
-        if object_key.startswith("/"):
-            return object_key
-        settings = get_settings()
-        if settings.STORAGE_BACKEND == "oss":
-            if settings.OSS_PUBLIC_BASE_URL:
-                base = settings.OSS_PUBLIC_BASE_URL.rstrip("/")
-            else:
-                host = (
-                    settings.OSS_ENDPOINT.replace("https://", "")
-                    .replace("http://", "")
-                    .rstrip("/")
-                )
-                base = f"https://{settings.OSS_BUCKET}.{host}"
-            return f"{base}/{object_key}"
-        return f"{settings.LOCAL_UPLOAD_PUBLIC_URL_PREFIX.rstrip('/')}/{object_key}"
-
     @classmethod
-    def _resolve_media_urls(cls, value):
+    async def _resolve_media_urls(cls, value):
         """递归把 payload 中的 image_key / cover_key 由 object_key 换成完整 URL
 
         冻结约定（solution-design.md L565/L597）：published 返回给小程序的内容
         必须是可以直接渲染的完整 URL，小程序不关心存储细节。
         draft 不做转换，管理端编辑时仍使用原始 object_key。
+
+        私有 Bucket 下 resolve_object_url 会签发预签名 URL（异步），因此本方法为
+        async；返回值含有效期，前端应在图片加载失败时通过 /upload/url 换新链接。
         """
         if isinstance(value, dict):
             resolved = {}
             for k, v in value.items():
                 if k in ("image_key", "cover_key") and isinstance(v, str) and v:
-                    resolved[k] = cls._build_media_url(v)
+                    resolved[k] = await resolve_object_url(v)
                 else:
-                    resolved[k] = cls._resolve_media_urls(v)
+                    resolved[k] = await cls._resolve_media_urls(v)
             return resolved
         if isinstance(value, list):
-            return [cls._resolve_media_urls(v) for v in value]
+            return [await cls._resolve_media_urls(v) for v in value]
         return value
 
     # ------------------------------------------------------------
@@ -219,7 +201,7 @@ class HomeConfigService:
         if published is None:
             raise HTTPException(status_code=404, detail="首页尚未发布")
         response = self._to_response(published)
-        response.payload = self._resolve_media_urls(response.payload)
+        response.payload = await self._resolve_media_urls(response.payload)
         return response
 
     # ------------------------------------------------------------
