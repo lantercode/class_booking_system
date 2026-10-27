@@ -17,7 +17,7 @@ class UploadImageResponse(BaseModel):
     size: int = Field(..., description="文件字节数")
     biz_type: str = Field(
         ...,
-        description="业务场景：avatar | classroom_cover | banner | video_cover | notice",
+        description="业务场景：avatar | course_cover | classroom_cover | banner | video_cover | notice",
     )
 
     model_config = {"from_attributes": True}
@@ -29,6 +29,6 @@ class UploadImageRequest(BaseModel):
 
     biz_type: str = Field(
         ...,
-        pattern=r"^(avatar|classroom_cover|banner|video_cover|notice)$",
+        pattern=r"^(avatar|course_cover|classroom_cover|banner|video_cover|notice)$",
         description="业务场景枚举值",
     )

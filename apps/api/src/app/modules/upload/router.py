@@ -8,6 +8,7 @@ Upload Router - 文件上传路由
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.oss_client import OSS_PRESIGN_EXPIRES_SECONDS, resolve_object_url
 from app.core.rbac import require_roles
@@ -18,6 +19,9 @@ from app.modules.upload.schemas import UploadImageResponse
 from app.modules.upload.service import UploadService
 
 router = APIRouter(prefix="/upload", tags=["文件上传"])
+
+# 预签名默认有效期来自配置（默认 1 小时），上限为 OSS 允许的 7 天
+DEFAULT_PRESIGN_TTL_SECONDS = get_settings().OSS_PRESIGN_TTL_SECONDS
 
 
 @router.post(
@@ -35,7 +39,10 @@ async def upload_image(
     file: UploadFile = File(..., description="图片文件 (multipart/form-data)"),
     biz_type: str = Form(
         ...,
-        description="业务场景枚举：avatar | classroom_cover | banner | video_cover | notice",
+        description=(
+            "业务场景枚举：avatar | course_cover | classroom_cover | "
+            "banner | video_cover | notice"
+        ),
     ),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
@@ -75,10 +82,10 @@ async def upload_image(
 async def get_object_url(
     object_key: str = Path(..., description="上传时返回的 object_key"),
     expires_seconds: int = Query(
-        OSS_PRESIGN_EXPIRES_SECONDS,
+        DEFAULT_PRESIGN_TTL_SECONDS,
         ge=60,
         le=OSS_PRESIGN_EXPIRES_SECONDS,
-        description="签名有效期（秒），仅 OSS 模式生效",
+        description="签名有效期（秒），默认取 OSS_PRESIGN_TTL_SECONDS，仅 OSS 模式生效",
     ),
     current_user: dict = Depends(get_current_user),
 ) -> dict:

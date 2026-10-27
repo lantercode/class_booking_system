@@ -15,19 +15,42 @@ import asyncio
 import datetime
 import logging
 
-import alibabacloud_oss_v2 as oss
-import alibabacloud_oss_v2.aio as oss_aio
+import alibabacloud_oss_v2 as oss  # type: ignore[import-untyped]
+import alibabacloud_oss_v2.aio as oss_aio  # type: ignore[import-untyped]
 from alibabacloud_oss_v2 import Credentials, CredentialsProvider
 
 from app.core.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-# OSS 预签名 URL 最长有效期为 7 天（服务端限制）
+# OSS 预签名 URL 最长有效期为 7 天（服务端硬限制）
 OSS_PRESIGN_EXPIRES_SECONDS = 7 * 24 * 3600
 
 _client: oss_aio.AsyncClient | None = None
-_client_lock = asyncio.Lock()
+_client_loop: asyncio.AbstractEventLoop | None = None
+_client_lock: asyncio.Lock | None = None
+_lock_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    """返回绑定当前事件循环的锁。
+
+    ``asyncio.Lock`` 在 3.10+ 会绑定创建时的事件循环，模块级创建会导致
+    跨循环（如 pytest 多轮事件循环）复用时报 "attached to a different loop"。
+    因此按循环惰性创建。
+    """
+    global _client_lock, _lock_loop
+    loop = asyncio.get_running_loop()
+    if _client_lock is None or _lock_loop is not loop:
+        _client_lock = asyncio.Lock()
+        _lock_loop = loop
+    return _client_lock
+
+
+def _default_expires(settings: Settings, expires_seconds: int | None) -> int:
+    """未显式指定时取配置值，并统一裁剪到 OSS 允许区间。"""
+    seconds = settings.OSS_PRESIGN_TTL_SECONDS if expires_seconds is None else expires_seconds
+    return max(60, min(int(seconds), OSS_PRESIGN_EXPIRES_SECONDS))
 
 
 class EcsRoleCredentialsProvider(CredentialsProvider):
@@ -43,8 +66,8 @@ class EcsRoleCredentialsProvider(CredentialsProvider):
     """
 
     def __init__(self, role_name: str, timeout: int = 5) -> None:
-        from alibabacloud_credentials.client import Client as CredentialClient
-        from alibabacloud_credentials.models import Config as CredentialConfig
+        from alibabacloud_credentials.client import Client as CredentialClient  # type: ignore[import-untyped]
+        from alibabacloud_credentials.models import Config as CredentialConfig  # type: ignore[import-untyped]
 
         self._client = CredentialClient(
             CredentialConfig(type="ecs_ram_role", role_name=role_name, timeout=timeout)
@@ -89,19 +112,21 @@ def _build_client(settings: Settings) -> oss_aio.AsyncClient:
 
 
 async def get_oss_client(settings: Settings | None = None) -> oss_aio.AsyncClient:
-    """获取 OSS AsyncClient 单例（懒加载，并发安全）。"""
-    global _client
-    if _client is not None:
+    """获取 OSS AsyncClient 单例（懒加载，并发安全，绑定当前事件循环）。"""
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is not None and _client_loop is loop:
         return _client
-    async with _client_lock:
-        if _client is None:
+    async with _get_lock():
+        if _client is None or _client_loop is not loop:
             _client = _build_client(settings or get_settings())
+            _client_loop = loop
         return _client
 
 
 async def close_oss_client() -> None:
     """应用关闭时释放连接池。"""
-    global _client
+    global _client, _client_loop
     if _client is None:
         return
     try:
@@ -110,19 +135,23 @@ async def close_oss_client() -> None:
         logger.warning("[OSS] 关闭客户端失败: %s", exc)
     finally:
         _client = None
+        _client_loop = None
 
 
 async def presign_object_url(
     object_key: str,
-    expires_seconds: int = OSS_PRESIGN_EXPIRES_SECONDS,
+    expires_seconds: int | None = None,
     settings: Settings | None = None,
 ) -> str:
-    """为私有 Bucket 中的对象签发临时 GET URL。"""
+    """为私有 Bucket 中的对象签发临时 GET URL。
+
+    ``expires_seconds`` 为空时取 ``settings.OSS_PRESIGN_TTL_SECONDS``（默认 1 小时）。
+    """
     settings = settings or get_settings()
     client = await get_oss_client(settings)
     request = oss.models.GetObjectRequest(bucket=settings.OSS_BUCKET, key=object_key)
     result = await client.presign(
-        request, expires=datetime.timedelta(seconds=expires_seconds)
+        request, expires=datetime.timedelta(seconds=_default_expires(settings, expires_seconds))
     )
     return result.url
 
@@ -140,7 +169,7 @@ def local_object_url(object_key: str, settings: Settings | None = None) -> str:
 
 async def resolve_object_url(
     object_key: str,
-    expires_seconds: int = OSS_PRESIGN_EXPIRES_SECONDS,
+    expires_seconds: int | None = None,
     settings: Settings | None = None,
 ) -> str:
     """object_key → 前端可直接访问的 URL。

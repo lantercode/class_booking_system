@@ -2,7 +2,7 @@
 Upload Service - 文件上传核心业务逻辑层
 
 职责：
-- 四关校验：类型白名单 + 魔数 + 大小（<=5MB）+ biz_type 枚举
+- 四关校验：类型白名单 + 实际解码（Pillow）+ 按 biz_type 的大小上限 + biz_type 枚举
 - 生成 object_key（含 tenant_id 前缀）
 - 策略模式分发：local 本地存储 / OSS 云端存储
 - 写 file_objects 审计表 + 提交事务
@@ -10,21 +10,21 @@ Upload Service - 文件上传核心业务逻辑层
 
 边界：
 - 本 Service 不持有核心业务规则，仅封装存储与审计。
-- 业务表（users.avatar_url / classrooms.cover_image_url）由调用方自行落库，
+- 业务表（users.avatar_url / courses.cover_url）由调用方自行落库，
   调用方应只存 object_key，完整 URL 由 Service 层统一拼装。
 """
 
 import logging
-import os
 import uuid
-from typing import Final
 from pathlib import Path
+from typing import Final
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.oss_client import get_oss_client, resolve_object_url
+from app.modules.upload.image_probe import ImageInfo, ImageValidationError, probe_image
 from app.modules.upload.repository import FileObjectRepository
 from app.modules.upload.schemas import UploadImageResponse
 
@@ -38,36 +38,22 @@ ALLOWED_MIME_TYPES: Final[set[str]] = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_EXTENSIONS: Final[set[str]] = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_BIZ_TYPES: Final[set[str]] = {
     "avatar",
+    "course_cover",
     "classroom_cover",
     "banner",
     "video_cover",
     "notice",
 }
-MAX_IMAGE_SIZE_BYTES: Final[int] = 5 * 1024 * 1024  # 5MB
 
-# 魔数：前 8 字节足够识别
-MAGIC_SIGNATURES: dict[str, bytes] = {
-    "jpg": b"\xff\xd8\xff",          # JPEG SOI
-    "png": b"\x89PNG\r\n\x1a\n",     # PNG
+# 各业务场景的大小上限（字节）。头像要求更严格，避免被当成图床。
+MAX_SIZE_BY_BIZ: Final[dict[str, int]] = {
+    "avatar": 2 * 1024 * 1024,
+    "course_cover": 5 * 1024 * 1024,
+    "classroom_cover": 5 * 1024 * 1024,
+    "banner": 5 * 1024 * 1024,
+    "video_cover": 5 * 1024 * 1024,
+    "notice": 5 * 1024 * 1024,
 }
-# WEBP 较特殊：RIFF....WEBP 共 12 字节
-WEBP_MAGIC_PREFIX = b"RIFF"
-WEBP_MAGIC_SUFFIX = b"WEBP"
-
-
-def _detect_image_extension(content: bytes) -> str | None:
-    """通过魔数检测图片扩展名；未知返回 None."""
-    if content.startswith(b"\xff\xd8\xff"):
-        return "jpg"
-    if content.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "png"
-    if (
-        len(content) >= 12
-        and content[:4] == WEBP_MAGIC_PREFIX
-        and content[8:12] == WEBP_MAGIC_SUFFIX
-    ):
-        return "webp"
-    return None
 
 
 class UploadService:
@@ -108,7 +94,7 @@ class UploadService:
         # --- 四关校验 ---
         self._validate_biz_type(biz_type)
 
-        content = await self._validate_and_read(file)
+        content, image = await self._validate_and_read(file, biz_type)
         mime = file.content_type or "application/octet-stream"
 
         # --- 生成 object_key ---
@@ -118,11 +104,7 @@ class UploadService:
         if not tenant_id:
             raise HTTPException(status_code=500, detail="租户上下文缺失，无法生成 object_key")
 
-        ext = _detect_image_extension(content)
-        if ext is None:
-            raise HTTPException(status_code=400, detail="无法识别的图片内容（魔数校验失败）")
-
-        object_key = f"t/{tenant_id}/{biz_type}/{uuid.uuid4().hex}.{ext}"
+        object_key = f"t/{tenant_id}/{biz_type}/{uuid.uuid4().hex}.{image.extension}"
 
         # --- 存储：策略模式 ---
         try:
@@ -184,9 +166,13 @@ class UploadService:
                 detail=f"非法 biz_type，允许值: {sorted(ALLOWED_BIZ_TYPES)}",
             )
 
-    async def _validate_and_read(self, file: UploadFile) -> bytes:
-        """校验类型 + 魔数 + 大小，并读取内容（一次性）."""
-        # 1) MIME 白名单
+    async def _validate_and_read(self, file: UploadFile, biz_type: str) -> tuple[bytes, ImageInfo]:
+        """校验 MIME / 扩展名 / 大小 / 实际图片内容，并一次性读取。
+
+        Returns:
+            (文件内容, 解码后的可信图片信息)
+        """
+        # 1) MIME 白名单（客户端声明，仅作早期快速拒绝，不作为可信依据）
         mime = file.content_type or ""
         if mime and mime not in ALLOWED_MIME_TYPES:
             raise HTTPException(
@@ -203,7 +189,7 @@ class UploadService:
                 detail=f"不支持的文件扩展名: {ext_in_name}；仅支持 {sorted(ALLOWED_EXTENSIONS)}",
             )
 
-        # 3) 读内容 + 大小校验
+        # 3) 读内容 + 按业务场景的大小上限
         try:
             content = await file.read()
         except Exception as exc:
@@ -212,23 +198,23 @@ class UploadService:
         if not content:
             raise HTTPException(status_code=400, detail="文件内容为空")
 
-        if len(content) > MAX_IMAGE_SIZE_BYTES:
+        max_size = MAX_SIZE_BY_BIZ[biz_type]
+        if len(content) > max_size:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"文件过大: {len(content) / 1024 / 1024:.2f}MB "
-                    f"> {MAX_IMAGE_SIZE_BYTES / 1024 / 1024:.0f}MB"
+                    f"> {max_size / 1024 / 1024:.0f}MB（{biz_type} 场景上限）"
                 ),
             )
 
-        # 4) 魔数校验（同时覆盖"伪造 MIME / 伪造扩展名"攻击）
-        if _detect_image_extension(content) is None:
-            raise HTTPException(
-                status_code=400,
-                detail="文件内容不是有效的图片（魔数校验失败）",
-            )
+        # 4) 实际解码校验（覆盖伪造 MIME / 伪造扩展名 / 损坏文件 / 超大像素）
+        try:
+            image = probe_image(content)
+        except ImageValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        return content
+        return content, image
 
     # ============================================================
     # 私有：local 存储

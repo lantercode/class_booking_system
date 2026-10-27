@@ -90,6 +90,8 @@ class Settings(BaseSettings):
     OSS_ACCESS_KEY_SECRET: str = ""   # 仅 static 模式使用
     OSS_BUCKET: str = ""
     OSS_PUBLIC_BASE_URL: str = ""     # 可选；仅本地/公读场景直链使用，私有桶走预签名
+    # 预签名有效期（秒）：默认 1 小时；上限 7 天（OSS 服务端限制 604800）
+    OSS_PRESIGN_TTL_SECONDS: int = 3600
 
     @model_validator(mode="after")
     def validate_storage_backend(self) -> "Settings":
@@ -109,7 +111,6 @@ class Settings(BaseSettings):
                 missing.append("OSS_REGION")
             if not self.OSS_BUCKET:
                 missing.append("OSS_BUCKET")
-
             if self.OSS_CREDENTIALS_MODE == "ecs_role":
                 # ECS RAM 角色模式：AK/SK 由实例元数据服务签发，不应落盘
                 if not self.OSS_ROLE_NAME:
@@ -124,6 +125,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"STORAGE_BACKEND=oss 时以下配置项必填: {', '.join(missing)}"
                 )
+
+        # 预签名有效期：60 秒 ~ 7 天（OSS 服务端硬上限 604800 秒）
+        if not 60 <= self.OSS_PRESIGN_TTL_SECONDS <= 604800:
+            raise ValueError(
+                "OSS_PRESIGN_TTL_SECONDS 必须在 60 ~ 604800（7 天）之间，"
+                f"当前值 {self.OSS_PRESIGN_TTL_SECONDS}"
+            )
 
         return self
 
