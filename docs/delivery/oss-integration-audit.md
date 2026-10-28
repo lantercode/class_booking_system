@@ -330,3 +330,30 @@ admin-web `views/courses/` 中**完全没有封面相关 UI**（grep `cover_url|
 2. **真正的缺口集中在四处**：生产配置注入（P1）、上传权限过窄（P2）、头像/封面 URL 语义分裂（P3）、无删除与归属校验（P5/P6）。
 3. **不需要新增数据表或迁移**，改动以「修正语义 + 补权限 + 补校验 + 补配置」为主，符合最小改动原则。
 4. **上传方式选 A**（后端中转），与现有实现和小程序能力最匹配。
+
+---
+
+## 15. 交付记录（2026-10-28，S1–S8 已完成）
+
+| 阶段 | 提交 | 实际交付与验证结果 |
+|---|---|---|
+| S1 | `4064757` | Pillow 真实解码校验、按 biz_type 尺寸上限、签名 TTL 分级、配置补齐；`pytest tests/unit` 96 passed |
+| S2 | `5482a32` | 上传按 biz_type 分级鉴权（avatar 四角色可传，其余仅管理员）、`normalize_object_key` 归属校验、出参统一 `resolve_object_url` |
+| S3 | `c12cb38` | `DELETE /upload/{object_key}`（引用检查 409 + 软删审计 + 实体删除）、审计失败补偿回删 |
+| S4 | `c3c2022` | compose prod 注入 OSS_*、`.env.prod.example` 补段、nginx `client_max_body_size` |
+| S5 | `3e56c51` | web 三端业务字段改存 object_key、student/teacher 资料页与课程封面上传、统一 `resolveImageUrl`；三端 `vue-tsc` + build 通过 |
+| S6 | `c22b775` | 小程序 `uni.uploadFile` 封装（401 刷新重试）、教师头像上传、`@error` 签名过期换链；`vue-tsc + uni build -p mp-weixin` 通过 |
+| S7 | `9eb31c4` | 集成测试 14 项用例全部通过（`uv run pytest tests/integration/test_upload_api.py`，14 passed，含角色权限、伪造/超限图片、删除归属与引用保护 409、跨租户 403、外部 URL 双语义）；ruff 通过、mypy 基线 234=234 PASS。真实 OSS roundtrip 用例 `test_oss_real.py` 默认 skip（见 U7） |
+| S8 | `35611f7` | 迁移脚本 `scripts/migrate_uploads_to_oss.py`（dry-run/apply/verify）；本地 dry-run 实测：可迁移 13 个（全部有审计记录）、旧格式孤儿 2 个（无 DB 引用、无审计，缺省不迁移）、DB `/uploads/` 前缀残留 **0 处**（业务表已全部为 object_key 语义，无需改写） |
+
+**S7/S8 备注**：
+- 课程删除为软删除，行仍持有 `cover_url` 引用，被引用文件删除返回 409 属预期产品语义；测试通过 PATCH 课程封面为外部 URL 解除引用后验证可删。
+- 抽样验证（`--verify`，预签名 GET + sha256 比对）已在脚本内置，需在具备 OSS 凭证的环境执行 `--apply` 后运行（见 U7/U8）。
+
+## 16. UNVERIFIED 补充（交付时新增）
+
+| # | 项 | 原因 | 验证方式 |
+|---|---|---|---|
+| U7 | 真实 OSS roundtrip（`tests/integration/test_oss_real.py`） | 开发机无 OSS 凭证（ECS RAM 角色仅实例内可用，静态 AK 未持有） | 在 ECS 上：`OSS_IT_ENABLED=1 STORAGE_BACKEND=oss OSS_CREDENTIALS_MODE=ecs_role OSS_ROLE_NAME=class-booking-oss-role uv run pytest tests/integration/test_oss_real.py -v` |
+| U8 | S8 实际迁移执行（`--apply` + `--verify`） | 同 U7 | 在 ECS 上执行 `uv run python scripts/migrate_uploads_to_oss.py --apply --verify`；注意 `ecs_role` 需实例已绑定角色（§11 第 4 步先自检） |
+| U9 | 云侧三项前置配置（角色信任策略 / Bucket 读写授权 / ECS 绑定角色） | 无云上访问权限 | 即 §11 U1/U2，apply 前必须完成 |
