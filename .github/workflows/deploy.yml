@@ -52,8 +52,19 @@ jobs:
               cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
             fi
 
-            # 4.1 校验文件存储必填项（缺失会导致 api 容器启动即退出）
+            # 4.1 用生产模板补齐缺失的文件存储非机密项（历史 .env.prod 可能早于 OSS 接入）
             # STORAGE_BACKEND 由 infra/docker/docker-compose.prod.yml 固定为 oss，不依赖 .env.prod
+            for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE OSS_ROLE_NAME; do
+              if ! grep -q "^${key}=.\+" .env.prod; then
+                value=$(grep "^${key}=" infra/docker/.env.prod.example | cut -d'=' -f2-)
+                if [ -n "$value" ]; then
+                  echo "${key}=${value}" >> .env.prod
+                  echo "⚠️ .env.prod 缺少 ${key}，已按生产模板补全"
+                fi
+              fi
+            done
+
+            # 4.2 校验文件存储必填项（缺失会导致 api 容器启动即退出）
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
               grep -q "^${key}=.\+" .env.prod || { echo "❌ .env.prod 缺少必填项: $key"; exit 1; }
             done
