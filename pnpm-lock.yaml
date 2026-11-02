@@ -29,6 +29,9 @@ importers:
       pinia:
         specifier: ^2.1.0
         version: 2.3.1(@vue/composition-api@1.7.2(vue@3.5.39(typescript@5.4.5)))(typescript@5.4.5)(vue@3.5.39(typescript@5.4.5))
+      sortablejs:
+        specifier: ^1.15.7
+        version: 1.15.7
       vue:
         specifier: ^3.4.0
         version: 3.5.39(typescript@5.4.5)
@@ -39,6 +42,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
+      '@types/sortablejs':
+        specifier: ^1.15.9
+        version: 1.15.9
       '@vitejs/plugin-vue':
         specifier: ^5.0.0
         version: 5.2.4(vite@5.4.21(@types/node@20.19.43)(sass@1.101.0)(terser@5.49.0))(vue@3.5.39(typescript@5.4.5))
@@ -1871,6 +1877,9 @@ packages:
 
   '@types/prettier@2.7.3':
     resolution: {integrity: sha512-+68kP9yzs4LMp7VNh8gdzMSPZFL44MLGqiHWvttYJe+6qnuVr4Ek9wSBQoveqY/r+LwjCcU29kNVkidwim+kYA==}
+
+  '@types/sortablejs@1.15.9':
+    resolution: {integrity: sha512-7HP+rZGE2p886PKV9c9OJzLBI6BBJu1O7lJGYnPyG3fS4/duUCcngkNCjsLwIMV+WMqANe3tt4irrXHSIe68OQ==}
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
@@ -3970,6 +3979,9 @@ packages:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
     engines: {node: '>=8'}
 
+  sortablejs@1.15.7:
+    resolution: {integrity: sha512-Kk8wLQPlS+yi1ZEf48a4+fzHa4yxjC30M/Sr2AnQu+f/MPwvvX9XjZ6OWejiz8crBsLwSq8GHqaxaET7u6ux0A==}
+
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -5698,7 +5710,7 @@ snapshots:
   '@esbuild/win32-x64@0.21.5':
     optional: true
 
-  '@eslint-community/eslint-utils@4.10.1(eslint@10.10.0)':
+  '@eslint-community/eslint-utils@4.10.1(eslint@10.10.0(supports-color@10.2.2))':
     dependencies:
       eslint: 10.10.0(supports-color@10.2.2)
       eslint-visitor-keys: 3.4.3
@@ -6523,6 +6535,8 @@ snapshots:
 
   '@types/prettier@2.7.3': {}
 
+  '@types/sortablejs@1.15.9': {}
+
   '@types/stack-utils@2.0.3': {}
 
   '@types/web-bluetooth@0.0.21': {}
@@ -6610,7 +6624,7 @@ snapshots:
 
   '@typescript-eslint/utils@8.70.0(eslint@10.10.0(supports-color@10.2.2))(typescript@5.4.5)':
     dependencies:
-      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0)
+      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0(supports-color@10.2.2))
       '@typescript-eslint/scope-manager': 8.70.0
       '@typescript-eslint/types': 8.70.0
       '@typescript-eslint/typescript-estree': 8.70.0(typescript@5.4.5)
@@ -7431,7 +7445,7 @@ snapshots:
 
   eslint-plugin-vue@10.11.0(@typescript-eslint/parser@8.70.0(eslint@10.10.0(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.4.5))(eslint@10.10.0(supports-color@10.2.2))(vue-eslint-parser@10.4.1(eslint@10.10.0(supports-color@10.2.2))):
     dependencies:
-      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0)
+      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0(supports-color@10.2.2))
       eslint: 10.10.0(supports-color@10.2.2)
       natural-compare: 1.4.0
       nth-check: 2.1.1
@@ -7455,7 +7469,7 @@ snapshots:
 
   eslint@10.10.0(supports-color@10.2.2):
     dependencies:
-      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0)
+      '@eslint-community/eslint-utils': 4.10.1(eslint@10.10.0(supports-color@10.2.2))
       '@eslint-community/regexpp': 4.12.2
       '@eslint/config-array': 0.23.5(supports-color@10.2.2)
       '@eslint/config-helpers': 0.7.0
@@ -9009,6 +9023,8 @@ snapshots:
   sisteransi@1.0.5: {}
 
   slash@3.0.0: {}
+
+  sortablejs@1.15.7: {}
 
   source-map-js@1.2.1: {}
 
