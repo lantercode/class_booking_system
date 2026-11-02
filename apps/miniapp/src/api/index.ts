@@ -498,6 +498,16 @@ export const authApi = {
     return request("/auth/me");
   },
 
+  /** 更新当前用户资料（后端仅允许 nickname 与 avatar） */
+  updateProfile(data: { nickname?: string; avatar?: string }) {
+    return request<{
+      id: number;
+      phone?: string;
+      nickname: string;
+      avatar?: string | null;
+    }>("/auth/me", "PATCH", data);
+  },
+
   wechatLogin(data: {
     bind_token: string;
     phone?: string;
@@ -550,8 +560,8 @@ export const userApi = {
     return request(`/users/${userId}/password/change`, "POST", data);
   },
 
-  update(data: { nickname?: string; bio?: string }) {
-    return request("/users/me", "PATCH", data);
+  update(data: { nickname?: string; bio?: string; avatar_url?: string }) {
+    return request("/auth/me", "PATCH", data);
   },
 };
 
@@ -783,6 +793,69 @@ export const membershipApi = {
   ) {
     const query = buildQuery(params);
     return request(`/membership/cards/${cardId}/affected-bookings${query}`);
+  },
+};
+
+/** 首页配置 banner 条目（新旧字段并存，新格式为 image_url，旧格式为 image_key） */
+export interface HomeConfigBannerItem {
+  title?: string;
+  subtitle?: string;
+  image_url?: string;
+  image_key?: string;
+  link_url?: string;
+}
+
+/** 首页配置 video 条目（新旧字段并存，后端已把 object_key 解析为可直接渲染的 URL） */
+export interface HomeConfigVideoItem {
+  title?: string;
+  description?: string;
+  cover_url?: string;
+  cover_key?: string;
+  video_url?: string;
+  video_key?: string;
+}
+
+/** 首页配置模块（兼容旧格式顶层字段 teacher_ids / course_ids / limit） */
+export interface HomeConfigModule {
+  type: "banner" | "teachers" | "courses" | "video" | string;
+  enabled?: boolean;
+  sort?: number;
+  items?: any[];
+  config?: any;
+  // 旧格式顶层字段
+  teacher_ids?: number[];
+  course_ids?: number[];
+  limit?: number;
+}
+
+/** 首页配置 payload */
+export interface HomeConfigPayload {
+  schema_version?: number;
+  modules: HomeConfigModule[];
+}
+
+/** 已发布首页配置 GET /home-config/published */
+export interface HomeConfigPublishedData {
+  id: number;
+  version: number;
+  payload: HomeConfigPayload;
+  published_at: string | null;
+}
+
+export const homeConfigApi = {
+  /**
+   * 获取已发布首页配置。
+   * 未发布时后端返回 404：这里关闭默认错误 toast（showError=false），
+   * 由页面静默降级到内置默认内容，避免每次进首页都弹「请求失败」。
+   */
+  getPublished() {
+    return request<HomeConfigPublishedData>(
+      "/home-config/published",
+      "GET",
+      undefined,
+      undefined,
+      false,
+    );
   },
 };
 

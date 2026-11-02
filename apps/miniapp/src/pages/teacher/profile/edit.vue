@@ -21,7 +21,7 @@
               @error="handleAvatarImageError"
             />
             <view v-else class="avatar">
-              <text class="avatar-text">{{ form.nickname?.charAt(0) || '?' }}</text>
+              <text class="avatar-icon">👤</text>
             </view>
             <view class="camera-icon">
               <text>📷</text>
@@ -327,7 +327,8 @@ const goBack = () => {
   border-radius: 50%;
 }
 
-.avatar-text {
+.avatar-text,
+.avatar-icon {
   font-size: 56rpx;
   color: #fff;
   font-weight: bold;

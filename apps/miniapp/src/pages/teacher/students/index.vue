@@ -45,7 +45,7 @@
       <view v-for="student in students" :key="student.id" class="student-card">
         <view class="student-avatar">
           <view class="avatar-placeholder">
-            <text class="avatar-text">{{ student.nickname?.charAt(0) || '?' }}</text>
+            <text class="avatar-icon">👤</text>
           </view>
         </view>
 
@@ -358,7 +358,8 @@ const goToProfile = () => {
   justify-content: center;
 }
 
-.avatar-text {
+.avatar-text,
+.avatar-icon {
   font-size: 36rpx;
   color: #fff;
   font-weight: bold;

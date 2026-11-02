@@ -57,6 +57,10 @@ button{font-family:inherit;cursor:pointer;border:1px solid var(--border-d);backg
 .dropdown{display:none;position:absolute;right:0;top:40px;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-d);min-width:150px;padding:6px;z-index:30}
 .dropdown.open{display:block}
 .dropdown .di{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:6px;font-size:14px;color:var(--text-2)}
+.dropdown .di svg{width:15px;height:15px;fill:currentColor;flex-shrink:0}
+.dropdown .di.disabled{color:var(--gray-l);cursor:not-allowed}
+.dropdown .di.disabled:hover{background:transparent;color:var(--gray-l)}
+.dropdown .di.divider{border-top:1px solid var(--border);margin-top:4px;padding-top:10px;border-radius:0 0 6px 6px}
 .dropdown .di:hover{background:#f5f7fa;color:var(--blue)}
 .dropdown .di.danger:hover{background:#fef0f0;color:var(--red)}
 
@@ -99,7 +103,8 @@ select.input{cursor:pointer}
 .avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#f0f2f5;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:600;overflow:hidden}
 .avatar.sm{width:32px;height:32px;font-size:12px}
 .avatar.lg{width:72px;height:72px;font-size:24px}
-.avatar.ph{background:linear-gradient(135deg,#c0c4cc,#909399)}
+.avatar.ph{background:linear-gradient(135deg,#d8d8d8,#b8b8b8)}
+.avatar.ph svg{width:60%;height:60%;fill:#fff}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .thumb{width:56px;height:36px;border-radius:6px;object-fit:cover;background:#f0f2f5;display:block}
 .cover-ph{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:repeating-linear-gradient(45deg,#f5f6f8,#f5f6f8 8px,#eceef1 8px,#eceef1 16px);color:var(--text-3);font-size:12px}
@@ -117,7 +122,7 @@ select.input{cursor:pointer}
 /* 卡片视图 */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .rcard{background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.05);margin-bottom:12px;border:1px solid rgba(201,166,107,.14);overflow:hidden;display:flex;flex-direction:column}
-.rcard .rc-cover{height:140px;background:#f0f2f5;position:relative}
+.rcard .rc-cover{height:160px;background:#f0f2f5;position:relative}
 .rcard .rc-cover img{width:100%;height:100%;object-fit:cover;display:block}
 .rcard .rc-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
 .rcard .rc-title{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:600}
@@ -152,12 +157,25 @@ select.input{cursor:pointer}
 .field .err{font-size:12px;color:var(--red);margin-top:6px}
 .readonly{background:#f5f7fa;color:var(--text-3)}
 
-/* 图片上传区 */
-.uploader{display:flex;gap:14px;align-items:flex-start}
-.up-box{width:104px;height:104px;border:1px dashed var(--border-d);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-3);cursor:pointer;background:#fafafa;position:relative;overflow:hidden}
+/* 图片上传区（对齐真实 admin-web：头像 120x120 / 封面 160x120 虚线框，提示独占一行） */
+.uploader{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.up-box{width:120px;height:120px;border:1px dashed var(--border-d);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-3);cursor:pointer;background:#fafafa;position:relative;overflow:hidden;font-size:12px}
+.up-box.cover{width:160px;height:120px;border-radius:8px}
+.up-box.banner{width:280px;height:160px;border-radius:8px}
+.up-box.video{width:160px;height:80px;border-radius:6px}
 .up-box:hover{border-color:var(--blue);color:var(--blue)}
+.up-box svg{width:22px;height:22px;fill:currentColor}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:14px;font-weight:600;color:var(--text)}
+.card-hd .header-info{display:flex;align-items:center;gap:8px}
+.card-hd .version-info{font-size:12px;color:var(--text-3);font-weight:400}
+.home-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px}
+.drawer-item{border:1px solid var(--border);border-radius:8px;padding:14px;background:#fafafa;margin-bottom:14px}
+.drawer-item .di-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.drawer-item .di-hd .banner-index{font-weight:600;color:var(--blue);font-size:13px}
+.caret svg{width:12px;height:12px;fill:currentColor}
 .up-box img{width:100%;height:100%;object-fit:cover}
 .up-box.uploading{border-style:solid;border-color:var(--blue)}
+.up-tip{display:block;width:100%;font-size:12px;color:var(--text-3);line-height:1.5}
 .spinner{width:22px;height:22px;border:2px solid #d9ecff;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .up-side{display:flex;flex-direction:column;gap:8px;flex:1}
@@ -185,8 +203,12 @@ select.input{cursor:pointer}
 .m-banner img{width:100%;height:100%;object-fit:cover;display:block}
 .m-banner .bov{position:absolute;inset:0;background:linear-gradient(135deg,rgba(30,22,16,.75) 0%,rgba(30,22,16,.4) 50%,rgba(30,22,16,.1) 100%)}
 .m-banner .bcap{position:absolute;left:16px;right:16px;bottom:26px}
-.m-banner .bcap b{display:block;font-size:20px;font-weight:700;color:#fff;line-height:1.35;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.35)}
-.m-banner .bcap span{display:block;font-size:12px;color:rgba(255,255,255,.9);line-height:1.5;text-shadow:0 .5px 2px rgba(0,0,0,.25)}
+.m-banner .bcap b{display:block;font-size:20px;font-weight:400;color:#fff;line-height:1.35;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.35);font-family:"BannerSerif","STKaiti","Kaiti SC","KaiTi","楷体",serif;letter-spacing:4px}
+.m-banner .bdiv{display:flex;align-items:center;gap:5px;margin:8px 0 9px}
+.m-banner .bdiv .bl{width:28px;height:1px;background:linear-gradient(90deg,rgba(217,185,138,0),#d9b98a)}
+.m-banner .bdiv .bl:last-child{background:linear-gradient(90deg,#d9b98a,rgba(217,185,138,0))}
+.m-banner .bdiv .bd{width:4px;height:4px;background:#e3c69a;transform:rotate(45deg)}
+.m-banner .bcap span{display:block;font-size:12px;color:rgba(255,250,242,.88);line-height:1.6;text-shadow:0 .5px 2px rgba(0,0,0,.25);font-family:"BannerSerif","STKaiti","Kaiti SC","KaiTi","楷体",serif;letter-spacing:3px}
 .m-dots{position:absolute;left:0;right:0;bottom:9px;display:flex;justify-content:center;gap:5px}
 .m-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.4)}
 .m-dots i.on{background:#c9a66b}
@@ -197,23 +219,31 @@ select.input{cursor:pointer}
 .m-sh .mst svg{color:#c9a66b;flex-shrink:0}
 .m-sh .mst b{font-size:15px;font-weight:600;color:#3d2e1f}
 .m-sh .more{display:flex;align-items:center;gap:1px;font-size:11px;color:#8b7355;cursor:pointer}
-/* 师资（横向滚动 + 奶油渐变圆形头像 + 姓名/专长两行） */
+/* 师资（横向滚动 + 奶油渐变圆形头像 + 缺省人形剪影 + 姓名/专长两行） */
 .m-trow{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px}
-.m-teacher{display:flex;flex-direction:column;align-items:center;width:64px;flex-shrink:0;cursor:pointer}
-.m-tav{width:54px;height:54px;border-radius:50%;overflow:hidden;border:1px solid rgba(201,166,107,.3);background:linear-gradient(135deg,#f5e6d3 0%,#e8d5c4 100%);display:flex;align-items:center;justify-content:center}
+.m-teacher{display:flex;flex-direction:column;align-items:center;width:74px;flex-shrink:0;cursor:pointer;background:#fff;border:1px solid #ebe7e1;border-radius:10px;padding:8px 6px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.m-tav{width:54px;height:54px;border-radius:50%;overflow:hidden;border:1px solid rgba(201,166,107,.3);background:linear-gradient(135deg,#f5e6d3 0%,#e8d5c4 100%);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .m-tav img{width:100%;height:100%;object-fit:cover}
-.m-tav span{font-size:20px;font-weight:600;color:#8b7355}
+.m-tav .tv-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.m-tav .tv-head{width:19px;height:19px;border-radius:50%;background:#d8c3a4;margin-bottom:2px}
+.m-tav .tv-body{width:36px;height:25px;border-radius:18px 18px 0 0;background:#d8c3a4;margin-bottom:-8px}
+/* 真实 miniapp 缺省头像结构：avatar-placeholder / avatar-head / avatar-body */
+.m-tav .avatar-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;background:#f4ebdf}
+.m-tav .avatar-head{width:19px;height:19px;border-radius:50%;background:#d8c3a4;margin-bottom:2px}
+.m-tav .avatar-body{width:36px;height:25px;border-radius:18px 18px 0 0;background:#d8c3a4;margin-bottom:-8px}
 .m-tn{display:block;font-size:12px;font-weight:500;color:#3d2e1f;margin-top:6px;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-ts{display:block;font-size:10px;color:#8b7355;width:100%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
 /* 推荐课程（左图右文横向卡片） */
 .m-clist{display:flex;flex-direction:column;gap:10px}
 .m-course{display:flex;gap:10px;align-items:center;background:rgba(255,255,255,.92);border:1px solid rgba(201,166,107,.12);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.04);padding:8px;cursor:pointer}
-.m-cimg{width:62px;height:62px;border-radius:8px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,#2d2418 0%,#5a4632 100%)}
+.m-cimg{width:62px;height:62px;border-radius:8px;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,#2d2418 0%,#5a4632 100%);display:flex;align-items:center;justify-content:center}
 .m-cimg img{width:100%;height:100%;object-fit:cover}
+.m-cimg .cph{font-size:10px;color:rgba(201,166,107,.55);letter-spacing:1px}
 .m-cinfo{display:flex;flex-direction:column;min-width:0}
 .m-cname{font-size:14px;font-weight:600;color:#3d2e1f;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-cdesc{font-size:11px;color:#8b7355;line-height:1.5}
-/* 舞蹈视频（封面 + 金色圆形播放按钮 + 时长胶囊） */
+/* 舞蹈视频（真实结构：多卡片列表，每卡封面 + 金色圆形播放按钮 + 可选时长 + 标题/描述） */
+.m-vlist{display:flex;flex-direction:column;gap:10px}
 .m-vcard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.05);border:1px solid rgba(201,166,107,.12)}
 .m-vcover{position:relative;width:100%;height:160px;overflow:hidden;background:#ddd}
 .m-vcover img{width:100%;height:100%;object-fit:cover;display:block}
@@ -224,10 +254,7 @@ select.input{cursor:pointer}
 .m-vinfo{padding:10px 12px}
 .m-vtitle{font-size:14px;font-weight:600;color:#3d2e1f;display:block}
 .m-vdesc{font-size:11px;color:#8b7355;margin-top:4px;display:block;line-height:1.5}
-/* 公告 */
-.m-notice{background:#fff;border-radius:12px;border:1px solid rgba(201,166,107,.12);padding:12px;box-shadow:0 4px 20px rgba(0,0,0,.04)}
-.m-notice b{font-size:13px;color:#3d2e1f;display:block}
-.m-notice p{font-size:11px;color:#8b7355;margin-top:4px;line-height:1.6}
+/* 视频 */
 /* 底部 TabBar（对齐 F6.0 学员端原型口径 4 Tab：首页/排期/AI 助手/我的；AI 为第 3 个一级 Tab，激活 #8b7355，无悬浮 FAB） */
 .m-tabbar{position:sticky;bottom:0;z-index:6;display:flex;background:#fff;border-top:1px solid #f5f5f5;box-shadow:0 -2px 12px rgba(0,0,0,.04);padding:7px 0 11px;margin-top:16px}
 .m-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;color:#999;cursor:pointer}
@@ -237,6 +264,15 @@ select.input{cursor:pointer}
 .m-tab.on span{color:#8b7355;font-weight:500}
 .m-tab .ind{position:absolute;bottom:-3px;width:20px;height:2px;border-radius:1px;background:linear-gradient(90deg,#c9a66b,#d9a7b0)}
 .ph-hidden-note{font-size:11px;color:var(--text-3);text-align:center;padding:14px}
+.m-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 20px;color:#909399;font-size:13px}
+.mod-tbl td{vertical-align:middle}
+.mod-tbl .mtype-tag{white-space:nowrap}
+.mod-tbl .m-summary{color:var(--text-2);font-size:13px}
+.mod-tbl .drag-cell{display:flex;align-items:center;gap:8px}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:16px;font-size:13px;color:var(--text-3)}
+.pager .pg{min-width:28px;height:28px;border:1px solid var(--border-d);border-radius:4px;background:#fff;display:inline-flex;align-items:center;justify-content:center;color:var(--text-2);cursor:pointer}
+.pager .pg.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.pager .pg.dis{color:var(--gray-l);background:#f5f7fa;cursor:not-allowed}
 
 /* Toast */
 .toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:6px;z-index:200;font-size:13px;box-shadow:var(--shadow-d);display:none}
@@ -333,6 +369,8 @@ var IMG = {
   BANNER1: gradCover('#C9A66B','#8b7355','让舞蹈成为生活的一部分'),
   BANNER2: gradCover('#667eea','#764ba2','专业师资团队'),
   VIDEO1:  gradCover('#5b7cfa','#8a5cf6','古典舞《身韵》教学'),
+  VIDEO2:  gradCover('#c9a66b','#5a4632','现代舞即兴训练'),
+  COURSE_DEFAULT: gradCover('#2d2418','#5a4632','DANCE'),
   ROOM1:   gradCover('#6ea8fe','#3b82f6'),   // 教室占位封面：仅渐变，不叠文案
   ROOM2:   gradCover('#f0a6ca','#c2578f'),   // 教室占位封面：仅渐变，不叠文案
   BROKEN:  ''   // 未设置封面 / 图片失效 → 统一「暂无图片」占位
@@ -342,19 +380,19 @@ function imgSrc(key){ if(!key) return ''; return IMG[key]===undefined? key : IMG
 /* ---------- Mock 业务数据（原型模拟数据） ---------- */
 function seedUsers(){
   return [
-    {id:1, nickname:'林小雅', phone:'13800001234', teacher_code:'', student_code:'S2026001', status:1, wechat_bound:true, created_at:'2026-03-12', avatar_url: initialsAvatar('林','#C9A66B')},
-    {id:2, nickname:'王梓涵', phone:'13900002222', teacher_code:'T2026007', student_code:'', status:1, wechat_bound:true, created_at:'2026-02-08', avatar_url: initialsAvatar('王','#667eea')},
-    {id:3, nickname:'陈默',   phone:'13700003333', teacher_code:'', student_code:'S2026014', status:1, wechat_bound:false, created_at:'2026-04-01', avatar_url:''},
-    {id:4, nickname:'赵可可', phone:'13600004444', teacher_code:'', student_code:'S2026022', status:0, wechat_bound:false, created_at:'2026-04-18', avatar_url:'BROKEN'},
-    {id:5, nickname:'孙一鸣', phone:'13500005555', teacher_code:'T2026011', student_code:'', status:1, wechat_bound:true, created_at:'2026-01-20', avatar_url: initialsAvatar('孙','#5daf34')}
+    {id:1, nickname:'林小雅', phone:'13800001234', teacher_code:'', student_code:'S2026001', status:1, wechat_bound:true, created_at:'2026-03-12', roles:['student'], avatar_url: initialsAvatar('林','#C9A66B')},
+    {id:2, nickname:'王梓涵', phone:'13900002222', teacher_code:'T2026007', student_code:'', status:1, wechat_bound:true, created_at:'2026-02-08', roles:['teacher'], avatar_url: initialsAvatar('王','#667eea')},
+    {id:3, nickname:'陈默',   phone:'13700003333', teacher_code:'', student_code:'S2026014', status:1, wechat_bound:false, created_at:'2026-04-01', roles:['student'], avatar_url:''},
+    {id:4, nickname:'赵可可', phone:'13600004444', teacher_code:'', student_code:'S2026022', status:0, wechat_bound:false, created_at:'2026-04-18', roles:['student'], avatar_url:'BROKEN'},
+    {id:5, nickname:'孙一鸣', phone:'13500005555', teacher_code:'T2026011', student_code:'', status:1, wechat_bound:true, created_at:'2026-01-20', roles:['teacher'], avatar_url: initialsAvatar('孙','#5daf34')}
   ];
 }
 function seedClassrooms(){
   return [
-    {id:1, code:'R-001', name:'舞蹈教室 A', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','音响'], cover:'ROOM1'},
-    {id:2, code:'R-002', name:'舞蹈教室 B', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','投影仪'], cover:'ROOM2'},
-    {id:3, code:'R-003', name:'多功能排练厅', location:'舞蹈中心 1 楼', equipment:['音响','灯光'], cover:''},
-    {id:4, code:'R-004', name:'小班瑜伽室', location:'舞蹈中心 2 楼', equipment:['瑜伽垫','灯光'], cover:'BROKEN'}
+    {id:1, code:'R-001', name:'舞蹈教室 A', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','音响'], status:1, cover:'ROOM1'},
+    {id:2, code:'R-002', name:'舞蹈教室 B', location:'舞蹈中心 3 楼', equipment:['镜子','把杆','投影仪'], status:1, cover:'ROOM2'},
+    {id:3, code:'R-003', name:'多功能排练厅', location:'舞蹈中心 1 楼', equipment:['音响','灯光'], status:0, cover:''},
+    {id:4, code:'R-004', name:'小班瑜伽室', location:'舞蹈中心 2 楼', equipment:['瑜伽垫','灯光'], status:1, cover:'BROKEN'}
   ];
 }
 var MOCK_TEACHERS = [
@@ -365,11 +403,11 @@ var MOCK_TEACHERS = [
   {id:5, name:'陈曦',   specialty:'民族舞'}
 ];
 var MOCK_COURSES = [
-  {id:1, name:'古典舞基础班', type:'常规课'},
-  {id:2, name:'街舞入门',     type:'特色课'},
-  {id:3, name:'芭蕾形体',     type:'常规课'},
-  {id:4, name:'现代舞进阶',   type:'特色课'},
-  {id:5, name:'私教一对一',   type:'私教课'}
+  {id:1, name:'古典舞基础班', type:'常规课', description:'从身韵与基本功开始，零基础也能稳步入门'},
+  {id:2, name:'街舞入门',     type:'特色课', description:'节奏训练与基础律动，释放你的舞台能量'},
+  {id:3, name:'芭蕾形体',     type:'常规课', description:'优雅体态与核心力量训练，改善身体线条'},
+  {id:4, name:'现代舞进阶',   type:'特色课', description:'呼吸与空间运用，建立完整的表达语汇'},
+  {id:5, name:'私教一对一',   type:'私教课', description:'按个人目标定制训练计划，进度更可控'}
 ];
 
 /* ---------- 全局状态 ---------- */
@@ -382,23 +420,26 @@ function resetData(){
     profile:{ nickname:'林小雅', phone:'13800001234', avatar:initialsAvatar('林','#C9A66B'), roles:['admin'] },
     profileUpload:{ state:'idle', preview:'', url:'', name:'' },
     users: seedUsers(),
-    userDialog:{ open:false, mode:'create', form:{id:null,phone:'',nickname:'',password:'',roleCodes:[]}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    userDialog:{ open:false, mode:'create', form:{id:null,phone:'',nickname:'',password:'',roleCodes:[],status:1}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
     classrooms: seedClassrooms(),
-    classroomDialog:{ open:false, mode:'create', form:{id:null,code:'',name:'',location:'',equipment:[],cover:''}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    classroomDialog:{ open:false, mode:'create', form:{id:null,code:'',name:'',location:'',equipment:[],cover:'',status:1}, errors:{}, upload:{state:'idle',preview:'',url:'',name:''} },
     classroomSearch:'',
     userSearch:'',
+    userRoleFilter:'',
+    userStatusFilter:'',
     listLoading:false,
     listError:'',
     home:{
       modules:[
-        {type:'banner',   name:'Banner 轮播',  title:'首页轮播', enabled:true,  sort:1,
-          items:[{image:'BANNER1', title:'让舞蹈成为生活的一部分', subtitle:'遇见更好的自己 · 从一堂舞蹈课开始', link:'none', order:1}]},
-        {type:'teachers', name:'师资团队',     title:'师资团队', enabled:true,  sort:2, limit:6, teacher_ids:[1,2,3]},
-        {type:'courses',  name:'推荐课程',     title:'推荐课程', enabled:true,  sort:3, limit:4, course_ids:[1,2], sort_rule:'manual'},
-        {type:'video',    name:'舞蹈视频',     title:'舞动 · 让生活更美好', enabled:true, sort:4,
-          items:[{title:'中国古典舞《身韵》基础教学', cover:'VIDEO1', url:'https://www.w3schools.com/html/mov_bbb.mp4', link:'none'}]},
-        {type:'notice',   name:'公告/活动',    title:'公告', enabled:false, sort:5,
-          noticeTitle:'2026 秋季招生开始啦', content:'新生报名享 8 折优惠，名额有限', image:'', valid_from:'2026-10-01', valid_to:'2026-11-30', status:'展示'}
+        {type:'banner',   name:'Banner 轮播', enabled:true, sort:1,
+          items:[{image_url:'BANNER1', title:'让舞蹈成为生活的一部分', subtitle:'遇见更好的自己 · 从一堂舞蹈课开始', link_url:''}]},
+        {type:'teachers', name:'师资团队',    enabled:true, sort:2, config:{teacher_ids:[1,2,3]}},
+        {type:'courses',  name:'推荐课程',    enabled:true, sort:3, config:{course_ids:[1,2]}},
+        {type:'video',    name:'舞蹈视频',    enabled:true, sort:4,
+          items:[
+            {title:'中国古典舞《身韵》基础教学', description:'学习古典舞核心身韵技巧，感受东方美学韵味', cover_url:'VIDEO1', video_url:'mock-video-1.mp4', duration:'03:28'},
+            {title:'现代舞即兴训练', description:'释放身体感知，找到属于自己的表达方式', cover_url:'VIDEO2', video_url:'mock-video-2.mp4', duration:'02:15'}
+          ]}
       ],
       dirty:false,                // 草稿是否有未发布变更
       publishedVersion:0,         // 线上版本号
@@ -406,7 +447,7 @@ function resetData(){
       lastPublishedAt:'',
       publishResult:''            // '' | 'success' | 'fail'
     },
-    drawer:{ open:false, type:'', form:{}, upload:{state:'idle',preview:'',url:'',name:''} },
+    drawer:{ open:false, type:'', editIndex:0, form:{}, upload:{state:'idle',preview:'',url:'',name:''} },
     previewFail:false,            // 预览页模拟"接口失败"
     publish:{ open:false, confirmFail:false, confirming:false },
     modalOpen:false, modalHtml:'', modalSize:'',   // 通用弹窗（退出确认等）
@@ -433,9 +474,9 @@ function homeModule(type){
 function avatarTag(src, name, cls){
   cls = cls || 'avatar';
   var s = imgSrc(src);
-  var ph = '<div class="'+cls+' ph" title="默认头像">'+esc((name||'?').slice(0,1))+'</div>';
+  var ph = '<div class="'+cls+' ph" title="默认头像">'+iconSvg('user')+'</div>';
   if(!s) return ph;
-  return '<div class="'+cls+'"><img src="'+s+'" alt="'+esc(name||'')+'" onerror="this.parentNode.classList.add(\'ph\');this.parentNode.innerHTML=\''+esc((name||'?').slice(0,1))+'\'"></div>';
+  return '<div class="'+cls+'"><img src="'+s+'" alt="'+esc(name||'')+'" onerror="this.parentNode.classList.add(\'ph\');this.remove()"></div>';
 }
 function coverTag(src, label, cls){
   var s = imgSrc(src);
@@ -449,7 +490,16 @@ function coverTag(src, label, cls){
 var ICON = {
   user: ['M512 512a192 192 0 1 0 0-384 192 192 0 0 0 0 384m0 64a256 256 0 1 1 0-512 256 256 0 0 1 0 512m320 320v-96a96 96 0 0 0-96-96H288a96 96 0 0 0-96 96v96a32 32 0 1 1-64 0v-96a160 160 0 0 1 160-160h448a160 160 0 0 1 160 160v96a32 32 0 1 1-64 0'],
   officeBuilding: ['M192 128v704h384V128zm-32-64h448a32 32 0 0 1 32 32v768a32 32 0 0 1-32 32H160a32 32 0 0 1-32-32V96a32 32 0 0 1 32-32','M256 256h256v64H256zm0 192h256v64H256zm0 192h256v64H256zm384-128h128v64H640zm0 128h128v64H640zM64 832h896v64H64z','M640 384v448h192V384zm-32-64h256a32 32 0 0 1 32 32v512a32 32 0 0 1-32 32H608a32 32 0 0 1-32-32V352a32 32 0 0 1 32-32'],
-  homeFilled: ['M512 128 128 447.936V896h255.936V640H640v256h255.936V447.936z']
+  homeFilled: ['M512 128 128 447.936V896h255.936V640H640v256h255.936V447.936z'],
+  lock: ['M512 128a96 96 0 0 0-96 96v96H384a32 32 0 0 0-32 32v448a32 32 0 0 0 32 32h256a32 32 0 0 0 32-32V352a32 32 0 0 0-32-32h-32v-96a96 96 0 0 0-96-96m0 64a32 32 0 0 1 32 32v96H480v-96a32 32 0 0 1 32-32'],
+  switch: ['M320 256a256 256 0 0 0 0 512h384a256 256 0 0 0 0-512zm384 64a192 192 0 1 1 0 384 192 192 0 0 1 0-384m0 128a64 64 0 1 0 0 128 64 64 0 0 0 0-128'],
+  upload: ['M160 832h704a32 32 0 1 1 0 64H160a32 32 0 1 1 0-64m384-640v440.064l169.248-169.216 45.256 45.256L512 768 265.496 508.104l45.256-45.248L480 632.064V192h64'],
+  view: ['M512 160c320 0 512 352 512 352S832 864 512 864 0 512 0 512s192-352 512-352m0 64c-225.28 0-384.128 208.064-436.8 288 52.608 79.872 211.456 288 436.8 288 225.28 0 384.128-208.064 436.8-288-52.608-79.872-211.456-288-436.8-288m0 64a224 224 0 1 1 0 448 224 224 0 0 1 0-448m0 64a160.192 160.192 0 0 0-160 160c0 88.192 71.744 160 160 160s160-71.808 160-160-71.744-160-160-160'],
+  refresh: ['M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m0 64a384 384 0 1 0 0 768 384 384 0 0 0 0-768m0 128a256 256 0 0 1 234.496 160h-67.2A192 192 0 1 0 512 704v-128h-96v-96h192a32 32 0 0 1 32 32v224h-64a192 192 0 0 0 0-384'],
+  rank: ['M256 320h512v64H256zm0 192h512v64H256zm0 192h512v64H256z'],
+  plus: ['M480 480V128h64v352h352v64H544v352h-64V544H128v-64z'],
+  picture: ['M160 128h704a96 96 0 0 1 96 96v576a96 96 0 0 1-96 96H160a96 96 0 0 1-96-96V224a96 96 0 0 1 96-96m0 64a32 32 0 0 0-32 32v576a32 32 0 0 0 32 32h704a32 32 0 0 0 32-32V224a32 32 0 0 0-32-32zm544 160a64 64 0 1 1 0 128 64 64 0 0 1 0-128M224 640l144-144 128 128 80-80 160 160v64H224z'],
+  arrowDown: ['M512 672 192 352l45.248-45.248L512 581.504l274.752-274.752L832 352z']
 };
 function iconSvg(key){
   var ds = ICON[key] || [], out = '';
@@ -489,7 +539,7 @@ function goAdmin(page){
   renderAll();
 }
 function renderAdminSide(){
-  var html = '<div class="logo"><div class="ic">☰</div><div class="tt">约课管理</div></div>';
+  var html = '<div class="logo"><div class="ic"><svg viewBox="0 0 1024 1024" width="18" height="18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#fff" d="M128 192h768v64H128zm0 288h768v64H128zm0 288h768v64H128z"/></svg></div><div class="tt">约课管理</div></div>';
   MENU.forEach(function(m){
     html += '<div class="nav-item '+(STATE.adminPage===m.page?'active':'')+'" onclick="goAdmin(\''+m.page+'\')">'+
       '<span class="ni">'+iconSvg(m.icon)+'</span><span>'+m.title+'</span>'+
@@ -513,10 +563,11 @@ function renderHeader(){
   var p = STATE.profile;
   var html = '<div class="user-info" onclick="toggleUserMenu()">'+
     avatarTag(p.avatar, p.nickname, 'avatar sm')+
-    '<span class="uname">'+esc(p.nickname)+'</span><span class="caret">▾</span></div>';
+    '<span class="uname">'+esc(p.nickname)+'</span><span class="caret">'+iconSvg('arrowDown')+'</span></div>';
   html += '<div class="dropdown'+(STATE.userMenuOpen?' open':'')+'">'+
-    '<div class="di" onclick="openProfile()">📝 个人资料</div>'+
-    '<div class="di danger" onclick="handleLogout()">⏻ 退出登录</div></div>';
+    '<div class="di" onclick="openProfile()">'+iconSvg('user')+'个人资料</div>'+
+    '<div class="di disabled">'+iconSvg('lock')+'修改密码（FUTURE）</div>'+
+    '<div class="di danger divider" onclick="handleLogout()">'+iconSvg('switch')+'退出登录</div></div>';
   q('admin-header').innerHTML = html;
 }
 function handleLogout(){ STATE.userMenuOpen=false; openModal(renderLogoutConfirm(), 'slim'); }
@@ -526,7 +577,7 @@ function doLogout(){ closeModal(); toast('已退出登录（原型模拟，未�
 var ADMIN_ACTIONS = '';
 function renderAdminPage(){
   var page = STATE.adminPage, html='';
-  var titles = {'P-F7-01':'用户管理','P-F7-05':'教室管理','P-F7-08':'小程序首页 / 首页管理','P-F7-14':'小程序首页预览','roles':'角色权限','teachers':'教师管理','students':'学员管理','courses':'课程管理','schedules':'排期管理','card-types':'卡产品管理','membership':'会员卡管理','tenant':'机构设置'};
+  var titles = {'P-F7-01':'用户管理','P-F7-05':'教室管理','P-F7-08':'小程序首页配置','P-F7-14':'小程序首页预览','roles':'角色权限','teachers':'教师管理','students':'学员管理','courses':'课程管理','schedules':'排期管理','card-types':'卡产品管理','membership':'会员卡管理','tenant':'机构设置'};
   q('admin-ptitle').textContent = titles[page] || '用户管理';
   ADMIN_ACTIONS = '';
 
@@ -540,18 +591,39 @@ function renderAdminPage(){
 }
 
 /* ================= P-F7-01 / P-F7-02 用户管理 ================= */
+var ROLE_OPTIONS = [['','全部'],['admin','管理员'],['teacher','教师'],['student','学员']];
+function userRoleLabel(codes){
+  var map={admin:'管理员',super_admin:'超级管理员',teacher:'教师',student:'学员'};
+  return (codes||[]).map(function(c){return map[c]||c;}).join(' / ') || '--';
+}
 function renderUsersPage(){
   var rows = STATE.users.filter(function(u){
-    if(!STATE.userSearch) return true;
-    return (u.nickname||'').indexOf(STATE.userSearch)>=0 || (u.phone||'').indexOf(STATE.userSearch)>=0;
+    if(STATE.userSearch){
+      if((u.nickname||'').indexOf(STATE.userSearch)<0 && (u.phone||'').indexOf(STATE.userSearch)<0) return false;
+    }
+    if(STATE.userRoleFilter){
+      if(!(u.roles||[]).some(function(r){ return r===STATE.userRoleFilter || (STATE.userRoleFilter==='admin' && r==='super_admin'); })) return false;
+    }
+    if(STATE.userStatusFilter){
+      var want = STATE.userStatusFilter==='active' ? 1 : 0;
+      if(u.status!==want) return false;
+    }
+    return true;
   });
   ADMIN_ACTIONS = '<button class="btn primary" onclick="openUserDialog(\'create\')">新增</button>';
   var html = '';
 
   html += '<div class="toolbar">'+
     '<input class="input" style="width:240px" placeholder="搜索手机号/昵称" value="'+esc(STATE.userSearch)+'" oninput="onUserSearch(this.value)">'+
-    '<select class="input" style="width:140px"><option>全部角色</option><option>管理员</option><option>教师</option><option>学员</option></select>'+
-    '<select class="input" style="width:140px"><option>全部状态</option><option>正常</option><option>禁用</option></select>'+
+    '<select class="input" style="width:140px" onchange="onUserFilter(\'role\',this.value)">'+
+      '<option value=""'+(STATE.userRoleFilter===''?' selected':'')+'>全部</option>'+
+      ROLE_OPTIONS.slice(1).map(function(o){ return '<option value="'+o[0]+'"'+(STATE.userRoleFilter===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('')+
+    '</select>'+
+    '<select class="input" style="width:140px" onchange="onUserFilter(\'status\',this.value)">'+
+      '<option value=""'+(STATE.userStatusFilter===''?' selected':'')+'>全部</option>'+
+      '<option value="active"'+(STATE.userStatusFilter==='active'?' selected':'')+'>正常</option>'+
+      '<option value="disabled"'+(STATE.userStatusFilter==='disabled'?' selected':'')+'>禁用</option>'+
+    '</select>'+
     '<span class="mock-tag">原型模拟数据（含新增「头像」列）</span></div>';
 
   if(STATE.listError){
@@ -562,11 +634,12 @@ function renderUsersPage(){
       (STATE.users.length? '<div style="margin-top:12px"><button class="btn" onclick="onUserSearch(\'\')">清空筛选</button></div>':'')+'</div>';
   } else {
     html += '<table class="tbl"><thead><tr>'+
-      '<th style="width:70px">头像</th><th>昵称</th><th style="width:140px">手机号</th><th style="width:150px">教师编号</th>'+
-      '<th style="width:150px">学员编号</th><th style="width:80px">状态</th><th style="width:100px">微信绑定</th>'+
-      '<th style="width:130px">注册时间</th><th style="width:230px">操作</th></tr></thead><tbody>';
-    rows.forEach(function(u){
+      '<th style="width:56px">序号</th><th style="width:80px">头像</th><th style="width:140px">昵称</th><th style="width:140px">手机号</th><th style="width:160px">教师编号</th>'+
+      '<th style="width:160px">学员编号</th><th style="width:80px">状态</th><th style="width:100px">微信绑定</th>'+
+      '<th style="width:130px">注册时间</th><th style="width:260px">操作</th></tr></thead><tbody>';
+    rows.forEach(function(u, idx){
       html += '<tr>'+
+        '<td>'+(idx+1)+'</td>'+
         '<td>'+avatarTag(u.avatar_url, u.nickname, 'avatar')+'</td>'+
         '<td>'+(u.nickname||'-')+'</td>'+
         '<td>'+esc(u.phone)+'</td>'+
@@ -579,55 +652,71 @@ function renderUsersPage(){
           '<button class="btn link" onclick="openUserDialog(\'edit\','+u.id+')">编辑</button>'+
           '<button class="btn link warn" onclick="toast(\'重置密码（原型模拟）\',\'info\')">重置密码</button>'+
           '<button class="btn link danger" onclick="toast(\'删除需二次确认（原型模拟）\',\'info\')">删除</button>'+
+          (u.wechat_bound?'<button class="btn link danger" onclick="toast(\'解绑微信需二次确认（原型模拟）\',\'info\')">解绑微信</button>':'')+
         '</td></tr>';
     });
     html += '</tbody></table>';
-    html += '<div style="margin-top:16px;color:var(--text-3);font-size:13px">共 '+rows.length+' 条　分页：1（原型仅演示一页）</div>';
+    html += '<div class="pager"><span>共 '+rows.length+' 条</span><button class="pg dis" disabled>‹</button>'+
+      '<button class="pg on">1</button><button class="pg dis" disabled>›</button></div>';
   }
   return html;
 }
 function onUserSearch(v){ STATE.userSearch = v; renderAdminPage(); }
+function onUserFilter(k, v){
+  if(k==='role') STATE.userRoleFilter = v||'';
+  else if(k==='status') STATE.userStatusFilter = v||'';
+  renderAdminPage();
+}
 function reloadUsers(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
 
-/* --- 上传区渲染（用户/教室/资料/抽屉 共用） --- */
-function renderUploader(upload, ctx){
-  var u = upload, s = u.state;
+/* --- 上传区渲染（对齐真实 admin-web：头像 120x120 / 封面 160x120 / Banner 280x160，提示独占一行） --- */
+function uploaderClass(variant){
+  if(variant==='banner') return 'banner';
+  if(variant==='cover'||variant==='video') return 'cover';
+  return '';
+}
+function uploaderPlaceholder(variant){
+  if(variant==='banner') return '上传 Banner 图片';
+  if(variant==='video') return '上传封面（16:9）';
+  if(variant==='cover') return '上传封面';
+  return '上传头像';
+}
+function renderUploader(upload, ctx, variant, tip){
+  var u = upload, s = u.state, cls = uploaderClass(variant||'avatar');
+  var tipText = tip || (ctx==='profile' ? '支持 JPG / PNG / WEBP，最大 5MB' : '支持 JPG/PNG/WEBP，最大 5MB');
   var box = '';
-  if(s==='idle') box = '<div class="up-box" onclick="imageChoose(\''+ctx+'\',\'ok\')">＋<div style="font-size:12px">选择图片</div></div>';
-  else if(s==='preview') box = '<div class="up-box"><img src="'+imgSrc(u.preview)+'" alt="预览"></div>';
-  else if(s==='uploading') box = '<div class="up-box uploading"><div class="spinner"></div><div style="font-size:12px">上传中…</div></div>';
-  else if(s==='success') box = '<div class="up-box"><img src="'+imgSrc(u.url)+'" alt="头像"></div>';
-  else box = '<div class="up-box" style="border-style:solid;border-color:var(--red);color:var(--red)">✕</div>';
+  if(s==='idle') box = '<div class="up-box '+cls+'" onclick="imageChoose(\''+ctx+'\',\'ok\')">'+iconSvg('plus')+'<span>'+uploaderPlaceholder(variant||'avatar')+'</span></div>';
+  else if(s==='preview') box = '<div class="up-box '+cls+'"><img src="'+imgSrc(u.preview)+'" alt="预览"></div>';
+  else if(s==='uploading') box = '<div class="up-box '+cls+' uploading"><div class="spinner"></div><span>上传中…</span></div>';
+  else if(s==='success') box = '<div class="up-box '+cls+'"><img src="'+imgSrc(u.url)+'" alt="已上传"></div>';
+  else box = '<div class="up-box '+cls+'" style="border-style:solid;border-color:var(--red);color:var(--red)">×</div>';
 
-  var side = '<div class="up-side">';
-  if(s==='idle'){
-    side += '<div class="hint">支持 JPG / PNG / WebP，≤ 5MB</div>';
-  } else if(s==='preview'){
-    side += '<div class="hint">已选择，尚未上传</div>'+
+  var extra = '';
+  if(s==='preview'){
+    extra = '<div class="hint">已选择，尚未上传</div>'+
       '<div class="up-actions"><button class="btn sm primary" onclick="imageUpload(\''+ctx+'\')">上传</button>'+
       '<button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">更换</button>'+
       '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">移除</button></div>';
   } else if(s==='uploading'){
-    side += '<div class="hint">正在上传到对象存储…（原型模拟，未接通）</div>'+
+    extra = '<div class="hint">正在上传到对象存储…（原型模拟，未接通）</div>'+
       '<div class="up-actions"><button class="btn sm" onclick="imageResolve(\''+ctx+'\',true)">模拟成功</button>'+
       '<button class="btn sm" onclick="imageResolve(\''+ctx+'\',false)">模拟失败</button></div>';
   } else if(s==='success'){
-    side += '<div class="up-ok">✓ 上传成功（原型模拟）</div>'+
+    extra = '<div class="up-ok">✓ 上传成功（原型模拟）</div>'+
       '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">更换</button>'+
       '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">移除</button></div>';
   } else if(s==='format-error'){
-    side += '<div class="up-err">仅支持 JPG / PNG / WebP 格式</div>'+
+    extra = '<div class="up-err">仅支持 JPG/PNG/WEBP 格式</div>'+
       '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">重新选择</button></div>';
   } else if(s==='size-error'){
-    side += '<div class="up-err">文件超过 5MB，请压缩后重试</div>'+
+    extra = '<div class="up-err">图片不能超过 5MB</div>'+
       '<div class="up-actions"><button class="btn sm" onclick="imageChoose(\''+ctx+'\',\'ok\')">重新选择</button></div>';
   } else if(s==='fail'){
-    side += '<div class="up-err">上传失败：网络异常</div>'+
+    extra = '<div class="up-err">上传失败，请重试</div>'+
       '<div class="up-actions"><button class="btn sm primary" onclick="imageUpload(\''+ctx+'\')">重试</button>'+
       '<button class="btn sm" onclick="imageRemove(\''+ctx+'\')">取消</button></div>';
   }
-  side += '</div>';
-  return '<div class="uploader">'+box+side+'</div>';
+  return '<div class="uploader">'+box+'<div class="up-tip">'+tipText+'</div>'+extra+'</div>';
 }
 function uploadHolder(ctx){
   if(ctx==='user') return STATE.userDialog.upload;
@@ -636,37 +725,68 @@ function uploadHolder(ctx){
   if(ctx==='drawer') return STATE.drawer.upload;
   return STATE.userDialog.upload;
 }
+function drawerFieldForType(t){ return t==='video' ? 'cover_url' : 'image_url'; }
 function imageChoose(ctx, kind){
   var u = uploadHolder(ctx);
-  if(kind==='bad-format'){ u.state='format-error'; u.preview=''; toast('仅支持 JPG/PNG/WebP','error'); }
-  else if(kind==='big'){ u.state='size-error'; u.preview=''; toast('文件超过 5MB','error'); }
-  else { u.state='preview'; u.preview = ctx==='classroom'? 'ROOM1' : (ctx==='drawer' ? 'VIDEO1' : 'BANNER2'); u.name='demo.jpg'; }
+  var preview = ctx==='classroom' ? 'ROOM1' : (ctx==='drawer' ? 'BANNER2' : 'BANNER2');
+  if(kind==='bad-format'){ u.state='format-error'; u.preview=''; toast('仅支持 JPG/PNG/WEBP 格式','error'); }
+  else if(kind==='big'){ u.state='size-error'; u.preview=''; toast('图片不能超过 5MB','error'); }
+  else { u.state='preview'; u.preview = preview; u.name='demo.jpg'; }
+  if(ctx==='drawer'){
+    var it=(STATE.drawer.form.items||[])[STATE.drawer.editIndex||0];
+    if(it){ it._state=u.state; it._preview=u.preview; }
+  }
   renderAll();
 }
-function imageUpload(ctx){
-  var u = uploadHolder(ctx); u.state='uploading'; renderAll();
-}
+function imageUpload(ctx){ var u = uploadHolder(ctx); u.state='uploading'; renderAll(); }
 function imageResolve(ctx, ok){
   var u = uploadHolder(ctx);
-  if(ok){ u.state='success'; u.url = u.preview; toast('上传成功（原型模拟）','success'); }
-  else { u.state='fail'; toast('上传失败，可重试','error'); }
+  if(ok){
+    u.state='success'; u.url = u.preview;
+    if(ctx==='drawer'){
+      var it=(STATE.drawer.form.items||[])[STATE.drawer.editIndex||0];
+      if(it){ it[drawerFieldForType(STATE.drawer.type)] = u.preview; it._state='success'; }
+    }
+    toast('上传成功（原型模拟）','success');
+  } else { u.state='fail'; toast('上传失败，请重试','error'); }
   renderAll();
 }
 function imageRemove(ctx){
-  var u = uploadHolder(ctx); u.state='idle'; u.preview=''; u.url=''; renderAll();
+  var u = uploadHolder(ctx); u.state='idle'; u.preview=''; u.url='';
+  if(ctx==='drawer'){
+    var it=(STATE.drawer.form.items||[])[STATE.drawer.editIndex||0];
+    if(it){ it[drawerFieldForType(STATE.drawer.type)]=''; it._state='idle'; it._preview=''; }
+  }
+  renderAll();
 }
 
-/* --- 新增/编辑用户弹窗（P-F7-02） --- */
+/* --- 新增/编辑用户弹窗（P-F7-02，对齐 users/index.vue） --- */
+function userRolePicker(f, e){
+  var html = '<div class="multi" style="max-height:none">';
+  ROLE_OPTIONS.slice(1).forEach(function(o){
+    var sel=(f.roleCodes||[]).indexOf(o[0])>=0;
+    html += '<div class="mt '+(sel?'sel':'')+'" onclick="toggleUserRole(\''+o[0]+'\')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+o[1]+'</div>';
+  });
+  html += '</div>'+(e.roleCodes?'<div class="err">'+esc(e.roleCodes)+'</div>':'');
+  return html;
+}
+function toggleUserRole(code){
+  var arr = STATE.userDialog.form.roleCodes || [];
+  var i = arr.indexOf(code);
+  if(i>=0) arr.splice(i,1); else arr.push(code);
+  STATE.userDialog.form.roleCodes = arr;
+  renderAll();
+}
 function openUserDialog(mode, id){
   STATE.userDialog.mode = mode;
   STATE.userDialog.errors = {};
   STATE.userDialog.upload = {state:'idle', preview:'', url:'', name:''};
   if(mode==='edit'){
     var u = findUser(id);
-    STATE.userDialog.form = {id:u.id, phone:u.phone, nickname:u.nickname, password:'', roleCodes:['student']};
+    STATE.userDialog.form = {id:u.id, phone:u.phone, nickname:u.nickname, password:'', roleCodes:(u.roles||[]).slice(), status:u.status};
     if(u.avatar_url && u.avatar_url!=='BROKEN'){ STATE.userDialog.upload.state='success'; STATE.userDialog.upload.url=u.avatar_url; }
   } else {
-    STATE.userDialog.form = {id:null, phone:'', nickname:'', password:'', roleCodes:[]};
+    STATE.userDialog.form = {id:null, phone:'', nickname:'', password:'', roleCodes:[], status:1};
   }
   STATE.userDialog.open = true;
   renderAll();
@@ -678,21 +798,26 @@ function uf(k, v){ STATE.userDialog.form[k]=v; }
 function renderUserDialog(){
   var d = STATE.userDialog, f = d.form, e = d.errors;
   var isEdit = d.mode==='edit';
-  var html = '<div class="mh"><span>'+(isEdit?'编辑用户':'新增用户')+'</span><span class="close-x" onclick="closeUserDialog()">✕</span></div>';
+  var html = '<div class="mh"><span>'+(isEdit?'编辑':'新增')+'</span><span class="close-x" onclick="closeUserDialog()">✕</span></div>';
   html += '<div class="mb">';
-  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(d.upload,'user')+'<div class="tip">'+(isEdit?'取消不会覆盖原头像':'上传后随用户一起创建')+'</div></div></div>';
   html += '<div class="field"><div class="lb">手机号</div><div class="fc">'+
     (isEdit ? '<input class="input readonly" value="'+esc(f.phone)+'" disabled>'
-            : '<input class="input" value="'+esc(f.phone)+'" placeholder="请输入手机号" oninput="uf(\'phone\',this.value)">')+
+            : '<input class="input" value="'+esc(f.phone)+'" placeholder="请输入手机号" maxlength="11" oninput="uf(\'phone\',this.value)">')+
     (e.phone?'<div class="err">'+esc(e.phone)+'</div>':'')+'</div></div>';
-  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" placeholder="请输入昵称" oninput="uf(\'nickname\',this.value)">'+
+  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" placeholder="请输入昵称" maxlength="20" oninput="uf(\'nickname\',this.value)">'+
     (e.nickname?'<div class="err">'+esc(e.nickname)+'</div>':'')+'</div></div>';
   if(!isEdit){
-    html += '<div class="field"><div class="lb">密码</div><div class="fc"><input class="input" type="password" value="'+esc(f.password)+'" placeholder="至少6位" oninput="uf(\'password\',this.value)">'+
+    html += '<div class="field"><div class="lb">密码</div><div class="fc"><input class="input" type="password" value="'+esc(f.password)+'" placeholder="请输入密码（至少6位）" oninput="uf(\'password\',this.value)">'+
       (e.password?'<div class="err">'+esc(e.password)+'</div>':'')+'</div></div>';
   }
-  html += '<div class="field"><div class="lb">角色</div><div class="fc"><select class="input"><option>请选择角色（原型简化）</option><option>学员</option><option>教师</option><option>管理员</option></select>'+
-    (e.roleCodes?'<div class="err">'+esc(e.roleCodes)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(d.upload,'user','avatar')+'</div></div>';
+  if(isEdit){
+    html += '<div class="field"><div class="lb">状态</div><div class="fc"><select class="input" onchange="uf(\'status\',Number(this.value))">'+
+      '<option value="1"'+(f.status===1?' selected':'')+'>正常</option>'+
+      '<option value="0"'+(f.status===0?' selected':'')+'>禁用</option></select></div></div>';
+  }
+  html += '<div class="field"><div class="lb">角色</div><div class="fc">'+userRolePicker(f,e)+
+    (isEdit?'<div class="tip">⚠️ 修改角色将自动同步教师/学员档案，历史数据将保留</div>':'')+'</div></div>';
   html += '</div>';
   html += '<div class="mf"><button class="btn" onclick="closeUserDialog()">取消</button>'+
     '<button class="btn primary" onclick="saveUser()">确定</button></div>';
@@ -701,23 +826,29 @@ function renderUserDialog(){
 function saveUser(){
   var d = STATE.userDialog, f = d.form, e = {};
   if(d.mode==='create'){
-    if(!/^1[3-9]\d{9}$/.test(f.phone)) e.phone='手机号格式不正确';
-    if(!f.password || f.password.length<6) e.password='密码至少6位';
+    if(!f.phone) e.phone='请输入手机号';
+    else if(!/^1[3-9]\d{9}$/.test(f.phone)) e.phone='手机号格式不正确';
+    if(!f.password) e.password='请输入密码（至少6位）';
+    else if(f.password.length<6) e.password='密码至少 6 位';
   }
-  if(!f.nickname) e.nickname='请输入昵称';
+  if(!f.nickname || !String(f.nickname).trim()) e.nickname='请输入昵称';
+  if(!f.roleCodes || f.roleCodes.length===0) e.roleCodes='请选择角色';
   d.errors = e;
   if(Object.keys(e).length){ toast('表单校验未通过','error'); renderAll(); return; }
   var avatar = d.upload.state==='success' ? d.upload.url : '';
   if(d.mode==='edit'){
-    var u = findUser(f.id); u.nickname=f.nickname; if(avatar) u.avatar_url=avatar;
+    var u = findUser(f.id);
+    u.nickname=f.nickname; u.status=f.status; u.roles=(f.roleCodes||[]).slice();
+    if(avatar) u.avatar_url=avatar;
   } else {
-    STATE.users.push({id:Date.now(), nickname:f.nickname, phone:f.phone, teacher_code:'', student_code:'', status:1, wechat_bound:false, created_at:'2026-10-19', avatar_url:avatar});
+    STATE.users.push({id:Date.now(), nickname:f.nickname, phone:f.phone, teacher_code:'', student_code:'', status:1, wechat_bound:false, created_at:'2026-10-19', roles:(f.roleCodes||[]).slice(), avatar_url:avatar});
   }
   closeUserDialog();
-  toast(d.mode==='edit'?'用户已更新（原型模拟）':'用户已创建（原型模拟）','success');
+  toast(d.mode==='edit'?'编辑成功（原型模拟）':'新增用户成功（原型模拟）','success');
 }
 
 /* ================= P-F7-05 教室管理（仅卡片视图，无列表/表格视图） ================= */
+var EQUIP_OPTIONS = ['镜子','把杆','音响','投影仪','瑜伽垫','灯光'];
 function onClassroomSearch(v){ STATE.classroomSearch=v; renderAdminPage(); }
 function renderClassroomsPage(){
   var list = STATE.classrooms.filter(function(r){
@@ -727,7 +858,7 @@ function renderClassroomsPage(){
   ADMIN_ACTIONS = '<button class="btn primary" onclick="openClassroomDialog(\'create\')">新增</button>';
   var html = '';
   html += '<div class="toolbar"><input class="input" style="width:240px" placeholder="搜索教室名称" value="'+esc(STATE.classroomSearch)+'" oninput="onClassroomSearch(this.value)">'+
-    '<span class="mock-tag">原型模拟数据（封面图/位置为待评审新增字段；教室编码为已确认新增字段）</span></div>';
+    '<span class="mock-tag">原型模拟数据</span></div>';
 
   if(STATE.listError){
     html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载教室列表失败</div><div class="rs">'+esc(STATE.listError)+'</div>'+
@@ -741,15 +872,24 @@ function renderClassroomsPage(){
   }
   html += '<div class="grid">';
   list.forEach(function(r){
+    var status = r.status===1;
     html += '<div class="rcard"><div class="rc-cover">'+coverTag(r.cover, r.name, '')+'</div><div class="rc-body">'+
-      '<div class="rc-title"><span>'+esc(r.name)+'</span><span class="tag info">'+esc(r.code||'--')+'</span></div>'+
-      '<div class="rc-line">'+miniIcon('location',13)+' '+(r.location||'--')+' <span class="pending">待评审</span></div>'+
+      '<div class="rc-title"><span>'+esc(r.name)+'</span><span class="tag '+(status?'success':'warn')+'">'+(status?'正常':'维护中')+'</span></div>'+
+      (r.code?'<div class="rc-line"><span class="tag info">编码</span><span>'+esc(r.code)+'</span></div>':'')+
+      (r.location?'<div class="rc-line">'+miniIcon('location',13)+' '+esc(r.location)+'</div>':'')+
       '<div class="rc-line">'+miniIcon('equip',13)+' '+esc((r.equipment||[]).join('、')||'--')+'</div>'+
       '<div class="rc-actions"><button class="btn link" onclick="openClassroomDialog(\'edit\','+r.id+')">编辑</button>'+
+      '<button class="btn link '+(status?'warn':'')+'" onclick="toggleClassroomStatus('+r.id+')">'+(status?'维护':'启用')+'</button>'+
       '<button class="btn link danger" onclick="toast(\'删除需二次确认（原型模拟）\',\'info\')">删除</button></div></div></div>';
   });
   html += '</div>';
   return html;
+}
+function toggleClassroomStatus(id){
+  var r=findRoom(id); if(!r) return;
+  r.status = r.status===1 ? 0 : 1;
+  toast('教室已'+(r.status===1?'启用':'设为维护中')+'（原型模拟）','success');
+  renderAdminPage();
 }
 function reloadClassrooms(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
 function findRoom(id){ for(var i=0;i<STATE.classrooms.length;i++){ if(STATE.classrooms[i].id===id) return STATE.classrooms[i]; } return null; }
@@ -759,49 +899,66 @@ function openClassroomDialog(mode, id){
   STATE.classroomDialog.upload = {state:'idle',preview:'',url:'',name:''};
   if(mode==='edit'){
     var r = findRoom(id);
-    STATE.classroomDialog.form = {id:r.id, code:r.code||'', name:r.name, location:r.location||'', equipment:(r.equipment||[]).slice(), cover:''};
+    STATE.classroomDialog.form = {id:r.id, code:r.code||'', name:r.name, location:r.location||'', equipment:(r.equipment||[]).slice(), cover:r.cover||'', status:r.status};
     if(r.cover && r.cover!=='BROKEN'){ STATE.classroomDialog.upload.state='success'; STATE.classroomDialog.upload.url=r.cover; }
   } else {
-    STATE.classroomDialog.form = {id:null, code:'', name:'', location:'', equipment:[], cover:''};
+    STATE.classroomDialog.form = {id:null, code:'', name:'', location:'', equipment:[], cover:'', status:1};
   }
   STATE.classroomDialog.open = true;
   renderAll();
 }
 function closeClassroomDialog(){ STATE.classroomDialog.open=false; renderAll(); }
 function cf(k,v){ STATE.classroomDialog.form[k]=v; }
+function toggleClassroomEquip(name){
+  var arr = STATE.classroomDialog.form.equipment || [];
+  var i = arr.indexOf(name);
+  if(i>=0) arr.splice(i,1); else arr.push(name);
+  STATE.classroomDialog.form.equipment = arr;
+  renderAll();
+}
 function renderClassroomDialog(){
   var d = STATE.classroomDialog, f=d.form, e=d.errors, isEdit=d.mode==='edit';
   var html = '<div class="mh"><span>'+(isEdit?'编辑教室':'新增教室')+'</span><span class="close-x" onclick="closeClassroomDialog()">✕</span></div><div class="mb">';
-  html += '<div class="field"><div class="lb">封面图</div><div class="fc">'+renderUploader(d.upload,'classroom')+'<div class="tip">建议 16:9 横图；缺失时显示占位图</div></div></div>';
-  html += '<div class="field"><div class="lb">教室编码</div><div class="fc"><input class="input" value="'+esc(f.code)+'" placeholder="如：R-001" oninput="cf(\'code\',this.value)">'+(e.code?'<div class="err">'+esc(e.code)+'</div>':'')+'<div class="tip">已确认字段：租户内唯一编号，必填</div></div></div>';
-  html += '<div class="field"><div class="lb">教室名称</div><div class="fc"><input class="input" value="'+esc(f.name)+'" placeholder="请输入教室名称" oninput="cf(\'name\',this.value)">'+(e.name?'<div class="err">'+esc(e.name)+'</div>':'')+'</div></div>';
-  html += '<div class="field"><div class="lb">位置</div><div class="fc"><input class="input" value="'+esc(f.location)+'" placeholder="如：舞蹈中心 3 楼" oninput="cf(\'location\',this.value)"><div class="tip">新增字段，<span class="pending">待评审</span></div></div></div>';
-  html += '<div class="field"><div class="lb">设备</div><div class="fc"><select class="input" multiple size="4"><option selected>镜子</option><option>把杆</option><option selected>音响</option><option>投影仪</option><option>瑜伽垫</option><option>灯光</option></select><div class="tip">沿用现有预设设备（原型简化）</div></div></div>';
+  html += '<div class="field"><div class="lb">教室名称</div><div class="fc"><input class="input" value="'+esc(f.name)+'" placeholder="请输入教室名称" maxlength="50" oninput="cf(\'name\',this.value)">'+(e.name?'<div class="err">'+esc(e.name)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">教室编码</div><div class="fc"><input class="input" value="'+esc(f.code)+'" placeholder="请输入教室编码" maxlength="50" oninput="cf(\'code\',this.value)">'+(e.code?'<div class="err">'+esc(e.code)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">位置</div><div class="fc"><input class="input" value="'+esc(f.location)+'" placeholder="如：A栋301" maxlength="200" oninput="cf(\'location\',this.value)">'+(e.location?'<div class="err">'+esc(e.location)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">封面</div><div class="fc">'+renderUploader(d.upload,'classroom','cover')+(e.cover?'<div class="err">'+esc(e.cover)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">设备</div><div class="fc"><div class="multi" style="max-height:none">';
+  EQUIP_OPTIONS.forEach(function(name){
+    var sel=(f.equipment||[]).indexOf(name)>=0;
+    html += '<div class="mt '+(sel?'sel':'')+'" onclick="toggleClassroomEquip(\''+name+'\')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+name+'</div>';
+  });
+  html += '</div>'+(e.equipment?'<div class="err">'+esc(e.equipment)+'</div>':'')+'</div></div>';
   html += '</div><div class="mf"><button class="btn" onclick="closeClassroomDialog()">取消</button><button class="btn primary" onclick="saveClassroom()">确定</button></div>';
   return '<div class="modal">'+html+'</div>';
 }
 function saveClassroom(){
   var d = STATE.classroomDialog, f=d.form, e={};
+  if(!f.name || !String(f.name).trim()) e.name='请输入教室名称';
   if(!f.code) e.code='请输入教室编码';
-  else if(STATE.classrooms.some(function(r){ return r.id!==f.id && String(r.code||'').trim().toLowerCase()===String(f.code).trim().toLowerCase(); })) e.code='教室编码已存在';
-  if(!f.name) e.name='请输入教室名称';
+  else if(STATE.classrooms.some(function(r){ return r.id!==f.id && String(r.code||'').trim().toLowerCase()===String(f.code).trim().toLowerCase(); })) e.code='教室编码已存在，请修改';
+  if(!f.location || !String(f.location).trim()) e.location='请输入教室位置';
+  if(d.upload.state!=='success') e.cover='请上传教室封面';
+  if(!f.equipment || f.equipment.length===0) e.equipment='请至少选择一项设备';
   d.errors=e;
   if(Object.keys(e).length){ toast('请检查表单','error'); renderAll(); return; }
   var cover = d.upload.state==='success' ? d.upload.url : '';
   if(d.mode==='edit'){
-    var r=findRoom(f.id); r.code=f.code; r.name=f.name; r.location=f.location; if(cover) r.cover=cover;
+    var r=findRoom(f.id);
+    r.code=f.code; r.name=f.name; r.location=f.location; r.cover=cover; r.equipment=(f.equipment||[]).slice();
   } else {
-    STATE.classrooms.push({id:Date.now(), code:f.code, name:f.name, location:f.location, equipment:['镜子','音响'], cover:cover});
+    STATE.classrooms.push({id:Date.now(), code:f.code, name:f.name, location:f.location, equipment:(f.equipment||[]).slice(), status:1, cover:cover});
   }
   closeClassroomDialog();
-  toast(d.mode==='edit'?'教室已更新（原型模拟）':'教室已创建（原型模拟）','success');
+  toast(d.mode==='edit'?'教室更新成功（原型模拟）':'教室创建成功（原型模拟）','success');
 }
 
 /* ================= P-F7-03 / P-F7-04 个人资料 ================= */
 function openProfile(){
   STATE.userMenuOpen=false;
-  STATE.profileUpload={state:'idle',preview:'',url:'',name:''};
-  STATE.profileEdit={ errors:{}, form:{nickname:STATE.profile.nickname} };
+  var p=STATE.profile;
+  STATE.profileUpload=(p.avatar && p.avatar!=='BROKEN') ? {state:'success',preview:'',url:p.avatar,name:''} : {state:'idle',preview:'',url:'',name:''};
+  STATE.profileEdit={ errors:{}, form:{nickname:p.nickname} };
   renderAll();
 }
 function closeProfile(){ STATE.profileEdit=null; renderAll(); }
@@ -810,20 +967,21 @@ function renderProfileDialog(){
   if(!STATE.profileEdit) return '<div class="modal">（无）</div>';
   var pe=STATE.profileEdit, f=pe.form, e=pe.errors, p=STATE.profile;
   var html = '<div class="mh"><span>个人资料</span><span class="close-x" onclick="closeProfile()">✕</span></div><div class="mb">';
-  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(STATE.profileUpload,'profile')+'<div class="tip">保存后顶部头像同步更新</div></div></div>';
-  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" oninput="pf(\'nickname\',this.value)">'+(e.nickname?'<div class="err">'+esc(e.nickname)+'</div>':'')+'</div></div>';
-  html += '<div class="field"><div class="lb">手机号</div><div class="fc"><input class="input readonly" value="'+esc(p.phone)+'" disabled><div class="tip">手机号只读，<span class="pending">待确认 D-F7-B2</span></div></div></div>';
-  html += '<div class="field"><div class="lb">角色</div><div class="fc"><span class="tag primary">'+esc((p.roles||[]).join(' / '))+'</span><div class="tip">角色/租户/权限不可在此修改</div></div></div>';
+  html += '<div class="field"><div class="lb">头像</div><div class="fc">'+renderUploader(STATE.profileUpload,'profile','avatar')+'</div></div>';
+  html += '<div class="field"><div class="lb">昵称</div><div class="fc"><input class="input" value="'+esc(f.nickname)+'" placeholder="请输入昵称" maxlength="20" oninput="pf(\'nickname\',this.value)">'+(e.nickname?'<div class="err">'+esc(e.nickname)+'</div>':'')+'</div></div>';
+  html += '<div class="field"><div class="lb">手机号</div><div class="fc"><input class="input readonly" value="'+esc(p.phone)+'" disabled></div></div>';
   html += '</div><div class="mf"><button class="btn" onclick="closeProfile()">取消</button><button class="btn primary" onclick="saveProfile()">保存</button></div>';
   return '<div class="modal">'+html+'</div>';
 }
 function saveProfile(){
   var pe=STATE.profileEdit, e={};
-  if(!pe.form.nickname || !pe.form.nickname.trim()) e.nickname='昵称不能为空';
+  var nick=(pe.form.nickname||'').trim();
+  if(!nick) e.nickname='请输入昵称';
+  else if(nick.length<2 || nick.length>20) e.nickname='昵称长度 2-20 个字符';
   pe.errors=e;
   if(Object.keys(e).length){ toast('保存失败：请检查表单','error'); renderAll(); return; }
   if(STATE.profileUpload.state==='success') STATE.profile.avatar = STATE.profileUpload.url;
-  STATE.profile.nickname = pe.form.nickname.trim();
+  STATE.profile.nickname = nick;
   STATE.profileEdit=null; STATE.profileUpload={state:'idle',preview:'',url:'',name:''};
   toast('个人资料已保存，顶部已同步','success');
   renderAll();
@@ -832,45 +990,59 @@ function saveProfile(){
 /* ================= P-F7-08 ~ P-F7-13 首页管理 ================= */
 function renderHomePage(){
   var h = STATE.home;
-  ADMIN_ACTIONS = '<button class="btn" onclick="previewHome()">预览小程序首页</button>'+
-    '<button class="btn primary" onclick="openPublish()">发布</button>';
+  ADMIN_ACTIONS = '<button class="btn primary" onclick="openPublish()">发布</button>'+
+    '<button class="btn" onclick="previewHome()">预览</button>'+
+    '<button class="btn" onclick="reloadHome()">刷新</button>';
   var html = '';
-  html += '<div class="note-bar">小程序首页模块采用<b>固定模块配置</b>（非自由拖拽搭建）。可启用/停用、拖动排序、编辑内容；编辑后需<b>保存草稿</b>再<b>发布</b>，发布前不影响线上。</div>';
-  html += '<div class="toolbar" style="margin-bottom:12px"><span class="tag '+(h.publishedVersion===0?'info':'success')+'">线上版本：'+(h.publishedVersion===0?'未发布':'v'+h.publishedVersion)+'</span>'+
-    '<span class="tag '+(h.dirty?'warn':'info')+'">'+(h.dirty?'草稿有未发布变更':'草稿与线上一致')+'</span>'+
-    (h.lastPublishedAt?'<span style="color:var(--text-3);font-size:12px">最近发布：'+esc(h.lastPublishedAt)+'</span>':'')+
-    '<span class="mock-tag">原型模拟数据</span></div>';
+  html += '<div class="home-card"><div class="card-hd"><span>首页模块列表</span>'+
+    '<div class="header-info"><span class="tag '+(h.dirty?'warn':'success')+'">'+(h.dirty?'有未发布变更':'已同步')+'</span>'+
+    '<span class="version-info">草稿 v'+(h.draftVersion||'-')+' / 已发布 v'+(h.publishedVersion||'-')+'</span></div></div>';
+  html += '<div class="note-bar"><b>拖拽左侧手柄可调整模块顺序</b>，修改后点击右上角「发布」生效。小程序首页为固定模块配置：可启用/停用、拖动排序、编辑内容；保存草稿后不影响线上。</div>';
 
   if(STATE.listError){
-    html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载首页配置失败</div><div class="rs">'+esc(STATE.listError)+'</div><div style="margin-top:14px"><button class="btn primary" onclick="reloadHome()">重试</button></div></div>';
+    html += '<div class="result err"><div class="ico">⚠</div><div class="rt">加载首页配置失败</div><div class="rs">'+esc(STATE.listError)+'</div><div style="margin-top:14px"><button class="btn primary" onclick="reloadHome()">重试</button></div></div></div>';
     return html;
   }
-  var mods = h.modules.slice().sort(function(a,b){return a.sort-b.sort;});
+  var mods = sortedModules();
+  html += '<table class="tbl mod-tbl"><thead><tr><th style="width:50px;text-align:center">拖拽</th><th style="width:140px">类型</th><th>摘要</th><th style="width:100px;text-align:center">是否启用</th><th style="width:140px">操作</th></tr></thead><tbody>';
   mods.forEach(function(m){
-    html += '<div class="mod-row '+(m.enabled?'':'dis')+'" draggable="true"'+
+    html += '<tr '+(m.enabled?'':'style="opacity:.6"')+' draggable="true"'+
       ' ondragstart="onModuleDragStart(event,\''+m.type+'\')" ondragover="onModuleDragOver(event,\''+m.type+'\')"'+
       ' ondragleave="onModuleDragLeave(event)" ondrop="onModuleDrop(event,\''+m.type+'\')" ondragend="onModuleDragEnd(event)">'+
-      '<div class="drag-handle" title="按住拖动排序">⠿</div>'+
-      '<div class="ord-no" title="排序值（1 最靠前）">'+m.sort+'</div>'+
-      '<div><div class="mname">'+esc(m.name)+'</div><div class="mtype">'+moduleSummary(m)+'</div></div>'+
-      '<div class="mright">'+
-      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><span style="font-size:12px;color:var(--text-3)">启用</span>'+
-      '<span class="switch '+(m.enabled?'on':'')+'" onclick="toggleHomeModule(\''+m.type+'\')"><i></i></span></label>'+
-      '<button class="btn sm" onclick="openModuleDrawer(\''+m.type+'\')">编辑</button></div></div>';
+      '<td style="text-align:center"><span class="drag-handle" title="按住拖动排序">'+iconSvg('rank')+'</span></td>'+
+      '<td class="mtype-tag"><span class="tag '+moduleTagType(m.type)+'">'+moduleTypeLabel(m.type)+'</span></td>'+
+      '<td class="m-summary">'+moduleSummary(m)+'</td>'+
+      '<td style="text-align:center"><span class="switch '+(m.enabled?'on':'')+'" onclick="toggleHomeModule(\''+m.type+'\')"><i></i></span></td>'+
+      '<td><button class="btn link" onclick="openModuleDrawer(\''+m.type+'\')">编辑</button>'+
+      '<button class="btn link warn" onclick="resetHomeModule(\''+m.type+'\')">重置</button></td></tr>';
   });
-  html += '<div class="legend">排序：拖动 <b>⠿</b> 手柄调整模块顺序，左侧圆圈数字为<b>排序值</b>（1 最靠前，<span class="k">D-F7-D2</span>）· 启用开关：停用后小程序不渲染该模块（<span class="k">D-F7-E4</span>）· 编辑：右侧抽屉（P-F7-09~13）</div>';
+  html += '</tbody></table>';
+  html += '<div class="legend">拖拽 <b>⠿</b> 手柄调整模块顺序（<span class="k">D-F7-D2</span>）· 停用后小程序不渲染该模块（<span class="k">D-F7-E4</span>）· 编辑/重置打开右侧抽屉（P-F7-09~13）<span class="mock-tag">原型模拟数据</span></div></div>';
   return html;
 }
-function moduleIcon(t){ return {banner:'🖼',teachers:'👥',courses:'📚',video:'▶',notice:'📢'}[t]||'▦'; }
+function moduleTypeLabel(t){ return {banner:'Banner 轮播',teachers:'师资团队',courses:'推荐课程',video:'舞蹈视频'}[t]||t; }
+function moduleTagType(t){ return {banner:'primary',teachers:'success',courses:'warn',video:'danger'}[t]||''; }
 function moduleSummary(m){
-  if(m.type==='banner') return '轮播组图 · '+((m.items||[]).length)+' 张 · 跳转 '+(m.items&&m.items[0]?linkLabel(m.items[0].link):'无');
-  if(m.type==='teachers') return '模块标题「'+esc(m.title)+'」· 展示 '+m.limit+' 位 · 已选 '+((m.teacher_ids||[]).length)+' 位';
-  if(m.type==='courses') return '模块标题「'+esc(m.title)+'」· 展示 '+m.limit+' 门 · 已选 '+((m.course_ids||[]).length)+' 门 · 排序 '+(m.sort_rule==='manual'?'手动顺序':'最新');
-  if(m.type==='video') return '模块标题「'+esc(m.title)+'」· '+((m.items||[]).length)+' 个视频';
-  if(m.type==='notice') return '标题「'+esc(m.noticeTitle||'')+'」· 有效期 '+(m.valid_from||'-')+' ~ '+(m.valid_to||'-')+' · '+(m.status||'展示');
-  return '';
+  if(m.type==='banner'){ var n=(m.items||[]).length; return n>0?'已配置 '+n+' 个 Banner':'未配置'; }
+  if(m.type==='teachers'){ var ids=(m.config&&m.config.teacher_ids)||[]; return ids.length>0?'已选 '+ids.length+' 位教师':'未配置'; }
+  if(m.type==='courses'){ var cids=(m.config&&m.config.course_ids)||[]; return cids.length>0?'已选 '+cids.length+' 门课程':'未配置'; }
+  if(m.type==='video'){ var vn=(m.items||[]).filter(function(it){return it&&it.video_url;}).length; return vn>0?'已配置 '+vn+' 个视频':'未配置'; }
+  return '未知类型';
 }
-function linkLabel(v){ return {course_detail:'课程详情',course_list:'课程列表',video:'视频',none:'无跳转'}[v]||v; }
+function resetHomeModule(type){
+  var m=homeModule(type); if(!m) return;
+  var defaults={
+    banner:{type:'banner',name:'Banner 轮播',enabled:m.enabled,sort:m.sort,items:[]},
+    teachers:{type:'teachers',name:'师资团队',enabled:m.enabled,sort:m.sort,config:{teacher_ids:[]}},
+    courses:{type:'courses',name:'推荐课程',enabled:m.enabled,sort:m.sort,config:{course_ids:[]}},
+    video:{type:'video',name:'舞蹈视频',enabled:m.enabled,sort:m.sort,items:[]}
+  };
+  var idx=STATE.home.modules.indexOf(m);
+  if(idx>=0) STATE.home.modules[idx]=defaults[type];
+  STATE.home.dirty=true;
+  toast('已重置为默认配置（原型模拟）','success');
+  renderAll();
+}
 function reloadHome(){ STATE.listError=''; toast('已重新加载（原型模拟）','success'); renderAdminPage(); }
 
 function toggleHomeModule(type){
@@ -919,113 +1091,197 @@ function onModuleDrop(e,type){
 function onModuleDragEnd(e){ STATE.dragType=null; STATE.dragOver=null; renderAdminPage(); }
 function markDirtyRender(){ STATE.home.dirty=true; renderAdminPage(); }
 
-/* --- 模块配置抽屉（P-F7-09 ~ P-F7-13） --- */
+/* --- 模块配置抽屉（P-F7-09 ~ P-F7-13，对齐 ModuleDrawer.vue） --- */
 function openModuleDrawer(type){
   var m = homeModule(type);
-  STATE.drawer.open = true; STATE.drawer.type = type;
-  STATE.drawer.upload = {state:'idle',preview:'',url:'',name:''};
-  // 深拷贝一份草稿表单
-  STATE.drawer.form = JSON.parse(JSON.stringify(m));
+  STATE.drawer = {open:true, type:type, editIndex:0, errors:{}, upload:{state:'idle',preview:'',url:'',name:''}, form:JSON.parse(JSON.stringify(m))};
+  var f = STATE.drawer.form;
   if(type==='banner'){
-    var it=(STATE.drawer.form.items||[])[0] || {image:'',title:'',subtitle:'',link:'none',order:1};
-    STATE.drawer.form.items=[it];
-    if(it.image && it.image!=='BROKEN'){ STATE.drawer.upload.state='success'; STATE.drawer.upload.url=it.image; }
+    if(!f.items || !f.items.length) f.items=[{image_url:'',title:'',subtitle:'',link_url:''}];
+    f.items.forEach(function(it){ it._state = it.image_url ? 'success' : 'idle'; });
+  } else if(type==='teachers'){
+    f.teacher_ids = (((f.config||{}).teacher_ids)||[]).slice();
+  } else if(type==='courses'){
+    f.course_ids = (((f.config||{}).course_ids)||[]).slice();
   } else if(type==='video'){
-    var v=(STATE.drawer.form.items||[])[0] || {title:'',cover:'',url:'',link:'none'};
-    STATE.drawer.form.items=[v];
-    if(v.cover && v.cover!=='BROKEN'){ STATE.drawer.upload.state='success'; STATE.drawer.upload.url=v.cover; }
+    if(!f.items || !f.items.length) f.items=[{title:'',description:'',cover_url:'',video_url:''}];
+    f.items.forEach(function(it){ it._state = it.cover_url ? 'success' : 'idle'; });
   }
   renderAll();
 }
 function closeModuleDrawer(){ STATE.drawer.open=false; renderAll(); }
 function df(k,v){ STATE.drawer.form[k]=v; }
 function drawerToggleTeacher(id){
-  var arr=STATE.drawer.form.teacher_ids||[];
+  var f=STATE.drawer.form;
+  var arr=(f.teacher_ids||[]).slice();
   var i=arr.indexOf(id);
-  if(i>=0) arr.splice(i,1); else { if(arr.length>=12){ toast('最多选择 12 位','error'); return; } arr.push(id); }
-  STATE.drawer.form.teacher_ids=arr; renderDrawer();
+  if(i>=0) arr.splice(i,1); else arr.push(id);
+  f.teacher_ids=arr; renderDrawer();
 }
 function drawerToggleCourse(id){
-  var arr=STATE.drawer.form.course_ids||[];
-  var i=arr.indexOf(id);
-  if(i>=0) arr.splice(i,1); else { if(arr.length>=12){ toast('最多选择 12 门','error'); return; } arr.push(id); }
-  STATE.drawer.form.course_ids=arr; renderDrawer();
-}
-function drawerImageField(field){
   var f=STATE.drawer.form;
-  if(f.items && f.items[0]){ f.items[0][field] = STATE.drawer.upload.url; }
+  var arr=(f.course_ids||[]).slice();
+  var i=arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else arr.push(id);
+  f.course_ids=arr; renderDrawer();
 }
+function renderItemUploader(it, idx, variant, field){
+  var st = it._state || (it[field] ? 'success' : 'idle');
+  var cls = uploaderClass(variant);
+  var src = it._preview ? imgSrc(it._preview) : (it[field] ? imgSrc(it[field]) : '');
+  var box='';
+  if(st==='idle') box='<div class="up-box '+cls+'" onclick="drawerItemChoose('+idx+',\'ok\')">'+iconSvg('plus')+'<span>'+uploaderPlaceholder(variant)+'</span></div>';
+  else if(st==='preview') box='<div class="up-box '+cls+'"><img src="'+src+'" alt="预览"></div>';
+  else if(st==='uploading') box='<div class="up-box '+cls+' uploading"><div class="spinner"></div><span>上传中…</span></div>';
+  else if(st==='success') box=src?'<div class="up-box '+cls+'"><img src="'+src+'" alt="已上传"></div>':'<div class="up-box '+cls+'">'+iconSvg('plus')+'<span>'+uploaderPlaceholder(variant)+'</span></div>';
+  else box='<div class="up-box '+cls+'" style="border-style:solid;border-color:var(--red);color:var(--red)">×</div>';
+  var extra='';
+  if(st==='preview') extra='<div class="hint">已选择，尚未上传</div><div class="up-actions"><button class="btn sm primary" onclick="drawerItemUpload('+idx+')">上传</button><button class="btn sm" onclick="drawerItemChoose('+idx+',\'ok\')">更换</button><button class="btn sm" onclick="drawerItemRemove('+idx+')">移除</button></div>';
+  else if(st==='uploading') extra='<div class="hint">正在上传到对象存储…（原型模拟，未接通）</div><div class="up-actions"><button class="btn sm" onclick="drawerItemResolve('+idx+',true)">模拟成功</button><button class="btn sm" onclick="drawerItemResolve('+idx+',false)">模拟失败</button></div>';
+  else if(st==='success') extra='<div class="up-ok">✓ 上传成功（原型模拟）</div><div class="up-actions"><button class="btn sm" onclick="drawerItemChoose('+idx+',\'ok\')">更换</button><button class="btn sm" onclick="drawerItemRemove('+idx+')">移除</button></div>';
+  else if(st==='format-error') extra='<div class="up-err">仅支持 JPG/PNG/WEBP 格式</div><div class="up-actions"><button class="btn sm" onclick="drawerItemChoose('+idx+',\'ok\')">重新选择</button></div>';
+  else if(st==='size-error') extra='<div class="up-err">图片不能超过 5MB</div><div class="up-actions"><button class="btn sm" onclick="drawerItemChoose('+idx+',\'ok\')">重新选择</button></div>';
+  else if(st==='fail') extra='<div class="up-err">上传失败，请重试</div><div class="up-actions"><button class="btn sm primary" onclick="drawerItemUpload('+idx+')">重试</button><button class="btn sm" onclick="drawerItemRemove('+idx+')">取消</button></div>';
+  return '<div class="uploader">'+box+'<div class="up-tip">支持 JPG/PNG/WEBP，最大 5MB</div>'+extra+'</div>';
+}
+function renderVideoFile(it, idx){
+  var has = !!it.video_url;
+  var box = '<div class="up-box video" onclick="drawerPickVideoFile('+idx+')">'+iconSvg('upload')+'<span>'+(has?'已上传':'上传视频文件')+'</span></div>';
+  return '<div class="uploader" style="flex-direction:row;align-items:flex-start;gap:12px">'+box+
+    '<div class="up-side"><input class="input" value="'+esc(it.video_url||'')+'" placeholder="或填外部视频 URL" oninput="drawerItem(\'video_url\',this.value,'+idx+')"><div class="up-tip">支持 MP4/WEBM/MOV，最大 200MB</div></div></div>';
+}
+function drawerItemChoose(idx, kind){
+  var it=(STATE.drawer.form.items||[])[idx]; if(!it) return;
+  if(kind==='bad-format'){ it._state='format-error'; it._preview=''; toast('仅支持 JPG/PNG/WEBP 格式','error'); }
+  else if(kind==='big'){ it._state='size-error'; it._preview=''; toast('图片不能超过 5MB','error'); }
+  else { it._state='preview'; it._preview = STATE.drawer.type==='video' ? 'VIDEO1' : 'BANNER2'; }
+  renderAll();
+}
+function drawerItemUpload(idx){
+  var it=(STATE.drawer.form.items||[])[idx]; if(!it) return;
+  it._state='uploading'; renderAll();
+}
+function drawerItemResolve(idx, ok){
+  var it=(STATE.drawer.form.items||[])[idx]; if(!it) return;
+  if(ok){
+    var field = STATE.drawer.type==='video' ? 'cover_url' : 'image_url';
+    it[field] = it._preview || (STATE.drawer.type==='video' ? 'VIDEO1' : 'BANNER2');
+    it._state='success'; toast('上传成功（原型模拟）','success');
+  } else { it._state='fail'; toast('上传失败，请重试','error'); }
+  renderAll();
+}
+function drawerItemRemove(idx){
+  var it=(STATE.drawer.form.items||[])[idx]; if(!it) return;
+  var field = STATE.drawer.type==='video' ? 'cover_url' : 'image_url';
+  it[field]=''; it._state='idle'; it._preview=''; renderAll();
+}
+function drawerPickVideoFile(idx){
+  var it=(STATE.drawer.form.items||[])[idx]; if(!it) return;
+  it.video_url = 'mock-video-file.mp4'; it._vstate='success';
+  toast('视频上传成功（原型模拟）','success'); renderAll();
+}
+function drawerAddBanner(){
+  var f=STATE.drawer.form;
+  if((f.items||[]).length>=5){ toast('最多支持 5 个 Banner','error'); return; }
+  f.items=f.items||[]; f.items.push({image_url:'',title:'',subtitle:'',link_url:'',_state:'idle'});
+  renderAll();
+}
+function drawerRemoveBanner(idx){ STATE.drawer.form.items.splice(idx,1); renderAll(); }
+function drawerAddVideo(){
+  var f=STATE.drawer.form;
+  if((f.items||[]).length>=10){ toast('最多支持 10 个视频','error'); return; }
+  f.items=f.items||[]; f.items.push({title:'',description:'',cover_url:'',video_url:'',_state:'idle'});
+  renderAll();
+}
+function drawerRemoveVideo(idx){ STATE.drawer.form.items.splice(idx,1); renderAll(); }
 function renderDrawer(){
   var d=STATE.drawer; if(!d.open) return;
   var f=d.form, t=d.type;
-  var titles={banner:'Banner 轮播配置',teachers:'师资团队配置',courses:'推荐课程配置',video:'舞蹈视频配置',notice:'公告/活动配置'};
-  var html = '<div class="dh"><span>'+titles[t]+'</span><span class="close-x" onclick="closeModuleDrawer()">✕</span></div><div class="db">';
+  var title = '编辑 · ' + moduleTypeLabel(t);
+  var html = '<div class="dh"><span>'+title+'</span><span class="close-x" onclick="closeModuleDrawer()">✕</span></div><div class="db">';
 
   if(t==='banner'){
-    var it=(f.items||[])[0]||{};
-    html += '<div class="field"><div class="lb">轮播图</div><div class="fc">'+renderUploader(d.upload,'drawer')+'<div class="tip">点击「模拟成功」后写入轮播图</div></div></div>';
-    html += '<div class="field"><div class="lb">标题</div><div class="fc"><input class="input" value="'+esc(it.title||'')+'" oninput="drawerItem(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">副标题</div><div class="fc"><input class="input" value="'+esc(it.subtitle||'')+'" oninput="drawerItem(\'subtitle\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">跳转目标</div><div class="fc"><select class="input" onchange="drawerItem(\'link\',this.value)">'+linkOptions(it.link)+'</select><div class="tip">枚举：课程详情/课程列表/视频/无跳转（<span class="pending">D-F7-D6</span>）</div></div></div>';
-    html += '<div class="field"><div class="lb">展示顺序</div><div class="fc"><input class="input" value="'+esc(it.order||1)+'" oninput="drawerItem(\'order\',this.value)"></div></div>';
+    (f.items||[]).forEach(function(it, idx){
+      html += '<div class="drawer-item"><div class="di-hd"><span class="banner-index">#'+(idx+1)+'</span><button class="btn link danger" onclick="drawerRemoveBanner('+idx+')">删除</button></div>';
+      html += '<div class="field"><div class="lb">图片</div><div class="fc">'+renderItemUploader(it, idx, 'banner', 'image_url')+'</div></div>';
+      html += '<div class="field"><div class="lb">标题</div><div class="fc"><input class="input" value="'+esc(it.title||'')+'" placeholder="Banner 标题" maxlength="30" oninput="drawerItem(\'title\',this.value,'+idx+')"></div></div>';
+      html += '<div class="field"><div class="lb">副标题</div><div class="fc"><input class="input" value="'+esc(it.subtitle||'')+'" placeholder="副标题（选填）" maxlength="50" oninput="drawerItem(\'subtitle\',this.value,'+idx+')"></div></div>';
+      html += '<div class="field"><div class="lb">跳转链接</div><div class="fc"><input class="input" value="'+esc(it.link_url||'')+'" placeholder="点击后跳转的 URL（选填）" oninput="drawerItem(\'link_url\',this.value,'+idx+')"></div></div>';
+      html += '</div>';
+    });
+    if((f.items||[]).length<5){ html += '<button class="btn" style="width:100%;border-style:dashed" onclick="drawerAddBanner()">'+iconSvg('plus')+' 添加 Banner</button>'; }
+    else { html += '<div class="note-bar" style="margin-top:8px">最多支持 5 个 Banner</div>'; }
   } else if(t==='teachers'){
-    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">展示数量</div><div class="fc"><input class="input" value="'+esc(f.limit)+'" oninput="df(\'limit\',Number(this.value))"><div class="tip">1 ~ 12</div></div></div>';
-    html += '<div class="field"><div class="lb">教师选择</div><div class="fc"><div class="multi">';
+    html += '<div class="field"><div class="lb">选择教师</div><div class="fc"><div class="tip" style="margin:0 0 6px">从教师列表中选择</div><div class="multi" style="max-height:none">';
     MOCK_TEACHERS.forEach(function(tc){
       var sel=(f.teacher_ids||[]).indexOf(tc.id)>=0;
       html += '<div class="mt '+(sel?'sel':'')+'" onclick="drawerToggleTeacher('+tc.id+')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+esc(tc.name)+' · '+esc(tc.specialty)+'</div>';
     });
     html += '</div><div class="tip">数据源为现有教师数据（<span class="pending">D-F7-D4</span>）</div></div></div>';
   } else if(t==='courses'){
-    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">展示数量</div><div class="fc"><input class="input" value="'+esc(f.limit)+'" oninput="df(\'limit\',Number(this.value))"><div class="tip">1 ~ 12</div></div></div>';
-    html += '<div class="field"><div class="lb">课程选择</div><div class="fc"><div class="multi">';
+    html += '<div class="field"><div class="lb">选择课程</div><div class="fc"><div class="tip" style="margin:0 0 6px">选择要推荐的课程（选填，不选则按排序自动）</div><div class="multi" style="max-height:none">';
     MOCK_COURSES.forEach(function(c){
       var sel=(f.course_ids||[]).indexOf(c.id)>=0;
       html += '<div class="mt '+(sel?'sel':'')+'" onclick="drawerToggleCourse('+c.id+')"><span class="chk '+(sel?'on':'')+'">'+(sel?'✓':'')+'</span>'+esc(c.name)+' <span class="tag info">'+esc(c.type)+'</span></div>';
     });
     html += '</div><div class="tip">数据源为现有课程数据（<span class="pending">D-F7-D4</span>）</div></div></div>';
-    html += '<div class="field"><div class="lb">排序规则</div><div class="fc"><select class="input" onchange="df(\'sort_rule\',this.value)"><option value="manual"'+(f.sort_rule==='manual'?' selected':'')+'>手动顺序</option><option value="latest"'+(f.sort_rule==='latest'?' selected':'')+'>最新</option></select></div></div>';
   } else if(t==='video'){
-    var v=(f.items||[])[0]||{};
-    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">封面图</div><div class="fc">'+renderUploader(d.upload,'drawer')+'</div></div>';
-    html += '<div class="field"><div class="lb">视频标题</div><div class="fc"><input class="input" value="'+esc(v.title||'')+'" oninput="drawerItem(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">视频地址</div><div class="fc"><input class="input" value="'+esc(v.url||'')+'" placeholder="https://..." oninput="drawerItem(\'url\',this.value)"><div class="tip">第一阶段用外链，不做视频文件托管（<span class="pending">D-F7-D5</span>）</div></div></div>';
-    html += '<div class="field"><div class="lb">跳转目标</div><div class="fc"><select class="input" onchange="drawerItem(\'link\',this.value)">'+linkOptions(v.link)+'</select></div></div>';
-  } else if(t==='notice'){
-    html += '<div class="field"><div class="lb">模块标题</div><div class="fc"><input class="input" value="'+esc(f.title||'')+'" oninput="df(\'title\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">公告标题</div><div class="fc"><input class="input" value="'+esc(f.noticeTitle||'')+'" oninput="df(\'noticeTitle\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">内容</div><div class="fc"><textarea class="input" style="height:90px" oninput="df(\'content\',this.value)">'+esc(f.content||'')+'</textarea></div></div>';
-    html += '<div class="field"><div class="lb">图片</div><div class="fc">'+renderUploader(d.upload,'drawer')+'<div class="tip">可选</div></div></div>';
-    html += '<div class="field"><div class="lb">有效期</div><div class="fc" style="display:flex;gap:8px;align-items:center"><input class="input" type="date" value="'+esc(f.valid_from||'')+'" oninput="df(\'valid_from\',this.value)"><span>~</span><input class="input" type="date" value="'+esc(f.valid_to||'')+'" oninput="df(\'valid_to\',this.value)"></div></div>';
-    html += '<div class="field"><div class="lb">展示状态</div><div class="fc"><select class="input" onchange="df(\'status\',this.value)"><option'+(f.status==='展示'?' selected':'')+'>展示</option><option'+(f.status==='隐藏'?' selected':'')+'>隐藏</option></select></div></div>';
+    (f.items||[]).forEach(function(it, idx){
+      html += '<div class="drawer-item"><div class="di-hd"><span class="banner-index">视频 #'+(idx+1)+'</span><button class="btn link danger" onclick="drawerRemoveVideo('+idx+')">删除</button></div>';
+      html += '<div class="field"><div class="lb">封面</div><div class="fc">'+renderItemUploader(it, idx, 'video', 'cover_url')+'</div></div>';
+      html += '<div class="field"><div class="lb">视频</div><div class="fc">'+renderVideoFile(it, idx)+'</div></div>';
+      html += '<div class="field"><div class="lb">标题</div><div class="fc"><input class="input" value="'+esc(it.title||'')+'" placeholder="例如：本周舞蹈教学" maxlength="30" oninput="drawerItem(\'title\',this.value,'+idx+')"></div></div>';
+      html += '<div class="field"><div class="lb">描述</div><div class="fc"><textarea class="input" rows="2" placeholder="视频简介（选填）" maxlength="100" oninput="drawerItem(\'description\',this.value,'+idx+')">'+esc(it.description||'')+'</textarea></div></div>';
+      html += '</div>';
+    });
+    if((f.items||[]).length<10){ html += '<button class="btn" style="width:100%;border-style:dashed" onclick="drawerAddVideo()">'+iconSvg('plus')+' 添加视频</button>'; }
+    else { html += '<div class="note-bar" style="margin-top:8px">最多支持 10 个视频</div>'; }
   }
-  html += '<div class="legend">当前为<b>草稿编辑</b>，点「保存草稿」写回草稿；<b>点顶部「发布」后小程序才可见</b>（<span class="k">D-F7-E1</span>）。</div>';
+  html += '<div class="legend">当前为<b>草稿编辑</b>，点「保存草稿」写回草稿；<b>点右上角「发布」后小程序才可见</b>（<span class="k">D-F7-E1</span>）。</div>';
   html += '</div><div class="df"><button class="btn" onclick="closeModuleDrawer()">取消</button><button class="btn primary" onclick="saveDraft()">保存草稿</button></div>';
   q('drawer-box').innerHTML = html;
   q('drawer-box').className = 'drawer show';
   q('drawer-mask').className = 'drawer-mask show';
 }
-function drawerItem(key,val){ var f=STATE.drawer.form; if(!f.items) f.items=[{}]; if(!f.items[0]) f.items[0]={}; f.items[0][key]=val; }
-function linkOptions(cur){
-  var opts=[['none','无跳转'],['course_detail','课程详情'],['course_list','课程列表'],['video','视频']];
-  return opts.map(function(o){ return '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+function drawerItem(key, val, idx){
+  var f=STATE.drawer.form; if(!f.items) f.items=[{}];
+  var i=(idx==null?0:idx); if(!f.items[i]) f.items[i]={};
+  f.items[i][key]=val;
 }
 function saveDraft(){
   var d=STATE.drawer, f=d.form, t=d.type;
-  // 校验
-  if(t==='banner'){ var it=(f.items||[])[0]||{}; if(!it.title){ toast('请填写轮播标题','error'); return; } if(!d.upload.url && !it.image){ toast('请上传轮播图','error'); return; } }
-  if(t==='video'){ var v=(f.items||[])[0]||{}; if(!v.title){ toast('请填写视频标题','error'); return; } if(!(d.upload.url||v.cover)){ toast('请上传封面图','error'); return; } if(!v.url){ toast('请填写视频地址','error'); return; } }
-  if(t==='notice'){ if(!f.noticeTitle){ toast('请填写公告标题','error'); return; } if(!f.content){ toast('请填写公告内容','error'); return; } }
-  if(t==='teachers'||t==='courses'){ var lim=Number(f.limit); if(!lim||lim<1||lim>12){ toast('展示数量需在 1~12','error'); return; } }
-  // 图片写回
-  if(d.upload.state==='success'){ if(t==='banner') drawerImageField('image'); if(t==='video') drawerImageField('cover'); if(t==='notice') f.image=d.upload.url; }
-  // 写回草稿模块
+  var items=f.items||[];
+  if(t==='banner'){
+    if(items.length===0){ toast('请至少添加 1 个 Banner','error'); return; }
+    if(items.some(function(it){return !it.image_url;})){ toast('每个 Banner 必须上传图片','error'); return; }
+    if(items.some(function(it){return !it.title || !String(it.title).trim();})){ toast('每个 Banner 必须填写标题','error'); return; }
+  }
+  if(t==='teachers'){
+    if(!(f.teacher_ids||[]).length){ toast('请至少选择 1 位教师','error'); return; }
+  }
+  if(t==='courses'){
+    if(!(f.course_ids||[]).length){ toast('请至少选择 1 门课程','error'); return; }
+  }
+  if(t==='video'){
+    if(items.length===0){ toast('请至少添加 1 个视频','error'); return; }
+    if(items.some(function(it){return !it.cover_url;})){ toast('每个视频必须上传封面图','error'); return; }
+    if(items.some(function(it){return !it.title || !String(it.title).trim();})){ toast('每个视频必须填写标题','error'); return; }
+    if(items.some(function(it){return !it.video_url;})){ toast('每个视频必须上传或填写视频地址','error'); return; }
+  }
   var m=homeModule(t);
-  if(t==='banner'||t==='video'){ m.title=f.title; m.items=f.items; }
-  else { for(var k in f){ if(k!=='type'&&k!=='name'&&k!=='sort'&&k!=='enabled') m[k]=f[k]; } m.title=f.title||m.title; }
+  if(t==='banner'){
+    m.items = items.filter(function(it){ return it.image_url && it.title && String(it.title).trim(); }).map(function(it){
+      return {image_url:it.image_url, title:it.title, subtitle:it.subtitle||'', link_url:it.link_url||''};
+    });
+  } else if(t==='teachers'){
+    m.config = {teacher_ids:(f.teacher_ids||[]).slice()};
+  } else if(t==='courses'){
+    m.config = {course_ids:(f.course_ids||[]).slice()};
+  } else if(t==='video'){
+    m.items = items.filter(function(it){ return it.video_url && it.cover_url && it.title && String(it.title).trim(); }).map(function(it){
+      return {title:it.title, description:it.description||'', cover_url:it.cover_url, video_url:it.video_url};
+    });
+  }
   STATE.home.dirty=true;
   STATE.drawer.open=false;
   toast('草稿已保存（原型模拟）','success');
@@ -1051,45 +1307,60 @@ function renderPreviewPage(){
     '<div class="capsule"><i></i><i></i><i></i><span class="sep"></span><span class="ring"></span></div></div>';
 
   if(STATE.previewFail){
-    html += '<div class="ph-hidden-note">接口请求失败 → 纯配置模块（Banner/视频/公告）无缓存，已隐藏；师资/课程回落真实 API</div>';
+    html += '<div class="ph-hidden-note">接口请求失败 → 纯配置模块（Banner/视频）无缓存，已隐藏；师资/课程回落真实 API</div>';
   }
   var shown=0;
   mods.forEach(function(m){
     if(m.type==='banner'){
       if(STATE.previewFail){ return; }
-      var it=(m.items||[])[0]||{};
-      html += '<div class="m-banner">'+ (imgSrc(it.image)?'<img src="'+imgSrc(it.image)+'" alt="">':'<div class="cover-ph">图片失效 · 占位</div>') +
-        '<div class="bov"></div><div class="bcap"><b>'+esc(it.title||'')+'</b><span>'+esc(it.subtitle||'')+'</span></div>'+
-        '<div class="m-dots"><i class="on"></i><i></i><i></i></div></div>';
+      var items=m.items||[]; if(!items.length) return;
+      var it=items[0];
+      var dots='';
+      for(var i=0;i<items.length;i++){ dots += '<i class="'+(i===0?'on':'')+'"></i>'; }
+      html += '<div class="m-banner">'+ (imgSrc(it.image_url)?'<img src="'+imgSrc(it.image_url)+'" alt="">':'<div class="cover-ph">图片失效 · 占位</div>') +
+        '<div class="bov"></div><div class="bcap">'+
+        (it.title?'<b>'+esc(it.title)+'</b>':'')+
+        (it.subtitle?'<div class="bdiv"><span class="bl"></span><span class="bd"></span><span class="bl"></span></div><span>'+esc(it.subtitle)+'</span>':'')+
+        '</div><div class="m-dots">'+dots+'</div></div>';
       shown++;
     } else if(m.type==='teachers'){
-      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('people',15)+'<b>'+esc(m.title||'师资团队')+'</b></div></div><div class="m-trow">';
-      MOCK_TEACHERS.filter(function(t){return (m.teacher_ids||[]).indexOf(t.id)>=0;}).slice(0,m.limit).forEach(function(t){
-        html += '<div class="m-teacher"><div class="m-tav"><span>'+esc((t.name||'?').charAt(0))+'</span></div><div class="m-tn">'+esc(t.name)+'</div><div class="m-ts">'+esc(t.specialty||'')+'</div></div>';
+      var ids=((m.config||{}).teacher_ids)||[];
+      var tlist=MOCK_TEACHERS.filter(function(t){return ids.indexOf(t.id)>=0;});
+      if(!tlist.length) return;
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('people',15)+'<b>师资团队</b></div></div><div class="m-trow">';
+      tlist.forEach(function(t){
+        html += '<div class="m-teacher"><div class="m-tav">'+
+          (t.avatar_url ? '<img src="'+imgSrc(t.avatar_url)+'" alt="">' : '<div class="avatar-placeholder"><div class="avatar-head"></div><div class="avatar-body"></div></div>')+
+          '</div><div class="m-tn">'+esc(t.nickname||t.name||'未知教师')+'</div><div class="m-ts">'+esc((t.specialties&&t.specialties[0])||t.title||t.specialty||'舞蹈教师')+'</div></div>';
       });
       html += '</div></div>'; shown++;
     } else if(m.type==='courses'){
-      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('star',15)+'<b>'+esc(m.title||'推荐课程')+'</b></div><span class="more">全部课程 ›</span></div><div class="m-clist">';
-      MOCK_COURSES.filter(function(c){return (m.course_ids||[]).indexOf(c.id)>=0;}).slice(0,m.limit).forEach(function(c){
-        html += '<div class="m-course"><div class="m-cimg"></div><div class="m-cinfo"><div class="m-cname">'+esc(c.name)+'</div><div class="m-cdesc">'+esc(c.type||'')+'</div></div></div>';
+      var cids=((m.config||{}).course_ids)||[];
+      var clist=MOCK_COURSES.filter(function(c){return cids.indexOf(c.id)>=0;});
+      if(!clist.length) return;
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('star',15)+'<b>推荐课程</b></div><span class="more">全部课程 ›</span></div><div class="m-clist">';
+      clist.slice(0,3).forEach(function(c){
+        html += '<div class="m-course"><div class="m-cimg">'+
+          '<img src="'+(c.cover_url?imgSrc(c.cover_url):IMG.COURSE_DEFAULT)+'" alt="">'+
+          '</div><div class="m-cinfo"><div class="m-cname">'+esc(c.name)+'</div><div class="m-cdesc">'+esc(c.description || '能力素质训练是一门新手小白的入门必...')+'</div></div></div>';
       });
       html += '</div></div>'; shown++;
     } else if(m.type==='video'){
       if(STATE.previewFail){ return; }
-      var v=(m.items||[])[0]||{};
-      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('play',15)+'<b>'+esc(m.title||'舞蹈视频')+'</b></div></div>'+
-        '<div class="m-vcard"><div class="m-vcover">'+(imgSrc(v.cover)?'<img src="'+imgSrc(v.cover)+'" alt="">':'<div class="cover-ph">封面失效</div>')+
-        '<div class="m-vov"></div><div class="m-play">'+miniIcon('play',18)+'</div><div class="m-vdur">03:28</div></div>'+
-        '<div class="m-vinfo"><span class="m-vtitle">'+esc(v.title||'')+'</span><span class="m-vdesc">'+esc(v.description||'')+'</span></div></div></div>';
-      shown++;
-    } else if(m.type==='notice'){
-      if(STATE.previewFail){ return; }
-      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('star',15)+'<b>'+esc(m.title||'公告')+'</b></div><span class="more">'+esc(m.valid_to||'')+' 截止</span></div>'+
-        '<div class="m-notice"><b>'+esc(m.noticeTitle||'')+'</b><p>'+esc(m.content||'')+'</p></div></div>';
-      shown++;
+      var vitems=(m.items||[]).filter(function(v){return v&&v.video_url;});
+      if(!vitems.length) return;
+      html += '<div class="m-sec"><div class="m-sh"><div class="mst">'+miniIcon('play',15)+'<b>舞动 · 让生活更美好</b></div></div><div class="m-vlist">';
+      vitems.slice(0,3).forEach(function(v){
+        html += '<div class="m-vcard"><div class="m-vcover">'+(imgSrc(v.cover_url)?'<img src="'+imgSrc(v.cover_url)+'" alt="">':'<div class="cover-ph">封面失效</div>')+
+          '<div class="m-vov"></div><div class="m-play">'+miniIcon('play',18)+'</div>'+
+          (v.duration?'<div class="m-vdur">'+esc(v.duration)+'</div>':'')+
+          '</div><div class="m-vinfo"><span class="m-vtitle">'+esc(v.title||'')+'</span>'+
+          (v.description?'<span class="m-vdesc">'+esc(v.description)+'</span>':'')+'</div></div>';
+      });
+      html += '</div></div>'; shown++;
     }
   });
-  if(shown===0){ html += '<div class="ph-hidden-note">当前无已启用模块（模块被停用或接口失败），小程序首页为空</div>'; }
+  if(shown===0){ html += '<div class="m-empty">'+iconSvg('picture')+'<span>暂无已启用的模块</span></div>'; }
 
   /* 底部 TabBar（对齐 F6.0 学员端原型口径 4 Tab：首页/排期/AI 助手/我的；AI 为第 3 个一级 Tab，无悬浮 FAB） */
   html += '<div class="m-tabbar"><div class="m-tab on">'+miniIcon('tabHome',22)+'<span>首页</span><i class="ind"></i></div>'+
@@ -1097,7 +1368,7 @@ function renderPreviewPage(){
     '<div class="m-tab">'+miniIcon('robot',22)+'<span>AI 助手</span></div>'+
     '<div class="m-tab">'+miniIcon('tabProfile',22)+'<span>我的</span></div></div>';
   html += '</div></div>';
-  html += '<div class="legend" style="max-width:420px">渲染规则：预览按真实小程序首页（miniapp 学员端 Home）复刻；底部 TabBar 采用 <b>F6.0 学员端原型口径（4 Tab：首页/排期/AI 助手/我的，AI 为第 3 个一级 Tab）</b>——与真实 miniapp 当前「3 Tab + AI 悬浮入口」存在差异，已备案；仅渲染<b>已启用</b>模块并按排序展示；模块为空/停用则静默隐藏（<span class="k">D-F7-E4</span>）；图片失效显示占位（<span class="k">D-F7-E7</span>）；接口失败时师资/课程回落真实 API，纯配置模块无缓存则隐藏（<span class="k">D-F7-E3</span>）。</div>';
+  html += '<div class="legend" style="max-width:420px">渲染规则：预览按真实小程序首页（miniapp 学员端 Home）复刻；底部 TabBar 采用 <b>F6.0 学员端原型口径（4 Tab：首页/排期/AI 助手/我的，AI 为第 3 个一级 Tab）</b>——与真实 miniapp 当前「3 Tab + AI 悬浮入口」存在差异，已备案；仅渲染<b>已启用</b>模块并按 sort 升序展示；模块为空/停用则静默隐藏（<span class="k">D-F7-E4</span>）；图片失效显示占位（<span class="k">D-F7-E7</span>）；接口失败时师资/课程回落真实 API，Banner/视频无缓存则隐藏（<span class="k">D-F7-E3</span>）。</div>';
   return html;
 }
 
@@ -1110,15 +1381,27 @@ function openPublish(){
 }
 function closePublish(){ STATE.publish.open=false; renderAll(); }
 function togglePublishFail(){ STATE.publish.confirmFail = !STATE.publish.confirmFail; renderAll(); }
+function publishSummary(m){
+  if(!m.enabled) return '（已停用，不展示）';
+  if(m.type==='banner'){ var n=(m.items||[]).length; return n?'<b>'+n+'</b> 个 Banner':'未配置内容'; }
+  if(m.type==='teachers'){ var tids=((m.config||{}).teacher_ids)||[]; return tids.length?'已选 <b>'+tids.length+'</b> 位教师':'未配置教师'; }
+  if(m.type==='courses'){ var cids=((m.config||{}).course_ids)||[]; return cids.length?'已选 <b>'+cids.length+'</b> 门课程':'未配置课程'; }
+  if(m.type==='video'){ var vn=(m.items||[]).filter(function(it){return it&&it.video_url;}).length; return vn?'<b>'+vn+'</b> 个视频':'未配置视频'; }
+  return '';
+}
 function renderPublishDialog(){
   if(!STATE.publish.open) return '<div class="modal">（无）</div>';
-  var h=STATE.home, mods=h.modules.filter(function(m){return m.enabled;}).sort(function(a,b){return a.sort-b.sort;});
-  var html='<div class="mh"><span>发布确认</span><span class="close-x" onclick="closePublish()">✕</span></div><div class="mb">';
-  html += '<p style="color:var(--text-2)">将把当前<b>草稿</b>发布为线上版本，小程序下次进入首页即可见。发布为原子操作，失败不影响线上。</p>';
-  html += '<div style="margin-top:12px">';
-  mods.forEach(function(m){ html += '<div style="display:flex;gap:8px;padding:6px 0"><span class="tag success">启用</span>'+moduleIcon(m.type)+' '+esc(m.name)+'</div>'; });
-  var disabled = h.modules.filter(function(m){return !m.enabled;});
-  disabled.forEach(function(m){ html += '<div style="display:flex;gap:8px;padding:6px 0;opacity:.6"><span class="tag info">停用</span>'+moduleIcon(m.type)+' '+esc(m.name)+'</div>'; });
+  var h=STATE.home, mods=h.modules.slice().sort(function(a,b){return a.sort-b.sort;});
+  var html='<div class="mh"><span>确认发布首页配置</span><span class="close-x" onclick="closePublish()">✕</span></div><div class="mb">';
+  html += '<div class="note-bar warn">发布后草稿将作为新版本生效，用户小程序会立即看到变更。</div>';
+  html += '<h4 style="margin:4px 0 12px;font-size:14px;color:var(--text)">本次发布内容概览</h4>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  mods.forEach(function(m){
+    html += '<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:#f8f9fa;border-radius:6px">'+
+      '<span class="tag '+moduleTagType(m.type)+'">'+moduleTypeLabel(m.type)+'</span>'+
+      '<span class="tag '+(m.enabled?'success':'info')+'">'+(m.enabled?'已启用':'已停用')+'</span>'+
+      '<span style="font-size:13px;color:var(--text-2)">'+publishSummary(m)+'</span></div>';
+  });
   html += '</div>';
   html += '<div style="margin-top:14px"><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" '+(STATE.publish.confirmFail?'checked':'')+' onchange="togglePublishFail()"> <span class="demo-note">演示用：模拟发布失败</span></label></div>';
   html += '</div><div class="mf"><button class="btn" onclick="closePublish()">取消</button><button class="btn primary" onclick="doPublish()">确认发布</button></div>';

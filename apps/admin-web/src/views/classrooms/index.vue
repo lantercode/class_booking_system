@@ -34,7 +34,7 @@
         <el-col v-for="room in classrooms" :key="room.id" :span="8">
           <el-card shadow="hover" class="classroom-card">
             <div class="card-body">
-              <!-- 封面图 (左上) -->
+              <!-- 封面图（占满卡片宽度） -->
               <div class="cover-wrapper">
                 <img
                   v-if="room.cover_image_url"
@@ -45,7 +45,7 @@
                   <el-icon :size="28" color="#c0c4cc"><Picture /></el-icon>
                 </div>
               </div>
-              <!-- 右侧信息 -->
+              <!-- 信息区（封面下方垂直排列） -->
               <div class="info-wrapper">
                 <div class="room-header">
                   <span class="room-name">{{ room.name }}</span>
@@ -112,15 +112,15 @@
         <el-form-item label="教室名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入教室名称" maxlength="50" />
         </el-form-item>
-        <el-form-item label="教室编码">
+        <el-form-item label="教室编码" prop="code">
           <el-input
             v-model="form.code"
-            placeholder="留空自动生成 R-000 格式"
+            placeholder="请输入教室编码"
             maxlength="50"
             clearable
           />
         </el-form-item>
-        <el-form-item label="位置">
+        <el-form-item label="位置" prop="location">
           <el-input
             v-model="form.location"
             placeholder="如：A栋301"
@@ -128,7 +128,7 @@
             clearable
           />
         </el-form-item>
-        <el-form-item label="封面">
+        <el-form-item label="封面" prop="cover_image_url">
           <el-upload
             class="cover-uploader"
             :show-file-list="false"
@@ -138,14 +138,14 @@
             <img
               v-if="coverPreviewUrl"
               :src="coverPreviewUrl"
-              class="cover-uploader-img"
+              class="cover-image"
             />
-            <div v-else class="cover-uploader-placeholder">
-              <el-icon :size="24" color="#8c939d"><Plus /></el-icon>
-              <span class="upload-tip">点击上传封面</span>
+            <div v-else class="cover-placeholder">
+              <el-icon :size="22" color="#c0c4cc"><Plus /></el-icon>
+              <span>上传封面</span>
             </div>
           </el-upload>
-          <div class="upload-hint">支持 JPG/PNG/WEBP，最大 5MB，建议 4:3 比例</div>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
           <div
             v-if="form.cover_image_url"
             class="clear-cover"
@@ -155,7 +155,7 @@
             <span>移除封面</span>
           </div>
         </el-form-item>
-        <el-form-item label="设备">
+        <el-form-item label="设备" prop="equipment">
           <el-select
             v-model="form.equipment"
             multiple
@@ -220,6 +220,12 @@ const coverPreviewUrl = ref('')
 
 const rules = {
   name: [{ required: true, message: '请输入教室名称', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入教室编码', trigger: 'blur' }],
+  location: [{ required: true, message: '请输入教室位置', trigger: 'blur' }],
+  cover_image_url: [{ required: true, message: '请上传教室封面', trigger: 'change' }],
+  equipment: [
+    { required: true, type: 'array', min: 1, message: '请至少选择一项设备', trigger: 'change' },
+  ],
 }
 
 async function fetchClassrooms() {
@@ -294,6 +300,7 @@ const handleCoverUpload = async (options: any) => {
       form.value.cover_image_url = result.data.object_key
       // 用 url 做本地预览
       coverPreviewUrl.value = result.data.url
+      formRef.value?.validateField('cover_image_url')
       ElMessage.success('封面上传成功')
     } else {
       ElMessage.error(result.msg || '封面上传失败')
@@ -307,6 +314,7 @@ const handleCoverUpload = async (options: any) => {
 function clearCover() {
   form.value.cover_image_url = ''
   coverPreviewUrl.value = ''
+  formRef.value?.validateField('cover_image_url')
 }
 
 async function handleSubmit() {
@@ -443,15 +451,16 @@ onMounted(() => {
 
   .card-body {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 10px;
     flex: 1;
     min-height: 0;
   }
 
   .cover-wrapper {
     flex-shrink: 0;
-    width: 80px;
-    height: 60px;
+    width: 100%;
+    height: 160px;
     border-radius: 8px;
     overflow: hidden;
     background: #f5f7fa;
@@ -573,49 +582,42 @@ onMounted(() => {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transition: border-color 0.3s;
   width: 160px;
   height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s;
 
   &:hover {
     border-color: #409eff;
   }
 
-  :deep(.el-upload) {
+  .cover-image {
     width: 100%;
     height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .cover-placeholder {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-  }
-}
-
-.cover-uploader-img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-}
-
-.cover-uploader-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  color: #8c939d;
-
-  .upload-tip {
+    gap: 6px;
+    color: #8c939d;
     font-size: 12px;
   }
 }
 
-.upload-hint {
+.upload-tip {
+  display: block;
+  width: 100%;
   font-size: 12px;
   color: #909399;
   margin-top: 6px;
+  line-height: 1.5;
 }
 
 .clear-cover {

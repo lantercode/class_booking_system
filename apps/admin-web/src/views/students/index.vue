@@ -44,21 +44,19 @@
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="头像" width="80" align="center">
         <template #default="{ row }">
-          <el-avatar :size="40" :src="row.avatar_url">
-            {{ row.name?.charAt(0) || '学' }}
-          </el-avatar>
+          <el-avatar :size="40" :src="resolveImageUrl(row.avatar_url)" icon="UserFilled" />
         </template>
       </el-table-column>
-      <el-table-column prop="student_code" label="学员编号" width="160">
+      <el-table-column prop="student_code" label="学员编号" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link type="primary" @click="handleDetail(row)">
             {{ row.student_code || '--' }}
           </el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="姓名" />
-      <el-table-column prop="phone" label="手机号" width="140" />
-      <el-table-column prop="joinedAt" label="加入时间" width="120" />
+      <el-table-column prop="name" label="姓名" show-overflow-tooltip />
+      <el-table-column prop="phone" label="手机号" show-overflow-tooltip />
+      <el-table-column prop="joinedAt" label="加入时间" width="120" show-overflow-tooltip />
       <el-table-column prop="status" label="状态" width="80">
         <template #default="{ row }">
           <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
@@ -66,7 +64,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button type="warning" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
           <el-button
@@ -120,8 +118,7 @@
           {{ detailData.student_code || '--' }}
         </el-descriptions-item>
         <el-descriptions-item label="头像">
-          <el-avatar v-if="detailData.avatar_url" :size="80" :src="detailData.avatar_url" />
-          <span v-else style="color: #909399">未上传</span>
+          <el-avatar :size="80" :src="resolveImageUrl(detailData.avatar_url)" icon="UserFilled" />
         </el-descriptions-item>
         <el-descriptions-item label="姓名">
           {{ detailData.name || '--' }}
@@ -159,9 +156,12 @@
             :http-request="handleAvatarUpload"
           >
             <img v-if="editForm.avatar_url" :src="avatarPreviewUrl || editForm.avatar_url" class="avatar-image" />
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+            <div v-else class="avatar-uploader-placeholder">
+              <el-icon :size="28"><Plus /></el-icon>
+              <span>上传头像</span>
+            </div>
           </el-upload>
-          <div class="upload-tip">支持 JPG/PNG 格式，文件大小不超过 2MB，建议尺寸 200x200 像素</div>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="editForm.status" style="width: 100%">
@@ -183,6 +183,7 @@
 <script setup lang="ts">
 import { commonApi, userApi, type User } from '@dance-saas/api-client'
 import { Plus, Search } from '@element-plus/icons-vue'
+import { resolveImageUrl } from '@/utils/image'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
@@ -365,16 +366,13 @@ async function handleDelete(row: { id: number; name: string }) {
 
 // 头像上传相关函数
 const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
-  const allowedTypes = ['image/jpeg', 'image/png']
-  const isAllowedType = allowedTypes.includes(file.type)
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isAllowedType) {
-    ElMessage.error('上传头像图片只能是 JPG/PNG 格式!')
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('头像仅支持 JPG/PNG/WEBP 格式')
     return false
   }
-  if (!isLt2M) {
-    ElMessage.error('上传头像图片大小不能超过 2MB!')
+  if (file.size / 1024 / 1024 > 5) {
+    ElMessage.error('头像图片不能超过 5MB')
     return false
   }
   return true
@@ -407,7 +405,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .search-icon:hover {
   color: #409eff;
 }
@@ -419,38 +417,47 @@ onMounted(() => {
   border: 1px solid #ebeef5;
 }
 
-.avatar-uploader :deep(.el-upload) {
-  border: 1px dashed var(--el-border-color);
+.avatar-uploader {
+  border: 1px dashed #d9d9d9;
   border-radius: 6px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: var(--el-transition-duration-fast);
-}
-
-.avatar-uploader :deep(.el-upload:hover) {
-  border-color: var(--el-color-primary);
-}
-
-.avatar-uploader-icon {
-  font-size: 28px;
-  color: #8c939d;
+  transition: border-color 0.3s;
   width: 120px;
   height: 120px;
-  text-align: center;
-  line-height: 120px;
-}
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-.avatar-image {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
+  &:hover {
+    border-color: #409eff;
+  }
+
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .avatar-uploader-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #8c939d;
+    font-size: 12px;
+  }
 }
 
 .upload-tip {
+  display: block;
+  width: 100%;
   font-size: 12px;
   color: #909399;
-  margin-top: 8px;
+  margin-top: 6px;
   line-height: 1.5;
 }
 </style>

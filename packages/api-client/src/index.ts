@@ -189,3 +189,18 @@ export type {
 
 export { tenantApi } from './tenant'
 export type { TenantSettings, TenantSettingsUpdate, TenantInfo, TenantInfoUpdate } from './tenant'
+
+export { homeConfigApi } from './home-config'
+export type {
+  HomeConfigModuleType,
+  BannerModuleItem,
+  VideoModuleItem,
+  TeachersModuleConfig,
+  CoursesModuleConfig,
+  HomeConfigModule,
+  HomeConfigPayload,
+  HomeConfigDraftResponse,
+  HomeConfigVersionItem,
+  HomeConfigVersionsResponse,
+  HomeConfigPublishedResponse,
+} from './home-config'

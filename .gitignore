@@ -26,6 +26,8 @@ build/
 .env.*.local
 .env.prod
 .env.production
+# 小程序生产构建仅含公开 API 地址，纳入版本库保证构建可复现
+!apps/miniapp/.env.production
 
 # IDE
 .vscode/

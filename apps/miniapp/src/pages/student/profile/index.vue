@@ -11,17 +11,22 @@
     <view class="profile-header">
       <view class="header-bg-decoration"></view>
       <view class="profile-content">
-        <view class="avatar-section">
-          <view v-if="!userInfo?.avatar" class="avatar-placeholder">
-            <text class="avatar-text">{{ getUserInitial() }}</text>
-          </view>
+        <view class="avatar-section" @tap="openEditSheet">
           <image
-            v-else
+            v-if="avatarUrl"
             class="avatar"
-            :src="userInfo.avatar"
+            :src="avatarUrl"
             mode="aspectFill"
             @error="handleAvatarError"
           />
+          <!-- 无头像时与师资卡片保持一致的默认剪影头像 -->
+          <view v-else class="avatar-placeholder">
+            <view class="avatar-head"></view>
+            <view class="avatar-body"></view>
+          </view>
+          <view class="camera-badge">
+            <AppIcon name="camera" :size="22" color="#8b7355" />
+          </view>
         </view>
         <view class="user-info-section">
           <text class="user-name">{{ userInfo?.nickname || "学员" }}</text>
@@ -116,12 +121,63 @@
       </view>
     </view>
 
+    <!-- 个人资料编辑弹框 -->
+    <view v-if="showEditSheet" class="sheet-mask" @tap="closeEditSheet">
+      <view class="edit-sheet" @tap.stop>
+        <text class="sheet-title">获取您的昵称、头像</text>
+        <text class="sheet-desc"
+          >获取用户头像、昵称，主要用于向用户提供具有辨识度的用户中心界面</text
+        >
+
+        <!-- 官方 chooseAvatar 能力：点击直接唤起微信「用微信头像/相册/拍照」面板 -->
+        <button
+          class="sheet-row avatar-row"
+          open-type="chooseAvatar"
+          @chooseavatar="onChooseAvatar"
+        >
+          <text class="row-label">头像</text>
+          <view class="row-avatar-wrap">
+            <image
+              v-if="editAvatarPreview"
+              :src="editAvatarPreview"
+              mode="aspectFill"
+              class="row-avatar"
+            />
+            <view v-else class="row-avatar row-avatar-empty">
+              <view class="mini-avatar-head"></view>
+              <view class="mini-avatar-body"></view>
+            </view>
+            <text class="row-hint">点击设置头像</text>
+          </view>
+          <text class="row-arrow">›</text>
+        </button>
+
+        <view class="sheet-row">
+          <text class="row-label">昵称</text>
+          <input
+            v-model="editNickname"
+            class="row-input"
+            placeholder="请输入昵称"
+            :maxlength="20"
+          />
+        </view>
+
+        <button
+          class="sheet-save-btn"
+          :disabled="saving"
+          @tap="saveProfile"
+        >
+          {{ saving ? "保存中..." : "保存" }}
+        </button>
+      </view>
+    </view>
+
     <HomeTabBar currentRoute="/pages/student/profile/index" />
   </view>
 </template>
 
 <script setup lang="ts">
-import { authApi, clearAuthData } from "@/api";
+import { authApi, clearAuthData, uploadApi } from "@/api";
 import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";
@@ -132,6 +188,14 @@ import { onMounted, onUnmounted, ref } from "vue";
 
 const userInfo = ref<any>(null);
 const userId = ref("");
+const avatarUrl = ref("");
+
+// 资料编辑弹框
+const showEditSheet = ref(false);
+const editNickname = ref("");
+const editAvatarPreview = ref("");
+const editAvatarKey = ref("");
+const saving = ref(false);
 
 let isUnmounted = false;
 
@@ -153,7 +217,99 @@ const loadUserInfo = () => {
     const parsed = JSON.parse(info);
     userInfo.value = parsed;
     userId.value = parsed.id || "";
+    avatarUrl.value = parsed.avatar || parsed.avatar_url || "";
     console.log("✅ 用户信息已加载:", parsed?.nickname || "未知");
+  }
+};
+
+/** 点击头像打开资料编辑弹框（回填当前昵称与头像） */
+const openEditSheet = () => {
+  editNickname.value = userInfo.value?.nickname || "";
+  editAvatarPreview.value = avatarUrl.value;
+  editAvatarKey.value = "";
+  showEditSheet.value = true;
+};
+
+const closeEditSheet = () => {
+  showEditSheet.value = false;
+};
+
+/** 选图后上传到 OSS avatar 命名空间，保存时再提交到后端 */
+const uploadAvatarFromPath = async (filePath: string) => {
+  uni.showLoading({ title: "上传中...", mask: true });
+  try {
+    const uploaded = await uploadApi.uploadImage(filePath, "avatar");
+    editAvatarKey.value = uploaded.data.object_key;
+    editAvatarPreview.value = uploaded.data.url;
+  } catch (e: any) {
+    uni.showToast({
+      title: e?.msg || e?.message || "头像上传失败",
+      icon: "none",
+    });
+  } finally {
+    uni.hideLoading();
+  }
+};
+
+/**
+ * 微信 chooseAvatar 回调：
+ * 返回 e.detail.avatarUrl（临时文件路径），直接上传 OSS avatar 命名空间
+ */
+const onChooseAvatar = async (e: any) => {
+  const avatarPath: string = e?.detail?.avatarUrl || "";
+  if (!avatarPath) return;
+  // 大小与格式由上传接口统一校验
+  await uploadAvatarFromPath(avatarPath);
+};
+
+/** 保存昵称与头像（后端仅允许 nickname / avatar） */
+const saveProfile = async () => {
+  const nickname = editNickname.value.trim();
+  if (!nickname) {
+    uni.showToast({ title: "请输入昵称", icon: "none" });
+    return;
+  }
+  if (saving.value) return;
+
+  saving.value = true;
+  try {
+    const payload: { nickname: string; avatar?: string } = { nickname };
+    if (editAvatarKey.value) payload.avatar = editAvatarKey.value;
+
+    const result = await authApi.updateProfile(payload);
+    const newAvatar =
+      result.data?.avatar || editAvatarPreview.value || avatarUrl.value;
+
+    avatarUrl.value = newAvatar;
+    userInfo.value = {
+      ...(userInfo.value || {}),
+      nickname,
+      avatar: newAvatar,
+    };
+
+    const info = uni.getStorageSync("user_info");
+    if (info) {
+      const parsed = JSON.parse(info);
+      uni.setStorageSync(
+        "user_info",
+        JSON.stringify({
+          ...parsed,
+          nickname,
+          avatar: newAvatar,
+          avatar_url: editAvatarKey.value || parsed.avatar_url,
+        }),
+      );
+    }
+
+    closeEditSheet();
+    uni.showToast({ title: "保存成功", icon: "success" });
+  } catch (e: any) {
+    uni.showToast({
+      title: e?.msg || e?.message || "保存失败",
+      icon: "none",
+    });
+  } finally {
+    saving.value = false;
   }
 };
 
@@ -167,6 +323,7 @@ const handleAvatarError = async () => {
     const res = await authApi.getMe();
     const data: any = res.data || {};
     if (isUnmounted || !data.avatar) return;
+    avatarUrl.value = data.avatar;
     userInfo.value = { ...(userInfo.value || {}), avatar: data.avatar };
     const info = uni.getStorageSync("user_info");
     if (info) {
@@ -179,11 +336,6 @@ const handleAvatarError = async () => {
   } catch {
     // 忽略：保持占位
   }
-};
-
-const getUserInitial = () => {
-  const nickname = userInfo.value?.nickname || "学员";
-  return nickname.charAt(0).toUpperCase();
 };
 
 const getUserPhone = () => {
@@ -202,10 +354,6 @@ const handleLogout = () => {
       }
     },
   });
-};
-
-const goToEdit = () => {
-  navigateTo({ url: "/pages/student/profile/edit" });
 };
 
 const goToMembership = () => {
@@ -331,6 +479,7 @@ const handleUnbindWechat = () => {
   }
 
   .avatar-section {
+    position: relative;
     flex-shrink: 0;
 
     .avatar {
@@ -342,23 +491,53 @@ const handleUnbindWechat = () => {
       background: #fff;
     }
 
+    // 默认头像：与师资卡片的暖香槟底 + 人形剪影保持一致
     .avatar-placeholder {
       width: 140rpx;
       height: 140rpx;
       border-radius: 50%;
       border: 4rpx solid rgba(255, 255, 255, 0.9);
       box-shadow: 0 8rpx 24rpx rgba(44, 24, 16, 0.12);
-      background: linear-gradient(135deg, #c9a66b 0%, #d9a7b0 100%);
+      background: #f4ebdf;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+
+      // 头部（圆形）
+      .avatar-head {
+        width: 50rpx;
+        height: 50rpx;
+        border-radius: 50%;
+        background: #d8c3a4;
+        margin-bottom: 6rpx;
+      }
+
+      // 肩部（圆弧，底部超出裁切形成半身像）
+      .avatar-body {
+        width: 92rpx;
+        height: 64rpx;
+        border-radius: 46rpx 46rpx 0 0;
+        background: #d8c3a4;
+        margin-bottom: -20rpx;
+      }
+    }
+
+    // 相机角标，提示可点击更换头像
+    .camera-badge {
+      position: absolute;
+      right: 0;
+      bottom: 2rpx;
+      width: 44rpx;
+      height: 44rpx;
+      border-radius: 50%;
+      background: #fff;
+      border: 2rpx solid rgba(201, 166, 107, 0.2);
+      box-shadow: 0 2rpx 8rpx rgba(44, 24, 16, 0.1);
       display: flex;
       align-items: center;
       justify-content: center;
-
-      .avatar-text {
-        font-size: 56rpx;
-        font-weight: 600;
-        color: #fff;
-        text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
-      }
     }
   }
 
@@ -611,6 +790,153 @@ const handleUnbindWechat = () => {
           line-height: 1.3;
         }
       }
+    }
+  }
+}
+
+/* ==================== 资料编辑弹框 ==================== */
+.sheet-mask {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.edit-sheet {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 40rpx 32rpx calc(40rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  display: flex;
+  flex-direction: column;
+
+  .sheet-title {
+    font-size: 34rpx;
+    font-weight: 600;
+    color: #2c1810;
+  }
+
+  .sheet-desc {
+    margin-top: 12rpx;
+    font-size: 24rpx;
+    line-height: 1.5;
+    color: #9b9b9b;
+  }
+
+  .sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 20rpx;
+    padding: 28rpx 0;
+    border-bottom: 1rpx solid #f2f2f2;
+
+    // 头像行是 open-type="chooseAvatar" 的 button，需重置默认按钮样式
+    &.avatar-row {
+      width: 100%;
+      margin: 0;
+      padding: 28rpx 0;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      border-bottom: 1rpx solid #f2f2f2;
+      font-size: inherit;
+      line-height: normal;
+      text-align: left;
+      color: inherit;
+
+      &::after {
+        border: none;
+      }
+    }
+
+    .row-label {
+      width: 100rpx;
+      flex-shrink: 0;
+      font-size: 30rpx;
+      color: #2c1810;
+    }
+
+    .row-avatar-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+      min-width: 0;
+    }
+
+    .row-avatar {
+      width: 72rpx;
+      height: 72rpx;
+      border-radius: 50%;
+      background: #f4ebdf;
+      flex-shrink: 0;
+    }
+
+    // 未设置头像时的迷你剪影占位
+    .row-avatar-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+
+      .mini-avatar-head {
+        width: 24rpx;
+        height: 24rpx;
+        border-radius: 50%;
+        background: #d8c3a4;
+        margin-bottom: 2rpx;
+      }
+
+      .mini-avatar-body {
+        width: 44rpx;
+        height: 30rpx;
+        border-radius: 22rpx 22rpx 0 0;
+        background: #d8c3a4;
+        margin-bottom: -8rpx;
+      }
+    }
+
+    .row-hint {
+      font-size: 28rpx;
+      color: #b0aca6;
+    }
+
+    .row-arrow {
+      font-size: 34rpx;
+      color: #c0c4cc;
+    }
+
+    .row-input {
+      flex: 1;
+      min-width: 0;
+      font-size: 30rpx;
+      color: #2c1810;
+    }
+  }
+
+  .sheet-save-btn {
+    margin-top: 48rpx;
+    width: 100%;
+    height: 92rpx;
+    line-height: 92rpx;
+    text-align: center;
+    border: none;
+    border-radius: 46rpx;
+    font-size: 32rpx;
+    font-weight: 500;
+    color: #fff;
+    background: linear-gradient(135deg, #d4a574 0%, #c9a66b 100%);
+    box-shadow: 0 8rpx 24rpx rgba(201, 166, 107, 0.3);
+
+    &::after {
+      border: none;
     }
   }
 }

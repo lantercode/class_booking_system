@@ -32,9 +32,10 @@
               mode="aspectFill"
               class="cover-image"
             />
+            <!-- 无封面时使用与首页一致的默认封面 -->
             <image
               v-else
-              :src="getCoursePlaceholderImage(course.name)"
+              src="/static/images/default-course-cover.jpg"
               mode="aspectFill"
               class="cover-image"
             />
@@ -90,52 +91,6 @@ const loadCourses = async () => {
 
 const goToCourseDetail = (id: number) => {
   navigateTo({ url: `/pages/student/courses/detail?id=${id}` });
-};
-
-// 根据课程名称获取对应的舞蹈类型占位图片
-const getCoursePlaceholderImage = (courseName: string) => {
-  const name = courseName || "";
-
-  // 中国舞/古典舞
-  if (
-    name.includes("中国舞") ||
-    name.includes("古典舞") ||
-    name.includes("身韵") ||
-    name.includes("水袖")
-  ) {
-    return "https://images.unsplash.com/photo-1518834107812-67b0b7c58434?w=400&q=80";
-  }
-  // 芭蕾
-  if (name.includes("芭蕾")) {
-    return "https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=400&q=80";
-  }
-  // 现代舞
-  if (name.includes("现代舞") || name.includes("现代")) {
-    return "https://images.unsplash.com/photo-1547153760-18fc86324498?w=400&q=80";
-  }
-  // 街舞
-  if (
-    name.includes("街舞") ||
-    name.includes("hiphop") ||
-    name.includes("Hip-Hop")
-  ) {
-    return "https://images.unsplash.com/photo-1535525153412-5a42439a210d?w=400&q=80";
-  }
-  // 爵士舞
-  if (name.includes("爵士")) {
-    return "https://images.unsplash.com/photo-1504609813442-a8924e83f76e?w=400&q=80";
-  }
-  // 拉丁舞
-  if (name.includes("拉丁")) {
-    return "https://images.unsplash.com/photo-1508564072968-65f344e9b88c?w=400&q=80";
-  }
-  // 瑜伽/形体
-  if (name.includes("瑜伽") || name.includes("形体")) {
-    return "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=400&q=80";
-  }
-
-  // 默认优雅舞蹈图片
-  return "https://images.unsplash.com/photo-1518834107812-67b0b7c58434?w=400&q=80";
 };
 </script>
 

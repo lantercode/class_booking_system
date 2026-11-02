@@ -40,24 +40,29 @@
       </el-result>
     </div>
 
-    <el-table v-else v-loading="loading" :data="filteredTeachers" stripe style="width: 100%" empty-text="暂无数据">
+    <el-table
+      v-else
+      v-loading="loading"
+      :data="filteredTeachers"
+      stripe
+      style="width: 100%"
+      empty-text="暂无数据"
+    >
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="头像" width="80" align="center">
         <template #default="{ row }">
-          <el-avatar :size="40" :src="row.avatar_url">
-            {{ row.name?.charAt(0) || '教' }}
-          </el-avatar>
+          <el-avatar :size="40" :src="resolveImageUrl(row.avatar_url)" icon="UserFilled" />
         </template>
       </el-table-column>
-      <el-table-column prop="teacher_code" label="教师编号" width="160">
+      <el-table-column prop="teacher_code" label="教师编号" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link type="primary" @click="handleDetail(row)">
             {{ row.teacher_code || '--' }}
           </el-link>
         </template>
       </el-table-column>
-      <el-table-column prop="name" label="姓名" />
-      <el-table-column prop="phone" label="手机号" width="140" />
+      <el-table-column prop="name" label="姓名" show-overflow-tooltip />
+      <el-table-column prop="phone" label="手机号" show-overflow-tooltip />
       <el-table-column prop="status" label="状态" width="90">
         <template #default="{ row }">
           <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
@@ -65,8 +70,8 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="joinedAt" label="加入时间" width="120" />
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column prop="joinedAt" label="加入时间" width="120" show-overflow-tooltip />
+      <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
           <el-button type="warning" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
           <el-button
@@ -118,10 +123,17 @@
             :before-upload="beforeAvatarUpload"
             :http-request="handleAvatarUpload"
           >
-            <img v-if="form.avatar_url" :src="avatarPreviewUrl || form.avatar_url" class="avatar-image" />
-            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+            <img
+              v-if="form.avatar_url"
+              :src="avatarPreviewUrl || form.avatar_url"
+              class="avatar-image"
+            />
+            <div v-else class="avatar-uploader-placeholder">
+              <el-icon :size="28"><Plus /></el-icon>
+              <span>上传头像</span>
+            </div>
           </el-upload>
-          <div class="upload-tip">支持 JPG/PNG 格式，文件大小不超过 2MB，建议尺寸 200x200 像素</div>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
         </el-form-item>
         <el-form-item label="教师简介">
           <el-input
@@ -150,8 +162,7 @@
           {{ detailData.teacher_code || '--' }}
         </el-descriptions-item>
         <el-descriptions-item label="头像">
-          <el-avatar v-if="detailData.avatar_url" :size="80" :src="detailData.avatar_url" />
-          <span v-else style="color: #909399">未上传</span>
+          <el-avatar :size="80" :src="resolveImageUrl(detailData.avatar_url)" icon="UserFilled" />
         </el-descriptions-item>
         <el-descriptions-item label="姓名">
           {{ detailData.name || '--' }}
@@ -179,7 +190,8 @@
 </template>
 
 <script setup lang="ts">
-import { commonApi, userApi, type User } from '@dance-saas/api-client'
+import { resolveImageUrl } from '@/utils/image'
+import { commonApi, type User, userApi } from '@dance-saas/api-client'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -417,7 +429,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .search-icon:hover {
   color: #409eff;
 }
@@ -435,35 +447,41 @@ onMounted(() => {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s;
+  transition: border-color 0.3s;
   width: 120px;
   height: 120px;
-}
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-.avatar-uploader:hover {
-  border-color: #409eff;
-}
+  &:hover {
+    border-color: #409eff;
+  }
 
-.avatar-uploader-icon {
-  font-size: 28px;
-  color: #8c939d;
-  width: 120px;
-  height: 120px;
-  text-align: center;
-  line-height: 120px;
-}
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
 
-.avatar-image {
-  width: 120px;
-  height: 120px;
-  display: block;
-  object-fit: cover;
+  .avatar-uploader-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #8c939d;
+    font-size: 12px;
+  }
 }
 
 .upload-tip {
+  display: block;
+  width: 100%;
   font-size: 12px;
   color: #909399;
-  margin-top: 8px;
+  margin-top: 6px;
   line-height: 1.5;
 }
 </style>

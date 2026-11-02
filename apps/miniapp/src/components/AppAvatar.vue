@@ -12,10 +12,7 @@
       class="avatar-image"
     />
     
-    <!-- 文字头像（无图片时显示首字母） -->
-    <text v-else-if="name" class="avatar-text">{{ name.charAt(0) }}</text>
-    
-    <!-- 默认图标 -->
+    <!-- 无图片时统一使用默认头像 -->
     <text v-else class="avatar-icon">👤</text>
 
     <!-- 在线状态指示器 -->

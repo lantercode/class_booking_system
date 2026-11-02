@@ -129,6 +129,13 @@ body,
   &.el-table--striped .el-table__body tr.el-table__row--striped td {
     background: #fafafa;
   }
+
+  // 单元格内容：单行、不换行、超长省略（配合各列 show-overflow-tooltip 悬停提示）
+  .cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 // ===== 全局分页样式 =====

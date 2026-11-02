@@ -7,10 +7,15 @@
     <!-- 封面区域 -->
     <view class="hero-section">
       <image
-        :src="
-          course.cover_url ||
-          'https://images.unsplash.com/photo-1508700929628-666bc8bd84ea?w=800&q=80'
-        "
+        v-if="course.cover_url"
+        :src="course.cover_url"
+        mode="aspectFill"
+        class="hero-image"
+      />
+      <!-- 无封面时使用与首页/课程列表一致的默认封面 -->
+      <image
+        v-else
+        src="/static/images/default-course-cover.jpg"
         mode="aspectFill"
         class="hero-image"
       />

@@ -95,9 +95,9 @@ def test_probe_rejects_oversized_pixels(monkeypatch: pytest.MonkeyPatch) -> None
 @pytest.mark.anyio
 async def test_validate_and_read_returns_decoded_info() -> None:
     content = _image_bytes("PNG")
-    data, info = await _service()._validate_and_read(_upload(content), "avatar")
+    data, ext = await _service()._validate_and_read(_upload(content), "avatar")
     assert data == content
-    assert info.extension == "png"
+    assert ext == "png"
 
 
 @pytest.mark.anyio
@@ -144,9 +144,10 @@ async def test_validate_and_read_rejects_empty_file() -> None:
     assert "文件内容为空" in str(excinfo.value)
 
 
-def test_avatar_limit_is_stricter_than_cover() -> None:
-    assert service.MAX_SIZE_BY_BIZ["avatar"] == 2 * 1024 * 1024
+def test_size_limits_by_biz_type() -> None:
+    assert service.MAX_SIZE_BY_BIZ["avatar"] == 5 * 1024 * 1024
     assert service.MAX_SIZE_BY_BIZ["course_cover"] == 5 * 1024 * 1024
+    assert service.MAX_SIZE_BY_BIZ["video"] == 200 * 1024 * 1024
 
 
 def test_validate_biz_type_rejects_unknown() -> None:

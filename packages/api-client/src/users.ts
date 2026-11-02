@@ -37,6 +37,7 @@ export interface UserCreateParams {
   phone: string
   password: string
   nickname?: string
+  avatar_url?: string
   gender?: number
   role_codes?: string[]
 }

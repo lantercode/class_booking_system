@@ -61,7 +61,7 @@ async def create_user(
 @require_permissions("user:read")
 async def list_users(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     keyword: str = Query(None, description="搜索关键词（手机号/昵称/姓名）"),
     status: int = Query(None, ge=0, le=1, description="状态筛选：0禁用/1启用"),
     role_code: str = Query(None, description="角色筛选（角色代码）"),

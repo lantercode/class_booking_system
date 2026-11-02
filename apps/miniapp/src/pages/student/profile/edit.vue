@@ -21,10 +21,15 @@
               <text class="section-label">头像</text>
             </view>
             <view class="avatar-wrapper" @tap="changeAvatar">
-              <view class="avatar">
-                <text class="avatar-text">{{
-                  form.nickname?.charAt(0) || "?"
-                }}</text>
+              <image
+                v-if="avatarPreviewUrl"
+                :src="avatarPreviewUrl"
+                class="avatar avatar-image"
+                mode="aspectFill"
+                @error="handleAvatarImageError"
+              />
+              <view v-else class="avatar">
+                <text class="avatar-icon">👤</text>
               </view>
               <view class="camera-badge">
                 <AppIcon name="camera" :size="24" color="#666" />
@@ -100,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { userApi } from "@/api";
+import { uploadApi, userApi } from "@/api";
 import AppIcon from "@/components/AppIcon.vue";
 import { computed, onMounted, reactive, ref } from "vue";
 
@@ -110,7 +115,11 @@ const form = reactive({
   nickname: "",
   phone: "",
   bio: "",
+  avatar_url: "",
 });
+
+const avatarPreviewUrl = ref("");
+const avatarObjectKey = ref("");
 
 const errors = reactive({
   nickname: "",
@@ -131,6 +140,18 @@ const loadUserInfo = () => {
     form.nickname = user.nickname || "";
     form.phone = user.phone || "";
     form.bio = user.bio || "";
+    form.avatar_url = user.avatar_url || "";
+    // 回填头像预览（user_info 里存的可能是 object_key，也可能是完整 URL）
+    const avatar = user.avatar || user.avatar_url;
+    if (avatar) {
+      if (avatar.startsWith("http")) {
+        avatarPreviewUrl.value = avatar;
+      } else {
+        // object_key，调 /upload/url 换新预签名
+        avatarObjectKey.value = avatar;
+        handleAvatarImageError();
+      }
+    }
   }
 };
 
@@ -138,8 +159,50 @@ const validateNickname = () => {
   errors.nickname = form.nickname.trim() ? "" : "请输入姓名";
 };
 
-const changeAvatar = () => {
-  uni.showToast({ title: "头像上传功能开发中", icon: "none" });
+const changeAvatar = async () => {
+  let chooseResult: UniApp.ChooseImageSuccessCallbackResult;
+  try {
+    chooseResult = await uni.chooseImage({
+      count: 1,
+      sizeType: ["compressed"],
+      sourceType: ["album", "camera"],
+    });
+  } catch {
+    return;
+  }
+
+  const tempFile = (chooseResult.tempFiles as any)?.[0];
+  const filePath = chooseResult.tempFilePaths?.[0];
+  if (!filePath) return;
+  if (tempFile && tempFile.size / 1024 / 1024 >= 5) {
+    uni.showToast({ title: "头像大小不能超过 5MB", icon: "none" });
+    return;
+  }
+
+  uni.showLoading({ title: "上传中...", mask: true });
+  try {
+    const result = await uploadApi.uploadImage(filePath, "avatar");
+    avatarObjectKey.value = result.data.object_key;
+    avatarPreviewUrl.value = result.data.url;
+    form.avatar_url = result.data.object_key;
+    uni.showToast({ title: "头像已上传，保存后生效", icon: "none" });
+  } catch (e: any) {
+    uni.showToast({ title: e?.msg || e?.message || "头像上传失败", icon: "none" });
+  } finally {
+    uni.hideLoading();
+  }
+};
+
+/** 预签名地址过期时，按 object_key 换新链接 */
+const handleAvatarImageError = async () => {
+  const key = avatarObjectKey.value || form.avatar_url;
+  if (!key) return;
+  try {
+    const res = await uploadApi.getUrl(key);
+    avatarPreviewUrl.value = res.data?.url || "";
+  } catch {
+    // 保持占位
+  }
 };
 
 const handleSubmit = async () => {
@@ -149,15 +212,22 @@ const handleSubmit = async () => {
 
   isLoading.value = true;
   try {
-    const result = await userApi.update({
+    const payload: Record<string, any> = {
       nickname: form.nickname,
       bio: form.bio,
-    });
+    };
+    if (form.avatar_url) payload.avatar_url = form.avatar_url;
+
+    const result = await userApi.update(payload);
 
     if (result.code === 0 || result.code === 200) {
       const userInfo = JSON.parse(uni.getStorageSync("user_info"));
       userInfo.nickname = form.nickname;
       userInfo.bio = form.bio;
+      if (form.avatar_url) {
+        userInfo.avatar_url = form.avatar_url;
+        userInfo.avatar = form.avatar_url;
+      }
       uni.setStorageSync("user_info", JSON.stringify(userInfo));
 
       uni.showToast({ title: "保存成功", icon: "success" });
@@ -313,10 +383,15 @@ const handleSubmit = async () => {
   border: 4rpx solid rgba(255, 255, 255, 0.9);
 }
 
-.avatar-text {
+.avatar-text,
+.avatar-icon {
   font-size: 52rpx;
   color: #fff;
   font-weight: 600;
+}
+
+.avatar-image {
+  background: transparent;
 }
 
 .camera-badge {

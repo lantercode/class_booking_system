@@ -78,32 +78,32 @@
     >
       <el-table-column type="selection" width="55" />
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column label="课程" width="140">
+      <el-table-column label="课程" width="140" show-overflow-tooltip>
         <template #default="{ row }">
           {{ getCourseName(row.course_id) }}
         </template>
       </el-table-column>
-      <el-table-column label="教师" width="100">
+      <el-table-column label="教师" width="100" show-overflow-tooltip>
         <template #default="{ row }">
           {{ getTeacherName(row.teacher_id) }}
         </template>
       </el-table-column>
-      <el-table-column label="教室" width="100">
+      <el-table-column label="教室" width="100" show-overflow-tooltip>
         <template #default="{ row }">
           {{ getClassroomName(row.classroom_id) }}
         </template>
       </el-table-column>
-      <el-table-column label="日期" width="120">
+      <el-table-column label="日期" width="120" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatDate(row.start_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="时间" width="160">
+      <el-table-column label="时间" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatTime(row.start_at) }} - {{ formatTime(row.end_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="预约" width="140">
+      <el-table-column label="预约" width="140" show-overflow-tooltip>
         <template #default="{ row }">
           <el-progress
             :percentage="row.capacity ? Math.round((row.booked_count / row.capacity) * 100) : 0"
@@ -133,7 +133,7 @@
           >
             编辑
           </el-button>
-          <el-button type="info" size="small" link @click="showStudents(row)"> 学员 </el-button>
+          <el-button type="primary" size="small" link @click="showStudents(row)"> 学员 </el-button>
           <el-button
             v-if="row.display_status === 1"
             type="warning"
@@ -370,10 +370,10 @@
           <el-button size="small" @click="batchPreview = []"> 清空 </el-button>
         </div>
         <el-table :data="batchPreview" size="small" style="width: 100%">
-          <el-table-column prop="date" label="日期" width="100" />
-          <el-table-column prop="time" label="时间" width="140" />
-          <el-table-column prop="teacher" label="教师" width="100" />
-          <el-table-column prop="classroom" label="教室" width="100" />
+          <el-table-column prop="date" label="日期" width="100" show-overflow-tooltip />
+          <el-table-column prop="time" label="时间" width="140" show-overflow-tooltip />
+          <el-table-column prop="teacher" label="教师" width="100" show-overflow-tooltip />
+          <el-table-column prop="classroom" label="教室" width="100" show-overflow-tooltip />
         </el-table>
       </div>
 
@@ -403,7 +403,7 @@
         size="small"
         style="width: 100%"
       >
-        <el-table-column label="学员" width="180">
+        <el-table-column label="学员" width="180" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.student_nickname || `学员#${row.student_id}` }}
           </template>
@@ -417,7 +417,7 @@
             <el-tag v-else-if="row.status === 5" type="info" size="small"> 未到场 </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="预约时间" width="160">
+        <el-table-column label="预约时间" width="160" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatTime(row.booked_at) }}
           </template>

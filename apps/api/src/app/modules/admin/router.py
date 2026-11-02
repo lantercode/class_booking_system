@@ -91,7 +91,7 @@ async def create_user(
 @require_permissions("user:read")
 async def list_users(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(20, ge=1, le=500, description="每页数量"),
     keyword: str = Query(None, description="搜索关键词"),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),

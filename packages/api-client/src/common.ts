@@ -25,4 +25,13 @@ export const commonApi = {
       },
     })
   },
+
+  /**
+   * object_key → 可访问 URL（私有 OSS Bucket 下返回预签名地址）
+   * 兼容历史数据里以 /uploads/ 开头的绝对路径
+   */
+  getObjectUrl(objectKey: string): Promise<{ code: number; msg: string; data: { url: string; expires_seconds?: number } }> {
+    const key = objectKey.replace(/^\/uploads\//, '')
+    return apiClient.get(`/upload/url/${key}`)
+  },
 }

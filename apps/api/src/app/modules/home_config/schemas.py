@@ -38,7 +38,7 @@ class HomeConfigDraftUpdate(BaseModel):
             raise ValueError(f"schema_version 不匹配，当前只支持 1，收到 {sv}")
 
         # 2. modules 数组每个元素 type 枚举值校验（以 solution-design.md payload 结构为准）
-        VALID_TYPES = {"banner", "teachers", "courses", "video", "notice"}
+        VALID_TYPES = {"banner", "teachers", "courses", "video"}
         modules = v.get("modules", [])
         if not isinstance(modules, list):
             raise ValueError("modules 必须是数组")

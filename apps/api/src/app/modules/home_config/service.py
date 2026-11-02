@@ -28,7 +28,15 @@ from app.modules.home_config.schemas import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DRAFT_PAYLOAD: dict = {"schema_version": 1, "modules": []}
+DEFAULT_DRAFT_PAYLOAD: dict = {
+    "schema_version": 1,
+    "modules": [
+        {"type": "banner", "enabled": True, "sort": 1, "items": []},
+        {"type": "teachers", "enabled": True, "sort": 2, "config": {"display_count": 6, "teacher_ids": []}},
+        {"type": "courses", "enabled": True, "sort": 3, "config": {"display_count": 4, "sort_by": "latest", "course_ids": []}},
+        {"type": "video", "enabled": True, "sort": 4, "items": []},
+    ],
+}
 
 
 class HomeConfigService:
@@ -170,7 +178,10 @@ class HomeConfigService:
 
     @classmethod
     async def _resolve_media_urls(cls, value):
-        """递归把 payload 中的 image_key / cover_key 由 object_key 换成完整 URL
+        """递归把 payload 中的媒体字段由 object_key 换成完整 URL
+
+        管理端保存的字段为 image_url / cover_url / video_url（值为 object_key），
+        历史结构使用 image_key / cover_key，二者都需解析。
 
         冻结约定（solution-design.md L565/L597）：published 返回给小程序的内容
         必须是可以直接渲染的完整 URL，小程序不关心存储细节。
@@ -178,12 +189,16 @@ class HomeConfigService:
 
         私有 Bucket 下 resolve_object_url 会签发预签名 URL（异步），因此本方法为
         async；返回值含有效期，前端应在图片加载失败时通过 /upload/url 换新链接。
+        已是 http(s) 或 / 开头的值会原样返回（兼容外部链接）。
         """
+        MEDIA_KEYS = ("image_key", "cover_key", "image_url", "cover_url", "video_url")
         if isinstance(value, dict):
             resolved = {}
             for k, v in value.items():
-                if k in ("image_key", "cover_key") and isinstance(v, str) and v:
-                    resolved[k] = await resolve_object_url(v)
+                if k in MEDIA_KEYS and isinstance(v, str) and v:
+                    # 兼容历史数据里以 /uploads/ 开头的本地绝对路径，还原成 object_key
+                    key = v[len("/uploads/"):] if v.startswith("/uploads/") else v
+                    resolved[k] = await resolve_object_url(key)
                 else:
                     resolved[k] = await cls._resolve_media_urls(v)
             return resolved

@@ -60,7 +60,7 @@
         :row-class-name="rowClassName"
       >
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column label="学员" min-width="150">
+        <el-table-column label="学员" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="student-cell">
               <span class="student-name">{{ row.student_nickname || `学员#${row.student_id}` }}</span>
@@ -75,7 +75,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="会员卡" min-width="170">
+        <el-table-column label="会员卡" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">
             <div v-if="row.card_no" class="card-cell">
               <span class="card-no">{{ row.card_no }}</span>
@@ -86,7 +86,7 @@
             <span v-else class="muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="签到时间" width="150">
+        <el-table-column label="签到时间" width="150" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.checked_in_at ? formatDateTime(row.checked_in_at) : '—' }}
           </template>

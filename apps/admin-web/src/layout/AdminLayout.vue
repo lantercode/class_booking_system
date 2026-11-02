@@ -125,16 +125,17 @@
       <el-form ref="profileFormRef" :model="{ nickname: profileNickname }" :rules="profileRules" label-width="80px">
         <el-form-item label="头像">
           <div class="profile-avatar-row">
-            <el-avatar :size="64" :src="profileAvatarPreview" icon="UserFilled" />
             <el-upload
-              class="profile-avatar-uploader"
+              class="avatar-uploader"
               v-bind="avatarUploadProps"
             >
-              <el-button type="primary" :loading="profileUploading" size="small">
-                上传头像
-              </el-button>
+              <img v-if="profileAvatarPreview" :src="profileAvatarPreview" class="avatar-image" />
+              <div v-else class="avatar-uploader-placeholder">
+                <el-icon :size="28"><Picture /></el-icon>
+                <span>上传头像</span>
+              </div>
             </el-upload>
-            <span class="profile-avatar-tip">支持 JPG / PNG / WEBP，最大 5MB</span>
+            <span class="upload-tip">支持 JPG / PNG / WEBP，最大 5MB</span>
           </div>
         </el-form-item>
         <el-form-item label="昵称" prop="nickname">
@@ -165,10 +166,12 @@ import {
   CreditCard,
   Expand,
   Fold,
+  HomeFilled,
   Key,
   Lock,
   Management,
   OfficeBuilding,
+  Picture,
   Reading,
   Setting,
   SwitchButton,
@@ -199,7 +202,9 @@ const profileLoading = ref(false)
 const profileUploading = ref(false)
 const profileNickname = ref('')
 const profileAvatarKey = ref<string | null>(null)
-const profileAvatarPreview = computed(() => resolveImageUrl(profileAvatarKey.value))
+const profileAvatarPreviewUrl = ref<string | null>(null)
+// 业务字段存 object_key（交给后端 normalize）；预览用已解析的 URL（presigned 或本地路径）
+const profileAvatarPreview = computed(() => profileAvatarPreviewUrl.value || resolveImageUrl(profileAvatarKey.value))
 const authAvatarPreview = computed(() => resolveImageUrl(authStore.adminInfo?.avatar))
 
 const profileRules: FormRules = {
@@ -213,6 +218,7 @@ const profileFormRef = ref<FormInstance>()
 function openProfileDialog() {
   profileNickname.value = authStore.adminInfo?.nickname || ''
   profileAvatarKey.value = authStore.adminInfo?.avatar || null
+  profileAvatarPreviewUrl.value = authStore.adminInfo?.avatar || null
   profileDialogVisible.value = true
 }
 
@@ -222,6 +228,7 @@ async function handleAvatarUpload(file: File) {
   try {
     const res = await commonApi.uploadImage(file, 'avatar')
     profileAvatarKey.value = res.data.object_key
+    profileAvatarPreviewUrl.value = res.data.url   // 后端已解析好的 URL，直接预览
     ElMessage.success('头像上传成功')
   } catch (e: any) {
     ElMessage.error(e?.msg || '头像上传失败')
@@ -302,6 +309,7 @@ const menuItems: MenuItem[] = [
   { path: '/bookings', title: '预约管理', icon: Calendar },
   { path: '/card-types', title: '卡产品管理', icon: Collection },
   { path: '/membership', title: '会员卡管理', icon: CreditCard },
+  { path: '/miniapp-home', title: '小程序首页', icon: HomeFilled },
   { path: '/tenant', title: '机构设置', icon: Setting },
 ]
 
@@ -489,9 +497,47 @@ async function handleLogout() {
   align-items: center;
   gap: 16px;
 
-  .profile-avatar-tip {
+  .avatar-uploader {
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      border-color: #409eff;
+    }
+
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .avatar-uploader-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #8c939d;
+      font-size: 12px;
+    }
+  }
+
+  .upload-tip {
+    display: block;
+    width: 100%;
     font-size: 12px;
     color: #909399;
+    line-height: 1.5;
   }
 }
 </style>

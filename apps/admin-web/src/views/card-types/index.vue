@@ -35,7 +35,7 @@
     >
       <el-table-column type="selection" width="55" />
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column prop="name" label="产品名称" min-width="120" />
+      <el-table-column prop="name" label="产品名称" min-width="120" show-overflow-tooltip />
       <el-table-column prop="card_type" label="计费方式" width="100">
         <template #default="{ row }">
           <el-tag :type="getCardTypeTag(row.card_type)" size="small">
@@ -43,18 +43,18 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="total_credits" label="包含次数" width="100">
+      <el-table-column prop="total_credits" label="包含次数" width="100" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.card_type === 'count' ? row.total_credits : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="validity_days" label="有效天数" width="100">
+      <el-table-column prop="validity_days" label="有效天数" width="100" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.card_type === 'count' || row.card_type === 'period' ? row.validity_days : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="price" label="价格(元)" width="100" />
-      <el-table-column prop="applicable_course_type_code" label="适用课程类型">
+      <el-table-column prop="price" label="价格(元)" width="100" show-overflow-tooltip />
+      <el-table-column prop="applicable_course_type_code" label="适用课程类型" show-overflow-tooltip>
         <template #default="{ row }">
           <template v-if="row.applicable_course_type_code">
             <el-tag :type="getCourseTypeTagType(row.applicable_course_type_code)" size="small">

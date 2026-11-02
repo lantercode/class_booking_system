@@ -58,18 +58,18 @@
           <el-avatar :size="40" :src="resolveImageUrl(row.avatar_url)" icon="UserFilled" />
         </template>
       </el-table-column>
-      <el-table-column prop="nickname" label="昵称">
+      <el-table-column prop="nickname" label="昵称" width="140" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.nickname || '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="phone" label="手机号" width="140" />
-      <el-table-column prop="teacher_code" label="教师编号" width="160">
+      <el-table-column prop="phone" label="手机号" width="140" show-overflow-tooltip />
+      <el-table-column prop="teacher_code" label="教师编号" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.teacher_code || '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="student_code" label="学员编号" width="160">
+      <el-table-column prop="student_code" label="学员编号" width="160" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.student_code || '-' }}
         </template>
@@ -88,12 +88,12 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="created_at" label="注册时间" width="180">
+      <el-table-column prop="created_at" label="注册时间" width="180" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.created_at?.slice(0, 10) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="380" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button type="primary" size="small" link @click="handleEdit(row)"> 编辑 </el-button>
           <el-button type="warning" size="small" link @click="handleResetPwd(row)">
@@ -140,6 +140,21 @@
             show-password
           />
         </el-form-item>
+        <el-form-item label="头像" prop="avatar_url">
+          <el-upload
+            class="avatar-uploader"
+            :show-file-list="false"
+            :before-upload="beforeAvatarUpload"
+            :http-request="handleCreateAvatarUpload"
+          >
+            <img v-if="form.avatar_url" :src="newAvatarPreviewUrl || resolveImageUrl(form.avatar_url)" class="avatar-image" />
+            <div v-else class="avatar-uploader-placeholder">
+              <el-icon :size="28"><Plus /></el-icon>
+              <span>上传头像</span>
+            </div>
+          </el-upload>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
+        </el-form-item>
         <el-form-item label="角色" prop="roleCodes">
           <el-select v-model="form.roleCodes" multiple placeholder="请选择角色" style="width: 100%">
             <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
@@ -159,6 +174,21 @@
         </el-form-item>
         <el-form-item label="昵称" prop="nickname">
           <el-input v-model="editForm.nickname" placeholder="请输入昵称" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="头像" prop="avatar_url">
+          <el-upload
+            class="avatar-uploader"
+            :show-file-list="false"
+            :before-upload="beforeAvatarUpload"
+            :http-request="handleEditAvatarUpload"
+          >
+            <img v-if="editForm.avatar_url" :src="avatarPreviewUrl || resolveImageUrl(editForm.avatar_url)" class="avatar-image" />
+            <div v-else class="avatar-uploader-placeholder">
+              <el-icon :size="28"><Plus /></el-icon>
+              <span>上传头像</span>
+            </div>
+          </el-upload>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="editForm.status" style="width: 100%">
@@ -209,9 +239,9 @@
 </template>
 
 <script setup lang="ts">
-import { roleApi, userApi, type User } from '@dance-saas/api-client'
-import { Search } from '@element-plus/icons-vue'
-import type { FormInstance, FormRules } from 'element-plus'
+import { commonApi, roleApi, userApi, type User } from '@dance-saas/api-client'
+import { Plus, Search } from '@element-plus/icons-vue'
+import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { resolveImageUrl } from '@/utils/image'
@@ -237,11 +267,14 @@ const roles = ref<{ id: number; code: string; name: string }[]>([])
 const formRef = ref<FormInstance>()
 const editFormRef = ref<FormInstance>()
 const pwdFormRef = ref<FormInstance>()
+const avatarPreviewUrl = ref('')
+const newAvatarPreviewUrl = ref('')
 
 const form = reactive({
   phone: '',
   nickname: '',
   password: '',
+  avatar_url: '',
   roleCodes: [] as string[],
 })
 
@@ -261,6 +294,7 @@ const rules: FormRules = {
 const editForm = reactive({
   phone: '',
   nickname: '',
+  avatar_url: '',
   status: 1 as number,
   roleCodes: [] as string[],
 })
@@ -285,13 +319,55 @@ function resetForm() {
   form.phone = ''
   form.nickname = ''
   form.password = ''
+  form.avatar_url = ''
   form.roleCodes = []
+  newAvatarPreviewUrl.value = ''
   formRef.value?.resetFields()
 }
 
 function handleSearch() {
   page.value = 1
   fetchUsers()
+}
+
+// --- 头像上传 ---
+const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    ElMessage.error('头像仅支持 JPG/PNG/WEBP 格式')
+    return false
+  }
+  if (file.size / 1024 / 1024 > 5) {
+    ElMessage.error('头像图片不能超过 5MB')
+    return false
+  }
+  return true
+}
+
+async function handleCreateAvatarUpload(options: any) {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'avatar')
+    form.avatar_url = result.data.object_key
+    newAvatarPreviewUrl.value = result.data.url
+    ElMessage.success('头像上传成功')
+    formRef.value?.validateField('avatar_url')
+  } catch (e: any) {
+    ElMessage.error(e?.msg || e?.response?.data?.msg || '头像上传失败')
+  }
+}
+
+async function handleEditAvatarUpload(options: any) {
+  const { file } = options
+  try {
+    const result = await commonApi.uploadImage(file, 'avatar')
+    editForm.avatar_url = result.data.object_key
+    avatarPreviewUrl.value = result.data.url
+    ElMessage.success('头像上传成功')
+    editFormRef.value?.validateField('avatar_url')
+  } catch (e: any) {
+    ElMessage.error(e?.msg || e?.response?.data?.msg || '头像上传失败')
+  }
 }
 
 async function fetchUsers() {
@@ -340,6 +416,7 @@ async function handleSubmit() {
       phone: form.phone,
       password: form.password,
       nickname: form.nickname || undefined,
+      avatar_url: form.avatar_url || undefined,
       role_codes: form.roleCodes.length > 0 ? form.roleCodes : undefined,
     })
     ElMessage.success('新增用户成功')
@@ -442,6 +519,8 @@ function handleEdit(user: User) {
   editId.value = user.id
   editForm.phone = user.phone
   editForm.nickname = user.nickname || ''
+  editForm.avatar_url = user.avatar_url || ''
+  avatarPreviewUrl.value = user.avatar_url || ''
   editForm.status = user.status
   editForm.roleCodes = user.roles || []
 
@@ -457,6 +536,7 @@ async function handleEditSubmit() {
   try {
     const payload: any = {
       nickname: editForm.nickname || undefined,
+      avatar_url: editForm.avatar_url || undefined,
       status: editForm.status,
     }
     if (editForm.roleCodes.length > 0) {
@@ -509,7 +589,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .search-icon:hover {
   color: #409eff;
 }
@@ -519,5 +599,49 @@ onMounted(() => {
   background: #fff;
   border-radius: 12px;
   border: 1px solid #ebeef5;
+}
+
+.avatar-uploader {
+  border: 1px dashed #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    border-color: #409eff;
+  }
+
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .avatar-uploader-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    color: #8c939d;
+    font-size: 12px;
+  }
+}
+
+.upload-tip {
+  display: block;
+  width: 100%;
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
+  line-height: 1.5;
 }
 </style>

@@ -66,7 +66,7 @@
     >
       <el-table-column type="selection" width="55" :selectable="checkSelectable" />
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column prop="card_no" label="会员卡号" width="170">
+      <el-table-column prop="card_no" label="会员卡号" width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <el-link
             v-if="row.card_no"
@@ -79,7 +79,7 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="product_name" label="产品名称" min-width="120" />
+      <el-table-column prop="product_name" label="产品名称" min-width="120" show-overflow-tooltip />
       <el-table-column prop="card_type" label="计费方式" width="100">
         <template #default="{ row }">
           <el-tag :type="getCardTypeTag(row.card_type)" size="small">
@@ -87,24 +87,24 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="student_nickname" label="学员" width="100" />
-      <el-table-column prop="student_phone" label="手机号" width="120" />
-      <el-table-column prop="total_credits" label="总次数" width="80">
+      <el-table-column prop="student_nickname" label="学员" width="100" show-overflow-tooltip />
+      <el-table-column prop="student_phone" label="手机号" width="120" show-overflow-tooltip />
+      <el-table-column prop="total_credits" label="总次数" width="80" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.card_type === 'count' ? row.total_credits : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="used_credits" label="已用" width="80">
+      <el-table-column prop="used_credits" label="已用" width="80" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.card_type === 'count' ? row.used_credits : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="remaining_credits" label="剩余" width="80">
+      <el-table-column prop="remaining_credits" label="剩余" width="80" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.card_type === 'count' ? row.remaining_credits : '-' }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="120">
+      <el-table-column prop="status" label="状态" width="120" show-overflow-tooltip>
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)" size="small">
             {{ getStatusText(row.status) }}
@@ -126,12 +126,12 @@
           </el-tooltip>
         </template>
       </el-table-column>
-      <el-table-column label="有效期" width="360">
+      <el-table-column label="有效期" width="360" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatValidityPeriod(row.valid_from, row.expire_at) }}
         </template>
       </el-table-column>
-      <el-table-column v-if="hasFrozenCard" label="冻结信息" width="140">
+      <el-table-column v-if="hasFrozenCard" label="冻结信息" width="140" show-overflow-tooltip>
         <template #default="{ row }">
           <template v-if="row.status === 3">
             <div style="line-height: 1.6">
@@ -388,19 +388,19 @@
           style="width: 100%"
           empty-text="暂无流水记录"
         >
-          <el-table-column label="操作类型" min-width="120">
+          <el-table-column label="操作类型" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
               {{ getOperationTypeText(row.operation_type) }}
             </template>
           </el-table-column>
-          <el-table-column label="变动金额" width="120">
+          <el-table-column label="变动金额" width="120" show-overflow-tooltip>
             <template #default="{ row }">
               <span :style="{ color: getChangeAmountColor(row.change_amount), fontWeight: 600 }">
                 {{ row.change_amount > 0 ? '+' : '' }}{{ row.change_amount }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="时间" min-width="160">
+          <el-table-column label="时间" min-width="160" show-overflow-tooltip>
             <template #default="{ row }">
               {{ row.created_at ? formatDateTime(row.created_at) : '-' }}
             </template>

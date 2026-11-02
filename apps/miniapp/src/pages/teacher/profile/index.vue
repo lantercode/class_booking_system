@@ -10,9 +10,7 @@
           @error="handleAvatarError"
         />
         <view v-else class="avatar">
-          <text class="avatar-text">{{
-            userInfo?.nickname?.charAt(0) || "?"
-          }}</text>
+          <text class="avatar-icon">👤</text>
         </view>
       </view>
       <view class="user-info">
@@ -344,8 +342,10 @@ const handleUnbindWechat = () => {
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08); // ✅ 增加阴影
 }
 
-.avatar-text {
+.avatar-text,
+.avatar-icon {
   @include text-display; // ✅ 使用Design System字体
+  font-size: 56rpx;
   color: #fff;
   text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15); // ✅ 文字阴影增强可读性
 }

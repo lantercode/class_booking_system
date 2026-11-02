@@ -49,7 +49,7 @@ const api = new Function(inner + `
   openProfile, closeProfile, saveProfile, pf,
   openUserDialog, closeUserDialog, saveUser, uf, findUser,
   imageChoose, imageUpload, imageResolve, imageRemove,
-  openClassroomDialog, closeClassroomDialog, saveClassroom, cf,
+  openClassroomDialog, closeClassroomDialog, saveClassroom, cf, toggleClassroomStatus,
   onClassroomSearch, onUserSearch, reloadUsers, reloadClassrooms, reloadHome, findRoom,
   toggleHomeModule, moveHomeModule, reorderHomeModule, moduleIndex, openModuleDrawer, closeModuleDrawer, saveDraft, df, drawerItem,
   drawerToggleTeacher, drawerToggleCourse, homeModule,
@@ -72,7 +72,7 @@ ok('A3 列表首列为「头像」', html('admin-main').includes('>头像<') || 
 ok('A4 保留原有列：微信绑定/教师编号/学员编号/注册时间', ['微信绑定','教师编号','学员编号','注册时间'].every(k => html('admin-main').includes(k)));
 ok('A5 无头像用户渲染默认占位头像 .avatar.ph', html('admin-main').includes('avatar ph'));
 ok('A6 有头像用户渲染 img', html('admin-main').includes('<img src="data:image/svg'));
-ok('A7 新增弹窗含上传区（Element Plus 原生上传样式，无「演示/选 .txt/选大图」调试按钮）', (api.openUserDialog('create'), api.STATE.userDialog.open === true && html('modal-box').includes('新增用户') && html('modal-box').includes('选择图片') && !html('modal-box').includes('选 .txt') && !html('modal-box').includes('选大图') && !html('modal-box').includes('演示：')));
+ok('A7 新增弹窗含上传区（Element Plus 原生上传样式，无「演示/选 .txt/选大图」调试按钮）', (api.openUserDialog('create'), api.STATE.userDialog.open === true && html('modal-box').includes('<span>新增</span>') && html('modal-box').includes('上传头像') && !html('modal-box').includes('选 .txt') && !html('modal-box').includes('选大图') && !html('modal-box').includes('演示：')));
 ok('A8 选 .txt → 格式错误态', (api.imageChoose('user','bad-format'), api.STATE.userDialog.upload.state === 'format-error' && html('modal-box').includes('仅支持 JPG')));
 ok('A9 选大图 → 大小错误态', (api.imageChoose('user','big'), api.STATE.userDialog.upload.state === 'size-error' && html('modal-box').includes('5MB')));
 ok('A10 选正常图 → 预览态含 上传/更换/移除', (api.imageChoose('user','ok'), api.STATE.userDialog.upload.state === 'preview' && html('modal-box').includes('上传') && html('modal-box').includes('更换') && html('modal-box').includes('移除')));
@@ -80,7 +80,7 @@ ok('A11 点上传 → 上传中态', (api.imageUpload('user'), api.STATE.userDia
 ok('A12 模拟失败 → 失败态含 重试', (api.imageResolve('user',false), api.STATE.userDialog.upload.state === 'fail' && html('modal-box').includes('重试')));
 ok('A13 重试并模拟成功 → 成功态', (api.imageUpload('user'), api.imageResolve('user',true), api.STATE.userDialog.upload.state === 'success'));
 ok('A14 保存校验：昵称为空→行内错误且弹窗不关闭', (api.saveUser(), api.STATE.userDialog.errors.nickname === '请输入昵称' && api.STATE.userDialog.open === true));
-ok('A15 补齐必填项后保存成功且新用户入列', (api.uf('phone','13900000001'), api.uf('password','123456'), api.uf('nickname','新学员'), api.saveUser(), api.STATE.users.length === 6 && api.STATE.users[5].nickname === '新学员'));
+ok('A15 补齐必填项后保存成功且新用户入列', (api.uf('phone','13900000001'), api.uf('password','123456'), api.uf('nickname','新学员'), api.uf('roleCodes',['student']), api.saveUser(), api.STATE.users.length === 6 && api.STATE.users[5].nickname === '新学员'));
 ok('A16 保存后弹窗关闭且上传区已重置', api.STATE.userDialog.open === false && api.STATE.userDialog.upload.state === 'idle' && $('mask').className.indexOf('show') < 0);
 ok('A16b 新用户头像非空且已随创建写入', (function(){ var u = api.STATE.users[api.STATE.users.length-1]; return typeof u.avatar_url === 'string' && u.avatar_url.length > 0; })());
 ok('A17 编辑用户回填手机号(只读)与已有头像', (api.openUserDialog('edit',1), api.STATE.userDialog.form.phone === '13800001234' && html('modal-box').includes('readonly') && api.STATE.userDialog.upload.state === 'success'));
@@ -104,8 +104,8 @@ console.log('[B] 个人资料');
 api.resetData(); api.goAdmin('P-F7-01');
 ok('B1 顶栏下拉同时含 个人资料 与 退出登录', html('admin-header').includes('个人资料') && html('admin-header').includes('退出登录'));
 ok('B2 点击头像展开下拉', (api.toggleUserMenu(), api.STATE.userMenuOpen === true && html('admin-header').includes('dropdown')));
-ok('B3 个人资料弹窗：昵称可编辑 / 手机号只读 / 角色只读 tag', (api.openProfile(), html('modal-box').includes('个人资料') && html('modal-box').includes('昵称') && html('modal-box').includes('readonly') && html('modal-box').includes('tag primary')));
-ok('B4 昵称清空→校验失败且弹窗不关闭', (api.pf('nickname',''), api.saveProfile(), api.STATE.profileEdit && api.STATE.profileEdit.errors.nickname === '昵称不能为空' && $('mask').className.indexOf('show') >= 0));
+ok('B3 个人资料弹窗：昵称可编辑 / 手机号只读 / 无角色字段', (api.openProfile(), html('modal-box').includes('个人资料') && html('modal-box').includes('昵称') && html('modal-box').includes('readonly') && !html('modal-box').includes('<div class="lb">角色</div>') && html('modal-box').includes('支持 JPG / PNG / WEBP，最大 5MB')));
+ok('B4 昵称清空→校验失败且弹窗不关闭', (api.pf('nickname',''), api.saveProfile(), api.STATE.profileEdit && api.STATE.profileEdit.errors.nickname === '请输入昵称' && $('mask').className.indexOf('show') >= 0));
 ok('B5 保存成功→资料更新且顶部同步', (api.pf('nickname','林小雅Pro'), api.saveProfile(), api.STATE.profile.nickname === '林小雅Pro' && html('admin-header').includes('林小雅Pro') && api.STATE.profileEdit === null));
 ok('B6 更换头像并保存→顶部头像同步', (function(){
    var before = api.STATE.profile.avatar;
@@ -118,18 +118,18 @@ console.log('[C] 教室管理');
 api.resetData(); api.goAdmin('P-F7-05');
 ok('C1 教室管理仅卡片视图（无表格视图与切换控件；操作按钮无图标前缀）', !html('admin-actions').includes('表格视图') && !html('admin-actions').includes('卡片视图') && html('admin-actions').includes('>新增</button>') && !html('admin-actions').includes('＋') && html('admin-main').includes('rcard'));
 ok('C2 已移除表格视图渲染与切换逻辑（无 tbl 表格 / classroomView / toggleClassroomView）', !html('admin-main').includes('class="tbl"') && api.STATE.classroomView === undefined && typeof api.toggleClassroomView === 'undefined');
-ok('C2b 卡片不含 容量/状态/维护（字段与概念已删除）', !html('admin-main').includes('容纳人数') && !html('admin-main').includes('维护中') && !html('admin-main').includes('>维护<') && !html('admin-main').includes('>状态<'));
+ok('C2b 卡片保留 正常/维护中 状态，且不含 容量 字段', !html('admin-main').includes('容纳人数') && html('admin-main').includes('维护中'));
 ok('C3 图片失效教室 → 占位（无破图）', html('admin-main').includes('cover-ph') || html('admin-main').includes('图片加载失败'));
 ok('C4 未设置封面教室 → 暂无图片占位（不再绘制默认封面图）', (html('admin-main').match(/rc-cover"><img/g) || []).length === 2 && (html('admin-main').match(/rc-cover"><div class="cover-ph"/g) || []).length === 2 && !src.includes('roomDefaultCover'));
 ok('C5 卡片数量=当前列表教室数（每间教室一张卡片）', (html('admin-main').match(/class="rcard"/g) || []).length === 4);
 ok('C6 卡片含封面容器 + 位置/设备行（线性 SVG 图标，无 emoji）+ 教室编码', html('admin-main').includes('rc-cover') && html('admin-main').includes('rc-line') && html('admin-main').includes('<svg') && !html('admin-main').includes('📍') && !html('admin-main').includes('🎛') && html('admin-main').includes('R-00'));
-ok('C6b 卡片不含 容量/状态标签', !html('admin-main').includes('容纳人数') && !html('admin-main').includes('维护中'));
-ok('C7 新增教室弹窗含 封面图上传区 + 必填教室编码项', (api.openClassroomDialog('create'), api.STATE.classroomDialog.open === true && html('modal-box').includes('新增教室') && html('modal-box').includes('封面图') && html('modal-box').includes('选择图片') && html('modal-box').includes('教室编码')));
+ok('C6b 卡片保留 正常/维护中 状态标签，不含 容量', !html('admin-main').includes('容纳人数') && html('admin-main').includes('维护中'));
+ok('C7 新增教室弹窗含 封面上传区 + 必填教室编码项', (api.openClassroomDialog('create'), api.STATE.classroomDialog.open === true && html('modal-box').includes('新增教室') && html('modal-box').includes('封面') && html('modal-box').includes('上传封面') && html('modal-box').includes('教室编码')));
 ok('C8 必填校验：编码与名称为空→行内错误且弹窗不关闭', (api.saveClassroom(), api.STATE.classroomDialog.errors.code === '请输入教室编码' && api.STATE.classroomDialog.errors.name === '请输入教室名称' && api.STATE.classroomDialog.open === true));
-ok('C8b 编码唯一性校验：与现有 R-001 重复→拦截且不入列', (api.cf('code','R-001'), api.cf('name','测试教室'), api.saveClassroom(), api.STATE.classroomDialog.errors.code === '教室编码已存在' && api.STATE.classrooms.length === 4 && api.STATE.classroomDialog.open === true));
-ok('C9 填唯一编码+名称+上传封面后保存成功并入列', (function(){
+ok('C8b 编码唯一性校验：与现有 R-001 重复→拦截且不入列', (api.cf('code','R-001'), api.cf('name','测试教室'), api.saveClassroom(), (api.STATE.classroomDialog.errors.code || '').indexOf('教室编码已存在') === 0 && api.STATE.classrooms.length === 4 && api.STATE.classroomDialog.open === true));
+ok('C9 填唯一编码+名称+位置+设备+上传封面后保存成功并入列', (function(){
    api.imageChoose('classroom','ok'); api.imageUpload('classroom'); api.imageResolve('classroom',true);
-   api.cf('code','R-005'); api.cf('name','新排练厅'); api.cf('location','4 楼'); api.saveClassroom();
+   api.cf('code','R-005'); api.cf('name','新排练厅'); api.cf('location','4 楼'); api.cf('equipment',['镜子']); api.saveClassroom();
    var r = api.STATE.classrooms[api.STATE.classrooms.length-1];
    return api.STATE.classrooms.length === 5 && r.code === 'R-005' && r.name === '新排练厅' && r.cover === 'ROOM1';
  })());
@@ -139,48 +139,48 @@ ok('C10 编辑教室回填编码/封面；往返保留 code', (function(){
    api.cf('name','舞蹈教室 A 改名'); api.saveClassroom();
    return filled && api.findRoom(1).code === 'R-001' && api.findRoom(1).name === '舞蹈教室 A 改名';
  })());
-ok('C10b 教室字段集 = code/name/location/equipment/cover（无 capacity/status）', api.STATE.classrooms.every(function(r){ return r.capacity === undefined && r.status === undefined && typeof r.code === 'string' && r.code.length > 0; }));
-ok('C10c 维护能力已彻底移除（无 toggleClassroomStatus）', typeof api.toggleClassroomStatus === 'undefined' && !html('admin-main').includes('维护'));
+ok('C10b 教室字段集 = code/name/location/equipment/cover/status（无 capacity）', api.STATE.classrooms.every(function(r){ return r.capacity === undefined && (r.status === 0 || r.status === 1) && typeof r.code === 'string' && r.code.length > 0; }));
+ok('C10c 维护能力与真实实现一致（toggleClassroomStatus + 维护按钮）', typeof api.toggleClassroomStatus === 'function' && html('admin-main').includes('维护'));
 ok('C11 搜索无结果→空态；清空恢复', (api.onClassroomSearch('不存在'), html('admin-main').includes('未找到匹配的教室')) && (api.onClassroomSearch(''), api.STATE.classrooms.length === 5 && !html('admin-main').includes('未找到匹配的教室')));
 
 /* ================= D. 首页管理（模块/排序/启停/抽屉） ================= */
 console.log('[D] 首页管理');
 api.resetData(); api.goAdmin('P-F7-08');
-ok('D1 首页管理页含 5 类模块', ['Banner 轮播','师资团队','推荐课程','舞蹈视频','公告/活动'].every(k => html('admin-main').includes(k)));
-ok('D2 初始线上版本为 未发布', html('admin-main').includes('线上版本：未发布'));
-ok('D3 模块数=5', api.STATE.home.modules.length === 5);
-ok('D4 启用开关切换并标记草稿为脏', (api.toggleHomeModule('notice'), api.homeModule('notice').enabled === true && api.STATE.home.dirty === true));
-ok('D5 上移改变顺序', (function(){ var before = api.homeModule('notice').sort; api.moveHomeModule('notice',-1); return api.homeModule('notice').sort !== before; })());
+ok('D1 首页管理页含 4 类固定模块（公告已移除）', ['Banner 轮播','师资团队','推荐课程','舞蹈视频'].every(k => html('admin-main').includes(k)) && !html('admin-main').includes('公告'));
+ok('D2 初始版本信息为 草稿 v1 / 已发布 v-', html('admin-main').includes('草稿 v1 / 已发布 v-'));
+ok('D3 模块数=4', api.STATE.home.modules.length === 4);
+ok('D4 启用开关切换并标记草稿为脏', (api.toggleHomeModule('video'), api.homeModule('video').enabled === false && api.STATE.home.dirty === true));
+ok('D5 上移改变顺序', (function(){ var before = api.homeModule('video').sort; api.moveHomeModule('video',-1); return api.homeModule('video').sort !== before; })());
 ok('D6 首模块不可再上移（边界保护）', (function(){
    var first = api.STATE.home.modules.slice().sort((a,b)=>a.sort-b.sort)[0];
    var snap = first.sort; api.moveHomeModule(first.type,-1);
    return api.homeModule(first.type).sort === snap;
  })());
-ok('D6b 列表渲染排序值(ord-no)+拖拽手柄(drag-handle)；模块类型图标列(.micon)已删除', html('admin-main').includes('ord-no') && html('admin-main').includes('drag-handle') && !html('admin-main').includes('micon'));
+ok('D6b 列表含拖拽手柄(drag-handle) 且不再渲染排序值(ord-no)', html('admin-main').includes('drag-handle') && !html('admin-main').includes('ord-no') && !html('admin-main').includes('micon'));
 ok('D6c 模块行可拖拽(draggable + ondrop 热点)', html('admin-main').includes('draggable="true"') && html('admin-main').includes('ondrop=') && html('admin-main').includes('ondragstart='));
-ok('D6d 拖动重排：末位模块拖到首位→位列第一且排序值=1', (api.reorderHomeModule('notice',0), (function(){ var mods=api.STATE.home.modules.slice().sort((a,b)=>a.sort-b.sort); return mods[0].type==='notice' && api.homeModule('notice').sort===1; })()));
-ok('D6e 拖动重排后排序值连续为 1..5', (api.STATE.home.modules.slice().sort((a,b)=>a.sort-b.sort).map(m=>m.sort).join(',') === '1,2,3,4,5'));
+ok('D6d 拖动重排：末位模块拖到首位→位列第一且排序值=1', (api.reorderHomeModule('video',0), (function(){ var mods=api.STATE.home.modules.slice().sort((a,b)=>a.sort-b.sort); return mods[0].type==='video' && api.homeModule('video').sort===1; })()));
+ok('D6e 拖动重排后排序值连续为 1..4', (api.STATE.home.modules.slice().sort((a,b)=>a.sort-b.sort).map(m=>m.sort).join(',') === '1,2,3,4'));
 ok('D6f 拖动越界被钳制（拖到超出末端→落到末位）', (function(){ var n=api.STATE.home.modules.length; api.reorderHomeModule('banner', n+5); return api.homeModule('banner').sort===n; })());
-ok('D7 打开 Banner 配置抽屉', (api.openModuleDrawer('banner'), api.STATE.drawer.open === true && html('drawer-box').includes('Banner 轮播配置')));
+ok('D7 打开 Banner 配置抽屉（标题 编辑 · Banner 轮播）', (api.openModuleDrawer('banner'), api.STATE.drawer.open === true && html('drawer-box').includes('编辑 · Banner 轮播')));
 ok('D8 保存 Banner 草稿写回模块', (api.drawerItem('title','新轮播标题'), api.saveDraft(), api.homeModule('banner').items[0].title === '新轮播标题' && api.STATE.drawer.open === false && api.STATE.home.dirty === true));
-ok('D9 Banner 必填校验（标题为空→拒绝保存）', (api.openModuleDrawer('banner'), api.drawerItem('title',''), api.saveDraft(), api.STATE.drawer.open === true && api.STATE.toast.msg.includes('轮播标题')));
-ok('D10 师资抽屉含教师选择且可勾选', (api.openModuleDrawer('teachers'), html('drawer-box').includes('教师选择') && html('drawer-box').includes('王梓涵'), api.drawerToggleTeacher(5), (api.STATE.drawer.form.teacher_ids||[]).includes(5)));
-ok('D11 师资展示数量越界→拒绝', (api.df('limit',20), api.saveDraft(), api.STATE.drawer.open === true && api.STATE.toast.msg.includes('1~12')));
-ok('D12 课程抽屉可勾选课程并切换排序规则', (api.closeModuleDrawer(), api.openModuleDrawer('courses'), api.drawerToggleCourse(4), api.df('sort_rule','latest'), (api.STATE.drawer.form.course_ids||[]).includes(4) && api.STATE.drawer.form.sort_rule === 'latest'));
-ok('D13 视频抽屉缺视频地址→拒绝保存', (api.closeModuleDrawer(), api.openModuleDrawer('video'), api.drawerItem('url',''), api.saveDraft(), api.STATE.drawer.open === true && api.STATE.toast.msg.includes('视频地址')));
-ok('D14 公告抽屉保存写回标题', (api.closeModuleDrawer(), api.openModuleDrawer('notice'), api.df('noticeTitle','新公告标题'), api.saveDraft(), api.homeModule('notice').noticeTitle === '新公告标题'));
+ok('D9 Banner 必填校验（标题为空→拒绝保存）', (api.openModuleDrawer('banner'), api.drawerItem('title',''), api.saveDraft(), api.STATE.drawer.open === true && api.STATE.toast.msg.includes('必须填写标题')));
+ok('D10 师资抽屉含 选择教师 且可勾选', (api.openModuleDrawer('teachers'), html('drawer-box').includes('选择教师') && html('drawer-box').includes('王梓涵'), api.drawerToggleTeacher(5), (api.STATE.drawer.form.teacher_ids||[]).includes(5)));
+ok('D11 师资抽屉无 展示数量/排序规则（真实仅内容多选）', !html('drawer-box').includes('展示数量') && !html('drawer-box').includes('排序规则'));
+ok('D12 课程抽屉可勾选课程且无排序规则字段', (api.closeModuleDrawer(), api.openModuleDrawer('courses'), api.drawerToggleCourse(4), (api.STATE.drawer.form.course_ids||[]).includes(4) && api.STATE.drawer.form.sort_rule === undefined));
+ok('D13 视频抽屉缺视频地址→拒绝保存', (api.closeModuleDrawer(), api.openModuleDrawer('video'), api.drawerItem('video_url','',0), api.saveDraft(), api.STATE.drawer.open === true && api.STATE.toast.msg.includes('视频地址')));
+ok('D14 师资抽屉保存写回 config.teacher_ids', (api.closeModuleDrawer(), api.openModuleDrawer('teachers'), api.drawerToggleTeacher(4), api.saveDraft(), (api.homeModule('teachers').config.teacher_ids||[]).includes(4)));
 ok('D15 抽屉关闭后不再渲染', (api.STATE.drawer.open === false && html('drawer-box') === ''));
 
 /* ================= E. 预览 / 发布 / 数据流 ================= */
 console.log('[E] 预览与发布');
 api.resetData(); api.goAdmin('P-F7-08');
 ok('E1 进入预览页且标注「预览的是草稿」', (api.previewHome(), api.STATE.adminPage === 'P-F7-14' && html('admin-main').includes('phone') && html('admin-main').includes('预览的是')));
-ok('E2 停用模块不出现在预览', (api.STATE.home.modules.some(m => m.type==='notice' && !m.enabled)) && !html('admin-main').includes('2026 秋季招生'));
-ok('E3 启用公告后预览出现该模块', (api.toggleHomeModule('notice'), html('admin-main').includes('2026 秋季招生')));
+ok('E2 停用模块不出现在预览', (api.goAdmin('P-F7-08'), api.toggleHomeModule('video'), api.previewHome(), api.STATE.home.modules.some(m => m.type==='video' && !m.enabled)) && !html('admin-main').includes('中国古典舞《身韵》基础教学'));
+ok('E3 启用视频后预览出现该模块', (api.goAdmin('P-F7-08'), api.toggleHomeModule('video'), api.previewHome(), html('admin-main').includes('中国古典舞《身韵》基础教学')));
 ok('E4 预览含 Banner 标题', html('admin-main').includes('让舞蹈成为生活的一部分'));
 ok('E5 模拟接口失败→仅隐藏纯配置模块并提示', (api.togglePreviewFail(), api.STATE.previewFail === true && html('admin-main').includes('接口请求失败') && !html('admin-main').includes('让舞蹈成为生活的一部分')));
 ok('E6 失败态下师资模块仍渲染（回落真实 API）', html('admin-main').includes('王梓涵'));
-ok('E7 发布确认弹窗列出模块', (api.goAdmin('P-F7-08'), api.openPublish(), api.STATE.publish.open === true && html('modal-box').includes('发布确认')));
+ok('E7 发布确认弹窗列出模块', (api.goAdmin('P-F7-08'), api.openPublish(), api.STATE.publish.open === true && html('modal-box').includes('确认发布首页配置') && html('modal-box').includes('本次发布内容概览')));
 ok('E8 发布失败→保留旧版本', (api.togglePublishFail(), api.doPublish(), api.STATE.home.publishResult === 'fail' && api.STATE.home.publishedVersion === 0 && api.STATE.home.dirty === true && api.STATE.publish.open === false));
 ok('E9 发布成功→线上版本+1 且草稿与线上一致', (api.openPublish(), api.doPublish(), api.STATE.home.publishedVersion === 1 && api.STATE.home.dirty === false && api.STATE.home.publishResult === 'success'));
 ok('E10 发布后改草稿不影响线上版本号', (api.toggleHomeModule('teachers'), api.STATE.home.dirty === true && api.STATE.home.publishedVersion === 1));
@@ -202,7 +202,7 @@ ok('G1 原型恰为单 <script> 块', scripts.length === 1);
 ok('G2 不发起真实网络请求（无 fetch/XHR/axios）', !/fetch\(|XMLHttpRequest|axios/.test(inner));
 ok('G3 明确标注「原型模拟数据」', src.includes('原型模拟数据'));
 ok('G4 未伪装真实 API：含"未接通/原型模拟"字样', inner.includes('未接通') || inner.includes('原型模拟'));
-ok('G5 5 类模块类型均实现渲染分支', ['banner','teachers','courses','video','notice'].every(t => inner.includes("'"+t+"'")));
+ok('G5 4 类固定模块类型均实现渲染分支', ['banner','teachers','courses','video'].every(t => inner.includes("'"+t+"'")) && !inner.includes("'notice'"));
 ok('G6 待确认项在原型中以 D-F7 标注', src.includes('D-F7'));
 ok('G7 未使用真实后端域名', !/https?:\/\/localhost|\/api\/v1/.test(inner));
 

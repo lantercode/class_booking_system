@@ -93,6 +93,12 @@ const router = createRouter({
           meta: { title: '会员卡管理', icon: 'CreditCard' },
         },
         {
+          path: 'miniapp-home',
+          name: 'MiniappHome',
+          component: () => import('@/views/home-config/index.vue'),
+          meta: { title: '小程序首页', icon: 'HomeFilled', roles: ['admin', 'super_admin'] },
+        },
+        {
           path: 'card-types',
           name: 'CardTypes',
           component: () => import('@/views/card-types/index.vue'),

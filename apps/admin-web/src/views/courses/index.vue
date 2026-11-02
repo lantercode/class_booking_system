@@ -189,7 +189,7 @@
         <div v-else v-loading="loading" class="table-wrapper">
           <el-table :data="courses" stripe style="width: 100%" empty-text="暂无数据" :header-cell-style="headerCellStyle">
             <el-table-column type="index" label="序号" width="60" align="center" />
-            <el-table-column label="课程名称">
+            <el-table-column label="课程名称" show-overflow-tooltip>
               <template #default="{ row }">
                 {{ row.name || '-' }}
               </template>
@@ -453,14 +453,15 @@
                 <span>上传封面</span>
               </div>
             </el-upload>
-            <el-input
+          </div>
+          <el-input
+              style="margin-top: 16px"
               v-model="courseForm.cover_url"
               placeholder="或直接填写外部图片 URL"
               clearable
               @input="coverPreviewUrl = ''"
             />
-          </div>
-          <div class="form-tip">支持 JPG/PNG/WEBP，最大 5MB；也可保留外部图片 URL</div>
+          <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
         </el-form-item>
         <el-form-item label="课程描述" prop="description">
           <el-input
@@ -1083,7 +1084,7 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .course-layout {
   display: flex;
   gap: 20px;
@@ -1457,35 +1458,47 @@ onMounted(() => {
   width: 100%;
 }
 
-.cover-uploader :deep(.el-upload) {
-  width: 160px;
-  height: 120px;
+.cover-uploader {
   border: 1px dashed #d9d9d9;
   border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+  width: 160px;
+  height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  overflow: hidden;
-  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: #409eff;
+  }
+
+  .cover-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+
+  .cover-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #8c939d;
+    font-size: 12px;
+  }
 }
 
-.cover-uploader :deep(.el-upload:hover) {
-  border-color: #409eff;
-}
-
-.cover-image {
+.upload-tip {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cover-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
   font-size: 12px;
   color: #909399;
+  margin-top: 6px;
+  line-height: 1.5;
 }
 </style>

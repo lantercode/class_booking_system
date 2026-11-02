@@ -37,6 +37,7 @@ from app.core.tenant_context import get_tenant_id
 from app.modules.upload.image_probe import ImageInfo, ImageValidationError, probe_image
 from app.modules.upload.repository import FileObjectRepository
 from app.modules.upload.schemas import UploadImageResponse
+from app.modules.upload.video_transcode import ensure_playable_h264
 
 logger = logging.getLogger(__name__)
 
@@ -44,26 +45,37 @@ logger = logging.getLogger(__name__)
 # 常量
 # ============================================================
 
-ALLOWED_MIME_TYPES: Final[set[str]] = {"image/jpeg", "image/png", "image/webp"}
-ALLOWED_EXTENSIONS: Final[set[str]] = {"jpg", "jpeg", "png", "webp"}
+# 图片 MIME / 扩展名白名单
+ALLOWED_IMAGE_MIMES: Final[set[str]] = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_IMAGE_EXTS: Final[set[str]] = {"jpg", "jpeg", "png", "webp"}
+
+# 视频 MIME / 扩展名白名单（小程序原生支持 mp4/webm/mov）
+ALLOWED_VIDEO_MIMES: Final[set[str]] = {"video/mp4", "video/webm", "video/quicktime"}
+ALLOWED_VIDEO_EXTS: Final[set[str]] = {"mp4", "webm", "mov"}
+
 ALLOWED_BIZ_TYPES: Final[set[str]] = {
     "avatar",
     "course_cover",
     "classroom_cover",
     "banner",
     "video_cover",
+    "video",
     "notice",
 }
 
-# 各业务场景的大小上限（字节）。头像要求更严格，避免被当成图床。
+# 各业务场景的大小上限（字节）
 MAX_SIZE_BY_BIZ: Final[dict[str, int]] = {
-    "avatar": 2 * 1024 * 1024,
+    "avatar": 5 * 1024 * 1024,
     "course_cover": 5 * 1024 * 1024,
     "classroom_cover": 5 * 1024 * 1024,
     "banner": 5 * 1024 * 1024,
     "video_cover": 5 * 1024 * 1024,
+    "video": 200 * 1024 * 1024,
     "notice": 5 * 1024 * 1024,
 }
+
+# 需要按视频规则校验（跳过 Pillow 解码）的 biz_type
+VIDEO_BIZ_TYPES: Final[frozenset[str]] = frozenset({"video"})
 
 # object_key 中禁止出现的片段（防路径穿越，避免预签名越出本租户命名空间）
 _INVALID_KEY_FRAGMENTS: Final[tuple[str, ...]] = ("..", "\\")
@@ -190,15 +202,19 @@ class UploadService:
         # --- 四关校验 ---
         self._validate_biz_type(biz_type)
 
-        content, image = await self._validate_and_read(file, biz_type)
+        content, ext = await self._validate_and_read(file, biz_type)
         mime = file.content_type or "application/octet-stream"
+
+        # 视频场景：统一规整为 H.264，避免 HEVC/H.265 在小程序端无法播放
+        if biz_type in VIDEO_BIZ_TYPES:
+            content, ext, mime = await ensure_playable_h264(content, ext, mime)
 
         # --- 生成 object_key ---
         tenant_id = get_tenant_id()
         if not tenant_id:
             raise HTTPException(status_code=500, detail="租户上下文缺失，无法生成 object_key")
 
-        object_key = f"t/{tenant_id}/{biz_type}/{uuid.uuid4().hex}.{image.extension}"
+        object_key = f"t/{tenant_id}/{biz_type}/{uuid.uuid4().hex}.{ext}"
 
         # --- 存储：策略模式 ---
         try:
@@ -308,27 +324,33 @@ class UploadService:
                 detail=f"非法 biz_type，允许值: {sorted(ALLOWED_BIZ_TYPES)}",
             )
 
-    async def _validate_and_read(self, file: UploadFile, biz_type: str) -> tuple[bytes, ImageInfo]:
-        """校验 MIME / 扩展名 / 大小 / 实际图片内容，并一次性读取。
+    async def _validate_and_read(self, file: UploadFile, biz_type: str) -> tuple[bytes, str]:
+        """校验 MIME / 扩展名 / 大小，并一次性读取内容。
 
         Returns:
-            (文件内容, 解码后的可信图片信息)
+            (文件内容, 扩展名)
+            - 图片场景：Pillow 解码后的可信扩展名
+            - 视频场景：直接用文件扩展名（跳过 Pillow 解码）
         """
-        # 1) MIME 白名单（客户端声明，仅作早期快速拒绝，不作为可信依据）
+        is_video = biz_type in VIDEO_BIZ_TYPES
+        allowed_mimes = ALLOWED_VIDEO_MIMES if is_video else ALLOWED_IMAGE_MIMES
+        allowed_exts = ALLOWED_VIDEO_EXTS if is_video else ALLOWED_IMAGE_EXTS
+
+        # 1) MIME 白名单（客户端声明，仅作早期快速拒绝）
         mime = file.content_type or ""
-        if mime and mime not in ALLOWED_MIME_TYPES:
+        if mime and mime not in allowed_mimes:
             raise HTTPException(
                 status_code=400,
-                detail=f"不支持的文件类型: {mime}；仅支持 {sorted(ALLOWED_MIME_TYPES)}",
+                detail=f"不支持的文件类型: {mime}；仅支持 {sorted(allowed_mimes)}",
             )
 
         # 2) 扩展名兜底
         fname = file.filename or ""
         ext_in_name = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
-        if ext_in_name and ext_in_name not in ALLOWED_EXTENSIONS:
+        if ext_in_name and ext_in_name not in allowed_exts:
             raise HTTPException(
                 status_code=400,
-                detail=f"不支持的文件扩展名: {ext_in_name}；仅支持 {sorted(ALLOWED_EXTENSIONS)}",
+                detail=f"不支持的文件扩展名: {ext_in_name}；仅支持 {sorted(allowed_exts)}",
             )
 
         # 3) 读内容 + 按业务场景的大小上限
@@ -350,13 +372,18 @@ class UploadService:
                 ),
             )
 
-        # 4) 实际解码校验（覆盖伪造 MIME / 伪造扩展名 / 损坏文件 / 超大像素）
+        # 视频场景直接用扩展名，跳过 Pillow 解码
+        if is_video:
+            ext = ext_in_name or "mp4"
+            return content, ext
+
+        # 图片场景：Pillow 解码校验
         try:
             image = probe_image(content)
         except ImageValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(status_code=400, detail=str(exc))
 
-        return content, image
+        return content, image.extension
 
     # ============================================================
     # 私有：local 存储

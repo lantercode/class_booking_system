@@ -74,9 +74,9 @@
             <span style="font-weight: 600">最近预约</span>
           </template>
           <el-table :data="recentBookings" size="small" style="width: 100%" empty-text="暂无数据">
-            <el-table-column prop="student" label="学员" />
-            <el-table-column prop="course" label="课程" />
-            <el-table-column prop="time" label="时间" width="160" />
+            <el-table-column prop="student" label="学员" show-overflow-tooltip />
+            <el-table-column prop="course" label="课程" show-overflow-tooltip />
+            <el-table-column prop="time" label="时间" width="160" show-overflow-tooltip />
             <el-table-column prop="status" label="状态" width="80">
               <template #default="{ row }">
                 <el-tag :type="row.status === '已签到' ? 'success' : 'warning'" size="small">
@@ -92,10 +92,10 @@
             <span style="font-weight: 600">禁用教师</span>
           </template>
           <el-table :data="disabledTeachers" size="small" style="width: 100%" empty-text="暂无数据">
-            <el-table-column prop="name" label="姓名" />
-            <el-table-column prop="phone" label="手机号" />
-            <el-table-column prop="speciality" label="专长" />
-            <el-table-column label="操作" width="120">
+            <el-table-column prop="name" label="姓名" show-overflow-tooltip />
+            <el-table-column prop="phone" label="手机号" show-overflow-tooltip />
+            <el-table-column prop="speciality" label="专长" show-overflow-tooltip />
+            <el-table-column label="操作" width="120" fixed="right">
               <template #default>
                 <el-button type="primary" size="small" link> 启用 </el-button>
               </template>

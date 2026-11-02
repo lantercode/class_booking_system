@@ -47,7 +47,7 @@
       :row-class-name="rowClassName"
     >
       <el-table-column type="index" label="序号" width="60" />
-      <el-table-column label="学员" min-width="130">
+      <el-table-column label="学员" min-width="130" show-overflow-tooltip>
         <template #default="{ row }">
           <div class="student-cell">
             <span class="student-name">{{ row.student_nickname || `学员#${row.student_id}` }}</span>
@@ -55,7 +55,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="课程/排期" min-width="200">
+      <el-table-column label="课程/排期" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <div class="course-cell">
             <span class="course-name">{{ row.course_name || `课程#${row.schedule_id}` }}</span>
@@ -63,7 +63,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="130">
+      <el-table-column label="状态" width="130" show-overflow-tooltip>
         <template #default="{ row }">
           <div class="status-cell">
             <el-tag :type="statusTagType(row)" size="small">
@@ -79,7 +79,7 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="会员卡" min-width="200">
+      <el-table-column label="会员卡" min-width="200" show-overflow-tooltip>
         <template #default="{ row }">
           <div v-if="row.card_no" class="card-cell">
             <div class="card-main">
@@ -92,12 +92,12 @@
           <span v-else class="muted">—</span>
         </template>
       </el-table-column>
-      <el-table-column label="来源" width="90">
+      <el-table-column label="来源" width="90" show-overflow-tooltip>
         <template #default="{ row }">
           {{ sourceText(row.source) }}
         </template>
       </el-table-column>
-      <el-table-column label="取消原因" min-width="120">
+      <el-table-column label="取消原因" min-width="120" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.cancelled_reason || '—' }}
         </template>
