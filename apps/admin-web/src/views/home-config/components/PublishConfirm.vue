@@ -19,27 +19,15 @@
       <div class="changes-summary">
         <h4>本次发布内容概览</h4>
         <div class="changes-list">
-          <div
-            v-for="m in sortedModules"
-            :key="m.type"
-            class="change-item"
-          >
+          <div v-for="m in sortedModules" :key="m.type" class="change-item">
             <div class="change-left">
               <el-tag :type="moduleTagType(m.type)" size="small" effect="light">
                 {{ moduleTypeLabel(m.type) }}
               </el-tag>
             </div>
             <div class="change-right">
-              <el-tag
-                v-if="m.enabled"
-                type="success"
-                size="small"
-              >已启用</el-tag>
-              <el-tag
-                v-else
-                type="info"
-                size="small"
-              >已停用</el-tag>
+              <el-tag v-if="m.enabled" type="success" size="small">已启用</el-tag>
+              <el-tag v-else type="info" size="small">已停用</el-tag>
               <span class="change-summary">{{ getSummary(m) }}</span>
             </div>
           </div>
@@ -49,9 +37,7 @@
 
     <template #footer>
       <el-button @click="emit('close')">取消</el-button>
-      <el-button type="primary" :loading="loading" @click="emit('confirm')">
-        确认发布
-      </el-button>
+      <el-button type="primary" :loading="loading" @click="emit('confirm')"> 确认发布 </el-button>
     </template>
   </el-dialog>
 </template>

@@ -25,7 +25,7 @@ import json
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 BASE = "http://localhost:8000"
 TENANT = "dance-school"
@@ -108,7 +108,7 @@ def main() -> None:
     print(f"  ✓ 课程={course['name']}({course['id']}) 教师={teacher_name}({teacher_id}) 学员={stu_name}({stu_id})")
 
     print("== 3. 创建未来排期 S1/S2/S3 ==")
-    now = datetime.now(timezone.utc) + timedelta(days=1)
+    now = datetime.now(UTC) + timedelta(days=1)
     schedule_ids = {}
     for key, offset in (("S1", 0), ("S2", 1), ("S3", 2)):
         start = (now + timedelta(days=offset)).replace(hour=11, minute=0, second=0, microsecond=0)

@@ -19,7 +19,10 @@ export function formatTime(iso: string | null | undefined): string {
   return `${hh}:${mm}`
 }
 
-export function formatDateTimeRange(start: string | null | undefined, end: string | null | undefined): string {
+export function formatDateTimeRange(
+  start: string | null | undefined,
+  end: string | null | undefined
+): string {
   if (!start) return '-'
   const endStr = end ? formatTime(end) : ''
   return `${formatDateTime(start)}${endStr ? ` - ${endStr}` : ''}`

@@ -53,11 +53,11 @@
                     {{ room.status === 1 ? '正常' : '维护中' }}
                   </el-tag>
                 </div>
-                <div class="room-code" v-if="room.code">
+                <div v-if="room.code" class="room-code">
                   <span class="code-label">编码</span>
                   <span class="code-value">{{ room.code }}</span>
                 </div>
-                <div class="room-location" v-if="room.location">
+                <div v-if="room.location" class="room-location">
                   <el-icon><Location /></el-icon>
                   <span>{{ room.location }}</span>
                 </div>
@@ -113,20 +113,10 @@
           <el-input v-model="form.name" placeholder="请输入教室名称" maxlength="50" />
         </el-form-item>
         <el-form-item label="教室编码" prop="code">
-          <el-input
-            v-model="form.code"
-            placeholder="请输入教室编码"
-            maxlength="50"
-            clearable
-          />
+          <el-input v-model="form.code" placeholder="请输入教室编码" maxlength="50" clearable />
         </el-form-item>
         <el-form-item label="位置" prop="location">
-          <el-input
-            v-model="form.location"
-            placeholder="如：A栋301"
-            maxlength="200"
-            clearable
-          />
+          <el-input v-model="form.location" placeholder="如：A栋301" maxlength="200" clearable />
         </el-form-item>
         <el-form-item label="封面" prop="cover_image_url">
           <el-upload
@@ -135,22 +125,14 @@
             :before-upload="beforeCoverUpload"
             :http-request="handleCoverUpload"
           >
-            <img
-              v-if="coverPreviewUrl"
-              :src="coverPreviewUrl"
-              class="cover-image"
-            />
+            <img v-if="coverPreviewUrl" :src="coverPreviewUrl" class="cover-image" />
             <div v-else class="cover-placeholder">
               <el-icon :size="22" color="#c0c4cc"><Plus /></el-icon>
               <span>上传封面</span>
             </div>
           </el-upload>
           <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
-          <div
-            v-if="form.cover_image_url"
-            class="clear-cover"
-            @click="clearCover"
-          >
+          <div v-if="form.cover_image_url" class="clear-cover" @click="clearCover">
             <el-icon><Delete /></el-icon>
             <span>移除封面</span>
           </div>
@@ -331,8 +313,11 @@ async function handleSubmit() {
     if (form.value.code?.trim()) payload.code = form.value.code.trim()
     else if (isEdit.value) payload.code = '' as any // edit 时清空可能有问题，保持原逻辑
     if (form.value.location?.trim()) payload.location = form.value.location.trim()
-    if (form.value.cover_image_url?.trim()) payload.cover_image_url = form.value.cover_image_url.trim()
-    else if (!isEdit.value) { /* create 允许空 */ }
+    if (form.value.cover_image_url?.trim())
+      payload.cover_image_url = form.value.cover_image_url.trim()
+    else if (!isEdit.value) {
+      /* create 允许空 */
+    }
 
     if (isEdit.value && editingId.value) {
       // update 走 patch，只传非空字段
@@ -340,7 +325,8 @@ async function handleSubmit() {
       if (payload.name !== undefined) updatePayload.name = payload.name
       if (form.value.code !== undefined) updatePayload.code = form.value.code || ''
       if (form.value.location !== undefined) updatePayload.location = form.value.location || ''
-      if (form.value.cover_image_url !== undefined) updatePayload.cover_image_url = form.value.cover_image_url || ''
+      if (form.value.cover_image_url !== undefined)
+        updatePayload.cover_image_url = form.value.cover_image_url || ''
       if (form.value.equipment !== undefined) updatePayload.equipment = form.value.equipment
 
       await classroomApi.update(editingId.value, updatePayload as ClassroomUpdateParams)

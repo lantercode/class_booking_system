@@ -4,7 +4,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
-from app.core.tenant_context import get_tenant_id
 from app.modules.home_config.models import HomeConfig
 
 

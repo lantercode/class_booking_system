@@ -50,7 +50,7 @@ export async function resolveImageUrlAsync(value?: string | null): Promise<strin
   if (!pending) {
     pending = commonApi
       .getObjectUrl(key)
-      .then((res) => {
+      .then(res => {
         const url = res?.data?.url || ''
         if (url) resolvedCache.set(key, url)
         return url
@@ -65,7 +65,7 @@ export async function resolveImageUrlAsync(value?: string | null): Promise<strin
 /** 批量预热缓存（去重、忽略空值） */
 export async function warmImageUrls(values: Array<string | null | undefined>): Promise<void> {
   const keys = new Set(values.filter((v): v is string => !!v && !isRemoteUrl(v)))
-  await Promise.all(Array.from(keys).map((v) => resolveImageUrlAsync(v)))
+  await Promise.all(Array.from(keys).map(v => resolveImageUrlAsync(v)))
 }
 
 /**

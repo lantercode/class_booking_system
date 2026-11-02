@@ -13,11 +13,7 @@
         </div>
         <div v-loading="roleLoading" class="role-list">
           <div v-if="roleLoadError" class="role-error-block">
-            <el-result
-              icon="error"
-              title="加载角色列表失败"
-              :sub-title="roleLoadError"
-            >
+            <el-result icon="error" title="加载角色列表失败" :sub-title="roleLoadError">
               <template #extra>
                 <el-button type="primary" size="small" @click="fetchRoles">重试</el-button>
               </template>
@@ -73,11 +69,7 @@
         </div>
         <div class="permission-content">
           <div v-if="permLoadError" class="perm-error-block">
-            <el-result
-              icon="error"
-              title="加载权限失败"
-              :sub-title="permLoadError"
-            >
+            <el-result icon="error" title="加载权限失败" :sub-title="permLoadError">
               <template #extra>
                 <el-button
                   v-if="selectedRole"

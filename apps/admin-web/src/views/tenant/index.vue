@@ -16,7 +16,12 @@
 
       <template v-else>
         <!-- 机构基本信息 -->
-        <el-card shadow="never" class="section-card" v-loading="loading" element-loading-text="加载中...">
+        <el-card
+          v-loading="loading"
+          shadow="never"
+          class="section-card"
+          element-loading-text="加载中..."
+        >
           <template #header>
             <span class="section-title">机构信息</span>
           </template>
@@ -28,14 +33,23 @@
             label-position="left"
           >
             <el-form-item label="机构名称" prop="name">
-              <el-input v-model="infoForm.name" placeholder="请输入机构名称" maxlength="100" show-word-limit />
+              <el-input
+                v-model="infoForm.name"
+                placeholder="请输入机构名称"
+                maxlength="100"
+                show-word-limit
+              />
             </el-form-item>
             <el-form-item label="机构标识">
               <el-input :model-value="infoForm.slug" disabled />
               <div class="field-hint">机构标识不可修改，用于登录和 API 访问</div>
             </el-form-item>
             <el-form-item label="Logo URL" prop="logo_url">
-              <el-input v-model="infoForm.logo_url" placeholder="可选，留空则不设置" maxlength="500" />
+              <el-input
+                v-model="infoForm.logo_url"
+                placeholder="可选，留空则不设置"
+                maxlength="500"
+              />
             </el-form-item>
             <el-form-item label="联系电话" prop="contact_phone">
               <el-input v-model="infoForm.contact_phone" placeholder="可选" maxlength="20" />
@@ -52,7 +66,12 @@
         </el-card>
 
         <!-- 预约配置 -->
-        <el-card shadow="never" class="section-card" v-loading="loading" element-loading-text="加载中...">
+        <el-card
+          v-loading="loading"
+          shadow="never"
+          class="section-card"
+          element-loading-text="加载中..."
+        >
           <template #header>
             <span class="section-title">预约配置</span>
           </template>
@@ -81,7 +100,12 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { tenantApi, type TenantInfo, type TenantInfoUpdate, type TenantSettingsUpdate } from '@dance-saas/api-client'
+import {
+  tenantApi,
+  type TenantInfo,
+  type TenantInfoUpdate,
+  type TenantSettingsUpdate,
+} from '@dance-saas/api-client'
 
 // ------------------------------------------------------------
 // 状态
@@ -126,10 +150,7 @@ async function loadAll() {
   loading.value = true
   loadError.value = ''
   try {
-    const [settingsRes, infoRes] = await Promise.all([
-      tenantApi.getSettings(),
-      tenantApi.getInfo(),
-    ])
+    const [settingsRes, infoRes] = await Promise.all([tenantApi.getSettings(), tenantApi.getInfo()])
 
     // settings
     settingsForm.booking_advance_days = settingsRes.data.booking_advance_days

@@ -12,7 +12,7 @@ F1.5 定时任务租户隔离单元测试
     uv run pytest tests/test_scheduler_tenant_isolation.py -v
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 

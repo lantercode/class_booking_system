@@ -50,12 +50,12 @@
 </template>
 
 <script setup lang="ts">
-import {reactive, ref} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import type {FormInstance, FormRules} from 'element-plus'
-import {ElMessage} from 'element-plus'
-import {Lock, Management, OfficeBuilding, Phone} from '@element-plus/icons-vue'
-import {useAuthStore} from '@/stores/auth'
+import { reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { Lock, Management, OfficeBuilding, Phone } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()

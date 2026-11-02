@@ -54,7 +54,11 @@
         </template>
       </el-table-column>
       <el-table-column prop="price" label="价格(元)" width="100" show-overflow-tooltip />
-      <el-table-column prop="applicable_course_type_code" label="适用课程类型" show-overflow-tooltip>
+      <el-table-column
+        prop="applicable_course_type_code"
+        label="适用课程类型"
+        show-overflow-tooltip
+      >
         <template #default="{ row }">
           <template v-if="row.applicable_course_type_code">
             <el-tag :type="getCourseTypeTagType(row.applicable_course_type_code)" size="small">

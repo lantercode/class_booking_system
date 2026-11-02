@@ -96,10 +96,7 @@
             </div>
 
             <!-- 推荐课程 -->
-            <div
-              v-else-if="m.type === 'courses' && selectedCourses.length"
-              class="courses-section"
-            >
+            <div v-else-if="m.type === 'courses' && selectedCourses.length" class="courses-section">
               <div class="section-header">
                 <div class="section-title">
                   <span class="title-icon title-icon-course"></span>
@@ -120,7 +117,9 @@
                   </div>
                   <div class="course-info">
                     <span class="course-name">{{ c.name }}</span>
-                    <span class="course-desc">{{ c.description || '能力素质训练是一门新手小白的入门必...' }}</span>
+                    <span class="course-desc">{{
+                      c.description || '能力素质训练是一门新手小白的入门必...'
+                    }}</span>
                   </div>
                 </div>
               </div>
@@ -249,9 +248,7 @@ const selectedTeachers = computed(() =>
     .filter((t): t is TenantUser => !!t)
 )
 const selectedCourses = computed(() =>
-  courseIds.value
-    .map(id => courseList.value.find(c => c.id === id))
-    .filter((c): c is Course => !!c)
+  courseIds.value.map(id => courseList.value.find(c => c.id === id)).filter((c): c is Course => !!c)
 )
 
 const hasVisibleModule = computed(() => {
@@ -305,7 +302,7 @@ watch([() => props.modules, teacherList, courseList], hydrateImages, {
 
 async function loadOptions() {
   try {
-    let res = await userApi.list({ page_size: 200, role_code: 'teacher' })
+    const res = await userApi.list({ page_size: 200, role_code: 'teacher' })
     let items = res.data.items || []
     // fallback：role_code 过滤为空时拉全量再按角色过滤（与编辑抽屉口径一致）
     if (items.length === 0) {
@@ -510,13 +507,15 @@ onMounted(loadOptions)
 
 .banner-title {
   display: block;
-  font-family: "BannerSerif", "STKaiti", "Kaiti SC", "KaiTi", "楷体", serif;
+  font-family: 'BannerSerif', 'STKaiti', 'Kaiti SC', 'KaiTi', '楷体', serif;
   font-size: 24px;
   font-weight: 400;
   letter-spacing: 4px;
   color: #fff;
   line-height: 1.35;
-  text-shadow: 0 1px 3px rgba(30, 18, 8, 0.55), 0 4px 14px rgba(30, 18, 8, 0.35);
+  text-shadow:
+    0 1px 3px rgba(30, 18, 8, 0.55),
+    0 4px 14px rgba(30, 18, 8, 0.35);
 }
 
 .banner-divider {
@@ -545,7 +544,7 @@ onMounted(loadOptions)
 
 .banner-subtitle {
   display: block;
-  font-family: "BannerSerif", "STKaiti", "Kaiti SC", "KaiTi", "楷体", serif;
+  font-family: 'BannerSerif', 'STKaiti', 'Kaiti SC', 'KaiTi', '楷体', serif;
   font-size: 12px;
   letter-spacing: 3px;
   color: rgba(255, 255, 255, 0.78);

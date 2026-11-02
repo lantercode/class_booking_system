@@ -25,7 +25,12 @@
         @change="handleSearch"
       >
         <el-option label="全部状态" value="" />
-        <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+        <el-option
+          v-for="opt in statusOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
       </el-select>
     </div>
 
@@ -70,7 +75,13 @@
               {{ statusTagText(row) }}
             </el-tag>
             <span
-              v-if="(row.status === 3 || row.status === 4 || row.display_status === 3 || row.display_status === 4) && row.checked_in_at"
+              v-if="
+                (row.status === 3 ||
+                  row.status === 4 ||
+                  row.display_status === 3 ||
+                  row.display_status === 4) &&
+                row.checked_in_at
+              "
               class="checked-in-time"
               :title="`签到时间：${formatDateTime(row.checked_in_at)}`"
             >
@@ -221,7 +232,11 @@ async function fetchBookings() {
     if (kw) {
       params.keyword = kw
     }
-    if (statusFilter.value !== '' && statusFilter.value !== null && statusFilter.value !== undefined) {
+    if (
+      statusFilter.value !== '' &&
+      statusFilter.value !== null &&
+      statusFilter.value !== undefined
+    ) {
       params.status = String(statusFilter.value)
     }
     const res = await bookingApi.list(params)

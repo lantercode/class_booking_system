@@ -275,6 +275,8 @@ class UserService:
             created_at=user.created_at,
             updated_at=user.updated_at,
             roles=role_codes,
+            bio=None,
+            wechat_bound=False,
         )
 
     async def update_user(
@@ -562,6 +564,8 @@ class UserService:
             created_at=user.created_at,
             updated_at=user.updated_at,
             roles=role_codes,
+            bio=None,
+            wechat_bound=False,
         )
 
     async def list_users(

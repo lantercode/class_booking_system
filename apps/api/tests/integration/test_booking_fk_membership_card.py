@@ -307,7 +307,6 @@ class TestBookingFkMembershipCard:
         sf = local_db
         data = shared_data
         schedule_id = await _create_schedule(sf, data)
-        booking_id: int | None = None
         try:
             async with sf() as session:
                 set_tenant_id(data["tenant_id"])
@@ -336,7 +335,7 @@ class TestBookingFkMembershipCard:
                 ).scalars().all()
                 assert rows == []
         finally:
-            # commit 失败 → booking_id 为 None；仅需清理 schedule
+            # commit 失败 → booking 未落库；仅需清理 schedule
             await _cleanup(sf, data, schedule_id=schedule_id)
 
     # AC-4：删除 card → 关联 booking.membership_card_id 变 NULL

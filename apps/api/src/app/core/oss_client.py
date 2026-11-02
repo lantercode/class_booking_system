@@ -66,8 +66,12 @@ class EcsRoleCredentialsProvider(CredentialsProvider):
     """
 
     def __init__(self, role_name: str, timeout: int = 5) -> None:
-        from alibabacloud_credentials.client import Client as CredentialClient  # type: ignore[import-untyped]
-        from alibabacloud_credentials.models import Config as CredentialConfig  # type: ignore[import-untyped]
+        from alibabacloud_credentials.client import (
+            Client as CredentialClient,  # type: ignore[import-untyped]
+        )
+        from alibabacloud_credentials.models import (
+            Config as CredentialConfig,  # type: ignore[import-untyped]
+        )
 
         self._client = CredentialClient(
             CredentialConfig(type="ecs_ram_role", role_name=role_name, timeout=timeout)

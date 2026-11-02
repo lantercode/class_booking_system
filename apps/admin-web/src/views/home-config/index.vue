@@ -48,13 +48,7 @@
         style="margin-bottom: 16px"
       />
 
-      <el-table
-        ref="tableRef"
-        :data="modules"
-        row-key="type"
-        stripe
-        style="width: 100%"
-      >
+      <el-table ref="tableRef" :data="modules" row-key="type" stripe style="width: 100%">
         <el-table-column width="50" align="center">
           <template #default>
             <el-icon class="drag-handle"><Rank /></el-icon>
@@ -74,25 +68,18 @@
         </el-table-column>
         <el-table-column label="是否启用" width="100" align="center">
           <template #default="{ row }">
-            <el-switch
-              v-model="row.enabled"
-              @change="(val: boolean) => handleToggle(row, val)"
-            />
+            <el-switch v-model="row.enabled" @change="(val: boolean) => handleToggle(row, val)" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" size="small" link @click="openEdit(row)">
-              编辑
-            </el-button>
-            <el-button type="warning" size="small" link @click="resetModule(row)">
-              重置
-            </el-button>
+            <el-button type="primary" size="small" link @click="openEdit(row)"> 编辑 </el-button>
+            <el-button type="warning" size="small" link @click="resetModule(row)"> 重置 </el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <div class="auto-save-tip" v-if="autoSaving">
+      <div v-if="autoSaving" class="auto-save-tip">
         <el-icon class="is-loading"><Loading /></el-icon>
         自动保存草稿中...
       </div>
@@ -100,8 +87,8 @@
 
     <!-- 编辑抽屉 -->
     <ModuleDrawer
-      :visible="drawerVisible"
       v-if="drawerVisible"
+      :visible="drawerVisible"
       :module="editingModule"
       @close="drawerVisible = false"
       @save="handleDrawerSave"
@@ -120,8 +107,8 @@
 
     <!-- 发布确认弹窗 -->
     <PublishConfirm
-      :visible="publishConfirmVisible"
       v-if="publishConfirmVisible"
+      :visible="publishConfirmVisible"
       :modules="modules"
       :loading="publishing"
       @close="publishConfirmVisible = false"
@@ -183,12 +170,14 @@ function syncFromDraft() {
       if (m.type === 'video' && !Array.isArray(m.items)) {
         const cfg = m.config || {}
         m.items = cfg.video_url
-          ? [{
-              title: cfg.title || '',
-              description: cfg.description || '',
-              cover_url: cfg.cover_url || '',
-              video_url: cfg.video_url,
-            }]
+          ? [
+              {
+                title: cfg.title || '',
+                description: cfg.description || '',
+                cover_url: cfg.cover_url || '',
+                video_url: cfg.video_url,
+              },
+            ]
           : []
         delete m.config
       }
@@ -371,7 +360,12 @@ function resetModule(row: HomeConfigModule) {
   // 重置为默认空配置
   const defaults: Record<string, any> = {
     banner: { type: 'banner', enabled: row.enabled, sort: row.sort, items: [] },
-    teachers: { type: 'teachers', enabled: row.enabled, sort: row.sort, config: { teacher_ids: [] } },
+    teachers: {
+      type: 'teachers',
+      enabled: row.enabled,
+      sort: row.sort,
+      config: { teacher_ids: [] },
+    },
     courses: { type: 'courses', enabled: row.enabled, sort: row.sort, config: { course_ids: [] } },
     video: { type: 'video', enabled: row.enabled, sort: row.sort, items: [] },
   }

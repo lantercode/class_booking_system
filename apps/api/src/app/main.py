@@ -31,6 +31,7 @@ from app.modules.booking.router import router as booking_router  # ⭐ 新增：
 from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
 from app.modules.common.router import router as common_router
 from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
+from app.modules.home_config.router import router as home_config_router  # ⭐ 首页配置路由（F7.0.4）
 from app.modules.membership.router import router as membership_router  # 会员卡路由
 from app.modules.membership.scheduler import (
     auto_activate_membership_cards,
@@ -48,7 +49,6 @@ from app.modules.schedule.scheduler import (
 from app.modules.teacher.router import router as teacher_router  # 教师路由
 from app.modules.tenant.router import router as tenant_router  # 租户配置路由
 from app.modules.upload.router import router as upload_router  # ⭐ 文件上传路由（F7.0.1）
-from app.modules.home_config.router import router as home_config_router  # ⭐ 首页配置路由（F7.0.4）
 from app.modules.user.router import router as user_router  # 用户管理路由
 
 settings = get_settings()

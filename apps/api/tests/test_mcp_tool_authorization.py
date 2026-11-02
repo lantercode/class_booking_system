@@ -18,12 +18,11 @@ import pytest
 from app.ai.mcp_server import (
     _require_student_role,
     _validate_id,
-    create_booking,
     cancel_booking,
+    create_booking,
 )
 from app.core.database import SessionLocal
 from app.core.exceptions import BusinessException
-
 
 # ============================================================
 # 辅助
@@ -33,8 +32,9 @@ from app.core.exceptions import BusinessException
 async def _get_user_with_role(db, phone: str):
     """按手机号查用户，返回 (user_id, roles)"""
     from sqlalchemy import select
-    from app.modules.user.models import User
+
     from app.core.rbac import get_user_role_codes
+    from app.modules.user.models import User
 
     result = await db.execute(select(User).where(User.phone == phone))
     user = result.scalar_one_or_none()

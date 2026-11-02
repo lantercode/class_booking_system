@@ -63,7 +63,9 @@
         <el-table-column label="学员" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="student-cell">
-              <span class="student-name">{{ row.student_nickname || `学员#${row.student_id}` }}</span>
+              <span class="student-name">{{
+                row.student_nickname || `学员#${row.student_id}`
+              }}</span>
               <span v-if="row.student_phone" class="student-phone">{{ row.student_phone }}</span>
             </div>
           </template>

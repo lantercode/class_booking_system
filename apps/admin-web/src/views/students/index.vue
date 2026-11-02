@@ -40,7 +40,14 @@
       </el-result>
     </div>
 
-    <el-table v-else v-loading="loading" :data="tableData" stripe style="width: 100%" empty-text="暂无数据">
+    <el-table
+      v-else
+      v-loading="loading"
+      :data="tableData"
+      stripe
+      style="width: 100%"
+      empty-text="暂无数据"
+    >
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column label="头像" width="80" align="center">
         <template #default="{ row }">
@@ -155,7 +162,11 @@
             :before-upload="beforeAvatarUpload"
             :http-request="handleAvatarUpload"
           >
-            <img v-if="editForm.avatar_url" :src="avatarPreviewUrl || editForm.avatar_url" class="avatar-image" />
+            <img
+              v-if="editForm.avatar_url"
+              :src="avatarPreviewUrl || editForm.avatar_url"
+              class="avatar-image"
+            />
             <div v-else class="avatar-uploader-placeholder">
               <el-icon :size="28"><Plus /></el-icon>
               <span>上传头像</span>

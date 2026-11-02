@@ -10,19 +10,12 @@
       <!-- Banner 编辑 -->
       <div v-if="module.type === 'banner'" class="module-form">
         <div class="banner-list">
-          <div
-            v-for="(item, idx) in bannerItems"
-            :key="idx"
-            class="banner-item"
-          >
+          <div v-for="(item, idx) in bannerItems" :key="idx" class="banner-item">
             <div class="banner-item-header">
               <span class="banner-index">#{{ idx + 1 }}</span>
-              <el-button
-                type="danger"
-                size="small"
-                link
-                @click="removeBannerItem(idx)"
-              >删除</el-button>
+              <el-button type="danger" size="small" link @click="removeBannerItem(idx)"
+                >删除</el-button
+              >
             </div>
             <el-form :model="item" label-width="80px" size="default">
               <el-form-item label="图片" required>
@@ -32,11 +25,7 @@
                   :http-request="(opts: any) => handleImageUpload(opts, item, 'banner')"
                   :before-upload="beforeUpload"
                 >
-                  <img
-                    v-if="item.image_url"
-                    :src="imgSrc(item.image_url)"
-                    class="uploaded-image"
-                  />
+                  <img v-if="item.image_url" :src="imgSrc(item.image_url)" class="uploaded-image" />
                   <div v-else class="upload-placeholder">
                     <el-icon><Plus /></el-icon>
                     <span>上传 Banner 图片</span>
@@ -55,11 +44,7 @@
               </el-form-item>
             </el-form>
           </div>
-          <el-button
-            v-if="bannerItems.length < 5"
-            class="add-btn"
-            @click="addBannerItem"
-          >
+          <el-button v-if="bannerItems.length < 5" class="add-btn" @click="addBannerItem">
             <el-icon><Plus /></el-icon>
             添加 Banner
           </el-button>
@@ -109,12 +94,7 @@
               style="width: 100%"
               :loading="courseLoading"
             >
-              <el-option
-                v-for="c in courseOptions"
-                :key="c.id"
-                :label="c.name"
-                :value="c.id"
-              />
+              <el-option v-for="c in courseOptions" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -123,19 +103,12 @@
       <!-- Video 编辑（多视频项，参照 banner） -->
       <div v-else-if="module.type === 'video'" class="module-form">
         <div class="banner-list">
-          <div
-            v-for="(item, idx) in videoItems"
-            :key="idx"
-            class="banner-item"
-          >
+          <div v-for="(item, idx) in videoItems" :key="idx" class="banner-item">
             <div class="banner-item-header">
               <span class="banner-index">视频 #{{ idx + 1 }}</span>
-              <el-button
-                type="danger"
-                size="small"
-                link
-                @click="removeVideoItem(idx)"
-              >删除</el-button>
+              <el-button type="danger" size="small" link @click="removeVideoItem(idx)"
+                >删除</el-button
+              >
             </div>
             <el-form :model="item" label-width="80px" size="default">
               <el-form-item label="封面" required>
@@ -146,11 +119,7 @@
                     :http-request="(opts: any) => handleVideoCoverUpload(opts, item)"
                     :before-upload="beforeUpload"
                   >
-                    <img
-                      v-if="item.cover_url"
-                      :src="imgSrc(item.cover_url)"
-                      class="cover-image"
-                    />
+                    <img v-if="item.cover_url" :src="imgSrc(item.cover_url)" class="cover-image" />
                     <div v-else class="cover-placeholder">
                       <el-icon :size="22" color="#c0c4cc"><Plus /></el-icon>
                       <span>上传封面（16:9）</span>
@@ -199,11 +168,7 @@
               </el-form-item>
             </el-form>
           </div>
-          <el-button
-            v-if="videoItems.length < 10"
-            class="add-btn"
-            @click="addVideoItem"
-          >
+          <el-button v-if="videoItems.length < 10" class="add-btn" @click="addVideoItem">
             <el-icon><Plus /></el-icon>
             添加视频
           </el-button>
@@ -276,14 +241,20 @@ function imgSrc(value?: string | null): string {
 
 async function hydrateImages() {
   const values: string[] = []
-  bannerItems.value.forEach(it => { if (it.image_url) values.push(it.image_url) })
-  videoItems.value.forEach(it => { if (it.cover_url) values.push(it.cover_url) })
+  bannerItems.value.forEach(it => {
+    if (it.image_url) values.push(it.image_url)
+  })
+  videoItems.value.forEach(it => {
+    if (it.cover_url) values.push(it.cover_url)
+  })
   const unique = Array.from(new Set(values))
   if (unique.length === 0) return
-  await Promise.all(unique.map(async (v) => {
-    const url = await resolveImageUrlAsync(v)
-    if (url) resolvedUrls.value[v] = url
-  }))
+  await Promise.all(
+    unique.map(async v => {
+      const url = await resolveImageUrlAsync(v)
+      if (url) resolvedUrls.value[v] = url
+    })
+  )
   resolvedUrls.value = { ...resolvedUrls.value }
 }
 
@@ -312,7 +283,7 @@ function moduleTypeLabel(type: string) {
 // 监听 props.module 变化，同步到临时编辑状态
 watch(
   () => props.module,
-  (m) => {
+  m => {
     if (!m) return
     switch (m.type) {
       case 'banner':
@@ -436,14 +407,14 @@ async function loadTeachers() {
   teacherLoading.value = true
   try {
     // 先用 role_code 过滤
-    let res = await userApi.list({ page_size: 200, role_code: 'teacher' })
+    const res = await userApi.list({ page_size: 200, role_code: 'teacher' })
     let items = res.data.items
 
     // fallback：如果 role_code 过滤返回空，拉所有用户再前端过滤
     if (!items || items.length === 0) {
       const allRes = await userApi.list({ page_size: 500 })
-      items = allRes.data.items.filter((u: any) =>
-        Array.isArray(u.roles) && u.roles.includes('teacher')
+      items = allRes.data.items.filter(
+        (u: any) => Array.isArray(u.roles) && u.roles.includes('teacher')
       )
     }
 

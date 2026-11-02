@@ -51,7 +51,14 @@
       </el-result>
     </div>
 
-    <el-table v-else v-loading="loading" :data="users" stripe style="width: 100%" empty-text="暂无数据">
+    <el-table
+      v-else
+      v-loading="loading"
+      :data="users"
+      stripe
+      style="width: 100%"
+      empty-text="暂无数据"
+    >
       <el-table-column type="index" label="序号" width="60" />
       <el-table-column prop="avatar_url" label="头像" width="80">
         <template #default="{ row }">
@@ -147,7 +154,11 @@
             :before-upload="beforeAvatarUpload"
             :http-request="handleCreateAvatarUpload"
           >
-            <img v-if="form.avatar_url" :src="newAvatarPreviewUrl || resolveImageUrl(form.avatar_url)" class="avatar-image" />
+            <img
+              v-if="form.avatar_url"
+              :src="newAvatarPreviewUrl || resolveImageUrl(form.avatar_url)"
+              class="avatar-image"
+            />
             <div v-else class="avatar-uploader-placeholder">
               <el-icon :size="28"><Plus /></el-icon>
               <span>上传头像</span>
@@ -182,7 +193,11 @@
             :before-upload="beforeAvatarUpload"
             :http-request="handleEditAvatarUpload"
           >
-            <img v-if="editForm.avatar_url" :src="avatarPreviewUrl || resolveImageUrl(editForm.avatar_url)" class="avatar-image" />
+            <img
+              v-if="editForm.avatar_url"
+              :src="avatarPreviewUrl || resolveImageUrl(editForm.avatar_url)"
+              class="avatar-image"
+            />
             <div v-else class="avatar-uploader-placeholder">
               <el-icon :size="28"><Plus /></el-icon>
               <span>上传头像</span>

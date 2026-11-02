@@ -290,8 +290,8 @@ async def create_teacher_user(session: AsyncSession, tenant_id: int, roles: list
     teacher_role = next(r for r in roles if r.code == "teacher")
     session.add(UserRole(user_id=user.id, role_id=teacher_role.id))
 
-    from datetime import UTC, datetime
     import random
+    from datetime import UTC, datetime
 
     from app.modules.teacher.models import TeacherProfile, TeacherStatus
 
@@ -341,8 +341,8 @@ async def create_student_user(session: AsyncSession, tenant_id: int, roles: list
     student_role = next(r for r in roles if r.code == "student")
     session.add(UserRole(user_id=user.id, role_id=student_role.id))
 
-    from datetime import UTC, datetime
     import random
+    from datetime import UTC, datetime
 
     from app.modules.student.models import StudentProfile
 

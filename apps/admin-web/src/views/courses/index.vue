@@ -187,7 +187,13 @@
         </div>
 
         <div v-else v-loading="loading" class="table-wrapper">
-          <el-table :data="courses" stripe style="width: 100%" empty-text="暂无数据" :header-cell-style="headerCellStyle">
+          <el-table
+            :data="courses"
+            stripe
+            style="width: 100%"
+            empty-text="暂无数据"
+            :header-cell-style="headerCellStyle"
+          >
             <el-table-column type="index" label="序号" width="60" align="center" />
             <el-table-column label="课程名称" show-overflow-tooltip>
               <template #default="{ row }">
@@ -455,12 +461,12 @@
             </el-upload>
           </div>
           <el-input
-              style="margin-top: 16px"
-              v-model="courseForm.cover_url"
-              placeholder="或直接填写外部图片 URL"
-              clearable
-              @input="coverPreviewUrl = ''"
-            />
+            v-model="courseForm.cover_url"
+            style="margin-top: 16px"
+            placeholder="或直接填写外部图片 URL"
+            clearable
+            @input="coverPreviewUrl = ''"
+          />
           <div class="upload-tip">支持 JPG/PNG/WEBP，最大 5MB</div>
         </el-form-item>
         <el-form-item label="课程描述" prop="description">

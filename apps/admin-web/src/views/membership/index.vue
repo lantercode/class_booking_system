@@ -109,9 +109,7 @@
           <el-tag :type="getStatusType(row.status)" size="small">
             {{ getStatusText(row.status) }}
           </el-tag>
-          <span
-            v-if="isUsedUp(row)"
-            style="margin-left: 4px; color: #9e9e9e; font-size: 12px"
+          <span v-if="isUsedUp(row)" style="margin-left: 4px; color: #9e9e9e; font-size: 12px"
             >（已用完）</span
           >
           <!-- 冻结到期但因冲突无法解冻的特殊标记 -->
@@ -530,11 +528,7 @@
       </div>
       <template #footer>
         <el-button @click="cancelDialogVisible = false"> 取消 </el-button>
-        <el-button
-          type="danger"
-          :loading="submitting"
-          @click="handleCancel"
-        >
+        <el-button type="danger" :loading="submitting" @click="handleCancel">
           {{ affectedData && affectedData.total > 0 ? '确定作废' : '确定' }}
         </el-button>
       </template>
@@ -1436,11 +1430,7 @@ function isConflictFrozen(card: MembershipCard) {
 
 // 判断次卡是否已用完（ACTIVE + count + remaining_credits === 0）
 function isUsedUp(card: MembershipCard): boolean {
-  return (
-    card.status === 1 &&
-    card.card_type === 'count' &&
-    (card.remaining_credits ?? 0) === 0
-  )
+  return card.status === 1 && card.card_type === 'count' && (card.remaining_credits ?? 0) === 0
 }
 
 onMounted(() => {

@@ -227,7 +227,8 @@ async def test_booking_flow_end_to_end(monkeypatch=None):
 
     finally:
         # 恢复原始引用
-        from app.ai.mcp_server import create_booking as _cb, query_schedules as _qs
+        from app.ai.mcp_server import create_booking as _cb
+        from app.ai.mcp_server import query_schedules as _qs
 
         runtime_mod.query_schedules = _qs
         runtime_mod.create_booking = _cb

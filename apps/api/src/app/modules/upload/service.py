@@ -34,7 +34,7 @@ from app.core.exceptions import (
 )
 from app.core.oss_client import get_oss_client, resolve_object_url
 from app.core.tenant_context import get_tenant_id
-from app.modules.upload.image_probe import ImageInfo, ImageValidationError, probe_image
+from app.modules.upload.image_probe import ImageValidationError, probe_image
 from app.modules.upload.repository import FileObjectRepository
 from app.modules.upload.schemas import UploadImageResponse
 from app.modules.upload.video_transcode import ensure_playable_h264

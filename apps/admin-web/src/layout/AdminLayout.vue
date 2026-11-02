@@ -122,13 +122,15 @@
       :close-on-click-modal="false"
       top="12vh"
     >
-      <el-form ref="profileFormRef" :model="{ nickname: profileNickname }" :rules="profileRules" label-width="80px">
+      <el-form
+        ref="profileFormRef"
+        :model="{ nickname: profileNickname }"
+        :rules="profileRules"
+        label-width="80px"
+      >
         <el-form-item label="头像">
           <div class="profile-avatar-row">
-            <el-upload
-              class="avatar-uploader"
-              v-bind="avatarUploadProps"
-            >
+            <el-upload class="avatar-uploader" v-bind="avatarUploadProps">
               <img v-if="profileAvatarPreview" :src="profileAvatarPreview" class="avatar-image" />
               <div v-else class="avatar-uploader-placeholder">
                 <el-icon :size="28"><Picture /></el-icon>
@@ -204,7 +206,9 @@ const profileNickname = ref('')
 const profileAvatarKey = ref<string | null>(null)
 const profileAvatarPreviewUrl = ref<string | null>(null)
 // 业务字段存 object_key（交给后端 normalize）；预览用已解析的 URL（presigned 或本地路径）
-const profileAvatarPreview = computed(() => profileAvatarPreviewUrl.value || resolveImageUrl(profileAvatarKey.value))
+const profileAvatarPreview = computed(
+  () => profileAvatarPreviewUrl.value || resolveImageUrl(profileAvatarKey.value)
+)
 const authAvatarPreview = computed(() => resolveImageUrl(authStore.adminInfo?.avatar))
 
 const profileRules: FormRules = {
@@ -228,7 +232,7 @@ async function handleAvatarUpload(file: File) {
   try {
     const res = await commonApi.uploadImage(file, 'avatar')
     profileAvatarKey.value = res.data.object_key
-    profileAvatarPreviewUrl.value = res.data.url   // 后端已解析好的 URL，直接预览
+    profileAvatarPreviewUrl.value = res.data.url // 后端已解析好的 URL，直接预览
     ElMessage.success('头像上传成功')
   } catch (e: any) {
     ElMessage.error(e?.msg || '头像上传失败')
@@ -242,7 +246,7 @@ const avatarUploadProps: Partial<UploadProps> = {
   showFileList: false,
   accept: 'image/jpeg,image/png,image/webp',
   limit: 1,
-  beforeUpload: (file) => {
+  beforeUpload: file => {
     const maxSize = 5 * 1024 * 1024
     if (file.size > maxSize) {
       ElMessage.error('图片大小不能超过 5MB')
@@ -250,7 +254,7 @@ const avatarUploadProps: Partial<UploadProps> = {
     }
     return true
   },
-  httpRequest: async (opts) => {
+  httpRequest: async opts => {
     if (opts.file) await handleAvatarUpload(opts.file as File)
   },
 }
