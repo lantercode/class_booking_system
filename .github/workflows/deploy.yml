@@ -53,7 +53,8 @@ jobs:
             fi
 
             # 4.1 校验文件存储必填项（缺失会导致 api 容器启动即退出）
-            for key in STORAGE_BACKEND OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
+            # STORAGE_BACKEND 由 infra/docker/docker-compose.prod.yml 固定为 oss，不依赖 .env.prod
+            for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
               grep -q "^${key}=.\+" .env.prod || { echo "❌ .env.prod 缺少必填项: $key"; exit 1; }
             done
             if grep -q '^OSS_CREDENTIALS_MODE=ecs_role' .env.prod; then
