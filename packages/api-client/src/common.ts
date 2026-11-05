@@ -23,6 +23,9 @@ export const commonApi = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      // 视频最大 200MB，且后端在 biz_type=video 时可能触发 ffmpeg 转码（最长 600s）；
+      // 全局默认 15s 会直接中断上传，这里单独放宽到 15 分钟。
+      timeout: 15 * 60 * 1000,
     })
   },
 
