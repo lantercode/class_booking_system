@@ -190,7 +190,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElLoading, ElMessageBox, ElMessage } from 'element-plus'
 import {
   ArrowLeft,
   ArrowRight,
@@ -245,6 +245,12 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
 /** 头像上传：业务字段存 object_key，url 仅用于预览 */
 async function handleAvatarUpload(options: any) {
   const { file } = options
+  // 上传期间给明确反馈：图片上传 + OSS 转存耗时，无 loading 时用户会以为页面卡住
+  const loading = ElLoading.service({
+    lock: true,
+    text: '头像上传中…',
+    background: 'rgba(0, 0, 0, 0.45)',
+  })
   try {
     const result = await commonApi.uploadImage(file, 'avatar')
     if (result.code === 0 || result.code === 200) {
@@ -256,6 +262,8 @@ async function handleAvatarUpload(options: any) {
     }
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.msg || e?.message || '头像上传失败')
+  } finally {
+    loading.close()
   }
 }
 
