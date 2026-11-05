@@ -228,6 +228,11 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         DateTime(timezone=True), comment="作废时间"
     )
     cancelled_reason: Mapped[str | None] = mapped_column(String(255), comment="作废原因")
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), comment="软删除时间（仅已作废的卡允许删除）"
+    )
+    deleted_by: Mapped[int | None] = mapped_column(BigInteger, comment="删除操作人ID")
+    deleted_reason: Mapped[str | None] = mapped_column(String(255), comment="删除原因")
 
     __table_args__ = (
         CheckConstraint(
@@ -237,6 +242,7 @@ class MembershipCard(Base, TenantMixin, TimestampMixin):
         Index("idx_cards_student", "tenant_id", "student_id", "status"),
         Index("idx_cards_product", "tenant_id", "product_id"),
         Index("idx_cards_expire", "tenant_id", "expire_at", "status"),
+        Index("idx_cards_deleted_at", "tenant_id", "deleted_at"),
         CheckConstraint(
             "used_credits >= 0 AND (total_credits IS NULL OR used_credits <= total_credits)",
             name="chk_credits_range",

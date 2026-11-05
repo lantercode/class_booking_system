@@ -6,10 +6,18 @@
         <el-button type="primary" @click="openCreateDialog"> 发放会员卡 </el-button>
         <el-button
           type="danger"
-          :disabled="selectedCards.length === 0"
+          :disabled="selectedCancellableCards.length === 0"
           @click="openBatchCancelDialog"
         >
           批量作废
+        </el-button>
+        <el-button
+          type="danger"
+          plain
+          :disabled="selectedCancelledCards.length === 0"
+          @click="handleBatchDelete"
+        >
+          批量删除
         </el-button>
       </div>
     </div>
@@ -191,6 +199,15 @@
             @click="openCancelDialog(row)"
           >
             作废
+          </el-button>
+          <el-button
+            v-if="row.status === 6"
+            type="danger"
+            size="small"
+            link
+            @click="handleDeleteCard(row)"
+          >
+            删除
           </el-button>
         </template>
       </el-table-column>
@@ -543,10 +560,10 @@
     >
       <div class="batch-cancel-info">
         <p>
-          已选择 <strong>{{ selectedCards.length }}</strong> 张会员卡进行批量作废
+          已选择 <strong>{{ selectedCancellableCards.length }}</strong> 张会员卡进行批量作废
         </p>
         <div class="selected-cards-list">
-          <div v-for="card in selectedCards" :key="card.id" class="selected-card-item">
+          <div v-for="card in selectedCancellableCards" :key="card.id" class="selected-card-item">
             <span>{{ card.student_nickname || '-' }}</span>
             <span>{{ card.student_phone || '-' }}</span>
             <el-tag :type="getStatusType(card.status)" size="small">
@@ -1266,16 +1283,88 @@ async function handleCancel() {
 }
 
 function checkSelectable(row: MembershipCard) {
-  // 已过期(status=2)和已作废(status=6)的卡不可选择进行批量作废
-  return row.status !== 2 && row.status !== 6
+  // 已过期(status=2)的卡不可批量操作；已作废(status=6)可勾选，用于批量删除
+  return row.status !== 2
 }
 
 function handleSelectionChange(selection: MembershipCard[]) {
   selectedCards.value = selection
 }
 
+/** 可批量作废的卡（排除已过期与已作废） */
+const selectedCancellableCards = computed(() =>
+  selectedCards.value.filter(card => card.status !== 2 && card.status !== 6)
+)
+
+/** 仅已作废（status=6）的卡允许删除 */
+const selectedCancelledCards = computed(() => selectedCards.value.filter(card => card.status === 6))
+
+async function handleDeleteCard(row: MembershipCard) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除会员卡「${row.card_no || row.id}」吗？删除后不再显示，消费流水与历史预约记录仍保留。`,
+      '删除会员卡',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    await membershipCardApi.remove(row.id)
+    ElMessage.success('会员卡已删除')
+    fetchCards()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '删除失败')
+  }
+}
+
+async function handleBatchDelete() {
+  const cards = selectedCancelledCards.value
+  if (cards.length === 0) {
+    ElMessage.warning('请选择已作废的会员卡')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定删除选中的 ${cards.length} 张已作废会员卡吗？删除后不再显示，消费流水与历史预约记录仍保留。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+  } catch {
+    return
+  }
+
+  try {
+    const result = await membershipCardApi.batchDelete(
+      cards.map(card => card.id),
+      { reason: '后台批量删除已作废会员卡' }
+    )
+    if (result.data.failed_count > 0) {
+      ElMessage.warning(
+        `成功删除 ${result.data.success_count} 张，${result.data.failed_count} 张删除失败`
+      )
+    } else {
+      ElMessage.success(`成功删除 ${result.data.success_count} 张会员卡`)
+    }
+    selectedCards.value = []
+    fetchCards()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.msg || '批量删除失败')
+  }
+}
+
 function openBatchCancelDialog() {
-  if (selectedCards.value.length === 0) {
+  if (selectedCancellableCards.value.length === 0) {
     ElMessage.warning('请先选择要作废的会员卡')
     return
   }
@@ -1295,7 +1384,7 @@ async function handleBatchCancel() {
 
   try {
     await ElMessageBox.confirm(
-      `确定要批量作废选中的 ${selectedCards.value.length} 张会员卡吗？此操作不可撤销。`,
+      `确定要批量作废选中的 ${selectedCancellableCards.value.length} 张会员卡吗？此操作不可撤销。`,
       '批量作废确认',
       {
         confirmButtonText: '确定作废',
@@ -1309,7 +1398,7 @@ async function handleBatchCancel() {
 
   submitting.value = true
   try {
-    const cardIds = selectedCards.value.map(card => card.id)
+    const cardIds = selectedCancellableCards.value.map(card => card.id)
     await membershipCardApi.batchCancel(cardIds, { reason: batchCancelForm.value.reason })
     ElMessage.success(`成功作废 ${cardIds.length} 张会员卡`)
     batchCancelDialogVisible.value = false

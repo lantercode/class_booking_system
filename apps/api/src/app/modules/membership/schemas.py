@@ -294,6 +294,13 @@ class MembershipCardBatchCancelRequest(BaseModel):
     reason: str = Field(..., max_length=255, description="作废原因")
 
 
+class MembershipCardBatchDeleteRequest(BaseModel):
+    """批量删除已作废会员卡请求体（软删除）"""
+
+    card_ids: list[int] = Field(..., min_length=1, description="要删除的会员卡ID列表")
+    reason: str | None = Field(None, max_length=255, description="删除原因（可选）")
+
+
 class MembershipCardProductBatchDeleteRequest(BaseModel):
     """批量删除卡类型产品请求体"""
 

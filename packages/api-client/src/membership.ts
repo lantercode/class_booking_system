@@ -219,6 +219,17 @@ export const membershipCardApi = {
       ...data,
     }),
 
+  /** 删除已作废的卡（软删除：仅打删除标记，保留流水与历史） */
+  remove: (id: number) => apiClient.delete<{ card_id: number }>(`/membership/cards/${id}`),
+
+  batchDelete: (ids: number[], data?: { reason?: string }) =>
+    apiClient.post<{
+      success_count: number
+      failed_count: number
+      failed_cards: { card_id: number; error: string }[]
+      total: number
+    }>("/membership/cards/batch-delete", { card_ids: ids, ...data }),
+
   extend: (id: number, data: { extend_days: number; remark?: string }) =>
     apiClient.post<MembershipCard>(`/membership/cards/${id}/extend`, data),
 

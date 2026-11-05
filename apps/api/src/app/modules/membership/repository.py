@@ -156,6 +156,7 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
             .where(
                 MembershipCard.student_id == student_id,
                 MembershipCard.tenant_id == tenant_id,
+                MembershipCard.deleted_at.is_(None),
             )
             .order_by(MembershipCard.status.asc(), MembershipCard.expire_at.asc())
         )
@@ -338,6 +339,10 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         )
 
         count_query = select(func.count()).select_from(MembershipCard)
+
+        # 软删除的卡不再出现在任何列表/统计中（仅作废状态才允许被删除）
+        base_query = base_query.where(MembershipCard.deleted_at.is_(None))
+        count_query = count_query.where(MembershipCard.deleted_at.is_(None))
 
         if student_id is not None:
             base_query = base_query.where(MembershipCard.student_id == student_id)

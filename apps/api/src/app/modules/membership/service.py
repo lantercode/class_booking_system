@@ -2414,5 +2414,53 @@ class MembershipCardService:
             "total": len(card_ids),
         }
 
+    async def delete_cancelled_cards(
+        self,
+        db: AsyncSession,
+        card_ids: list[int],
+        tenant_id: int,
+        operator_id: int,
+        reason: str | None = None,
+    ) -> dict:
+        """软删除已作废的会员卡（管理员操作）
+
+        规则：
+        - 仅 CANCELLED 状态的卡可删除；其余状态返回 400，避免误删在用权益；
+        - 只打删除标记（deleted_at/by/reason），不物理删除：
+          流水、冻结、预约、订单的历史溯源全部保留；
+        - 重复删除按幂等处理（计入 success_count），便于前端批量操作重试。
+
+        Returns:
+            dict: success_count / failed_count / failed_cards / total
+        """
+        success_count = 0
+        failed_count = 0
+        failed_cards = []
+
+        # 与作废接口一致：先排序再加行锁，避免并发批量操作交叉加锁导致死锁
+        for card_id in sorted(card_ids):
+            try:
+                card = await self.get_card_with_lock(db, card_id, tenant_id)
+                if not card:
+                    raise HTTPException(status_code=404, detail="会员卡不存在")
+                if card.status != CardStatus.CANCELLED.value:
+                    raise HTTPException(status_code=400, detail="仅已作废的会员卡可删除")
+                if card.deleted_at is None:
+                    card.deleted_at = datetime.now(UTC)
+                    card.deleted_by = operator_id
+                    card.deleted_reason = reason
+                success_count += 1
+            except HTTPException as e:
+                failed_count += 1
+                failed_cards.append({"card_id": card_id, "error": e.detail})
+
+        await db.flush()
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "failed_cards": failed_cards,
+            "total": len(card_ids),
+        }
+
 
 membership_card_service = MembershipCardService()

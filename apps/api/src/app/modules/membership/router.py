@@ -18,6 +18,7 @@ from app.deps.auth import get_current_user, get_redis_client
 from app.modules.booking.router import booking_service
 from app.modules.membership.schemas import (
     MembershipCardBatchCancelRequest,
+    MembershipCardBatchDeleteRequest,
     MembershipCardCancelRequest,
     MembershipCardCreate,
     MembershipCardExtendRequest,
@@ -538,6 +539,46 @@ async def batch_cancel_cards(
     )
     await db.commit()
     return success(data=result, msg=f"成功作废 {result['success_count']} 张会员卡")
+
+
+@router.delete("/cards/{card_id}", response_model=dict, summary="删除已作废会员卡（软删除）")
+@require_roles("admin", "super_admin")
+async def delete_cancelled_card(
+    card_id: int = Path(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """删除已作废的会员卡（仅打删除标记，不物理删除）
+
+    保留消费流水、冻结记录与历史预约/订单的溯源；删除后不再出现在列表与学员端。
+    非作废状态的卡不允许删除（400）。
+    """
+    tenant_id = current_user.get("tenant_id")
+    operator_id = current_user.get("user_id")
+    result = await membership_card_service.delete_cancelled_cards(
+        db, [card_id], tenant_id, operator_id
+    )
+    if result["failed_count"]:
+        raise HTTPException(status_code=400, detail=result["failed_cards"][0]["error"])
+    await db.commit()
+    return success(data={"card_id": card_id}, msg="会员卡已删除")
+
+
+@router.post("/cards/batch-delete", response_model=dict, summary="批量删除已作废会员卡（软删除）")
+@require_roles("admin", "super_admin")
+async def batch_delete_cards(
+    data: MembershipCardBatchDeleteRequest = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """批量删除已作废的会员卡（软删除，逐张校验状态）"""
+    tenant_id = current_user.get("tenant_id")
+    operator_id = current_user.get("user_id")
+    result = await membership_card_service.delete_cancelled_cards(
+        db, data.card_ids, tenant_id, operator_id, data.reason
+    )
+    await db.commit()
+    return success(data=result, msg=f"成功删除 {result['success_count']} 张会员卡")
 
 
 # ============================================================
