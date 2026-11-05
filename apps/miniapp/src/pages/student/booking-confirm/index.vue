@@ -273,31 +273,38 @@ const safeAreaBottom = systemInfo.safeAreaInsets?.bottom || 0;
 const courseTypeCode = computed(
   () => (schedule.value?.course_type_code as string) || "",
 );
-// 课程类型是否属于私教：约定的 private 代码，或类型名称包含「私教」（兼容自定义代码）
-const isPrivateType = (code: string) => {
-  if (!code) return false;
-  if (code === "private") return true;
-  return (courseTypeMap.value[code] || "").includes("私教");
+// 课程类型分类：标准代码直接用，自定义代码按类型名称归类（常规/私教/特色）
+const getTypeCategory = (code: string) => {
+  if (!code) return "";
+  if (code === "private" || code === "special" || code === "regular") return code;
+  const name = courseTypeMap.value[code] || "";
+  if (name.includes("私教")) return "private";
+  if (name.includes("特色")) return "special";
+  if (name.includes("常规")) return "regular";
+  return code;
 };
+const courseCategory = computed(() => getTypeCategory(courseTypeCode.value));
 const isPrivateLesson = computed(() => {
-  if (isPrivateType(courseTypeCode.value)) return true;
+  if (courseCategory.value === "private") return true;
   return ((schedule.value?.course_type_name as string) || "").includes("私教");
 });
 
 // 只允许选择能匹配当前课程的卡：
-// 1. 已限定课程类型的卡，类型必须与课程类型一致；
-// 2. 「适用全部课程」的通用卡不得用于私教课。
-const matchingCards = computed(() =>
-  availableCards.value.filter((card: any) => {
-    const cardCourseType = card.applicable_course_type_code;
-    if (cardCourseType) {
-      if (cardCourseType === courseTypeCode.value) return true;
-      // 自定义私教类型代码：双方都判定为私教时视为匹配
-      return isPrivateType(cardCourseType) && isPrivateLesson.value;
-    }
+// 1. 已限定课程类型的卡，分类必须与课程一致（兼容自定义类型代码）；
+// 2. 「适用全部课程」的通用卡不得用于私教课；
+// 3. 已限定类型的卡排在通用卡前面，避免特色课默认扣通用卡。
+const matchingCards = computed(() => {
+  const cards = availableCards.value.filter((card: any) => {
+    const cardCategory = getTypeCategory(card.applicable_course_type_code || "");
+    if (cardCategory) return cardCategory === courseCategory.value;
     return !isPrivateLesson.value;
-  }),
-);
+  });
+  return [...cards].sort((a: any, b: any) => {
+    const rankA = a.applicable_course_type_code ? 0 : 1;
+    const rankB = b.applicable_course_type_code ? 0 : 1;
+    return rankA - rankB;
+  });
+});
 
 // 选中的会员卡（仅允许来自匹配当前课程的卡列表）
 const selectedCard = computed(() => {
@@ -450,14 +457,18 @@ const loadData = async () => {
       ? recommendData.available_cards
       : [];
 
-    // 只自动选中能匹配当前课程的卡，不匹配的卡不进入选择列表
+    // 只自动选中能匹配当前课程的卡，不匹配的卡不进入选择列表；
+    // 已限定课程类型的卡（特色卡/私教卡）优先于「不限」通用卡
     const recommendedId = recommendData?.recommended_card_id ?? null;
     const recommendedMatched = matchingCards.value.some(
       (card: any) => card.id === recommendedId,
     );
-    selectedCardId.value = recommendedMatched
-      ? recommendedId
-      : (matchingCards.value[0]?.id ?? null);
+    const typedCard = matchingCards.value.find(
+      (card: any) => !!card.applicable_course_type_code,
+    );
+    selectedCardId.value =
+      typedCard?.id ??
+      (recommendedMatched ? recommendedId : (matchingCards.value[0]?.id ?? null));
     noAvailableMessage.value = matchingCards.value.length
       ? ""
       : isPrivateLesson.value
