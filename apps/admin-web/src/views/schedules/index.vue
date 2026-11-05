@@ -486,7 +486,7 @@ import {
 } from '@dance-saas/api-client'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 
 const loading = ref(false)
 const loadError = ref('')
@@ -668,8 +668,12 @@ function showCreateDialog() {
     preview_content: '',
     notes: '',
   }
+  resetBatchForm()
   dialogVisible.value = true
-  formRef.value?.clearValidate()
+  nextTick(() => {
+    formRef.value?.clearValidate()
+    batchFormRef.value?.clearValidate()
+  })
 }
 
 function showEditDialog(row: Schedule) {
@@ -986,6 +990,23 @@ const batchForm = ref({
   preview_content: '',
   notes: '',
 })
+
+/** 重置批量排期表单：弹窗 destroy-on-close 只销毁 DOM，不会清空 ref 中的表单数据 */
+function resetBatchForm() {
+  batchForm.value = {
+    course_id: null,
+    dateRange: [],
+    weekdays: [],
+    startTime: null,
+    endTime: null,
+    teacher_id: null,
+    classroom_id: null,
+    capacity: 20,
+    preview_content: '',
+    notes: '',
+  }
+  batchPreview.value = []
+}
 
 const batchRules = {
   course_id: [{ required: true, message: '请选择课程', trigger: 'change' }],
