@@ -4,6 +4,12 @@ on:
   push:
     branches: [production, main]  # 只有推送到 production 分支才触发部署到生产环境
 
+# 同一时间只允许一个部署任务操作 ECS：
+# 多个部署并发跑 git checkout/pull + docker build 会互相踩踏，导致 30 分钟超时失败
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy to ECS
@@ -16,7 +22,8 @@ jobs:
           host: ${{ secrets.ECS_HOST }}
           username: ${{ secrets.ECS_USER }}
           key: ${{ secrets.ECS_SSH_KEY }}
-          command_timeout: 30m
+          # 单机冷构建（pnpm install + 3 个前端 vue-tsc/vite + api 镜像）耗时较长，放宽到 60 分钟
+          command_timeout: 60m
           script: |
             set -e
             cd /opt/dance-saas
