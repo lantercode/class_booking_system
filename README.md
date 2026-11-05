@@ -9,6 +9,12 @@
 | 🖥️ 管理后台   | https://admin.seplume.com                                |
 | 📱 微信小程序 | 请使用微信扫描体验版二维码（或联系管理员获取体验版权限） |
 
+## 体验与联系
+
+想体验本系统？欢迎微信扫码添加我，备注「体验」，我会为你开通体验账号。
+
+<img src="docs/assets/wechat-qr.jpg" alt="微信二维码" width="240" />
+
 ## 技术栈
 
 - **后端**: Python 3.12 + FastAPI + SQLAlchemy 2.0 + Alembic + PostgreSQL 15 + Redis 7
