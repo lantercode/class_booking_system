@@ -64,6 +64,17 @@ jobs:
               fi
             done
 
+            # 4.1.1 补齐 Redis 密码（缺失会导致 redis 容器 --requirepass 无参数直接退出，healthcheck 失败）
+            if ! grep -q "^REDIS_PASSWORD=.\+" .env.prod; then
+              REDIS_PASSWORD_VALUE=$(openssl rand -hex 24)
+              if grep -q "^REDIS_PASSWORD=" .env.prod; then
+                sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=${REDIS_PASSWORD_VALUE}|" .env.prod
+              else
+                echo "REDIS_PASSWORD=${REDIS_PASSWORD_VALUE}" >> .env.prod
+              fi
+              echo "⚠️ .env.prod 缺少 REDIS_PASSWORD，已自动生成随机密码"
+            fi
+
             # 4.2 校验文件存储必填项（缺失会导致 api 容器启动即退出）
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
               grep -q "^${key}=.\+" .env.prod || { echo "❌ .env.prod 缺少必填项: $key"; exit 1; }

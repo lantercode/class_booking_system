@@ -19,7 +19,8 @@ services:
     image: redis:7-alpine
     container_name: dance-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    # 必须显式提供 REDIS_PASSWORD：为空时 redis-server 会因缺少参数直接退出
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required in .env.prod}
     volumes:
       - redisdata:/data
     healthcheck:
