@@ -284,27 +284,15 @@ const getTypeCategory = (code: string) => {
   return code;
 };
 const courseCategory = computed(() => getTypeCategory(courseTypeCode.value));
-const isPrivateLesson = computed(() => {
-  if (courseCategory.value === "private") return true;
-  return ((schedule.value?.course_type_name as string) || "").includes("私教");
-});
 
-// 只允许选择能匹配当前课程的卡：
-// 1. 已限定课程类型的卡，分类必须与课程一致（兼容自定义类型代码）；
-// 2. 「适用全部课程」的通用卡不得用于私教课；
-// 3. 已限定类型的卡排在通用卡前面，避免特色课默认扣通用卡。
-const matchingCards = computed(() => {
-  const cards = availableCards.value.filter((card: any) => {
+// 只允许选择与当前课程类型对应的卡：不同类型课程只展示已限定为该类型的会员卡，
+// 「不限」通用卡不再兜底（分类比较兼容自定义类型代码）。
+const matchingCards = computed(() =>
+  availableCards.value.filter((card: any) => {
     const cardCategory = getTypeCategory(card.applicable_course_type_code || "");
-    if (cardCategory) return cardCategory === courseCategory.value;
-    return !isPrivateLesson.value;
-  });
-  return [...cards].sort((a: any, b: any) => {
-    const rankA = a.applicable_course_type_code ? 0 : 1;
-    const rankB = b.applicable_course_type_code ? 0 : 1;
-    return rankA - rankB;
-  });
-});
+    return !!cardCategory && cardCategory === courseCategory.value;
+  }),
+);
 
 // 选中的会员卡（仅允许来自匹配当前课程的卡列表）
 const selectedCard = computed(() => {
@@ -471,9 +459,7 @@ const loadData = async () => {
       (recommendedMatched ? recommendedId : (matchingCards.value[0]?.id ?? null));
     noAvailableMessage.value = matchingCards.value.length
       ? ""
-      : isPrivateLesson.value
-        ? "私教课需使用私教类型的会员卡，暂无可匹配的卡"
-        : recommendData?.message || "暂无可用的会员卡";
+      : `该课程需使用「${(schedule.value?.course_type_name as string) || "对应类型"}」的会员卡，暂无可匹配的卡`;
   } catch (error) {
     console.error("加载数据失败:", error);
     uni.showToast({ title: "加载失败", icon: "none" });

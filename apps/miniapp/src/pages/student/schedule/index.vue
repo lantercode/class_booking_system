@@ -444,18 +444,11 @@ const validateCardForSchedule = (schedule: any): CardValidationResult => {
     };
   }
 
-  // 检查适用课程类型（单选字段）
+  // 检查适用课程类型（单选字段）：只允许使用已限定为当前课程类型的卡，
+  // 「不限」通用卡不再兜底，保证不同课程类型只对应各自可选择的会员卡
   const typeApplicableCards = validCards.filter((card: any) => {
     const cardCourseType = card.applicable_course_type_code;
-
-    if (!cardCourseType) {
-      // 「不限」通用卡覆盖常规/特色课；私教课必须使用已限定私教类型的卡
-      const isPrivateLesson =
-        scheduleCourseTypeCode === "private" ||
-        ((schedule.course_type_name as string) || "").includes("私教");
-      return !isPrivateLesson;
-    }
-    if (!scheduleCourseTypeCode) return true;
+    if (!cardCourseType || !scheduleCourseTypeCode) return false;
     return cardCourseType === scheduleCourseTypeCode;
   });
 
