@@ -192,9 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { commonApi, userApi, type User } from '@dance-saas/api-client'
+import { userApi, type User } from '@dance-saas/api-client'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { resolveImageUrl } from '@/utils/image'
+import { uploadFileWithLoading } from '@/utils/upload'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
@@ -393,7 +394,7 @@ const handleAvatarUpload = async (options: any) => {
   const { file } = options
 
   try {
-    const result = await commonApi.uploadImage(file, 'avatar')
+    const result = await uploadFileWithLoading(file, 'avatar')
 
     if (result.code === 0 || result.code === 200) {
       // 业务字段只存 object_key，URL 仅用于预览

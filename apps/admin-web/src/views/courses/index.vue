@@ -493,7 +493,6 @@ import {
   courseApi,
   courseCategoryApi,
   courseTypeApi,
-  commonApi,
   type Course,
   type CourseCategory,
   type CourseCategoryCreateParams,
@@ -519,6 +518,7 @@ import type { UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { resolveImageUrl } from '@/utils/image'
+import { uploadFileWithLoading } from '@/utils/upload'
 
 // ==================== 课程类型相关 ====================
 const typeLoading = ref(false)
@@ -864,7 +864,7 @@ const beforeCoverUpload: UploadProps['beforeUpload'] = file => {
 const handleCoverUpload = async (options: any) => {
   const { file } = options
   try {
-    const result = await commonApi.uploadImage(file, 'course_cover')
+    const result = await uploadFileWithLoading(file, 'course_cover')
     if (result.code === 0 || result.code === 200) {
       courseForm.value.cover_url = result.data.object_key
       coverPreviewUrl.value = result.data.url

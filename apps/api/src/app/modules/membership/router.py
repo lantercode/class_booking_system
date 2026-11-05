@@ -553,8 +553,8 @@ async def delete_cancelled_card(
     保留消费流水、冻结记录与历史预约/订单的溯源；删除后不再出现在列表与学员端。
     非作废状态的卡不允许删除（400）。
     """
-    tenant_id = current_user.get("tenant_id")
-    operator_id = current_user.get("user_id")
+    tenant_id: int = current_user["tenant_id"]
+    operator_id: int = current_user["user_id"]
     result = await membership_card_service.delete_cancelled_cards(
         db, [card_id], tenant_id, operator_id
     )
@@ -572,8 +572,8 @@ async def batch_delete_cards(
     current_user: dict = Depends(get_current_user),
 ):
     """批量删除已作废的会员卡（软删除，逐张校验状态）"""
-    tenant_id = current_user.get("tenant_id")
-    operator_id = current_user.get("user_id")
+    tenant_id: int = current_user["tenant_id"]
+    operator_id: int = current_user["user_id"]
     result = await membership_card_service.delete_cancelled_cards(
         db, data.card_ids, tenant_id, operator_id, data.reason
     )

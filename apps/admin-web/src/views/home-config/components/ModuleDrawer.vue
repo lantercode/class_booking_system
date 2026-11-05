@@ -199,13 +199,13 @@ import { ElMessage } from 'element-plus'
 import { Plus, VideoPlay } from '@element-plus/icons-vue'
 import type { UploadProps } from 'element-plus'
 import {
-  commonApi,
   courseApi,
   userApi,
   type Course,
   type HomeConfigModule,
 } from '@dance-saas/api-client'
 import { previewImageUrl, resolveImageUrlAsync } from '@/utils/image'
+import { uploadFileWithLoading, type UploadBizType } from '@/utils/upload'
 
 const props = defineProps<{
   visible: boolean
@@ -356,10 +356,10 @@ const beforeUpload: UploadProps['beforeUpload'] = file => {
   return true
 }
 
-async function handleImageUpload(opts: any, item: any, bizType: string) {
+async function handleImageUpload(opts: any, item: any, bizType: UploadBizType) {
   const { file } = opts
   try {
-    const res = await commonApi.uploadImage(file, bizType)
+    const res = await uploadFileWithLoading(file, bizType)
     item.image_url = res.data.object_key
     ElMessage.success('图片上传成功')
   } catch (e: any) {
@@ -370,7 +370,7 @@ async function handleImageUpload(opts: any, item: any, bizType: string) {
 async function handleVideoCoverUpload(opts: any, item: any) {
   const { file } = opts
   try {
-    const res = await commonApi.uploadImage(file, 'video_cover')
+    const res = await uploadFileWithLoading(file, 'video_cover')
     item.cover_url = res.data.object_key
     ElMessage.success('封面上传成功')
   } catch (e: any) {
@@ -394,7 +394,7 @@ const beforeVideoUpload: UploadProps['beforeUpload'] = file => {
 async function handleVideoFileUpload(opts: any, item: any) {
   const { file } = opts
   try {
-    const res = await commonApi.uploadImage(file, 'video')
+    const res = await uploadFileWithLoading(file, 'video')
     item.video_url = res.data.object_key
     ElMessage.success('视频上传成功，保存草稿后生效')
   } catch (e: any) {

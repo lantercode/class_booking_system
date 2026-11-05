@@ -254,12 +254,13 @@
 </template>
 
 <script setup lang="ts">
-import { commonApi, roleApi, userApi, type User } from '@dance-saas/api-client'
+import { roleApi, userApi, type User } from '@dance-saas/api-client'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { resolveImageUrl } from '@/utils/image'
+import { uploadFileWithLoading } from '@/utils/upload'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -365,7 +366,7 @@ const beforeAvatarUpload: UploadProps['beforeUpload'] = file => {
 async function handleCreateAvatarUpload(options: any) {
   const { file } = options
   try {
-    const result = await commonApi.uploadImage(file, 'avatar')
+    const result = await uploadFileWithLoading(file, 'avatar')
     form.avatar_url = result.data.object_key
     newAvatarPreviewUrl.value = result.data.url
     ElMessage.success('头像上传成功')
@@ -378,7 +379,7 @@ async function handleCreateAvatarUpload(options: any) {
 async function handleEditAvatarUpload(options: any) {
   const { file } = options
   try {
-    const result = await commonApi.uploadImage(file, 'avatar')
+    const result = await uploadFileWithLoading(file, 'avatar')
     editForm.avatar_url = result.data.object_key
     avatarPreviewUrl.value = result.data.url
     ElMessage.success('头像上传成功')

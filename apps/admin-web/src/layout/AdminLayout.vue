@@ -158,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { authApi, commonApi } from '@dance-saas/api-client'
+import { authApi } from '@dance-saas/api-client'
 import type { UploadProps } from 'element-plus'
 import {
   ArrowDown,
@@ -185,6 +185,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveImageUrl } from '@/utils/image'
+import { uploadFileWithLoading } from '@/utils/upload'
 import { useAuthStore } from '@/stores/auth'
 
 interface MenuItem {
@@ -236,7 +237,7 @@ function openProfileDialog() {
 async function handleAvatarUpload(file: File) {
   profileUploading.value = true
   try {
-    const res = await commonApi.uploadImage(file, 'avatar')
+    const res = await uploadFileWithLoading(file, 'avatar')
     profileAvatarKey.value = res.data.object_key
     profileAvatarPreviewUrl.value = res.data.url // 后端已解析好的 URL，直接预览
     ElMessage.success('头像上传成功')

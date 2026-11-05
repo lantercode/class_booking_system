@@ -170,13 +170,13 @@ import {
   classroomApi,
   type ClassroomCreateParams,
   type ClassroomUpdateParams,
-  commonApi,
 } from '@dance-saas/api-client'
 import { Delete, Location, Picture, Plus, Search, Setting } from '@element-plus/icons-vue'
 import type { UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { resolveImageUrl } from '@/utils/image'
+import { uploadFileWithLoading } from '@/utils/upload'
 
 const loading = ref(false)
 const loadError = ref('')
@@ -276,7 +276,7 @@ const beforeCoverUpload: UploadProps['beforeUpload'] = file => {
 const handleCoverUpload = async (options: any) => {
   const { file } = options
   try {
-    const result = await commonApi.uploadImage(file, 'classroom_cover')
+    const result = await uploadFileWithLoading(file, 'classroom_cover')
     if (result.code === 0 || result.code === 200) {
       // 存 object_key 到后端字段
       form.value.cover_image_url = result.data.object_key
