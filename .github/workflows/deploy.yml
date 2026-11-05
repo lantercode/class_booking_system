@@ -224,22 +224,24 @@ jobs:
 
             echo "✅ Health check response: $HEALTH_RESPONSE"
 
-            # 9. 给新镜像打上 Commit SHA 标签（用于追溯）
-            # Docker Compose 构建的镜像名格式为：<目录名>-<服务名>
-            # 由于 compose 文件在 infra/docker/ 目录下，构建上下文是 ../../apps/api
-            # 实际镜像名为: docker-dance-saas-api (docker-compose 的默认命名规则)
-            # Get the actual built image name from docker compose
-            API_IMAGE=$(docker compose -f infra/docker/docker-compose.prod.yml images -q api)
-            
+            # 9. 给当前运行镜像打上 Commit SHA 标签（用于追溯）
+            # 注意：不要用 `docker compose images -q api` 取镜像 ID——当容器引用的旧镜像已被清理时，
+            # compose 会直接报 "No such image: sha256:..." 并让整个部署失败（且该命令缺 --env-file 会打印一堆变量告警）。
+            # 改为从运行中的容器读取镜像 ID，保证存在；打标签失败只告警、不阻断部署。
+            API_IMAGE=$(docker inspect -f '{{.Image}}' dance-api 2>/dev/null || true)
+
             if [ -n "$API_IMAGE" ]; then
-              docker tag "$API_IMAGE" "${API_IMAGE}:$COMMIT_SHA"
-              echo "✅ Image tagged: ${API_IMAGE}:$COMMIT_SHA"
+              if docker tag "$API_IMAGE" "dance-saas-api:$COMMIT_SHA"; then
+                echo "✅ Image tagged: dance-saas-api:$COMMIT_SHA"
+              else
+                echo "⚠️ Image tag failed, skipping (deploy continues)"
+              fi
             else
               echo "⚠️ Image for 'api' service not found, skipping tag"
             fi
 
-            # 10. 清理无用镜像
-            docker image prune -f
+            # 10. 清理无用镜像（清理失败不应判定部署失败）
+            docker image prune -f || echo "⚠️ Image prune failed, ignoring"
 
             # 输出部署信息
             echo ""
