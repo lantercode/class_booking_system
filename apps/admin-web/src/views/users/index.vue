@@ -260,6 +260,9 @@ import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 import { resolveImageUrl } from '@/utils/image'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const loadError = ref('')
@@ -558,6 +561,10 @@ async function handleEditSubmit() {
       payload.role_ids = roles.value.filter(r => editForm.roleCodes.includes(r.code)).map(r => r.id)
     }
     await userApi.update(editId.value, payload)
+    // 若编辑的正是当前登录账号，立即刷新右上角头像/昵称/角色
+    if (editId.value === authStore.adminInfo?.id) {
+      await authStore.fetchAdminInfo()
+    }
     ElMessage.success('编辑成功')
     editVisible.value = false
     fetchUsers()

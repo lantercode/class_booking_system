@@ -205,6 +205,7 @@ onMounted(() => {
   if (!checkLogin("student")) return;
 
   loadUserInfo();
+  void refreshProfileFromServer();
 });
 
 onUnmounted(() => {
@@ -219,6 +220,35 @@ const loadUserInfo = () => {
     userId.value = parsed.id || "";
     avatarUrl.value = parsed.avatar || parsed.avatar_url || "";
     console.log("✅ 用户信息已加载:", parsed?.nickname || "未知");
+  }
+};
+
+/**
+ * 从服务端拉取最新资料并回写本地缓存。
+ * 后台管理端改了头像/昵称后，学员端无需重新登录即可同步
+ * （旧预签名地址仍然有效，不会触发 handleAvatarError 的兜底，所以必须主动拉取）。
+ */
+const refreshProfileFromServer = async () => {
+  try {
+    const res = await authApi.getMe();
+    const data: any = res.data || {};
+    if (isUnmounted) return;
+
+    const patch: Record<string, any> = {};
+    if (data.nickname) patch.nickname = data.nickname;
+    if (data.avatar) patch.avatar = data.avatar;
+    if (Object.keys(patch).length === 0) return;
+
+    if (patch.avatar) avatarUrl.value = patch.avatar;
+    userInfo.value = { ...(userInfo.value || {}), ...patch };
+
+    const info = uni.getStorageSync("user_info");
+    if (info) {
+      const parsed = JSON.parse(info);
+      uni.setStorageSync("user_info", JSON.stringify({ ...parsed, ...patch }));
+    }
+  } catch {
+    // 忽略：沿用本地缓存
   }
 };
 

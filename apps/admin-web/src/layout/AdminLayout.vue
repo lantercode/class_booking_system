@@ -182,7 +182,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { resolveImageUrl } from '@/utils/image'
 import { useAuthStore } from '@/stores/auth'
@@ -197,6 +197,12 @@ interface MenuItem {
 const route = useRoute()
 const authStore = useAuthStore()
 const isCollapse = ref(false)
+
+// 进入后台时用服务端最新资料刷新右上角信息：
+// 头像/昵称可能在「用户管理」里被改过、或来自其它浏览器，localStorage 里的旧值不应继续展示
+onMounted(() => {
+  void authStore.fetchAdminInfo()
+})
 
 // --- 个人资料弹窗 ---
 const profileDialogVisible = ref(false)
