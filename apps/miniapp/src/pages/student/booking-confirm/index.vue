@@ -176,7 +176,7 @@
 
         <scroll-view scroll-y class="card-list-scroll">
           <view
-            v-for="card in availableCards"
+            v-for="card in matchingCards"
             :key="card.id"
             class="card-option"
             :class="{
@@ -216,7 +216,7 @@
           </view>
 
           <!-- 无可用会员卡提示 -->
-          <view v-if="availableCards.length === 0" class="no-available-cards">
+          <view v-if="matchingCards.length === 0" class="no-available-cards">
             <text class="no-cards-text">暂无可用的会员卡</text>
           </view>
         </scroll-view>
@@ -269,10 +269,40 @@ const scrollViewHeight = ref(
 );
 const safeAreaBottom = systemInfo.safeAreaInsets?.bottom || 0;
 
-// 选中的会员卡（仅来自后端返回的可用卡列表）
+// 课程类型：用于选卡阶段剔除不匹配的卡（后端已过滤，前端兜底校验）
+const courseTypeCode = computed(
+  () => (schedule.value?.course_type_code as string) || "",
+);
+// 课程类型是否属于私教：约定的 private 代码，或类型名称包含「私教」（兼容自定义代码）
+const isPrivateType = (code: string) => {
+  if (!code) return false;
+  if (code === "private") return true;
+  return (courseTypeMap.value[code] || "").includes("私教");
+};
+const isPrivateLesson = computed(() => {
+  if (isPrivateType(courseTypeCode.value)) return true;
+  return ((schedule.value?.course_type_name as string) || "").includes("私教");
+});
+
+// 只允许选择能匹配当前课程的卡：
+// 1. 已限定课程类型的卡，类型必须与课程类型一致；
+// 2. 「适用全部课程」的通用卡不得用于私教课。
+const matchingCards = computed(() =>
+  availableCards.value.filter((card: any) => {
+    const cardCourseType = card.applicable_course_type_code;
+    if (cardCourseType) {
+      if (cardCourseType === courseTypeCode.value) return true;
+      // 自定义私教类型代码：双方都判定为私教时视为匹配
+      return isPrivateType(cardCourseType) && isPrivateLesson.value;
+    }
+    return !isPrivateLesson.value;
+  }),
+);
+
+// 选中的会员卡（仅允许来自匹配当前课程的卡列表）
 const selectedCard = computed(() => {
   return (
-    availableCards.value.find((c: any) => c.id === selectedCardId.value) || null
+    matchingCards.value.find((c: any) => c.id === selectedCardId.value) || null
   );
 });
 
@@ -419,9 +449,20 @@ const loadData = async () => {
     availableCards.value = Array.isArray(recommendData?.available_cards)
       ? recommendData.available_cards
       : [];
-    selectedCardId.value = recommendData?.recommended_card_id ?? null;
-    noAvailableMessage.value =
-      recommendData?.message || "暂无可用的会员卡";
+
+    // 只自动选中能匹配当前课程的卡，不匹配的卡不进入选择列表
+    const recommendedId = recommendData?.recommended_card_id ?? null;
+    const recommendedMatched = matchingCards.value.some(
+      (card: any) => card.id === recommendedId,
+    );
+    selectedCardId.value = recommendedMatched
+      ? recommendedId
+      : (matchingCards.value[0]?.id ?? null);
+    noAvailableMessage.value = matchingCards.value.length
+      ? ""
+      : isPrivateLesson.value
+        ? "私教课需使用私教类型的会员卡，暂无可匹配的卡"
+        : recommendData?.message || "暂无可用的会员卡";
   } catch (error) {
     console.error("加载数据失败:", error);
     uni.showToast({ title: "加载失败", icon: "none" });
