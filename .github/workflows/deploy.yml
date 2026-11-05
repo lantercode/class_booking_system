@@ -69,21 +69,28 @@ jobs:
               fi
             done
 
-            # 4.1.1 补齐 Redis 密码（缺失/空白会导致 redis 容器 --requirepass 无参数退出，healthcheck 失败）
-            # 取最后一个 REDIS_PASSWORD 的值为准（compose 也以最后一行为准），空或纯空白即重新生成
-            CURRENT_REDIS_PASSWORD=$(grep -E "^REDIS_PASSWORD=" .env.prod | tail -1 | cut -d'=' -f2- | tr -d '[:space:]')
-            if [ -z "$CURRENT_REDIS_PASSWORD" ]; then
-              NEW_REDIS_PASSWORD=$(openssl rand -hex 24 2>/dev/null || od -An -tx1 -N24 /dev/urandom | tr -d ' \n')
+            # 4.1.1 补齐 Redis 密码：缺失/空白都会重新生成，并以环境变量方式注入 compose
+            # （shell 环境变量的优先级高于 --env-file，避免 .env.prod 解析差异导致 compose 读不到该变量）
+            REDIS_PASSWORD=$(grep -E "^REDIS_PASSWORD=" .env.prod | tail -1 | cut -d'=' -f2- | tr -d '[:space:]')
+            if [ -z "$REDIS_PASSWORD" ]; then
+              REDIS_PASSWORD=$(openssl rand -hex 24 2>/dev/null || od -An -tx1 -N24 /dev/urandom | tr -d ' \n')
               sed -i '/^REDIS_PASSWORD=/d' .env.prod
-              printf 'REDIS_PASSWORD=%s\n' "$NEW_REDIS_PASSWORD" >> .env.prod
+              printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD" >> .env.prod
               echo "⚠️ .env.prod 缺少有效 REDIS_PASSWORD，已自动生成随机密码"
+            else
+              echo "✅ .env.prod 已存在有效 REDIS_PASSWORD，沿用现有值"
             fi
-
-            # 4.1.3 兜底校验：仍为空则直接失败，避免把问题带到 compose 阶段
-            grep -Eq "^REDIS_PASSWORD=[^[:space:]]+" .env.prod || {
-              echo "❌ .env.prod 的 REDIS_PASSWORD 为空或无法写入，请手动追加 REDIS_PASSWORD=<随机串> 后重试"
+            if [ -z "$REDIS_PASSWORD" ]; then
+              echo "❌ REDIS_PASSWORD 生成失败，请手动在 .env.prod 追加 REDIS_PASSWORD=<随机串> 后重试"
               exit 1
-            }
+            fi
+            export REDIS_PASSWORD
+            echo "🔑 REDIS_PASSWORD 已注入部署环境（长度 ${#REDIS_PASSWORD}）"
+
+            # 4.1.2 提前校验 compose 变量插值，失败点直接暴露在此处
+            docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod config > /dev/null \
+              || { echo "❌ compose 配置解析失败：请检查 .env.prod 与 docker-compose.prod.yml 的变量"; exit 1; }
+            echo "✅ compose 变量插值校验通过"
 
             # 4.2 校验文件存储必填项（缺失会导致 api 容器启动即退出）
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
