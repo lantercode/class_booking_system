@@ -14,6 +14,7 @@ export interface TeacherInfo {
 export interface TeacherUpdateParams {
   nickname?: string
   intro?: string
+  bio?: string
   avatar?: string
   title?: string
   specialties?: string[]
@@ -27,5 +28,10 @@ export const teacherApi = {
 
   updateInfo(data: TeacherUpdateParams) {
     return apiClient.patch<TeacherInfo>('/teachers/me', data)
+  },
+
+  /** 管理端：更新指定教师的资料（简介等） */
+  update(userId: number, data: TeacherUpdateParams) {
+    return apiClient.patch<TeacherInfo>(`/teachers/${userId}`, data)
   },
 }

@@ -192,7 +192,7 @@
 <script setup lang="ts">
 import { resolveImageUrl } from '@/utils/image'
 import { uploadFileWithLoading } from '@/utils/upload'
-import { type User, userApi } from '@dance-saas/api-client'
+import { type User, teacherApi, userApi } from '@dance-saas/api-client'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules, UploadProps } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -294,6 +294,8 @@ async function handleSubmit() {
       avatar_url: form.value.avatar_url || undefined,
       status: form.value.status,
     })
+    // 教师简介存在教师档案表（TeacherProfile.bio），用户资料接口不落库，需单独更新
+    await teacherApi.update(editId.value, { bio: form.value.bio || '' })
     ElMessage.success('编辑成功')
     dialogVisible.value = false
     fetchUsers()

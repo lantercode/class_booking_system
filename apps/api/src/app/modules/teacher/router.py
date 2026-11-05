@@ -73,3 +73,31 @@ async def update_current_teacher(
         tenant_id=current_user.get("tenant_id"),
     )
     return success(data=result, msg="教师信息更新成功")
+
+
+# 注意：/me 相关路由必须声明在 /{user_id} 之前，否则 "me" 会被当作 user_id 解析
+@router.patch(
+    "/{user_id}",
+    response_model=dict,
+    summary="更新指定教师信息（管理端）",
+    description="管理端按用户ID更新教师资料（昵称、头像、简介等）",
+)
+@require_roles("admin", "super_admin")
+async def update_teacher(
+    user_id: int,
+    data: dict = Body(...),
+    db: AsyncSession = Depends(get_session),
+    current_user: dict = Depends(get_current_user),
+):
+    """管理端更新指定教师信息"""
+    # 管理端沿用用户列表的字段名 bio，教师档案内部字段为 intro
+    payload = dict(data)
+    if "bio" in payload and "intro" not in payload:
+        payload["intro"] = payload.pop("bio")
+    result = await teacher_service.update_teacher_by_user_id(
+        db,
+        user_id,
+        payload,
+        tenant_id=current_user.get("tenant_id"),
+    )
+    return success(data=result, msg="教师信息更新成功")
