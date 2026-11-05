@@ -325,7 +325,9 @@ async def client(live_server):
 
     每个测试创建新的客户端连接到真实服务器
     """
-    async with AsyncClient(base_url=live_server) as ac:
+    # 默认 5s 超时在 CI（共享 CPU + 共享 Postgres）上会偶发 ReadTimeout
+    # （密码校验/连接池等待瞬时排队就会被判失败），放宽到 30s；真正卡死仍会超时暴露。
+    async with AsyncClient(base_url=live_server, timeout=30.0) as ac:
         yield ac
 
 
