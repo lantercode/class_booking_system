@@ -52,6 +52,11 @@ jobs:
               cp .env.example .env.prod 2>/dev/null || echo "# Auto-generated" > .env.prod
             fi
 
+            # 4.0 规范化 .env.prod：去掉 CRLF，并确保以换行结尾
+            # （文件最后一行没有换行时，后续 echo 追加会把新 key 粘到上一行，导致 compose 读不到该变量）
+            sed -i 's/\r$//' .env.prod
+            [ -z "$(tail -c 1 .env.prod 2>/dev/null)" ] || printf '\n' >> .env.prod
+
             # 4.1 用生产模板补齐缺失的文件存储非机密项（历史 .env.prod 可能早于 OSS 接入）
             # STORAGE_BACKEND 由 infra/docker/docker-compose.prod.yml 固定为 oss，不依赖 .env.prod
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE OSS_ROLE_NAME; do
@@ -64,16 +69,21 @@ jobs:
               fi
             done
 
-            # 4.1.1 补齐 Redis 密码（缺失会导致 redis 容器 --requirepass 无参数直接退出，healthcheck 失败）
-            if ! grep -q "^REDIS_PASSWORD=.\+" .env.prod; then
-              REDIS_PASSWORD_VALUE=$(openssl rand -hex 24)
-              if grep -q "^REDIS_PASSWORD=" .env.prod; then
-                sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=${REDIS_PASSWORD_VALUE}|" .env.prod
-              else
-                echo "REDIS_PASSWORD=${REDIS_PASSWORD_VALUE}" >> .env.prod
-              fi
-              echo "⚠️ .env.prod 缺少 REDIS_PASSWORD，已自动生成随机密码"
+            # 4.1.1 补齐 Redis 密码（缺失/空白会导致 redis 容器 --requirepass 无参数退出，healthcheck 失败）
+            # 取最后一个 REDIS_PASSWORD 的值为准（compose 也以最后一行为准），空或纯空白即重新生成
+            CURRENT_REDIS_PASSWORD=$(grep -E "^REDIS_PASSWORD=" .env.prod | tail -1 | cut -d'=' -f2- | tr -d '[:space:]')
+            if [ -z "$CURRENT_REDIS_PASSWORD" ]; then
+              NEW_REDIS_PASSWORD=$(openssl rand -hex 24 2>/dev/null || od -An -tx1 -N24 /dev/urandom | tr -d ' \n')
+              sed -i '/^REDIS_PASSWORD=/d' .env.prod
+              printf 'REDIS_PASSWORD=%s\n' "$NEW_REDIS_PASSWORD" >> .env.prod
+              echo "⚠️ .env.prod 缺少有效 REDIS_PASSWORD，已自动生成随机密码"
             fi
+
+            # 4.1.3 兜底校验：仍为空则直接失败，避免把问题带到 compose 阶段
+            grep -Eq "^REDIS_PASSWORD=[^[:space:]]+" .env.prod || {
+              echo "❌ .env.prod 的 REDIS_PASSWORD 为空或无法写入，请手动追加 REDIS_PASSWORD=<随机串> 后重试"
+              exit 1
+            }
 
             # 4.2 校验文件存储必填项（缺失会导致 api 容器启动即退出）
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE; do
