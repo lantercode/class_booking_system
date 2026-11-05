@@ -125,6 +125,34 @@ def test_b5_count_card_before_no_remaining_card_on_same_expire():
     assert sorted_ids(cards) == [3, 1, 2]
 
 
+def test_b5_1_course_type_matched_card_before_generic_card():
+    """私教课：已限定 private 的卡优先于「不限」通用卡，即使通用卡更早到期。"""
+    cards = [
+        make_dict(1, expire_at=datetime(2026, 10, 24, tzinfo=UTC)),
+        make_dict(
+            2,
+            applicable_course_type_code="private",
+            expire_at=datetime(2026, 12, 31, tzinfo=UTC),
+        ),
+    ]
+    ordered = sorted(
+        cards, key=lambda card: service._recommend_sort_key(card, "private")
+    )
+    assert [card["id"] for card in ordered] == [2, 1]
+
+
+def test_b5_2_generic_cards_keep_d6_order_within_same_type():
+    """同为「不限」卡时仍按 D6 排序，新增的课程类型优先级不改变原顺序。"""
+    cards = [
+        make_dict(1, expire_at=datetime(2026, 10, 30, tzinfo=UTC)),
+        make_dict(2, expire_at=datetime(2026, 10, 24, tzinfo=UTC)),
+    ]
+    ordered = sorted(
+        cards, key=lambda card: service._recommend_sort_key(card, "private")
+    )
+    assert [card["id"] for card in ordered] == [2, 1]
+
+
 # ============================================================
 # B-6 / B-7 / B-8 / D-7：共享不可用原因
 # ============================================================
@@ -182,6 +210,30 @@ def test_b6_course_type_and_course_exclusions():
     )
     assert _reason(make_card(applicable_course_ids=[COURSE_ID])) is None
     assert _reason(make_card(applicable_course_type_code=COURSE_TYPE)) is None
+
+
+def test_b6_private_course_requires_explicit_private_card():
+    """私教课：未限定课程类型的通用卡不再默认适用，必须显式限定 private。"""
+    assert (
+        service.card_unavailable_reason(
+            make_card(),
+            schedule_start_at=SCHEDULE_START,
+            course_id=COURSE_ID,
+            course_type_code="private",
+        )
+        == "私教课需使用私教类型会员卡"
+    )
+    assert (
+        service.card_unavailable_reason(
+            make_card(applicable_course_type_code="private"),
+            schedule_start_at=SCHEDULE_START,
+            course_id=COURSE_ID,
+            course_type_code="private",
+        )
+        is None
+    )
+    # 普通课不受影响，「不限」卡仍然适用
+    assert _reason(make_card()) is None
 
 
 def test_b6_count_card_used_up_excluded_only_in_recommendation_chain():

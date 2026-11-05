@@ -43,6 +43,10 @@ from app.modules.membership.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# 私教课的约定课程类型代码：该类型课程必须使用「已限定私教课」的会员卡，
+# 「不限课程类型」的通用卡不再默认适用于私教课（避免常规卡/无卡预约私教课）。
+PRIVATE_LESSON_COURSE_TYPE = "private"
+
 
 class MembershipCardService:
     """会员卡业务逻辑"""
@@ -645,6 +649,11 @@ class MembershipCardService:
         if expire_at is not None and schedule_date > expire_at.date():
             return f"已过期（{expire_at.strftime('%Y-%m-%d')} 到期）"
 
+        if (
+            course_type_code == PRIVATE_LESSON_COURSE_TYPE
+            and not applicable_course_type_code
+        ):
+            return "私教课需使用私教类型会员卡"
         if applicable_course_type_code:
             if (
                 not course_type_code
@@ -750,6 +759,11 @@ class MembershipCardService:
                 detail=f"会员卡已过期，到期时间：{card.expire_at.strftime('%Y-%m-%d')}",
             )
 
+        if (
+            course_type_code == PRIVATE_LESSON_COURSE_TYPE
+            and not card.applicable_course_type_code
+        ):
+            raise HTTPException(status_code=400, detail="私教课需要使用私教类型会员卡")
         if card.applicable_course_type_code and (
             not course_type_code
             or card.applicable_course_type_code != course_type_code
@@ -1097,14 +1111,22 @@ class MembershipCardService:
         return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
     @classmethod
-    def _recommend_sort_key(cls, card) -> tuple:
-        """D6 排序：expire_at ASC（NULL 最后）→ remaining ASC（None 最后）
+    def _recommend_sort_key(cls, card, course_type_code: str | None = None) -> tuple:
+        """推荐排序：限定课程类型的卡优先于「不限」通用卡；
+        其后 D6：expire_at ASC（NULL 最后）→ remaining ASC（None 最后）
         → created_at ASC → id ASC。"""
         expire_at = cls._as_aware(cls._card_field(card, "expire_at"))
         remaining = cls._card_field(card, "remaining_credits")
         created_at = cls._as_aware(cls._card_field(card, "created_at"))
+        applicable_course_type = cls._card_field(card, "applicable_course_type_code")
+        typed_match = (
+            0
+            if applicable_course_type and applicable_course_type == (course_type_code or "")
+            else 1
+        )
         max_dt = datetime.max.replace(tzinfo=UTC)
         return (
+            typed_match,
             expire_at is None,
             expire_at or max_dt,
             remaining is None,
@@ -1158,7 +1180,10 @@ class MembershipCardService:
             else:
                 reasons.append(reason)
 
-        available.sort(key=self._recommend_sort_key)
+        # 私教课有私教次卡时默认扣私教卡，而不是排在前面的「不限」通用卡
+        available.sort(
+            key=lambda c: self._recommend_sort_key(c, schedule.course_type_code)
+        )
 
         return {
             "schedule_id": schedule_id,

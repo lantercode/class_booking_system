@@ -109,10 +109,15 @@ class BookingService:
         if existing:
             raise BusinessException("您已预约该排期，请勿重复预约", code=400)
 
+        course = await self.course_service.get_course_by_id(db, schedule.course_id)
+
+        # 私教课不允许「无卡预约」：普通课保持既有语义，私教课必须走私教卡匹配
+        if data.membership_card_id is None and course.course_type_code == "private":
+            raise BusinessException("私教课需要使用私教次卡预约，请先选择私教卡", code=400)
+
         # F6.3 T6.3.2：预约前的会员卡基础校验（无锁快路径，此阶段无任何写入）
         card_validation: dict[str, Any] | None = None
         if data.membership_card_id is not None:
-            course = await self.course_service.get_course_by_id(db, schedule.course_id)
             try:
                 card_validation = await membership_card_service.validate_card_for_booking(
                     db,

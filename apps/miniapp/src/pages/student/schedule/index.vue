@@ -449,7 +449,8 @@ const validateCardForSchedule = (schedule: any): CardValidationResult => {
     const cardCourseType = card.applicable_course_type_code;
 
     if (!cardCourseType) {
-      return true; // 适用于所有课程类型
+      // 「不限」通用卡覆盖常规/特色课；私教课必须使用已限定私教类型的卡
+      return scheduleCourseTypeCode !== "private";
     }
     if (!scheduleCourseTypeCode) return true;
     return cardCourseType === scheduleCourseTypeCode;
