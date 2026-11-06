@@ -326,7 +326,7 @@ class AgentRuntime:
 
             elif intent_name == "card_rule":
                 return (
-                    "💳 会员卡与课程类型需一一对应：\n"
+                    "会员卡与课程类型需一一对应：\n"
                     "• 常规课 → 常规课会员卡\n"
                     "• 特色课 → 特色课会员卡\n"
                     "• 私教课 → 私教次卡\n\n"
@@ -351,7 +351,7 @@ class AgentRuntime:
                     schedules = self._parse_schedules(raw)
 
                     if not schedules:
-                        return f"📅 没有找到符合条件的排期\n{raw}"
+                        return f"没有找到符合条件的排期\n{raw}"
 
                     await self.session.set_state(
                         session_id,
@@ -396,7 +396,7 @@ class AgentRuntime:
                 self.logger.info(f"验证状态存储: session={session_id}, state={verify_state}")
 
                 return (
-                    f"⚠️ 您确定要取消预约 #{params['booking_id']} 吗？\n\n"
+                    f"您确定要取消预约 #{params['booking_id']} 吗？\n\n"
                     f"请回复：\n"
                     f'• "是" 或 "确认" → 执行取消\n'
                     f'• "否" 或 "取消" → 保留预约'
@@ -438,7 +438,7 @@ class AgentRuntime:
 
             if selection is None:
                 return (
-                    f"❌ 无法识别您的选择「{user_input}」\n\n"
+                    f"无法识别您的选择「{user_input}」\n\n"
                     f'请回复数字，如 "1"、"2" 或 "第1个"\n\n'
                     f"{self._format_schedule_options(schedules)}"
                 )
@@ -477,11 +477,11 @@ class AgentRuntime:
                 )
 
                 return (
-                    f"✅ 预约成功！\n\n"
-                    f"📚 课程：{state.get('keyword', '未知')}\n"
-                    f"📅 时间：{selected_schedule['date']} {selected_schedule['time']}\n"
-                    f"👨‍🏫 老师：{selected_schedule['teacher']}\n"
-                    f"🎫 详情：{outcome.text}\n\n"
+                    f"预约成功！\n\n"
+                    f"课程：{state.get('keyword', '未知')}\n"
+                    f"时间：{selected_schedule['date']} {selected_schedule['time']}\n"
+                    f"老师：{selected_schedule['teacher']}\n"
+                    f"详情：{outcome.text}\n\n"
                     f"请准时参加，如需取消请提前 2 小时告知。"
                 )
 
@@ -507,7 +507,7 @@ class AgentRuntime:
                 booking_id = state.get("booking_id")
                 if not booking_id:
                     await self.session.clear_state(session_id)
-                    return "❌ 状态异常，预约 ID 丢失，请重新开始"
+                    return "状态异常，预约 ID 丢失，请重新开始"
 
                 try:
                     outcome = await self._call_tool(
@@ -536,8 +536,8 @@ class AgentRuntime:
                     )
 
                     return (
-                        f"✅ 已成功取消预约！\n\n🎫 预约 ID：{booking_id}"
-                        f"\n📋 处理结果：{outcome.text}"
+                        f"已成功取消预约！\n\n预约 ID：{booking_id}"
+                        f"\n处理结果：{outcome.text}"
                     )
 
                 except BusinessException as exc:
@@ -564,13 +564,13 @@ class AgentRuntime:
 
             else:
                 return (
-                    f"❌ 无法识别您的回复「{user_input}」\n\n"
+                    f"无法识别您的回复「{user_input}」\n\n"
                     f'请回复 "是" 确认取消，或 "否" 保留预约。'
                 )
 
         else:
             await self.session.clear_state(session_id)
-            return "❌ 状态异常，请重新开始"
+            return "状态异常，请重新开始"
 
     # ============================================================
     # 业务错误处理（企业级错误码体系）
@@ -588,20 +588,20 @@ class AgentRuntime:
         # 按中文关键词匹配 Service 层抛出的 BusinessException 消息
         # 约束：友好提示不得包含原始异常字符串作为子串
         keyword_map = [
-            ("约满", "❌ 该时段已约满 😢\n\n您可以：\n• 回复「重新查询」查看其他时段\n• 或告诉我其他时间偏好"),
-            ("已预约", "❌ 您已预约过此课程\n\n回复「我的预约」可查看已预约的课程"),
-            ("余额不足", "❌ 课时余额不足\n\n请联系前台充值后再预约\n或回复「余额」查看当前课时"),
-            ("扣次失败", "❌ 余额不足导致扣次失败\n\n请联系前台确认卡状态"),
-            ("未找到", "❌ 未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
-            ("找不到", "❌ 未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
-            ("取消截止", "❌ 无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
-            ("不可取消", "❌ 无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
-            ("已开始", "❌ 课程已开始，无法操作\n\n您可以：\n• 回复「查排期」查看其他时段"),
-            ("两周", "❌ 超出两周可预约范围\n\n您可以：\n• 回复「查排期」查看可预约的时段"),
-            ("已取消", "❌ 该记录已是取消状态\n\n回复「我的预约」查看当前列表"),
-            ("状态", "❌ 当前记录状态无法执行此操作\n\n请回复「我的预约」确认状态"),
-            ("学员身份", "❌ 当前账号没有学员身份\n\n请使用学员账号登录后再试"),
-            ("无效", "❌ 输入参数无效，请重新选择"),
+            ("约满", "该时段已约满\n\n您可以：\n• 回复「重新查询」查看其他时段\n• 或告诉我其他时间偏好"),
+            ("已预约", "您已预约过此课程\n\n回复「我的预约」可查看已预约的课程"),
+            ("余额不足", "课时余额不足\n\n请联系前台充值后再预约\n或回复「余额」查看当前课时"),
+            ("扣次失败", "余额不足导致扣次失败\n\n请联系前台确认卡状态"),
+            ("未找到", "未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
+            ("找不到", "未找到对应记录\n\n可能已被取消，请回复「我的预约」确认"),
+            ("取消截止", "无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
+            ("不可取消", "无法取消，已超过截止时间\n\n如需帮助，请联系前台处理"),
+            ("已开始", "课程已开始，无法操作\n\n您可以：\n• 回复「查排期」查看其他时段"),
+            ("两周", "超出两周可预约范围\n\n您可以：\n• 回复「查排期」查看可预约的时段"),
+            ("已取消", "该记录已是取消状态\n\n回复「我的预约」查看当前列表"),
+            ("状态", "当前记录状态无法执行此操作\n\n请回复「我的预约」确认状态"),
+            ("学员身份", "当前账号没有学员身份\n\n请使用学员账号登录后再试"),
+            ("无效", "输入参数无效，请重新选择"),
         ]
 
         for keyword, friendly_msg in keyword_map:
@@ -609,7 +609,7 @@ class AgentRuntime:
                 return friendly_msg
 
         # 兜底：不回显原始异常（防止泄露 SQL/堆栈/内部细节）
-        return "⚠️ 操作失败，请稍后重试或联系客服"
+        return "操作失败，请稍后重试或联系客服"
 
     # ============================================================
     # 分布式锁（防止并发导致重复预约）
@@ -680,29 +680,29 @@ class AgentRuntime:
         )
 
     def _format_courses(self, raw: str) -> str:
-        return f"📚 课程查询结果：\n{raw}"
+        return f"课程查询结果：\n{raw}"
 
     def _format_schedules(self, raw: str) -> str:
-        return f"📅 排期查询结果：\n{raw}"
+        return f"排期查询结果：\n{raw}"
 
     def _format_bookings(self, raw: str) -> str:
-        return f"📋 预约记录：\n{raw}"
+        return f"预约记录：\n{raw}"
 
     def _format_balance(self, raw: str) -> str:
-        return f"💰 课时余额：\n{raw}"
+        return f"课时余额：\n{raw}"
 
     def _format_booking_result(self, raw: str) -> str:
-        return f"✅ {raw}"
+        return raw
 
     def _format_cancel_result(self, raw: str) -> str:
-        return f"🗑️ {raw}"
+        return raw
 
     def _parse_schedules(self, raw: str) -> list[dict]:
         """
         从 Tool 返回的原始文本中解析出结构化排期列表
 
         输入示例：
-            "📅 排期查询结果：\n共 3 个排期：\n- ID:5 | 2026-08-14 | 14:00-15:00 | 王老师 | 剩余:3"
+            "排期查询结果：\n共 3 个排期：\n- ID:5 | 2026-08-14 | 14:00-15:00 | 王老师 | 剩余:3"
 
         输出示例：
             [{"id": 5, "date": "2026-08-14", "time": "14:00-15:00", "teacher": "王老师", "remaining": 3}]
@@ -739,7 +739,7 @@ class AgentRuntime:
 
     def _format_schedule_options(self, schedules: list[dict]) -> str:
         """将排期列表格式化为选项展示给用户"""
-        lines = ["📅 找到以下排期，请回复数字选择：\n"]
+        lines = ["找到以下排期，请回复数字选择：\n"]
 
         for i, s in enumerate(schedules, 1):
             course_name = s.get("course_name") or "课程"

@@ -67,7 +67,7 @@ mcp = FastMCP("dance-saas-agent")
 # 统一返回 / 错误封套
 # ============================================================
 
-GENERIC_ERROR_TEXT = "⚠️ 操作失败，请稍后重试或联系客服"
+GENERIC_ERROR_TEXT = "操作失败，请稍后重试或联系客服"
 LOGIN_REQUIRED_TEXT = "请先登录后再使用该功能"
 
 ToolKind = Literal["success", "business_error", "system_error"]
@@ -535,6 +535,22 @@ async def create_booking(
         if membership_card_id is not None:
             membership_card_id = _validate_id(membership_card_id, "会员卡")
 
+        auto_card_note = ""
+        if membership_card_id is None:
+            # 私教课必须使用私教次卡：卡是否可用与排序由 Service 判定，这里只做转交
+            schedule = await ScheduleService().get_schedule_by_id(db, schedule_id)
+            if schedule.tenant_id != ctx.tenant_id:
+                return "排期不存在"
+            if schedule.course_type_code == "private":
+                recommend = await MembershipCardService().recommend_card_for_schedule(
+                    db, ctx.user_id, ctx.tenant_id, schedule_id
+                )
+                recommended_card_id = recommend.get("recommended_card_id")
+                if not recommended_card_id:
+                    return recommend.get("message") or "没有可用于该课程的会员卡"
+                membership_card_id = recommended_card_id
+                auto_card_note = "\n（已自动使用匹配的私教卡）"
+
         booking_data = BookingCreate(
             schedule_id=schedule_id,
             source="self",
@@ -548,7 +564,10 @@ async def create_booking(
         time_str = ""
         if result.start_at:
             time_str = result.start_at.strftime("%m/%d %H:%M")
-        return f"预约成功！\n课程：{result.course_name}\n时间：{time_str}\n预约ID：{result.id}"
+        return (
+            f"预约成功！\n课程：{result.course_name}\n时间：{time_str}\n"
+            f"预约ID：{result.id}{auto_card_note}"
+        )
 
 
 @mcp.tool(name="cancel_booking", exclude_args=["user_id", "tenant_id"])
