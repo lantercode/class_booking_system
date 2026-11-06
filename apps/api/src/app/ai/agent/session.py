@@ -10,6 +10,7 @@
 
 import json
 import logging
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,14 @@ class SessionManager:
 
         try:
             history = await self.get_history(session_id)
-            history.append({"role": role, "content": content})
+            # timestamp 为 ISO 8601（UTC，带 +00:00 时区），小程序端按字符串解析
+            history.append(
+                {
+                    "role": role,
+                    "content": content,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
 
             max_messages = self.max_history * 2
             if len(history) > max_messages:

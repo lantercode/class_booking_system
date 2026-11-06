@@ -52,6 +52,7 @@ async def get_agent_runtime(
         redis_client=redis_client,
         user_id=current_user.get("user_id") if current_user else None,
         tenant_id=current_user.get("tenant_id") if current_user else None,
+        role_id=current_user.get("role_id") if current_user else None,
     )
 
 
@@ -112,14 +113,7 @@ async def get_supported_intents(current_user: dict = Depends(get_current_user)):
 
     recognizer = IntentRecognizer()
 
-    intents = []
-    for intent_name, intent_config in recognizer.intents.items():
-        intents.append(
-            {
-                "intent": intent_name,
-                "description": intent_config.get("description", ""),
-                "examples": intent_config.get("examples", []),
-            }
-        )
+    # 意图清单唯一事实源为 IntentRecognizer.INTENTS，通过 list_intents() 只读枚举
+    intents = recognizer.list_intents()
 
     return {"code": 0, "data": intents}

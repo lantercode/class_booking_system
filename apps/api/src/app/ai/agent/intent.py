@@ -37,6 +37,25 @@ class IntentRecognizer:
         ("query_courses", ["课程", "有什么", "搜索", "找", "查"]),
     ]
 
+    # 意图描述与示例（供 GET /api/v1/ai/intents 调试接口对外枚举）
+    INTENT_DESCRIPTIONS = {
+        "cancel_booking": "取消已有预约",
+        "get_my_balance": "查询当前用户的课时余额",
+        "get_my_bookings": "查询当前用户的预约记录",
+        "create_booking": "预约指定排期的课程",
+        "query_schedules": "查询指定日期范围内的排期",
+        "query_courses": "搜索课程列表",
+    }
+
+    INTENT_EXAMPLES = {
+        "cancel_booking": ["取消预约 1001", "我不想去了，帮我退课"],
+        "get_my_balance": ["我的课时余额还剩多少", "我还有多少节课"],
+        "get_my_bookings": ["我的预约记录", "我这周报了什么课"],
+        "create_booking": ["帮我预约明天的瑜伽课", "我要约一节街舞"],
+        "query_schedules": ["明天有什么课", "查一下下周的排期"],
+        "query_courses": ["查一下有哪些课程", "搜索芭蕾课"],
+    }
+
     # upcoming 关键词 — 意图"还有几节课"应只返回未来未完成的预约
     UPCOMING_KEYWORDS = ["还有", "还剩", "即将", "未来", "没上", "未上", "几节没上"]
 
@@ -170,3 +189,22 @@ class IntentRecognizer:
     @property
     def last_intent(self) -> str | None:
         return self._last_intent
+
+    def list_intents(self) -> list[dict[str, Any]]:
+        """
+        枚举当前规则引擎实际支持的意图（含关键词映射）
+
+        说明：本引擎没有可动态注册的意图表，唯一事实源是类属性 INTENTS；
+        此处只做只读枚举，供调试接口 /ai/intents 使用，不参与识别逻辑。
+        """
+        intents: list[dict[str, Any]] = []
+        for intent_name, keywords in self.INTENTS:
+            intents.append(
+                {
+                    "intent": intent_name,
+                    "description": self.INTENT_DESCRIPTIONS.get(intent_name, ""),
+                    "examples": list(self.INTENT_EXAMPLES.get(intent_name, keywords[:3])),
+                    "keywords": list(keywords),
+                }
+            )
+        return intents

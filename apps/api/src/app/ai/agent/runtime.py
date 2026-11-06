@@ -8,9 +8,13 @@ Agent 运行时核心
                               SessionManager（上下文）
 """
 
+import hashlib
+import json
 import logging
+import time
 
 from app.ai.agent.intent import IntentRecognizer
+from app.ai.agent.prompts import build_system_messages as compose_system_messages
 from app.ai.agent.session import SessionManager
 from app.ai.mcp_server import (
     cancel_booking,
@@ -20,6 +24,17 @@ from app.ai.mcp_server import (
     query_courses,
     query_schedules,
 )
+from app.core.exceptions import BusinessException
+
+# 意图 → 可用 Tool 映射（用于 system prompt 能力声明与 trace 记录）
+INTENT_TOOL_MAP: dict[str, tuple[str, ...]] = {
+    "query_courses": ("query_courses",),
+    "query_schedules": ("query_schedules",),
+    "get_my_bookings": ("get_my_bookings",),
+    "get_my_balance": ("get_my_balance",),
+    "create_booking": ("query_schedules", "create_booking"),
+    "cancel_booking": ("cancel_booking",),
+}
 
 
 class AgentRuntime:
@@ -34,12 +49,46 @@ class AgentRuntime:
     5. 管理会话上下文
     """
 
-    def __init__(self, redis_client=None, user_id: int = None, tenant_id: int = None):
+    def __init__(
+        self,
+        redis_client=None,
+        user_id: int = None,
+        tenant_id: int = None,
+        role_id: int | None = None,
+    ):
         self.intent = IntentRecognizer()
         self.session = SessionManager(redis_client, user_id=user_id)
         self.user_id = user_id
         self.tenant_id = tenant_id
+        self.role_id = role_id
+        # 当前请求的 system messages；当前无真实 LLM 调用点，仅供日志验证与 P2 适配层复用
+        self.system_messages: list[dict[str, str]] = []
         self.logger = logging.getLogger(__name__)
+
+    # ============================================================
+    # System Prompt 组装（P2 LLM 适配层可直接复用）
+    # ============================================================
+
+    def build_system_messages(self) -> list[dict[str, str]]:
+        """按当前可信上下文组装 system messages，不参与规则引擎识别逻辑。"""
+        tools: list[str] = []
+        for tool_names in INTENT_TOOL_MAP.values():
+            tools.extend(tool_names)
+        return compose_system_messages(
+            user_id=self.user_id,
+            tenant_id=self.tenant_id,
+            role_id=self.role_id,
+            available_tools=tools,
+        )
+
+    def _system_prompt_meta(self) -> dict:
+        """只暴露长度与指纹，避免把系统提示词原文写入日志。"""
+        joined = "\n".join(msg["content"] for msg in self.system_messages)
+        return {
+            "messages": len(self.system_messages),
+            "chars": len(joined),
+            "fingerprint": hashlib.sha256(joined.encode("utf-8")).hexdigest()[:12],
+        }
 
     async def chat(self, user_input: str, session_id: str = "default") -> str:
         """
@@ -53,33 +102,53 @@ class AgentRuntime:
           5. 格式化结果返回
           6. 释放锁
         """
+        started_at = time.perf_counter()
+        trace = self._new_trace(session_id, user_input)
+        # 当前无真实 LLM 调用点：每次请求组装 system messages，用于日志可验证性与 P2 复用
+        self.system_messages = self.build_system_messages()
+        trace["system_prompt"] = self._system_prompt_meta()
+
         lock_key = self.session._lock_scope_key(session_id)
         lock_acquired = False
 
         try:
+            step_started = time.perf_counter()
             lock_acquired = await self._acquire_lock(lock_key)
+            trace["step_ms"]["lock"] = self._elapsed_ms(step_started)
 
             if not lock_acquired:
                 self.logger.warning(f"并发拦截: session={session_id}, 获取锁失败")
+                trace["status"] = "business_error"
+                trace["error"] = "concurrency_limited"
                 return "⏳ 正在处理您的上一个请求，请稍候..."
 
+            step_started = time.perf_counter()
             state = await self.session.get_state(session_id)
+            trace["step_ms"]["state_read"] = self._elapsed_ms(step_started)
             if state:
+                trace["intent"] = f"pending_state:{state.get('action')}"
                 self.logger.info(
                     f"状态恢复: session={session_id}, action={state.get('action')}, "
-                    f"user_input={user_input[:20]}"
+                    f"input_length={len(user_input)}"
                 )
-                return await self._handle_pending_state(user_input, session_id, state)
+                return await self._handle_pending_state(
+                    user_input, session_id, state, trace=trace
+                )
 
             user_input = user_input.strip()
             if not user_input:
                 return "您好，请问有什么可以帮您？"
 
+            step_started = time.perf_counter()
             await self.session.add_message(session_id, "user", user_input)
+            trace["step_ms"]["history_write_user"] = self._elapsed_ms(step_started)
 
+            step_started = time.perf_counter()
             result = self.intent.recognize(user_input)
             intent_name = result["intent"]
             params = result["params"]
+            trace["intent"] = intent_name
+            trace["step_ms"]["intent"] = self._elapsed_ms(step_started)
 
             self.logger.info(
                 f"意图识别: session={session_id}, intent={intent_name}, params={params}"
@@ -87,21 +156,102 @@ class AgentRuntime:
 
             if intent_name == "unknown":
                 response = self._handle_unknown(user_input)
-                self.logger.warning(f"未知意图: session={session_id}, input={user_input}")
+                self.logger.warning(
+                    f"未知意图: session={session_id}, input_length={len(user_input)}"
+                )
             else:
-                response = await self._execute_intent(intent_name, params, session_id)
-                self.logger.info(f"Tool调用成功: session={session_id}, intent={intent_name}")
+                response = await self._execute_intent(
+                    intent_name, params, session_id, trace=trace
+                )
+                if trace["status"] == "success":
+                    self.logger.info(f"Tool调用成功: session={session_id}, intent={intent_name}")
 
+            step_started = time.perf_counter()
             await self.session.add_message(session_id, "assistant", response)
+            trace["step_ms"]["history_write_assistant"] = self._elapsed_ms(step_started)
 
             return response
 
+        except Exception as exc:
+            # 兜底异常：记录 trace 后继续上抛，交由统一异常体系处理
+            trace["status"] = "system_error"
+            trace["error"] = type(exc).__name__
+            self.logger.error(
+                f"AI 对话未捕获异常: session={session_id}, error_type={type(exc).__name__}"
+            )
+            raise
+
         finally:
+            trace["latency_ms"] = self._elapsed_ms(started_at)
+            self._emit_trace(trace)
             if lock_acquired:
                 await self._release_lock(lock_key)
 
+    # ============================================================
+    # 结构化 trace（只写日志，不落库、不影响业务结果）
+    # ============================================================
+
+    @staticmethod
+    def _mask_session_id(session_id: str) -> str:
+        """session_id 截断脱敏，避免日志过长。"""
+        if not session_id:
+            return ""
+        if len(session_id) <= 16:
+            return session_id
+        return f"{session_id[:12]}..."
+
+    def _new_trace(self, session_id: str, user_input: str) -> dict:
+        return {
+            "event": "ai_chat_trace",
+            "session_id": self._mask_session_id(session_id),
+            "user_id": self.user_id,
+            "tenant_id": self.tenant_id,
+            # 不记录消息正文，只记录长度
+            "input_length": len(user_input or ""),
+            "intent": None,
+            "tools": [],
+            "step_ms": {},
+            "latency_ms": None,
+            "status": "success",
+            "error": None,
+        }
+
+    def _emit_trace(self, trace: dict) -> None:
+        try:
+            self.logger.info(
+                "ai_chat_trace %s",
+                json.dumps(trace, ensure_ascii=False, separators=(",", ":")),
+            )
+        except Exception:
+            # 日志失败不得影响业务结果
+            pass
+
+    @staticmethod
+    def _elapsed_ms(started_at: float) -> int:
+        return int((time.perf_counter() - started_at) * 1000)
+
+    @staticmethod
+    def _mark_error(trace: dict | None, status: str, exc: Exception) -> None:
+        if trace is not None:
+            trace["status"] = status
+            trace["error"] = type(exc).__name__
+
+    async def _call_tool(self, trace: dict | None, step: str, tool_name: str, awaitable):
+        """执行 Tool 并记录名称与耗时（异常同样会记录，随后由上层判定状态）。"""
+        started_at = time.perf_counter()
+        try:
+            return await awaitable
+        finally:
+            if trace is not None:
+                trace["tools"].append(tool_name)
+                trace["step_ms"][step] = self._elapsed_ms(started_at)
+
     async def _execute_intent(
-        self, intent_name: str, params: dict, session_id: str = "default"
+        self,
+        intent_name: str,
+        params: dict,
+        session_id: str = "default",
+        trace: dict | None = None,
     ) -> str:
         """
         根据意图调用对应的 Tool 并格式化返回
@@ -115,27 +265,45 @@ class AgentRuntime:
         """
         try:
             if intent_name == "query_courses":
-                raw = await query_courses(
-                    keyword=params.get("keyword", ""),
+                raw = await self._call_tool(
+                    trace,
+                    "tool_query_courses",
+                    "query_courses",
+                    query_courses(keyword=params.get("keyword", "")),
                 )
                 return self._format_courses(raw)
 
             elif intent_name == "query_schedules":
-                raw = await query_schedules(
-                    date=params.get("date"),
-                    keyword=params.get("keyword", ""),
+                raw = await self._call_tool(
+                    trace,
+                    "tool_query_schedules",
+                    "query_schedules",
+                    query_schedules(
+                        date=params.get("date"),
+                        keyword=params.get("keyword", ""),
+                    ),
                 )
                 return self._format_schedules(raw)
 
             elif intent_name == "get_my_bookings":
-                raw = await get_my_bookings(
-                    user_id=self.user_id,
-                    status=params.get("status"),
+                raw = await self._call_tool(
+                    trace,
+                    "tool_get_my_bookings",
+                    "get_my_bookings",
+                    get_my_bookings(
+                        user_id=self.user_id,
+                        status=params.get("status"),
+                    ),
                 )
                 return self._format_bookings(raw)
 
             elif intent_name == "get_my_balance":
-                raw = await get_my_balance(user_id=self.user_id)
+                raw = await self._call_tool(
+                    trace,
+                    "tool_get_my_balance",
+                    "get_my_balance",
+                    get_my_balance(user_id=self.user_id),
+                )
                 return self._format_balance(raw)
 
             elif intent_name == "create_booking":
@@ -143,9 +311,14 @@ class AgentRuntime:
                     return "请先登录后再预约课程"
 
                 if "schedule_id" not in params:
-                    raw = await query_schedules(
-                        date=params.get("date"),
-                        keyword=params.get("keyword", ""),
+                    raw = await self._call_tool(
+                        trace,
+                        "tool_query_schedules_for_booking",
+                        "query_schedules",
+                        query_schedules(
+                            date=params.get("date"),
+                            keyword=params.get("keyword", ""),
+                        ),
                     )
 
                     schedules = self._parse_schedules(raw)
@@ -165,9 +338,14 @@ class AgentRuntime:
 
                     return self._format_schedule_options(schedules)
 
-                raw = await create_booking(
-                    schedule_id=params["schedule_id"],
-                    user_id=self.user_id,
+                raw = await self._call_tool(
+                    trace,
+                    "tool_create_booking",
+                    "create_booking",
+                    create_booking(
+                        schedule_id=params["schedule_id"],
+                        user_id=self.user_id,
+                    ),
                 )
                 await self.session.clear_state(session_id)
                 return self._format_booking_result(raw)
@@ -203,10 +381,16 @@ class AgentRuntime:
             else:
                 return self._handle_unknown(intent_name)
 
-        except Exception as e:
-            return self._handle_business_error(e)
+        except BusinessException as exc:
+            self._mark_error(trace, "business_error", exc)
+            return self._handle_business_error(exc)
+        except Exception as exc:
+            self._mark_error(trace, "system_error", exc)
+            return self._handle_business_error(exc)
 
-    async def _handle_pending_state(self, user_input: str, session_id: str, state: dict):
+    async def _handle_pending_state(
+        self, user_input: str, session_id: str, state: dict, trace: dict | None = None
+    ):
         """
         处理多轮对话的中间状态
 
@@ -219,7 +403,8 @@ class AgentRuntime:
                  → 进入本方法 → 解析选择 → 调用 create_booking → 清除状态 → 返回结果
         """
         self.logger.info(
-            f"处理中间状态: session={session_id}, action={state.get('action')}, input={user_input}"
+            f"处理中间状态: session={session_id}, action={state.get('action')}, "
+            f"input_length={len(user_input)}"
         )
 
         if state["action"] == "selecting_schedule":
@@ -242,9 +427,14 @@ class AgentRuntime:
             )
 
             try:
-                raw = await create_booking(
-                    user_id=self.user_id,
-                    schedule_id=selected_schedule["id"],
+                raw = await self._call_tool(
+                    trace,
+                    "tool_create_booking_from_selection",
+                    "create_booking",
+                    create_booking(
+                        user_id=self.user_id,
+                        schedule_id=selected_schedule["id"],
+                    ),
                 )
 
                 await self.session.clear_state(session_id)
@@ -263,13 +453,22 @@ class AgentRuntime:
                     f"请准时参加，如需取消请提前 2 小时告知。"
                 )
 
-            except Exception as e:
+            except BusinessException as exc:
+                self._mark_error(trace, "business_error", exc)
                 self.logger.error(
                     f"预约失败: session={session_id}, schedule_id={selected_schedule['id']}, "
-                    f"error={str(e)}"
+                    f"error_type={type(exc).__name__}"
                 )
                 await self.session.clear_state(session_id)
-                return self._handle_business_error(e)
+                return self._handle_business_error(exc)
+            except Exception as exc:
+                self._mark_error(trace, "system_error", exc)
+                self.logger.error(
+                    f"预约失败: session={session_id}, schedule_id={selected_schedule['id']}, "
+                    f"error_type={type(exc).__name__}"
+                )
+                await self.session.clear_state(session_id)
+                return self._handle_business_error(exc)
 
         elif state["action"] == "confirming_cancel":
             if user_input in ["是", "yes", "y", "确认", "确定"]:
@@ -279,9 +478,14 @@ class AgentRuntime:
                     return "❌ 状态异常，预约 ID 丢失，请重新开始"
 
                 try:
-                    raw = await cancel_booking(
-                        booking_id=booking_id,
-                        user_id=self.user_id,
+                    raw = await self._call_tool(
+                        trace,
+                        "tool_cancel_booking",
+                        "cancel_booking",
+                        cancel_booking(
+                            booking_id=booking_id,
+                            user_id=self.user_id,
+                        ),
                     )
 
                     await self.session.clear_state(session_id)
@@ -293,13 +497,22 @@ class AgentRuntime:
 
                     return f"✅ 已成功取消预约！\n\n🎫 预约 ID：{booking_id}\n📋 处理结果：{raw}"
 
-                except Exception as e:
+                except BusinessException as exc:
+                    self._mark_error(trace, "business_error", exc)
                     self.logger.error(
                         f"取消预约失败: session={session_id}, booking_id={booking_id}, "
-                        f"error={str(e)}"
+                        f"error_type={type(exc).__name__}"
                     )
                     await self.session.clear_state(session_id)
-                    return self._handle_business_error(e)
+                    return self._handle_business_error(exc)
+                except Exception as exc:
+                    self._mark_error(trace, "system_error", exc)
+                    self.logger.error(
+                        f"取消预约失败: session={session_id}, booking_id={booking_id}, "
+                        f"error_type={type(exc).__name__}"
+                    )
+                    await self.session.clear_state(session_id)
+                    return self._handle_business_error(exc)
 
             elif user_input in ["否", "no", "n", "取消", "不取消了"]:
                 self.logger.info(f"用户取消操作: session={session_id}, action=confirming_cancel")
