@@ -89,10 +89,21 @@ class ToolOutcome:
     text: str
     code: int = 0
     error_type: str | None = None
+    data: dict[str, Any] | None = None  # 机器可读结果（避免 Runtime 从不可信文本反解析）
 
     @property
     def ok(self) -> bool:
         return self.kind == "success"
+
+
+class ToolBusinessError(Exception):
+    """Tool 业务失败信号：必须抛异常，禁止用返回文本表示失败（否则会被包装成 success）。"""
+
+    def __init__(self, message: str, code: int = 400, error_type: str = "ToolBusinessError"):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.error_type = error_type
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +163,7 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         "query_courses", "query_courses", _READ_ROLES, False, frozenset({"keyword", "category", "level"}),
     ),
     "query_schedules": ToolSpec(
-        "query_schedules", "query_schedules", _READ_ROLES, False, frozenset({"date", "keyword", "days"}),
+        "query_schedules", "query_schedules_impl", _READ_ROLES, False, frozenset({"date", "keyword", "days"}),
     ),
     "get_my_bookings": ToolSpec(
         "get_my_bookings", "get_my_bookings", _READ_ROLES, False, frozenset({"status"}),
@@ -377,14 +388,13 @@ async def query_courses(
         return "\n".join(lines)
 
 
-@mcp.tool(name="query_schedules", exclude_args=["user_id", "tenant_id"])
-async def query_schedules(
+async def query_schedules_impl(
     date: str | None = None,
     keyword: str = "",
     days: int = 7,
     user_id: int | None = None,
     tenant_id: int | None = None,
-) -> str:
+) -> ToolOutcome:
     """
     查询指定日期范围内的排期列表
 
@@ -423,18 +433,46 @@ async def query_schedules(
             f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} "
             f"共 {result.total} 个排期："
         ]
+        schedules: list[dict[str, Any]] = []
         # 输出格式必须与 AgentRuntime._parse_schedules 保持一致（Tool 文本契约）
         for s in result.items:
             date_str = s.start_at.strftime("%Y-%m-%d") if s.start_at else "待定"
             start_time = s.start_at.strftime("%H:%M") if s.start_at else "待定"
             end_time = s.end_at.strftime("%H:%M") if s.end_at else "待定"
-            teacher = s.teacher_name or "待定"
+            teacher = _safe_cell(s.teacher_name)
             remaining = max(int(s.capacity) - int(s.booked_count), 0)
+            course_name = _safe_cell(s.course_name, default="课程")
             lines.append(
                 f"- ID:{s.id} | {date_str} | {start_time}-{end_time} | "
-                f"{teacher} | 剩余:{remaining} | {s.course_name}"
+                f"{teacher} | 剩余:{remaining} | {course_name}"
             )
-        return "\n".join(lines)
+            schedules.append(
+                {
+                    "id": s.id,
+                    "date": date_str,
+                    "time": f"{start_time}-{end_time}",
+                    "teacher": teacher,
+                    "remaining": remaining,
+                    "course_name": course_name,
+                }
+            )
+        # Runtime 优先消费 data；text 保留给 MCP 客户端与旧链路
+        return ToolOutcome("success", "\n".join(lines), data={"schedules": schedules})
+
+
+@mcp.tool(name="query_schedules", exclude_args=["user_id", "tenant_id"])
+async def query_schedules(
+    date: str | None = None,
+    keyword: str = "",
+    days: int = 7,
+    user_id: int | None = None,
+    tenant_id: int | None = None,
+) -> str:
+    """MCP 客户端入口：只返回文本；Runtime 走 query_schedules_impl 获取结构化 data。"""
+    outcome = await query_schedules_impl(
+        date=date, keyword=keyword, days=days, user_id=user_id, tenant_id=tenant_id
+    )
+    return outcome.text
 
 
 @mcp.tool(name="get_my_bookings", exclude_args=["user_id", "tenant_id"])
@@ -474,13 +512,13 @@ async def get_my_bookings(
         lines = [f"共 {result.total} 条预约记录："]
         for b in result.items:
             status_label = STATUS_LABELS.get(b.status, f"状态{b.status}")
-            course = b.course_name or "未知课程"
+            course = _safe_cell(b.course_name, default="未知课程")
             time_str = ""
             if b.start_at:
                 time_str = b.start_at.strftime("%m/%d %H:%M")
                 if b.end_at:
                     time_str += f"-{b.end_at.strftime('%H:%M')}"
-            teacher = f" 教师：{b.teacher_name}" if b.teacher_name else ""
+            teacher = f" 教师：{_safe_cell(b.teacher_name)}" if b.teacher_name else ""
             lines.append(f"- [{status_label}] {time_str} {course}{teacher}（预约ID: {b.id}）")
         return "\n".join(lines)
 
@@ -540,14 +578,18 @@ async def create_booking(
             # 私教课必须使用私教次卡：卡是否可用与排序由 Service 判定，这里只做转交
             schedule = await ScheduleService().get_schedule_by_id(db, schedule_id)
             if schedule.tenant_id != ctx.tenant_id:
-                return "排期不存在"
+                raise ToolBusinessError("排期不存在", code=404, error_type="ScheduleNotFound")
             if schedule.course_type_code == "private":
                 recommend = await MembershipCardService().recommend_card_for_schedule(
                     db, ctx.user_id, ctx.tenant_id, schedule_id
                 )
                 recommended_card_id = recommend.get("recommended_card_id")
                 if not recommended_card_id:
-                    return recommend.get("message") or "没有可用于该课程的会员卡"
+                    raise ToolBusinessError(
+                        recommend.get("message") or "没有可用于该课程的会员卡",
+                        code=400,
+                        error_type="NoUsableCard",
+                    )
                 membership_card_id = recommended_card_id
                 auto_card_note = "\n（已自动使用匹配的私教卡）"
 
@@ -606,6 +648,14 @@ async def cancel_booking(
 # ============================================================
 
 
+def _safe_cell(value: str | None, default: str = "待定", limit: int = 40) -> str:
+    """把数据库字段安全嵌入单行文本协议：去换行、避免竖线伪造列分隔、限制长度。"""
+    text = (value or "").strip().replace("\r", " ").replace("\n", " ")
+    text = text.replace("|", "｜")
+    text = "".join(ch for ch in text if ch.isprintable())
+    return text[:limit] or default
+
+
 def _filter_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> dict[str, Any]:
     """只接受契约声明的业务入参，忽略身份字段等未声明参数。"""
     return {key: value for key, value in arguments.items() if key in spec.input_fields}
@@ -641,8 +691,18 @@ async def execute_tool(
 
     with tool_context(ctx):
         try:
-            text = await handler(**args, user_id=ctx.user_id, tenant_id=ctx.tenant_id)
-            return ToolOutcome("success", text)
+            result = await handler(**args, user_id=ctx.user_id, tenant_id=ctx.tenant_id)
+            if isinstance(result, ToolOutcome):
+                return result
+            return ToolOutcome("success", result)
+        except ToolBusinessError as exc:
+            # Tool 主动表达的业务失败：转成 business_error，Runtime 不再走成功分支
+            return ToolOutcome(
+                "business_error",
+                _sanitize_business_message(exc.message),
+                code=exc.code,
+                error_type=exc.error_type,
+            )
         except DanceSaasException as exc:
             # 业务异常（含 NotFound / Validation / Permission）→ 可读文本，不回显内部细节
             return ToolOutcome(

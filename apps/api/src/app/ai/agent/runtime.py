@@ -348,7 +348,7 @@ class AgentRuntime:
                         return outcome.text
                     raw = outcome.text
 
-                    schedules = self._parse_schedules(raw)
+                    schedules = self._parse_schedules(raw, outcome.data)
 
                     if not schedules:
                         return f"没有找到符合条件的排期\n{raw}"
@@ -697,29 +697,46 @@ class AgentRuntime:
     def _format_cancel_result(self, raw: str) -> str:
         return raw
 
-    def _parse_schedules(self, raw: str) -> list[dict]:
+    def _parse_schedules(self, raw: str, data: dict | None = None) -> list[dict]:
         """
-        从 Tool 返回的原始文本中解析出结构化排期列表
+        获取结构化排期列表
 
-        输入示例：
-            "排期查询结果：\n共 3 个排期：\n- ID:5 | 2026-08-14 | 14:00-15:00 | 王老师 | 剩余:3"
+        优先使用 Tool 返回的 data（机器可读、不经过文本拼接，避免字段注入）；
+        仅当 data 缺失时才回退到文本解析（兼容外部 MCP 客户端 / 旧链路）。
 
-        输出示例：
-            [{"id": 5, "date": "2026-08-14", "time": "14:00-15:00", "teacher": "王老师", "remaining": 3}]
+        文本格式示例：
+            "排期查询结果：\n共 3 个排期：\n- ID:5 | 2026-08-14 | 14:00-15:00 | 王老师 | 剩余:3 | 芭蕾"
         """
         import re
 
+        if data and isinstance(data.get("schedules"), list):
+            schedules: list[dict] = []
+            for item in data["schedules"][:20]:
+                if not isinstance(item, dict) or "id" not in item:
+                    continue
+                schedules.append(
+                    {
+                        "id": int(item["id"]),
+                        "date": str(item.get("date", "待定")),
+                        "time": str(item.get("time", "待定")),
+                        "teacher": str(item.get("teacher", "待定")),
+                        "remaining": int(item.get("remaining", 0)),
+                        "course_name": str(item.get("course_name", "课程")),
+                    }
+                )
+            return schedules
+
         schedules = []
 
-        for line in raw.split("\n"):
+        for line in raw.split("\n")[:20]:
             line = line.strip()
 
             if not line.startswith("- ID:"):
                 continue
 
             match = re.search(
-                r"ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)"
-                r"(?:\s*\|\s*(.+))?",
+                r"^- ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)"
+                r"(?:\s*\|\s*(.+))?$",
                 line,
             )
 
