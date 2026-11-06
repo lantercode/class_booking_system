@@ -200,6 +200,28 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
 
         return cards
 
+    async def get_balance_by_student(
+        self,
+        db: AsyncSession,
+        student_id: int,
+        tenant_id: int,
+    ) -> dict[str, int]:
+        """聚合学员有效会员卡的课时余额（显式 tenant_id 过滤，避免跨租户聚合）。"""
+        result = await db.execute(
+            select(
+                func.coalesce(func.sum(MembershipCard.total_credits), 0).label("total"),
+                func.coalesce(func.sum(MembershipCard.used_credits), 0).label("used"),
+            ).where(
+                MembershipCard.student_id == student_id,
+                MembershipCard.tenant_id == tenant_id,
+                MembershipCard.status == CardStatus.ACTIVE.value,
+            )
+        )
+        row = result.one()
+        total = int(row.total)
+        used = int(row.used)
+        return {"total": total, "used": used, "remaining": max(total - used, 0)}
+
     async def get_active_cards_by_student(
         self,
         db: AsyncSession,

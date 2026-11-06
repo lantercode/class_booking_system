@@ -154,7 +154,7 @@ async def test_booking_flow_end_to_end(monkeypatch=None):
     print("5. 多轮预约流程端到端模拟（F5.1）")
     print("=" * 60)
 
-    import app.ai.agent.runtime as runtime_mod
+    import app.ai.mcp_server as mcp_server_mod
 
     # 内存版 FakeRedis，支撑 SessionManager 的 state / lock 存取
     class FakeRedis:
@@ -197,8 +197,9 @@ async def test_booking_flow_end_to_end(monkeypatch=None):
         booked["tenant_id"] = tenant_id
         return "预约成功！\n课程：瑜伽课\n时间：09/27 14:00\n预约ID：999"
 
-    runtime_mod.query_schedules = fake_query_schedules
-    runtime_mod.create_booking = fake_create_booking
+    # Runtime 统一走 mcp_server.execute_tool，Tool 实现由 mcp_server 模块解析
+    mcp_server_mod.query_schedules = fake_query_schedules
+    mcp_server_mod.create_booking = fake_create_booking
 
     try:
         agent = AgentRuntime(
@@ -230,8 +231,8 @@ async def test_booking_flow_end_to_end(monkeypatch=None):
         from app.ai.mcp_server import create_booking as _cb
         from app.ai.mcp_server import query_schedules as _qs
 
-        runtime_mod.query_schedules = _qs
-        runtime_mod.create_booking = _cb
+        mcp_server_mod.query_schedules = _qs
+        mcp_server_mod.create_booking = _cb
 
 
 async def main():

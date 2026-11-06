@@ -15,7 +15,6 @@ import pytest
 
 from app.ai.agent import AgentRuntime, IntentRecognizer, SessionManager
 from app.ai.agent import prompts as prompts_mod
-from app.ai.agent import runtime as runtime_mod
 from app.core.exceptions import BusinessException
 from app.modules.ai.router import get_history, get_supported_intents
 
@@ -159,7 +158,8 @@ async def test_trace_log_on_business_error(caplog, monkeypatch):
     async def fake_query_courses(**kwargs):
         raise BusinessException("该时段已约满", code=400)
 
-    monkeypatch.setattr(runtime_mod, "query_courses", fake_query_courses)
+    # Runtime 已改为通过统一入口 execute_tool 调用，Tool 实现由 mcp_server 注册表解析
+    monkeypatch.setattr("app.ai.mcp_server.query_courses", fake_query_courses)
 
     agent = AgentRuntime(redis_client=FakeRedis(), user_id=5, tenant_id=2)
     response = await agent.chat("查一下瑜伽课程", session_id="trace-business-error")
@@ -182,7 +182,8 @@ async def test_trace_log_on_system_error(caplog, monkeypatch):
     async def fake_query_courses(**kwargs):
         raise RuntimeError("internal failure")
 
-    monkeypatch.setattr(runtime_mod, "query_courses", fake_query_courses)
+    # Runtime 已改为通过统一入口 execute_tool 调用，Tool 实现由 mcp_server 注册表解析
+    monkeypatch.setattr("app.ai.mcp_server.query_courses", fake_query_courses)
 
     agent = AgentRuntime(redis_client=FakeRedis(), user_id=5, tenant_id=2)
     response = await agent.chat("查一下芭蕾课程", session_id="trace-system-error")

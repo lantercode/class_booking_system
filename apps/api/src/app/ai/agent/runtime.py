@@ -16,14 +16,7 @@ import time
 from app.ai.agent.intent import IntentRecognizer
 from app.ai.agent.prompts import build_system_messages as compose_system_messages
 from app.ai.agent.session import SessionManager
-from app.ai.mcp_server import (
-    cancel_booking,
-    create_booking,
-    get_my_balance,
-    get_my_bookings,
-    query_courses,
-    query_schedules,
-)
+from app.ai.mcp_server import ToolContext, ToolOutcome, execute_tool
 from app.core.exceptions import BusinessException
 
 # 意图 → 可用 Tool 映射（用于 system prompt 能力声明与 trace 记录）
@@ -236,15 +229,46 @@ class AgentRuntime:
             trace["status"] = status
             trace["error"] = type(exc).__name__
 
-    async def _call_tool(self, trace: dict | None, step: str, tool_name: str, awaitable):
-        """执行 Tool 并记录名称与耗时（异常同样会记录，随后由上层判定状态）。"""
+    def _tool_context(self) -> ToolContext | None:
+        """把已认证的用户 / 租户上下文转成 Tool 可信上下文。
+
+        身份只来自 Runtime 构造参数（HTTP 层 ``get_current_user``），
+        不接受 LLM 输出；缺失时由 ``execute_tool`` 统一返回“请先登录”。
+        """
+        if not self.user_id or not self.tenant_id:
+            return None
+        return ToolContext(
+            user_id=int(self.user_id),
+            tenant_id=int(self.tenant_id),
+            role_id=self.role_id,
+        )
+
+    async def _call_tool(
+        self,
+        trace: dict | None,
+        step: str,
+        tool_name: str,
+        arguments: dict,
+    ) -> ToolOutcome:
+        """通过统一入口执行 Tool，并记录名称与耗时（失败以 ToolOutcome 返回，不抛出）。"""
         started_at = time.perf_counter()
         try:
-            return await awaitable
+            return await execute_tool(tool_name, arguments, self._tool_context())
         finally:
             if trace is not None:
                 trace["tools"].append(tool_name)
                 trace["step_ms"][step] = self._elapsed_ms(started_at)
+
+    def _handle_outcome(
+        self, trace: dict | None, outcome: ToolOutcome, formatter=None
+    ) -> str:
+        """把 ToolOutcome 转成最终回复；错误文本已由 Tool 层脱敏，不再回显内部细节。"""
+        if outcome.ok:
+            return formatter(outcome.text) if formatter else outcome.text
+        if trace is not None:
+            trace["status"] = outcome.kind
+            trace["error"] = outcome.error_type
+        return outcome.text
 
     async def _execute_intent(
         self,
@@ -265,61 +289,55 @@ class AgentRuntime:
         """
         try:
             if intent_name == "query_courses":
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_query_courses",
                     "query_courses",
-                    query_courses(keyword=params.get("keyword", "")),
+                    {"keyword": params.get("keyword", "")},
                 )
-                return self._format_courses(raw)
+                return self._handle_outcome(trace, outcome, self._format_courses)
 
             elif intent_name == "query_schedules":
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_query_schedules",
                     "query_schedules",
-                    query_schedules(
-                        date=params.get("date"),
-                        keyword=params.get("keyword", ""),
-                    ),
+                    {"date": params.get("date"), "keyword": params.get("keyword", "")},
                 )
-                return self._format_schedules(raw)
+                return self._handle_outcome(trace, outcome, self._format_schedules)
 
             elif intent_name == "get_my_bookings":
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_get_my_bookings",
                     "get_my_bookings",
-                    get_my_bookings(
-                        user_id=self.user_id,
-                        status=params.get("status"),
-                    ),
+                    {"status": params.get("status")},
                 )
-                return self._format_bookings(raw)
+                return self._handle_outcome(trace, outcome, self._format_bookings)
 
             elif intent_name == "get_my_balance":
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_get_my_balance",
                     "get_my_balance",
-                    get_my_balance(user_id=self.user_id),
+                    {},
                 )
-                return self._format_balance(raw)
+                return self._handle_outcome(trace, outcome, self._format_balance)
 
             elif intent_name == "create_booking":
                 if not self.user_id:
                     return "请先登录后再预约课程"
 
                 if "schedule_id" not in params:
-                    raw = await self._call_tool(
+                    outcome = await self._call_tool(
                         trace,
                         "tool_query_schedules_for_booking",
                         "query_schedules",
-                        query_schedules(
-                            date=params.get("date"),
-                            keyword=params.get("keyword", ""),
-                        ),
+                        {"date": params.get("date"), "keyword": params.get("keyword", "")},
                     )
+                    if not outcome.ok:
+                        return outcome.text
+                    raw = outcome.text
 
                     schedules = self._parse_schedules(raw)
 
@@ -338,17 +356,14 @@ class AgentRuntime:
 
                     return self._format_schedule_options(schedules)
 
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_create_booking",
                     "create_booking",
-                    create_booking(
-                        schedule_id=params["schedule_id"],
-                        user_id=self.user_id,
-                    ),
+                    {"schedule_id": params["schedule_id"]},
                 )
                 await self.session.clear_state(session_id)
-                return self._format_booking_result(raw)
+                return self._handle_outcome(trace, outcome, self._format_booking_result)
 
             elif intent_name == "cancel_booking":
                 if not self.user_id:
@@ -427,15 +442,23 @@ class AgentRuntime:
             )
 
             try:
-                raw = await self._call_tool(
+                outcome = await self._call_tool(
                     trace,
                     "tool_create_booking_from_selection",
                     "create_booking",
-                    create_booking(
-                        user_id=self.user_id,
-                        schedule_id=selected_schedule["id"],
-                    ),
+                    {"schedule_id": selected_schedule["id"]},
                 )
+
+                if not outcome.ok:
+                    if trace is not None:
+                        trace["status"] = outcome.kind
+                        trace["error"] = outcome.error_type
+                    self.logger.error(
+                        f"预约失败: session={session_id}, schedule_id={selected_schedule['id']}, "
+                        f"error_type={outcome.error_type}"
+                    )
+                    await self.session.clear_state(session_id)
+                    return outcome.text
 
                 await self.session.clear_state(session_id)
 
@@ -449,7 +472,7 @@ class AgentRuntime:
                     f"📚 课程：{state.get('keyword', '未知')}\n"
                     f"📅 时间：{selected_schedule['date']} {selected_schedule['time']}\n"
                     f"👨‍🏫 老师：{selected_schedule['teacher']}\n"
-                    f"🎫 详情：{raw}\n\n"
+                    f"🎫 详情：{outcome.text}\n\n"
                     f"请准时参加，如需取消请提前 2 小时告知。"
                 )
 
@@ -478,15 +501,23 @@ class AgentRuntime:
                     return "❌ 状态异常，预约 ID 丢失，请重新开始"
 
                 try:
-                    raw = await self._call_tool(
+                    outcome = await self._call_tool(
                         trace,
                         "tool_cancel_booking",
                         "cancel_booking",
-                        cancel_booking(
-                            booking_id=booking_id,
-                            user_id=self.user_id,
-                        ),
+                        {"booking_id": booking_id},
                     )
+
+                    if not outcome.ok:
+                        if trace is not None:
+                            trace["status"] = outcome.kind
+                            trace["error"] = outcome.error_type
+                        self.logger.error(
+                            f"取消预约失败: session={session_id}, booking_id={booking_id}, "
+                            f"error_type={outcome.error_type}"
+                        )
+                        await self.session.clear_state(session_id)
+                        return outcome.text
 
                     await self.session.clear_state(session_id)
 
@@ -495,7 +526,10 @@ class AgentRuntime:
                         f"user_id={self.user_id}"
                     )
 
-                    return f"✅ 已成功取消预约！\n\n🎫 预约 ID：{booking_id}\n📋 处理结果：{raw}"
+                    return (
+                        f"✅ 已成功取消预约！\n\n🎫 预约 ID：{booking_id}"
+                        f"\n📋 处理结果：{outcome.text}"
+                    )
 
                 except BusinessException as exc:
                     self._mark_error(trace, "business_error", exc)
@@ -675,7 +709,8 @@ class AgentRuntime:
                 continue
 
             match = re.search(
-                r"ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)",
+                r"ID:(\d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*\|\s*([\d:-]+)\s*\|\s*(.+?)\s*\|\s*剩余:(\d+)"
+                r"(?:\s*\|\s*(.+))?",
                 line,
             )
 
@@ -687,6 +722,7 @@ class AgentRuntime:
                         "time": match.group(3),
                         "teacher": match.group(4).strip(),
                         "remaining": int(match.group(5)),
+                        "course_name": (match.group(6) or "").strip(),
                     }
                 )
 
@@ -697,8 +733,10 @@ class AgentRuntime:
         lines = ["📅 找到以下排期，请回复数字选择：\n"]
 
         for i, s in enumerate(schedules, 1):
+            course_name = s.get("course_name") or "课程"
             lines.append(
-                f"  [{i}] {s['date']} {s['time']} {s['teacher']}（剩余{s['remaining']}个）"
+                f"  [{i}] {s['date']} {s['time']} {course_name} "
+                f"{s['teacher']}（剩余{s['remaining']}个）"
             )
 
         lines.append('\n例如回复 "1" 或 "第1个"')

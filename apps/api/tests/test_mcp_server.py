@@ -9,16 +9,45 @@ MCP Server 数据连通性测试脚本
 
 import asyncio
 
+import pytest
+import pytest_asyncio
+
 from app.ai.mcp_server import (
+    ToolContext,
     create_booking,
     get_my_balance,
     get_my_bookings,
     query_courses,
     query_schedules,
+    tool_context,
 )
 
-# 替换为你数据库中实际存在的 student_id
+# 替换为你数据库中实际存在的 student_id / tenant_id
 TEST_USER_ID = 1
+TEST_TENANT_ID = 1
+
+_TRUSTED_CTX = ToolContext(user_id=TEST_USER_ID, tenant_id=TEST_TENANT_ID)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _fresh_db_pool():
+    """pytest-asyncio 每个用例使用独立事件循环，先释放跨 loop 的旧连接。"""
+    from app.core.database import engine
+
+    await engine.dispose()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _trusted_context(monkeypatch):
+    """P1：Tool 需要可信上下文；脚本 / pytest 运行均显式注入，避免 stdio 无身份。"""
+
+    async def _member(self, db, user_id, tenant_id):
+        return True
+
+    monkeypatch.setattr("app.ai.mcp_server.UserService.is_user_in_tenant", _member)
+    with tool_context(_TRUSTED_CTX):
+        yield
 
 
 async def test_query_courses():
@@ -70,6 +99,7 @@ async def test_get_my_bookings():
     print(await get_my_bookings(user_id=TEST_USER_ID, status="booked"))
 
 
+@pytest.mark.skip(reason="手工数据操作脚本：依赖真实排期数据，需在真实环境手动运行")
 async def test_create_and_cancel():
     """测试：创建 + 取消预约（谨慎使用）"""
     print("\n" + "=" * 60)
@@ -94,13 +124,14 @@ async def main():
 ╚══════════════════════════════════════════════════════╝
 """)
 
-    await test_query_courses()
-    await test_query_schedules()
-    await test_get_my_balance()
-    await test_get_my_bookings()
+    with tool_context(_TRUSTED_CTX):
+        await test_query_courses()
+        await test_query_schedules()
+        await test_get_my_balance()
+        await test_get_my_bookings()
 
-    # 操作类测试默认跳过，取消注释手动运行
-    # await test_create_and_cancel()
+        # 操作类测试默认跳过，取消注释手动运行
+        # await test_create_and_cancel()
 
     print("\n" + "=" * 60)
     print("测试完成！")

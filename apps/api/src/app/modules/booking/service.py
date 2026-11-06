@@ -1179,6 +1179,7 @@ class BookingService:
         keyword: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        self_only: bool = False,
     ) -> BookingListResponse:
         """获取预约列表（分页，含角色归属分流）
 
@@ -1199,7 +1200,10 @@ class BookingService:
 
         forced_student_id: int | None = None
         forced_teacher_id: int | None = None
-        if is_admin:
+        if self_only:
+            # AI“我的预约”场景：无论角色，只返回本人作为学员的预约
+            forced_student_id = user_id
+        elif is_admin:
             # admin/super_admin：不加归属强制，保留既有筛选（schedule_id 等）
             pass
         elif "student" in role_codes:

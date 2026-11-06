@@ -1203,19 +1203,7 @@ class MembershipCardService:
         Returns:
             dict: {"total": int, "used": int, "remaining": int}
         """
-        result = await db.execute(
-            select(
-                func.coalesce(func.sum(MembershipCard.total_credits), 0).label("total"),
-                func.coalesce(func.sum(MembershipCard.used_credits), 0).label("used"),
-            ).where(
-                MembershipCard.student_id == student_id,
-                MembershipCard.status == CardStatus.ACTIVE.value,
-            )
-        )
-        row = result.one()
-        total = int(row.total)
-        used = int(row.used)
-        return {"total": total, "used": used, "remaining": max(total - used, 0)}
+        return await self.card_repo.get_balance_by_student(db, student_id, tenant_id)
 
     async def list_transactions(
         self,

@@ -516,6 +516,20 @@ class UserService:
 
         return True
 
+    async def is_user_in_tenant(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        tenant_id: int,
+    ) -> bool:
+        """校验用户是否属于指定租户（AI / MCP Tool 第三关租户校验使用）。
+
+        只读、不产生副作用；``UserRepository`` 继承 ``TenantAwareRepository``，
+        查询本身也会按当前租户 ContextVar 过滤，这里再显式比对 tenant_id。
+        """
+        user = await self.user_repo.get_by_id(db, user_id)
+        return bool(user and user.tenant_id == tenant_id)
+
     async def get_user_by_id(
         self,
         db: AsyncSession,

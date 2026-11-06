@@ -16,13 +16,28 @@ F5.2 — Tool 授权校验测试
 import pytest
 
 from app.ai.mcp_server import (
+    ToolContext,
     _require_student_role,
     _validate_id,
     cancel_booking,
     create_booking,
+    tool_context,
 )
 from app.core.database import SessionLocal
 from app.core.exceptions import BusinessException
+
+# P1 起 Tool 只接受可信上下文；直接调用时必须显式注入，模拟 Runtime 的受信身份
+_TEST_CTX = ToolContext(user_id=1, tenant_id=1)
+
+
+@pytest.fixture(autouse=True)
+def _allow_tenant_membership(monkeypatch):
+    """单测不依赖真实租户数据：第三关显式租户归属校验默认通过。"""
+
+    async def _member(self, db, user_id, tenant_id):
+        return True
+
+    monkeypatch.setattr("app.ai.mcp_server.UserService.is_user_in_tenant", _member)
 
 # ============================================================
 # 辅助
@@ -102,7 +117,7 @@ class TestCreateBookingAuthorization:
             return {"student"}
 
         monkeypatch.setattr("app.ai.mcp_server.get_user_role_codes", _student)
-        with pytest.raises(BusinessException) as exc:
+        with tool_context(_TEST_CTX), pytest.raises(BusinessException) as exc:
             await create_booking(schedule_id=0, user_id=1)
         assert exc.value.code == 400
         assert "排期" in str(exc.value)
@@ -114,7 +129,7 @@ class TestCreateBookingAuthorization:
             return {"student"}
 
         monkeypatch.setattr("app.ai.mcp_server.get_user_role_codes", _student)
-        with pytest.raises(BusinessException) as exc:
+        with tool_context(_TEST_CTX), pytest.raises(BusinessException) as exc:
             await create_booking(schedule_id=-1, user_id=1)
         assert exc.value.code == 400
 
@@ -125,7 +140,7 @@ class TestCreateBookingAuthorization:
             return {"student"}
 
         monkeypatch.setattr("app.ai.mcp_server.get_user_role_codes", _student)
-        with pytest.raises(BusinessException) as exc:
+        with tool_context(_TEST_CTX), pytest.raises(BusinessException) as exc:
             await create_booking(schedule_id="1", user_id=1)  # type: ignore
         assert exc.value.code == 400
 
@@ -174,7 +189,7 @@ class TestCancelBookingAuthorization:
             return {"student"}
 
         monkeypatch.setattr("app.ai.mcp_server.get_user_role_codes", _student)
-        with pytest.raises(BusinessException) as exc:
+        with tool_context(_TEST_CTX), pytest.raises(BusinessException) as exc:
             await cancel_booking(booking_id=0, user_id=1)
         assert exc.value.code == 400
 
@@ -185,10 +200,10 @@ class TestCancelBookingAuthorization:
             return {"student"}
 
         monkeypatch.setattr("app.ai.mcp_server.get_user_role_codes", _student)
-        with pytest.raises(BusinessException) as exc:
+        with tool_context(_TEST_CTX), pytest.raises(BusinessException) as exc:
             await cancel_booking(booking_id=1, user_id=1, reason="x" * 201)
         assert exc.value.code == 400
-        assert "原因过长" in str(exc.value)
+        assert "过长" in str(exc.value)
 
     @pytest.mark.asyncio
     async def test_non_student_role_raises_403(self, monkeypatch):
