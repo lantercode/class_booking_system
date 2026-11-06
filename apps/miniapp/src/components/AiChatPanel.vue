@@ -5,7 +5,6 @@
       class="chat-messages"
       scroll-y
       :scroll-into-view="scrollToView"
-      :scroll-top="scrollTop"
     >
       <!-- 欢迎区域（快捷问题常显：有聊天记录时也保留，作为可复用的提问入口） -->
       <view
@@ -96,6 +95,8 @@
           </view>
         </view>
       </view>
+      <!-- 底部锚点：滚动到这里即停留在最新一条消息，而不是最新消息的顶部 -->
+      <view id="chat-bottom" class="chat-bottom"></view>
     </scroll-view>
 
     <!-- 输入框 -->
@@ -179,12 +180,11 @@ const messages = ref<Message[]>([]);
 const inputText = ref("");
 const isLoading = ref(false);
 const scrollToView = ref("");
-const scrollTop = ref(0);
 
 // 快捷问题（对齐原型 P-M10：单行问题文本 + 金色描边胶囊）
 const quickActions = [
   { text: "帮我查一下有哪些课程", icon: "book" as const },
-  { text: "帮我约一节瑜伽课", icon: "calendar" as const },
+  { text: "帮我约一节古典舞片段", icon: "calendar" as const },
   { text: "我的课时余额还剩多少", icon: "wallet" as const },
   { text: "查看我的预约记录", icon: "clipboard" as const },
 ];
@@ -329,10 +329,11 @@ const clearHistory = async () => {
 
 const scrollToBottom = () => {
   nextTick(() => {
-    if (messages.value.length > 0) {
-      scrollToView.value = `msg-${messages.value.length - 1}`;
-      scrollTop.value = Math.random() * 100;
-    }
+    // 先清空再设值，确保 scroll-into-view 每次都能触发，滚到列表底部
+    scrollToView.value = "";
+    setTimeout(() => {
+      scrollToView.value = "chat-bottom";
+    }, 60);
   });
 };
 
@@ -391,6 +392,10 @@ defineExpose({
   padding: 24rpx 24rpx 12rpx;
   background: var(--ai-msgs-bg);
   box-sizing: border-box;
+
+  .chat-bottom {
+    height: 1px;
+  }
 
   .welcome-section {
     padding: 20rpx 0;

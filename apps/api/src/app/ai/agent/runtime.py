@@ -324,6 +324,15 @@ class AgentRuntime:
                 )
                 return self._handle_outcome(trace, outcome, self._format_balance)
 
+            elif intent_name == "card_rule":
+                return (
+                    "💳 会员卡与课程类型需一一对应：\n"
+                    "• 常规课 → 常规课会员卡\n"
+                    "• 特色课 → 特色课会员卡\n"
+                    "• 私教课 → 私教次卡\n\n"
+                    "未指定课程类型的卡不可用于预约。"
+                )
+
             elif intent_name == "create_booking":
                 if not self.user_id:
                     return "请先登录后再预约课程"

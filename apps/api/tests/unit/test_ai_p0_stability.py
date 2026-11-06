@@ -196,3 +196,29 @@ async def test_trace_log_on_system_error(caplog, monkeypatch):
     assert trace["intent"] == "query_courses"
     # 系统错误同样对用户返回友好提示，不回显内部异常
     assert "internal failure" not in response
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("我有多少课时", "get_my_balance"),
+        ("我的课时还剩多少", "get_my_balance"),
+        ("我的预约", "get_my_bookings"),
+        ("先给出我预约了哪些课", "get_my_bookings"),
+        ("帮我约明天的私教课", "create_booking"),
+        ("用常规卡约私教课", "card_rule"),
+    ],
+)
+def test_intent_keywords_cover_daily_phrases(text, expected):
+    """日常口语应能命中对应意图，避免落到 unknown 兜底。"""
+    recognizer = IntentRecognizer()
+    assert recognizer.recognize(text)["intent"] == expected
+
+
+@pytest.mark.asyncio
+async def test_card_rule_intent_returns_policy_without_tool_calls():
+    agent = AgentRuntime(redis_client=FakeRedis(), user_id=5, tenant_id=2)
+    response = await agent.chat("用常规卡约私教课", session_id="card-rule")
+
+    assert "私教" in response
+    assert "常规课" in response
