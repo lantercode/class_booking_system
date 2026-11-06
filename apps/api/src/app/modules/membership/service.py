@@ -43,10 +43,6 @@ from app.modules.membership.schemas import (
 
 logger = logging.getLogger(__name__)
 
-# 私教课的约定课程类型代码：该类型课程必须使用「已限定私教课」的会员卡，
-# 「不限课程类型」的通用卡不再默认适用于私教课（避免常规卡/无卡预约私教课）。
-PRIVATE_LESSON_COURSE_TYPE = "private"
-
 
 class MembershipCardService:
     """会员卡业务逻辑"""
@@ -649,17 +645,11 @@ class MembershipCardService:
         if expire_at is not None and schedule_date > expire_at.date():
             return f"已过期（{expire_at.strftime('%Y-%m-%d')} 到期）"
 
-        if (
-            course_type_code == PRIVATE_LESSON_COURSE_TYPE
-            and not applicable_course_type_code
-        ):
-            return "私教课需使用私教类型会员卡"
-        if applicable_course_type_code:
-            if (
-                not course_type_code
-                or applicable_course_type_code != course_type_code
-            ):
-                return "不适用于此课程类型"
+        # 所有卡必须指定适用课程类型才可用：未指定类型的「不限」卡不可用于预约
+        if not applicable_course_type_code:
+            return "会员卡未指定适用课程类型，不可用于预约"
+        if not course_type_code or applicable_course_type_code != course_type_code:
+            return "不适用于此课程类型"
         if applicable_course_ids and course_id not in applicable_course_ids:
             return "不适用于此课程"
 
@@ -759,15 +749,13 @@ class MembershipCardService:
                 detail=f"会员卡已过期，到期时间：{card.expire_at.strftime('%Y-%m-%d')}",
             )
 
-        if (
-            course_type_code == PRIVATE_LESSON_COURSE_TYPE
-            and not card.applicable_course_type_code
-        ):
-            raise HTTPException(status_code=400, detail="私教课需要使用私教类型会员卡")
-        if card.applicable_course_type_code and (
-            not course_type_code
-            or card.applicable_course_type_code != course_type_code
-        ):
+        # 所有卡必须指定适用课程类型才可用：未指定类型的「不限」卡不可用于预约
+        if not card.applicable_course_type_code:
+            raise HTTPException(
+                status_code=400,
+                detail="该会员卡未指定适用课程类型，不可用于预约",
+            )
+        if not course_type_code or card.applicable_course_type_code != course_type_code:
             raise HTTPException(status_code=400, detail="该会员卡不适用于此课程类型")
         if card.applicable_course_ids and course_id not in card.applicable_course_ids:
             raise HTTPException(status_code=400, detail="该会员卡不适用于此课程")

@@ -17,7 +17,7 @@ def make_card(**overrides) -> MembershipCard:
         "used_credits": 0,
         "valid_from": None,
         "expire_at": None,
-        "applicable_course_type_code": None,
+        "applicable_course_type_code": "regular",
         "applicable_course_ids": None,
     }
     defaults.update(overrides)
@@ -93,13 +93,13 @@ def test_bookable_on_expire_date_boundary():
 
     assert (
         membership_card_service.is_bookable_card(
-            card, schedule_start_at=same_day, course_id=1, course_type_code=None
+            card, schedule_start_at=same_day, course_id=1, course_type_code="regular"
         )
         is True
     )
     assert (
         membership_card_service.is_bookable_card(
-            card, schedule_start_at=next_day, course_id=1, course_type_code=None
+            card, schedule_start_at=next_day, course_id=1, course_type_code="regular"
         )
         is False
     )

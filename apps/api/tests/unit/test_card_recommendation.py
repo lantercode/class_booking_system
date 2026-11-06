@@ -25,7 +25,7 @@ def make_card(**overrides) -> MembershipCard:
         "used_credits": 0,
         "valid_from": None,
         "expire_at": None,
-        "applicable_course_type_code": None,
+        "applicable_course_type_code": COURSE_TYPE,
         "applicable_course_ids": None,
     }
     defaults.update(overrides)
@@ -43,7 +43,7 @@ def make_dict(card_id: int, **overrides) -> dict:
         "remaining_credits": 10,
         "valid_from": None,
         "expire_at": None,
-        "applicable_course_type_code": None,
+        "applicable_course_type_code": COURSE_TYPE,
         "applicable_course_ids": None,
         "created_at": datetime(2026, 1, 1, tzinfo=UTC),
     }
@@ -213,7 +213,7 @@ def test_b6_course_type_and_course_exclusions():
 
 
 def test_b6_private_course_requires_explicit_private_card():
-    """私教课：未限定课程类型的通用卡不再默认适用，必须显式限定 private。"""
+    """私教课：未限定课程类型的「不限」卡不可用，必须显式限定 private。"""
     assert (
         service.card_unavailable_reason(
             make_card(),
@@ -221,7 +221,7 @@ def test_b6_private_course_requires_explicit_private_card():
             course_id=COURSE_ID,
             course_type_code="private",
         )
-        == "私教课需使用私教类型会员卡"
+        == "不适用于此课程类型"
     )
     assert (
         service.card_unavailable_reason(
@@ -232,7 +232,16 @@ def test_b6_private_course_requires_explicit_private_card():
         )
         is None
     )
-    # 普通课不受影响，「不限」卡仍然适用
+    # 所有卡必须指定课程类型：未指定的卡即使常规课也不可用
+    assert (
+        service.card_unavailable_reason(
+            make_card(applicable_course_type_code=None),
+            schedule_start_at=SCHEDULE_START,
+            course_id=COURSE_ID,
+            course_type_code=COURSE_TYPE,
+        )
+        == "会员卡未指定适用课程类型，不可用于预约"
+    )
     assert _reason(make_card()) is None
 
 

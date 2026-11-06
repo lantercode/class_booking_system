@@ -88,7 +88,7 @@ async def create_course(
     factory,
     tenant_id: int,
     *,
-    course_type_code: str | None = None,
+    course_type_code: str | None = "regular",
     name: str | None = None,
 ) -> int:
     async with factory() as session:
@@ -142,7 +142,7 @@ async def create_product(
     card_type: str,
     validity_days: int | None = 30,
     total_credits: int | None = None,
-    applicable_course_type_code: str | None = None,
+    applicable_course_type_code: str | None = "regular",
     applicable_course_ids: list[int] | None = None,
 ) -> int:
     async with factory() as session:
@@ -176,7 +176,7 @@ async def create_card(
     product_id: int | None = None,
     total_credits: int | None = None,
     used_credits: int = 0,
-    applicable_course_type_code: str | None = None,
+    applicable_course_type_code: str | None = "regular",
     applicable_course_ids: list[int] | None = None,
     created_at: datetime | None = None,
 ) -> int:
