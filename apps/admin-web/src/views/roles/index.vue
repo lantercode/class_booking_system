@@ -42,7 +42,7 @@
                   v-if="!role.is_system"
                   size="small"
                   type="danger"
-                  text
+                  link
                   :loading="deleteLoading === role.id"
                   @click.stop="handleDeleteRole(role)"
                 >

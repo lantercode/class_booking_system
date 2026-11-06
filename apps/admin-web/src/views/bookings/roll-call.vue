@@ -99,7 +99,7 @@
               v-if="row.status === 1"
               type="primary"
               size="small"
-              text
+              link
               :loading="actionLoadingMap[row.id] === 'checkIn'"
               @click="handleCheckIn(row)"
             >
@@ -109,7 +109,7 @@
               v-if="row.status === 3"
               type="primary"
               size="small"
-              text
+              link
               :loading="actionLoadingMap[row.id] === 'complete'"
               @click="handleComplete(row)"
             >

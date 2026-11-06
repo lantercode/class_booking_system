@@ -119,7 +119,7 @@
             v-if="row.status === 1"
             type="danger"
             size="small"
-            text
+            link
             :loading="actionLoadingMap[row.id] === 'cancel'"
             @click="handleAdminCancel(row)"
           >
@@ -129,7 +129,7 @@
             v-if="row.status === 1"
             type="primary"
             size="small"
-            text
+            link
             :loading="actionLoadingMap[row.id] === 'checkIn'"
             @click="handleCheckIn(row)"
           >
@@ -139,7 +139,7 @@
             v-if="row.status === 3"
             type="primary"
             size="small"
-            text
+            link
             :loading="actionLoadingMap[row.id] === 'complete'"
             @click="handleComplete(row)"
           >
@@ -149,7 +149,7 @@
             v-if="[1, 3, 4].includes(row.status)"
             type="primary"
             size="small"
-            text
+            link
             @click="goRollCall(row)"
           >
             点名
