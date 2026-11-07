@@ -63,15 +63,11 @@
     </view>
 
     <TeacherTabBar currentRoute="/pages/teacher/profile/index" />
-
-    <!-- AI 智能助手 -->
-    <AiAssistant :session-id="'teacher_' + (userId || 'default')" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { clearAuthData, teacherApi } from "@/api";
-import AiAssistant from "@/components/AiAssistant.vue";
 import TeacherTabBar from "@/components/TeacherTabBar.vue";
 import { checkLogin, logout } from "@/utils/auth";
 import { navigateTo } from "@/utils/navigation";
@@ -79,7 +75,6 @@ import { wechatUnbind } from "@/utils/wechat";
 import { onMounted, onUnmounted, ref } from "vue";
 
 const userInfo = ref<any>(null);
-const userId = ref("");
 // 头像预签名地址（私有桶过期后通过接口换新链接）
 const avatarUrl = ref("");
 const stats = ref({
@@ -107,7 +102,6 @@ const loadUserInfo = () => {
   if (info) {
     const parsed = JSON.parse(info);
     userInfo.value = parsed;
-    userId.value = parsed.id || "";
     avatarUrl.value = parsed.avatar || "";
   }
 };

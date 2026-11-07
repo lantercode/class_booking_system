@@ -76,11 +76,6 @@
     </scroll-view>
 
     <TeacherTabBar currentRoute="/pages/teacher/students/index" />
-
-    <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'teacher_' + (userId || 'default')"
-    />
   </view>
 </template>
 
@@ -91,13 +86,11 @@ import { checkLogin } from '@/utils/auth'
 import { formatDate, formatTime } from '@/utils/date'
 import { extractList } from '@/utils/helpers'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
 import { navigateTo } from '@/utils/navigation'
 
 const students = ref<any[]>([])
 const scheduleList = ref<any[]>([])
 const selectedSchedule = ref<number | null>(null)
-const userId = ref('')
 
 // ✅ 页面卸载标记
 let isUnmounted = false
@@ -108,14 +101,6 @@ const checkedInCount = computed(() => students.value.filter(s => s.booking_statu
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
-
-  const userInfo = uni.getStorageSync('user_info')
-  if (userInfo) {
-    try {
-      const parsed = JSON.parse(userInfo)
-      userId.value = parsed.id || ''
-    } catch {}
-  }
 
   loadSchedules()
 })

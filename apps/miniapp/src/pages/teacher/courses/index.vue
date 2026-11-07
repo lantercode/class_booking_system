@@ -83,11 +83,6 @@
     </scroll-view>
 
     <TeacherTabBar currentRoute="/pages/teacher/courses/index" />
-
-    <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'teacher_' + (userId || 'default')"
-    />
   </view>
 </template>
 
@@ -96,14 +91,12 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { teacherApi, courseApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
 import { navigateTo } from '@/utils/navigation'
 import { extractList } from '@/utils/helpers'
 
 const searchKeyword = ref('')
 const activeFilter = ref('all')
 const courses = ref<any[]>([])
-const userId = ref('')
 
 // ✅ 页面卸载标记
 let isUnmounted = false
@@ -116,14 +109,6 @@ const filterTabs = [
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
-
-  const userInfo = uni.getStorageSync('user_info')
-  if (userInfo) {
-    try {
-      const parsed = JSON.parse(userInfo)
-      userId.value = parsed.id || ''
-    } catch {}
-  }
 
   loadCourses()
 })

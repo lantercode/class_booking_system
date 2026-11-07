@@ -55,11 +55,6 @@
 
     <TeacherTabBar currentRoute="/pages/teacher/schedule/index" />
 
-    <!-- AI 智能助手 -->
-    <AiAssistant
-      :session-id="'teacher_' + (userId || 'default')"
-    />
-
     <view v-if="showDetail" class="modal-overlay" @tap="closeDetail">
       <view class="detail-modal" @tap.stop>
         <view class="modal-header">
@@ -108,11 +103,9 @@ import { checkLogin } from '@/utils/auth'
 import { formatDateTime } from '@/utils/date'
 import { extractList } from '@/utils/helpers'
 import TeacherTabBar from '@/components/TeacherTabBar.vue'
-import AiAssistant from '@/components/AiAssistant.vue'
 import { navigateTo } from '@/utils/navigation'
 
 const currentWeekStart = ref('')
-const userId = ref('')
 const schedules = ref<any[]>([])
 const showDetail = ref(false)
 const selectedSchedule = ref<any>(null)
@@ -162,14 +155,6 @@ function getWeekStart(date: Date): Date {
 
 onMounted(() => {
   if (!checkLogin('teacher')) return
-
-  const userInfo = uni.getStorageSync('user_info')
-  if (userInfo) {
-    try {
-      const parsed = JSON.parse(userInfo)
-      userId.value = parsed.id || ''
-    } catch {}
-  }
 
   loadSchedules()
 })
