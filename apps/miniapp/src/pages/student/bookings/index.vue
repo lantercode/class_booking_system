@@ -417,7 +417,12 @@ const formatBookingDate = (dateStr: string) => {
   const day = date.getDate();
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${month}月${day}日 ${hours}:${minutes}`;
+  // 非本年度的历史预约必须显示年份，避免把去年的课误读成今天/今年
+  const yearPrefix =
+    date.getFullYear() !== new Date().getFullYear()
+      ? `${date.getFullYear()}年`
+      : "";
+  return `${yearPrefix}${month}月${day}日 ${hours}:${minutes}`;
 };
 
 // ===== F6.7 卡失效 join 与换卡 =====

@@ -1474,21 +1474,26 @@ class BookingService:
 
         if booking.status == BookingStatus.CANCELLED.value:
             display_status = 2  # 已取消
+        elif start_at and end_at:
+            # 时间优先：未开始的课绝不显示“上课中/已完成”（防止提前签到/完成或历史脏数据误导）
+            if now < start_at:
+                display_status = 1  # 待上课
+            elif now <= end_at:
+                # 课中：只有已确认完成/未到场时显示已完成，其余（含已签到）显示上课中
+                display_status = (
+                    4
+                    if booking.status
+                    in (BookingStatus.COMPLETED.value, BookingStatus.NO_SHOW.value)
+                    else 3
+                )
+            else:
+                display_status = 4  # 已完成（时间已过，含过期未收口的“上课中”）
         elif booking.status == BookingStatus.CHECKED_IN.value:
-            display_status = 3  # 上课中
+            display_status = 3  # 无排期时间信息时退回状态语义
         elif booking.status in (BookingStatus.COMPLETED.value, BookingStatus.NO_SHOW.value):
             display_status = 4  # 已完成
         elif booking.status == BookingStatus.BOOKED.value:
-            # 已预约状态，根据时间判断
-            if start_at and end_at:
-                if start_at > now:
-                    display_status = 1  # 待上课
-                elif start_at <= now <= end_at:
-                    display_status = 3  # 上课中
-                else:
-                    display_status = 4  # 已完成（时间已过）
-            else:
-                display_status = 1  # 没有时间信息，默认待上课
+            display_status = 1  # 没有时间信息，默认待上课
         else:
             display_status = booking.status
 

@@ -249,6 +249,8 @@ const displaySchedules = computed(() => {
     const isWithinCancelLimit =
       minutesBeforeStart <= cancelMinutes.value && minutesBeforeStart > 0;
     const isOngoing = minutesBeforeStart <= 0 && !isExpired;
+    // 会员卡校验只算一次，供按钮文案、禁用状态与提示复用
+    const cardValidation = validateCardForSchedule(schedule);
 
     const isDisabled =
       isExpired ||
@@ -288,7 +290,6 @@ const displaySchedules = computed(() => {
       statusClass = "full";
     } else {
       // 检查会员卡状态
-      const cardValidation = validateCardForSchedule(schedule);
       if (!cardValidation.valid) {
         switch (cardValidation.reasonType) {
           case "no_card":
@@ -297,8 +298,9 @@ const displaySchedules = computed(() => {
             statusClass = "no_card";
             break;
           case "not_applicable":
-            statusText = "不适用";
-            btnText = "不适用";
+            // “不适用”过于抽象：明确告知是会员卡类型与课程不匹配
+            statusText = "无适用卡";
+            btnText = "无适用卡";
             statusClass = "not_applicable";
             break;
           case "insufficient":
@@ -329,6 +331,16 @@ const displaySchedules = computed(() => {
       cancelHint = "课程已开始，不可取消";
     } else if (isBooked && isWithinCancelLimit) {
       cancelHint = `开课前${cancelMinutes.value}分钟内不可取消`;
+    } else if (
+      !isBooked &&
+      !isExpired &&
+      !isOutOfWindow &&
+      !isFull &&
+      !cardValidation.valid &&
+      cardValidation.reason
+    ) {
+      // 卡不可用时把具体原因展示给用户，避免只看到一个“不适用”按钮
+      cancelHint = cardValidation.reason;
     }
 
     return {
@@ -344,7 +356,7 @@ const displaySchedules = computed(() => {
           !isExpired &&
           !isOutOfWindow &&
           !isFull &&
-          !validateCardForSchedule(schedule).valid),
+          !cardValidation.valid),
       _statusClass: statusClass,
       _statusText: statusText,
       _btnText: btnText,
@@ -353,7 +365,7 @@ const displaySchedules = computed(() => {
       _cancelHint: cancelHint,
       _cardValidation:
         !isBooked && !isExpired && !isOutOfWindow && !isFull
-          ? validateCardForSchedule(schedule)
+          ? cardValidation
           : null,
     };
   });
@@ -707,7 +719,9 @@ const loadBookings = async () => {
   isLoadingBookings = true;
 
   try {
-    const result = await bookingApi.list({ status: 1, upcoming: true });
+    // 只按“未开始”筛选，不按 booking.status 过滤：
+    // 历史脏数据/提前签到可能出现 status=3/4，但排期仍是未来课程，同样应视为“已预约”。
+    const result = await bookingApi.list({ upcoming: true, page_size: 100 });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;
@@ -721,6 +735,8 @@ const loadBookings = async () => {
       finalList = extractList(result);
     }
 
+    // 已取消（2）不算占用；其余状态（已预约/已签到/已完成）都说明该排期已约过
+    finalList = finalList.filter((item: any) => Number(item?.status) !== 2);
     bookings.value = finalList;
   } catch (error) {
     console.error("加载预约失败:", error);

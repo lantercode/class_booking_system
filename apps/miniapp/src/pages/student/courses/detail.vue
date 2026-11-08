@@ -337,7 +337,8 @@ const loadSchedules = async () => {
 
 const loadMyBookings = async () => {
   try {
-    const result = await bookingApi.list({ status: 1, upcoming: true });
+    // 与排期页一致：只按“未开始”筛选，不按 status 过滤，避免 status=3/4 的未来课程被漏判成未预约
+    const result = await bookingApi.list({ upcoming: true, page_size: 100 });
     if (isUnmounted) return;
 
     const responseData = result?.data as any;
@@ -351,6 +352,8 @@ const loadMyBookings = async () => {
       finalList = extractList(result);
     }
 
+    // 已取消（2）不算占用；其余状态都说明该排期已约过
+    finalList = finalList.filter((item: any) => Number(item?.status) !== 2);
     myBookings.value = finalList;
   } catch (error) {
     console.error("❌ 加载预约失败:", error);
