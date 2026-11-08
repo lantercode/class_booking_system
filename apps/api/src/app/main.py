@@ -23,6 +23,7 @@ from app.middleware.error_handler import (
     integrity_error_handler,
     unhandled_exception_handler,
 )
+from app.middleware.rate_limiter import RateLimiterMiddleware
 from app.middleware.tenant_middleware import TenantASGIMiddleware
 from app.modules.admin.router import router as admin_router  # ⭐ 新增：管理后台路由
 from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能助手路由
@@ -204,13 +205,21 @@ app.add_middleware(
 # ↓↓↓ 在这里添加租户中间件 ↓↓↓
 app.add_middleware(TenantASGIMiddleware, session_factory=SessionLocal)
 
-# ⭐ 新增：API 限流中间件配置（防止滥用）
-# 注意：中间件将在 lifespan 中动态添加（因为 Redis 需要异步初始化）
-RATE_LIMIT_CONFIG = {
-    "limit": 100,  # 每分钟最多 100 次请求
-    "window": 60,  # 时间窗口：60 秒
-    "exclude_paths": ["/docs", "/redoc", "/openapi.json", "/health", "/api/v1/common/health"],
-}
+# ⭐ API 限流（仅作用于显式配置的路径，避免影响其他业务 API）
+# Redis 客户端通过 get_redis_client 惰性获取（应用级单例，避免重复连接池）
+app.add_middleware(
+    RateLimiterMiddleware,
+    redis_provider=get_redis_client,
+    limit=settings.AI_CHAT_RATE_LIMIT,
+    window=settings.AI_CHAT_RATE_WINDOW,
+    path_limits={
+        "/api/v1/ai/chat": (settings.AI_CHAT_RATE_LIMIT, settings.AI_CHAT_RATE_WINDOW),
+    },
+    # 已登录用户按 JWT user_id 限流，未带 Token 时降级为 IP
+    user_key_paths=("/api/v1/ai/chat",),
+    only_path_limits=True,
+    exclude_paths=["/docs", "/redoc", "/openapi.json", "/health", "/api/v1/common/health"],
+)
 
 API_V1_PREFIX = "/api/v1"
 app.include_router(common_router, prefix=API_V1_PREFIX)

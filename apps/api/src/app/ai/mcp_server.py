@@ -425,8 +425,10 @@ async def query_schedules_impl(
         )
 
         if not result.items:
-            return (
-                f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} 暂无排期"
+            return ToolOutcome(
+                "success",
+                f"{start_from.strftime('%Y-%m-%d')} 至 {start_to.strftime('%Y-%m-%d')} 暂无排期",
+                data={"schedules": []},
             )
 
         lines = [
@@ -664,9 +666,14 @@ def _filter_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> dict[str, An
 async def execute_tool(
     tool_name: str,
     arguments: dict[str, Any] | None = None,
-    context: ToolContext | None = None,
 ) -> ToolOutcome:
-    """统一执行入口：绑定可信上下文 → 调 Tool → 统一错误封套。
+    """统一执行入口：调 Tool → 统一错误封套。
+
+    身份信任边界：
+      - 本函数不接受 user_id / tenant_id / ToolContext 等身份参数；
+      - 可信身份只能由已认证宿主（AgentRuntime / 测试）通过 ``tool_context``
+        绑定到 ContextVar 后传入，避免模型、前端或任意调用方伪造身份；
+      - 未绑定可信上下文时一律拒绝执行，绝不回退全表 / 跨租户查询。
 
     失败不抛异常：业务错误 / 系统错误都转成对用户安全的文本，
     Runtime 据此记录 trace 状态。
@@ -675,7 +682,7 @@ async def execute_tool(
     if spec is None:
         return ToolOutcome("system_error", GENERIC_ERROR_TEXT, error_type="UnknownTool")
 
-    ctx = context or _tool_ctx.get()
+    ctx = _tool_ctx.get()
     if ctx is None:
         # stdio 独立运行且宿主未注入可信上下文：拒绝执行，绝不回退全表/跨租户
         return ToolOutcome(
@@ -686,8 +693,40 @@ async def execute_tool(
             "business_error", LOGIN_REQUIRED_TEXT, code=401, error_type="AuthenticationError"
         )
 
+    # 绑定前就已存在的用户 / 租户上下文（HTTP 请求由 get_current_user 写入）必须与
+    # ToolContext 一致，否则拒绝：防止上层上下文被污染后静默覆盖成他人身份。
+    # stdio 独立运行时两者均为 None，由宿主显式注入，不做比对。
+    request_tenant = get_tenant_id()
+    request_user = _user_id_var.get()
+    if request_tenant is not None and request_tenant != ctx.tenant_id:
+        logger.warning("[MCP] tenant context mismatch: ctx=%s request=%s", ctx.tenant_id, request_tenant)
+        return ToolOutcome(
+            "business_error",
+            "租户上下文校验失败，请重新登录",
+            code=403,
+            error_type="TenantMismatch",
+        )
+    if request_user is not None and request_user != ctx.user_id:
+        logger.warning("[MCP] user context mismatch: ctx=%s request=%s", ctx.user_id, request_user)
+        return ToolOutcome(
+            "business_error",
+            "用户上下文校验失败，请重新登录",
+            code=403,
+            error_type="UserMismatch",
+        )
+
     args = _filter_arguments(spec, arguments or {})
-    handler = globals()[spec.handler_name]
+    handler = globals().get(spec.handler_name)
+    if handler is None or not callable(handler):
+        # 注册表与实现漂移：宁可失败也不静默跳过（避免绕过四关）
+        logger.error(
+            "[MCP] tool handler missing: tool=%s, handler=%s",
+            tool_name,
+            spec.handler_name,
+        )
+        return ToolOutcome(
+            "system_error", GENERIC_ERROR_TEXT, error_type="ToolHandlerMissing"
+        )
 
     with tool_context(ctx):
         try:

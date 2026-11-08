@@ -35,12 +35,15 @@ Rate Limiter - API 限流中间件
 
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from functools import wraps
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from app.core.response import fail
+from app.core.security import decode_token
 
 logger = logging.getLogger(__name__)
 
@@ -257,8 +260,27 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         window: int = 60,
         key_func: Callable | None = None,
         exclude_paths: list | None = None,
+        path_limits: dict[str, tuple[int, int]] | None = None,
+        user_key_paths: tuple[str, ...] | None = None,
+        only_path_limits: bool = False,
+        redis_provider: Callable[[], Awaitable[object]] | None = None,
     ):
+        """
+        初始化限流中间件。
+
+        Args:
+            limit / window: 默认限流规则（未命中 path_limits 时使用）
+            path_limits: 路径前缀 → (limit, window)，只对命中路径生效
+            user_key_paths: 命中这些路径前缀时按登录用户（JWT user_id）限流
+            only_path_limits: True 时仅对 path_limits 命中的路径限流，
+                其余业务 API 直接放行（避免影响存量接口）
+            redis_provider: 异步 Redis 提供者（复用应用级单例客户端）；
+                提供后首次命中限流路径时惰性获取，避免模块导入阶段连接 Redis
+        """
         super().__init__(app)
+
+        self._redis_provider = redis_provider
+        self._redis_resolved = redis_client is not None or redis_provider is None
 
         self.limiter = RateLimiter(
             redis_client=redis_client,
@@ -270,22 +292,80 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         # 排除路径（不进行限流的路径，如 /health, /docs 等）
         self.exclude_paths = exclude_paths or ["/docs", "/redoc", "/openapi.json", "/health"]
 
+        # 路径级限流规则（按最长前缀匹配），key 为路径前缀
+        self.path_limits = dict(path_limits or {})
+        self.user_key_paths = tuple(user_key_paths or ())
+        self.only_path_limits = only_path_limits
+
         logger.info(
             f"[RateLimiter Middleware] ✅ 初始化成功: "
-            f"limit={limit}/{window}s, excluded={self.exclude_paths}"
+            f"default={limit}/{window}s, paths={self.path_limits}, "
+            f"user_key_paths={self.user_key_paths}, "
+            f"only_path_limits={self.only_path_limits}, excluded={self.exclude_paths}"
         )
+
+    def _match_path_limit(self, path: str) -> tuple[int, int] | None:
+        """按最长前缀匹配路径规则；未命中返回 None。"""
+        matched: tuple[str, tuple[int, int]] | None = None
+        for prefix, rule in self.path_limits.items():
+            if path.startswith(prefix) and (matched is None or len(prefix) > len(matched[0])):
+                matched = (prefix, rule)
+        return matched[1] if matched else None
+
+    async def _ensure_backend(self) -> None:
+        """惰性获取应用级 Redis 单例；失败时降级为进程内存限流（不阻断业务）。"""
+        if self._redis_resolved:
+            return
+        self._redis_resolved = True
+        try:
+            client = await self._redis_provider() if self._redis_provider else None
+        except Exception as exc:  # noqa: BLE001 - 限流降级不应影响请求主流程
+            logger.error("[RateLimiter Middleware] Redis 不可用，降级内存限流: %s", exc)
+            return
+        self.limiter.redis = client
+
+    @staticmethod
+    def _user_key(request: Request, path: str) -> str | None:
+        """从已签名的 Bearer Token 取 user_id；失败返回 None（由调用方降级为 IP）。"""
+        authorization = request.headers.get("authorization") or ""
+        if not authorization.startswith("Bearer "):
+            return None
+        payload = decode_token(authorization[7:])
+        user_id = payload.get("user_id") if payload else None
+        if not isinstance(user_id, int) or isinstance(user_id, bool) or user_id <= 0:
+            return None
+        return f"rate_limit:user:{user_id}:{path}"
 
     async def dispatch(self, request: Request, call_next):
         """中间件分发逻辑"""
         path = request.url.path
 
-        # 排除不需要限流的路径
+        # 排除不需要限流的路径 / CORS 预检
+        if request.method == "OPTIONS":
+            return await call_next(request)
         if any(path.startswith(exclude) for exclude in self.exclude_paths):
             return await call_next(request)
 
-        # 执行限流检查
-        key = self.limiter._generate_key(request)
-        allowed, metadata = await self.limiter.is_allowed(key)
+        path_rule = self._match_path_limit(path)
+        if path_rule is None and self.only_path_limits:
+            # 仅对显式配置的路径限流，其余业务 API 不受影响
+            return await call_next(request)
+
+        await self._ensure_backend()
+
+        if path_rule is not None:
+            limit, window = path_rule
+        else:
+            limit, window = self.limiter.default_limit, self.limiter.default_window
+
+        # 用户级 key：只对显式声明 user_key_paths 的路径启用，避免全站解析 JWT
+        key = None
+        if any(path.startswith(prefix) for prefix in self.user_key_paths):
+            key = self._user_key(request, path)
+        if key is None:
+            key = self.limiter._generate_key(request)
+
+        allowed, metadata = await self.limiter.is_allowed(key, limit=limit, window=window)
 
         if not allowed:
             logger.warning(
@@ -294,20 +374,16 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
                 f"retry_after={metadata.get('retry_after', '?')}s"
             )
 
+            retry_after = metadata.get("retry_after", 60)
+            body = fail(code=429, msg="请求过于频繁，请稍后再试")
+            body["data"] = {"retry_after": retry_after}
+
             return JSONResponse(
                 status_code=429,
-                content={
-                    "error": "Too Many Requests",
-                    "message": "请求过于频繁，请稍后再试",
-                    "retry_after": metadata.get("retry_after", 60),
-                    "detail": (
-                        f"已超过速率限制 ({metadata.get('current_count')} requests). "
-                        f"请在 {metadata.get('retry_after')} 秒后重试。"
-                    ),
-                },
+                content=body,
                 headers={
-                    "Retry-After": str(metadata.get("retry_after", 60)),
-                    "X-RateLimit-Limit": str(self.limiter.default_limit),
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(limit),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": str(metadata.get("reset_time", "")),
                 },
@@ -316,7 +392,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         # 允许通过，添加响应头
         response = await call_next(request)
 
-        response.headers["X-RateLimit-Limit"] = str(self.limiter.default_limit)
+        response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(metadata.get("remaining", 0))
         response.headers["X-RateLimit-Reset"] = str(metadata.get("reset_time", ""))
 

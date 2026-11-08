@@ -41,6 +41,10 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://dance:dance_dev_pass@localhost:5432/dance_saas"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # AI 对话限流（按登录用户，仅作用于 /api/v1/ai/chat）
+    AI_CHAT_RATE_LIMIT: int = 20
+    AI_CHAT_RATE_WINDOW: int = 60
     # Redis 认证密码；开发环境可留空，生产环境必须设置
     REDIS_PASSWORD: str = ""
 

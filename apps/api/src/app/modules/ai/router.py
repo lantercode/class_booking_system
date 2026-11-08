@@ -18,7 +18,7 @@ AI 智能助手 API 路由
 import time
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.ai.agent.runtime import AgentRuntime
@@ -26,10 +26,14 @@ from app.deps.auth import get_current_user, get_redis_client
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI 智能助手"])
 
+# session_id 只作为 Redis key 的一段：限制字符集与长度，避免超长/特殊字符 key。
+# 仍未跨用户：SessionManager 的 key 始终带 user_id 前缀（见 session.py）。
+SESSION_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
+
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=500)
-    session_id: str | None = Field(default="default")
+    session_id: str = Field(default="default", pattern=SESSION_ID_PATTERN)
 
 
 class ChatResponse(BaseModel):
@@ -83,7 +87,8 @@ async def chat(
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_history(
-    session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
+    session_id: str = Query(default="default", pattern=SESSION_ID_PATTERN),
+    agent_runtime: AgentRuntime = Depends(get_agent_runtime),
 ):
     messages = await agent_runtime.session.get_history(session_id)
 
@@ -101,7 +106,8 @@ async def get_history(
 
 @router.delete("/history")
 async def clear_history(
-    session_id: str = "default", agent_runtime: AgentRuntime = Depends(get_agent_runtime)
+    session_id: str = Query(default="default", pattern=SESSION_ID_PATTERN),
+    agent_runtime: AgentRuntime = Depends(get_agent_runtime),
 ):
     await agent_runtime.session.clear(session_id)
     return {"code": 0, "msg": "已清空对话历史"}

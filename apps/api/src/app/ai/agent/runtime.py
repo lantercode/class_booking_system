@@ -16,7 +16,7 @@ import time
 from app.ai.agent.intent import IntentRecognizer
 from app.ai.agent.prompts import build_system_messages as compose_system_messages
 from app.ai.agent.session import SessionManager
-from app.ai.mcp_server import ToolContext, ToolOutcome, execute_tool
+from app.ai.mcp_server import ToolContext, ToolOutcome, execute_tool, tool_context
 from app.core.exceptions import BusinessException
 
 # 意图 → 可用 Tool 映射（用于 system prompt 能力声明与 trace 记录）
@@ -250,10 +250,24 @@ class AgentRuntime:
         tool_name: str,
         arguments: dict,
     ) -> ToolOutcome:
-        """通过统一入口执行 Tool，并记录名称与耗时（失败以 ToolOutcome 返回，不抛出）。"""
+        """通过统一入口执行 Tool，并记录名称与耗时（失败以 ToolOutcome 返回，不抛出）。
+
+        身份信任边界：``execute_tool`` 不接受身份参数，Runtime 必须先把自己从
+        已认证 HTTP 上下文得到的 ``ToolContext`` 绑定到 ContextVar，再发起调用。
+        """
         started_at = time.perf_counter()
         try:
-            return await execute_tool(tool_name, arguments, self._tool_context())
+            ctx = self._tool_context()
+            if ctx is None:
+                # 未登录 / 上下文缺失：与 Tool 层保持同一套拒绝语义
+                return ToolOutcome(
+                    "business_error",
+                    "请先登录后再使用该功能",
+                    code=401,
+                    error_type="AuthenticationError",
+                )
+            with tool_context(ctx):
+                return await execute_tool(tool_name, arguments)
         finally:
             if trace is not None:
                 trace["tools"].append(tool_name)

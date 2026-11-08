@@ -69,6 +69,12 @@ class _FakeBookingService:
         return SimpleNamespace(items=[], total=0)
 
 
+async def _call_with_context(tool_name: str, arguments: dict, ctx: ToolContext):
+    """按生产链路调用：先由宿主绑定可信上下文，再进入统一执行入口。"""
+    with tool_context(ctx):
+        return await execute_tool(tool_name, arguments)
+
+
 def _patch_runtime(monkeypatch, *, user_service=_FakeUserService, roles=("student",)):
     async def fake_roles(db, user_id=None, tenant_id=None):
         return set(roles)
@@ -128,7 +134,7 @@ async def test_cross_tenant_rejected(monkeypatch):
 async def test_tenant_membership_denied(monkeypatch):
     """显式租户归属校验失败（用户不属于该租户）→ 403。"""
     _patch_runtime(monkeypatch, user_service=_FakeUserServiceDenied)
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=1, tenant_id=1)
     )
     assert outcome.kind == "business_error"
@@ -139,7 +145,7 @@ async def test_tenant_membership_denied(monkeypatch):
 async def test_authorization_denied(monkeypatch):
     """非学员角色调用余额查询 → 403。"""
     _patch_runtime(monkeypatch, roles=("teacher",))
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=1, tenant_id=1)
     )
     assert outcome.kind == "business_error"
@@ -150,7 +156,7 @@ async def test_authorization_denied(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalid_schedule_date_friendly_error(monkeypatch):
     _patch_runtime(monkeypatch)
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "query_schedules", {"date": "2026-13-45"}, ToolContext(user_id=1, tenant_id=1)
     )
     assert outcome.kind == "business_error"
@@ -162,7 +168,7 @@ async def test_invalid_schedule_date_friendly_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalid_days_friendly_error(monkeypatch):
     _patch_runtime(monkeypatch)
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "query_schedules", {"days": 999}, ToolContext(user_id=1, tenant_id=1)
     )
     assert outcome.kind == "business_error"
@@ -173,7 +179,7 @@ async def test_invalid_days_friendly_error(monkeypatch):
 @pytest.mark.asyncio
 async def test_invalid_booking_status_friendly_error(monkeypatch):
     _patch_runtime(monkeypatch)
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_bookings", {"status": "hacker"}, ToolContext(user_id=1, tenant_id=1)
     )
     assert outcome.kind == "business_error"
@@ -187,7 +193,7 @@ async def test_self_success_and_ownership_forced(monkeypatch):
     _patch_runtime(monkeypatch, roles=("admin",))
     _FakeBookingService.calls.clear()
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_bookings", {"status": "booked"}, ToolContext(user_id=7, tenant_id=3)
     )
 
@@ -208,7 +214,7 @@ async def test_get_my_balance_uses_membership_service(monkeypatch):
     _patch_runtime(monkeypatch)
     _FakeMembershipService.calls.clear()
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=11, tenant_id=2)
     )
 
@@ -232,7 +238,7 @@ async def test_system_error_hides_internal_details(monkeypatch):
 
     monkeypatch.setattr(_FakeMembershipService, "get_user_balance", _boom)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=11, tenant_id=2)
     )
 
@@ -254,7 +260,7 @@ async def test_business_error_with_sql_is_sanitized(monkeypatch):
 
     monkeypatch.setattr(_FakeMembershipService, "get_user_balance", _boom)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=11, tenant_id=2)
     )
 
@@ -272,7 +278,7 @@ async def test_business_error_keeps_user_friendly_text(monkeypatch):
 
     monkeypatch.setattr(_FakeMembershipService, "get_user_balance", _boom)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=11, tenant_id=2)
     )
 
@@ -301,7 +307,7 @@ async def test_create_booking_uses_real_dto_fields(monkeypatch):
 
     monkeypatch.setattr(_FakeBookingService, "create_booking", _create, raising=False)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "create_booking",
         {"schedule_id": 42, "membership_card_id": 7},
         ToolContext(user_id=11, tenant_id=2),
@@ -318,7 +324,7 @@ async def test_create_booking_uses_real_dto_fields(monkeypatch):
 @pytest.mark.asyncio
 async def test_create_booking_invalid_card_friendly_error(monkeypatch):
     _patch_runtime(monkeypatch)
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "create_booking",
         {"schedule_id": 42, "membership_card_id": 0},
         ToolContext(user_id=11, tenant_id=2),
@@ -359,7 +365,7 @@ async def test_tool_business_error_is_not_success(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "get_my_balance", _raise)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "get_my_balance", {}, ToolContext(user_id=1, tenant_id=1)
     )
 
@@ -376,7 +382,7 @@ async def test_tool_outcome_data_is_passed_through(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "query_schedules_impl", _structured)
 
-    outcome = await execute_tool(
+    outcome = await _call_with_context(
         "query_schedules", {}, ToolContext(user_id=1, tenant_id=1)
     )
 
