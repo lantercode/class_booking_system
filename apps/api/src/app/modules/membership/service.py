@@ -269,6 +269,12 @@ class MembershipCardService:
         new_card_course_type = data.applicable_course_type_code or (
             product.applicable_course_type_code if product else None
         )
+        # 所有卡必须指定适用课程类型才可用：发卡阶段即拒绝，避免产生“有效但不可预约”的卡
+        if not new_card_course_type:
+            raise HTTPException(
+                status_code=400,
+                detail="会员卡必须指定适用课程类型，请先配置卡产品或选择课程类型",
+            )
 
         # F6.3 T6.3.1：期卡发卡强制 PENDING、有效期留空，由首次完成课程时激活；
         # 发卡期不做“同课程类型时间重叠”与续卡最早生效计算。

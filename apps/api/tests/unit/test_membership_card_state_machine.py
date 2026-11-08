@@ -5,7 +5,11 @@
 
 from datetime import UTC, datetime
 
+import pytest
+from fastapi import HTTPException
+
 from app.modules.membership.models import CardStatus, CardType, MembershipCard
+from app.modules.membership.schemas import MembershipCardCreate
 from app.modules.membership.service import membership_card_service
 
 
@@ -162,3 +166,14 @@ def test_course_applicability_mismatch_rejected():
         )
         is True
     )
+
+
+async def test_issue_card_rejects_missing_applicable_course_type():
+    """未指定课程类型且无产品可继承时，发卡阶段直接拒绝。"""
+    data = MembershipCardCreate(student_id=1, total_credits=10, validity_days=60)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await membership_card_service.issue_card(db=None, data=data, tenant_id=1)
+
+    assert exc_info.value.status_code == 400
+    assert "必须指定适用课程类型" in exc_info.value.detail
