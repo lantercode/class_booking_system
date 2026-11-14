@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,6 +45,35 @@ class Settings(BaseSettings):
     # AI 对话限流（按登录用户，仅作用于 /api/v1/ai/chat）
     AI_CHAT_RATE_LIMIT: int = 20
     AI_CHAT_RATE_WINDOW: int = 60
+
+    # ============================================================
+    # AI LLM 接入（火山方舟 / 默认关闭，关闭时行为与纯规则链路一致）
+    # ============================================================
+    # 方舟密钥：只能来自环境变量 / .env.*，禁止硬编码；禁止出现在日志与异常中
+    ARK_API_KEY: str = Field(default="", repr=False)
+    AI_LLM_ENABLED: bool = False
+    AI_LLM_BASE_URL: str = "https://ark.cn-beijing.volces.com/api/v3"
+    AI_LLM_MODEL: str = "doubao-seed-2-1-lite-260915"
+    # 模型白名单（逗号分隔），防止误配视频/高价模型
+    AI_LLM_ALLOWED_MODELS: str = (
+        "doubao-seed-2-1-lite-260915,"
+        "doubao-seed-2-1-pro-260915,"
+        "doubao-seed-2-0-lite-260428,"
+        "doubao-seed-evolving"
+    )
+    # 单次模型调用超时（毫秒）
+    AI_LLM_TIMEOUT_MS: int = 6000
+    # 单次 /ai/chat 的 LLM 总预算（毫秒）
+    AI_LLM_TOTAL_BUDGET_MS: int = 15000
+    AI_LLM_MAX_TOKENS: int = 800
+    AI_LLM_MAX_RETRIES: int = 2
+    # 单请求最大模型调用轮次（Phase 1 为 2；Phase 2 再调整）
+    AI_LLM_MAX_TOOL_LOOPS: int = 2
+    # 只读闸门：为 True 时写工具不进入模型可见工具集
+    AI_LLM_READONLY_ONLY: bool = True
+    # 租户灰度白名单（逗号分隔租户标识），空表示不启用
+    AI_LLM_ENABLED_TENANTS: str = ""
+
     # Redis 认证密码；开发环境可留空，生产环境必须设置
     REDIS_PASSWORD: str = ""
 
@@ -139,6 +168,28 @@ class Settings(BaseSettings):
 
         return self
 
+    @model_validator(mode="after")
+    def validate_llm(self) -> "Settings":
+        """AI LLM 配置校验：仅在启用时校验，关闭状态下不因缺少 Key 启动失败。"""
+        if not self.AI_LLM_ENABLED:
+            return self
+
+        if not self.ARK_API_KEY.strip():
+            raise ValueError("启用 AI_LLM 时 ARK_API_KEY 必填（仅支持环境变量注入）")
+
+        if self.AI_LLM_MODEL.strip() not in self.ai_llm_allowed_model_list:
+            raise ValueError(
+                f"AI_LLM_MODEL 不在 AI_LLM_ALLOWED_MODELS 允许清单内，当前值 {self.AI_LLM_MODEL!r}"
+            )
+
+        if self.AI_LLM_TIMEOUT_MS >= self.AI_LLM_TOTAL_BUDGET_MS:
+            raise ValueError(
+                "AI_LLM_TIMEOUT_MS 必须小于 AI_LLM_TOTAL_BUDGET_MS，"
+                f"当前值 {self.AI_LLM_TIMEOUT_MS} >= {self.AI_LLM_TOTAL_BUDGET_MS}"
+            )
+
+        return self
+
     @property
     def is_production(self) -> bool:
         """便捷属性：是否运行在生产环境。"""
@@ -147,6 +198,11 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def ai_llm_allowed_model_list(self) -> list[str]:
+        """模型白名单（去空格后的列表）。"""
+        return [m.strip() for m in self.AI_LLM_ALLOWED_MODELS.split(",") if m.strip()]
 
 
 @lru_cache

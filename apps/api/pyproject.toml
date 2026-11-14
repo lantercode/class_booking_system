@@ -23,6 +23,7 @@ dependencies = [
     "aiohttp>=3.14.5",
     "alibabacloud-credentials>=1.0.12",
     "pillow>=13.0.0",
+    "httpx>=0.27.0",
 ]
 
 [dependency-groups]
@@ -31,7 +32,6 @@ dev = [
     "mypy>=1.10.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
-    "httpx>=0.27.0",
 ]
 
 [tool.uv]

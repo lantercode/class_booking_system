@@ -14,10 +14,25 @@ import logging
 import time
 
 from app.ai.agent.intent import IntentRecognizer
+from app.ai.agent.loop import AgentLoop
+from app.ai.agent.prompts import build_llm_messages
 from app.ai.agent.prompts import build_system_messages as compose_system_messages
 from app.ai.agent.session import SessionManager
-from app.ai.mcp_server import ToolContext, ToolOutcome, execute_tool, tool_context
+from app.ai.llm.base import LLMError
+from app.ai.llm.factory import get_llm_provider, is_llm_enabled_for_tenant
+from app.ai.mcp_server import (
+    ToolContext,
+    ToolOutcome,
+    execute_tool,
+    list_tool_definitions,
+    tool_context,
+)
+from app.core.config import get_settings
 from app.core.exceptions import BusinessException
+
+# 第一阶段只读闸门：命中写意图时统一提示到小程序页面操作
+WRITE_INTENT_REPLY = "预约/取消等操作请在小程序「排期」或「我的预约」页面完成。"
+_LLM_HISTORY_LIMIT = 6
 
 # 意图 → 可用 Tool 映射（用于 system prompt 能力声明与 trace 记录）
 INTENT_TOOL_MAP: dict[str, tuple[str, ...]] = {
@@ -97,7 +112,7 @@ class AgentRuntime:
         """
         started_at = time.perf_counter()
         trace = self._new_trace(session_id, user_input)
-        # 当前无真实 LLM 调用点：每次请求组装 system messages，用于日志可验证性与 P2 复用
+        # 规则链路仍使用含明文身份的 system messages（仅用于日志元数据与既有链路）
         self.system_messages = self.build_system_messages()
         trace["system_prompt"] = self._system_prompt_meta()
 
@@ -119,14 +134,22 @@ class AgentRuntime:
             state = await self.session.get_state(session_id)
             trace["step_ms"]["state_read"] = self._elapsed_ms(step_started)
             if state:
-                trace["intent"] = f"pending_state:{state.get('action')}"
-                self.logger.info(
-                    f"状态恢复: session={session_id}, action={state.get('action')}, "
-                    f"input_length={len(user_input)}"
-                )
-                return await self._handle_pending_state(
-                    user_input, session_id, state, trace=trace
-                )
+                if is_llm_enabled_for_tenant(self.tenant_id):
+                    # LLM 模式不沿用规则链路的写操作中间状态，避免误触发预约/取消
+                    await self.session.clear_state(session_id)
+                    self.logger.info(
+                        f"LLM 模式清理遗留状态: session={session_id}, "
+                        f"action={state.get('action')}"
+                    )
+                else:
+                    trace["intent"] = f"pending_state:{state.get('action')}"
+                    self.logger.info(
+                        f"状态恢复: session={session_id}, action={state.get('action')}, "
+                        f"input_length={len(user_input)}"
+                    )
+                    return await self._handle_pending_state(
+                        user_input, session_id, state, trace=trace
+                    )
 
             user_input = user_input.strip()
             if not user_input:
@@ -136,28 +159,11 @@ class AgentRuntime:
             await self.session.add_message(session_id, "user", user_input)
             trace["step_ms"]["history_write_user"] = self._elapsed_ms(step_started)
 
-            step_started = time.perf_counter()
-            result = self.intent.recognize(user_input)
-            intent_name = result["intent"]
-            params = result["params"]
-            trace["intent"] = intent_name
-            trace["step_ms"]["intent"] = self._elapsed_ms(step_started)
-
-            self.logger.info(
-                f"意图识别: session={session_id}, intent={intent_name}, params={params}"
-            )
-
-            if intent_name == "unknown":
-                response = self._handle_unknown(user_input)
-                self.logger.warning(
-                    f"未知意图: session={session_id}, input_length={len(user_input)}"
-                )
+            # 分流：启用 LLM 的租户走 Function Calling，其余保持原规则链路
+            if is_llm_enabled_for_tenant(self.tenant_id):
+                response = await self._chat_with_llm(user_input, session_id, trace)
             else:
-                response = await self._execute_intent(
-                    intent_name, params, session_id, trace=trace
-                )
-                if trace["status"] == "success":
-                    self.logger.info(f"Tool调用成功: session={session_id}, intent={intent_name}")
+                response = await self._legacy_chat_guarded(user_input, session_id, trace)
 
             step_started = time.perf_counter()
             await self.session.add_message(session_id, "assistant", response)
@@ -179,6 +185,134 @@ class AgentRuntime:
             self._emit_trace(trace)
             if lock_acquired:
                 await self._release_lock(lock_key)
+
+    # ============================================================
+    # LLM 分支（Phase 1：单轮 / 双轮只读 Function Calling）
+    # ============================================================
+
+    async def _chat_with_llm(self, user_input: str, session_id: str, trace: dict) -> str:
+        """走 LLM Function Calling；任何 LLM 故障都回退到规则链路。"""
+        settings = get_settings()
+
+        try:
+            # 清理规则链路的遗留中间状态，避免写流程被误触发
+            await self.session.clear_state(session_id)
+
+            ctx = self._tool_context()
+            if ctx is None:
+                trace["mode"] = "llm"
+                trace["fallback_reason"] = "missing_context"
+                return "请先登录后再使用该功能"
+
+            tools = await list_tool_definitions(ctx, readonly_only=settings.AI_LLM_READONLY_ONLY)
+            allowed_tools = {tool["function"]["name"] for tool in tools}
+
+            history = await self._llm_history(session_id, user_input)
+            messages = build_llm_messages(user_input=user_input, history=history)
+
+            loop = AgentLoop(
+                get_llm_provider(),
+                max_loops=settings.AI_LLM_MAX_TOOL_LOOPS,
+                total_budget_ms=settings.AI_LLM_TOTAL_BUDGET_MS,
+            )
+
+            async def executor(tool_name: str, arguments: dict) -> ToolOutcome:
+                return await self._call_tool(trace, f"llm_tool_{tool_name}", tool_name, arguments)
+
+            result = await loop.run(
+                messages=messages,
+                tools=tools,
+                allowed_tools=allowed_tools,
+                executor=executor,
+            )
+
+            trace["mode"] = "llm"
+            trace["llm_calls"] = result.llm_calls
+            trace["provider"] = "ark"
+            trace["fallback_reason"] = result.fallback_reason
+
+            # 预算耗尽时优先保证可用回复：回退规则链路
+            if result.fallback_reason == "budget_exceeded":
+                trace["mode"] = "llm_fallback"
+                return await self._legacy_chat_guarded(user_input, session_id, trace)
+
+            return result.reply
+
+        except LLMError as exc:
+            trace["mode"] = "llm_fallback"
+            trace["fallback_reason"] = type(exc).__name__
+            self.logger.warning(
+                "LLM 调用失败回退规则链路: session=%s, error_type=%s",
+                session_id,
+                type(exc).__name__,
+            )
+            return await self._legacy_chat_guarded(user_input, session_id, trace)
+
+        except Exception as exc:
+            trace["mode"] = "llm_fallback"
+            trace["fallback_reason"] = "unexpected_error"
+            self.logger.warning(
+                "LLM 分支未捕获异常回退规则链路: session=%s, error_type=%s",
+                session_id,
+                type(exc).__name__,
+            )
+            return await self._legacy_chat_guarded(user_input, session_id, trace)
+
+    async def _llm_history(self, session_id: str, user_input: str) -> list[dict[str, str]]:
+        """取最近 6 条已存消息（调用方已先写入当前用户消息，需要剔除）。"""
+        raw = await self.session.get_history(session_id)
+        if raw and raw[-1].get("role") == "user" and raw[-1].get("content") == user_input:
+            raw = raw[:-1]
+
+        recent = raw[-_LLM_HISTORY_LIMIT:]
+        return [
+            {"role": item["role"], "content": item["content"]}
+            for item in recent
+            if item.get("role") in ("user", "assistant") and isinstance(item.get("content"), str)
+        ]
+
+    async def _legacy_chat_guarded(self, user_input: str, session_id: str, trace: dict) -> str:
+        """原规则链路（意图识别 → Tool 执行），保持既有行为。
+
+        仅当当前租户已启用 LLM 且开启只读闸门时，拦截写意图；
+        LLM 未启用时行为与接入前完全一致。
+        """
+        settings = get_settings()
+
+        step_started = time.perf_counter()
+        result = self.intent.recognize(user_input)
+        intent_name = result["intent"]
+        params = result["params"]
+        trace["intent"] = intent_name
+        trace["step_ms"]["intent"] = self._elapsed_ms(step_started)
+
+        self.logger.info(
+            f"意图识别: session={session_id}, intent={intent_name}, params={params}"
+        )
+
+        if (
+            settings.AI_LLM_READONLY_ONLY
+            and is_llm_enabled_for_tenant(self.tenant_id)
+            and intent_name in {"create_booking", "cancel_booking"}
+        ):
+            self.logger.info(
+                f"只读闸门拦截写意图: session={session_id}, intent={intent_name}"
+            )
+            return WRITE_INTENT_REPLY
+
+        if intent_name == "unknown":
+            response = self._handle_unknown(user_input)
+            self.logger.warning(
+                f"未知意图: session={session_id}, input_length={len(user_input)}"
+            )
+        else:
+            response = await self._execute_intent(
+                intent_name, params, session_id, trace=trace
+            )
+            if trace["status"] == "success":
+                self.logger.info(f"Tool调用成功: session={session_id}, intent={intent_name}")
+
+        return response
 
     # ============================================================
     # 结构化 trace（只写日志，不落库、不影响业务结果）
@@ -207,6 +341,10 @@ class AgentRuntime:
             "latency_ms": None,
             "status": "success",
             "error": None,
+            # Phase 1 新增字段（只增不减）：mode / llm_calls / fallback_reason
+            "mode": "rule",
+            "llm_calls": 0,
+            "fallback_reason": None,
         }
 
     def _emit_trace(self, trace: dict) -> None:
@@ -629,7 +767,7 @@ class AgentRuntime:
     # 分布式锁（防止并发导致重复预约）
     # ============================================================
 
-    async def _acquire_lock(self, lock_key: str, ttl: int = 5) -> bool:
+    async def _acquire_lock(self, lock_key: str, ttl: int | None = None) -> bool:
         """
         获取分布式锁
 
@@ -641,7 +779,12 @@ class AgentRuntime:
           为什么用 SET NX EX 而不是单独的 SETNX + EXPIRE？
           因为这两个操作不是原子的，如果 SETNX 成功但 EXPIRE 失败，
           锁就永远不会过期（死锁）。SET NX EX 是原子操作。
+
+        TTL：LLM 启用时按总预算 + 5 秒余量计算，避免模型请求期间锁提前过期。
         """
+        if ttl is None:
+            ttl = self._lock_ttl_seconds()
+
         if not self.session.redis:
             return True
 
@@ -649,6 +792,13 @@ class AgentRuntime:
             return await self.session.redis.set(lock_key, "1", nx=True, ex=ttl)
         except Exception:
             return True
+
+    def _lock_ttl_seconds(self) -> int:
+        """LLM 启用时为 max(5, 总预算秒数 + 5)，否则保持 5 秒。"""
+        if not is_llm_enabled_for_tenant(self.tenant_id):
+            return 5
+        budget_seconds = get_settings().AI_LLM_TOTAL_BUDGET_MS // 1000
+        return max(5, budget_seconds + 5)
 
     async def _release_lock(self, lock_key: str):
         """

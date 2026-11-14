@@ -38,7 +38,7 @@ import logging
 import re
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -153,31 +153,197 @@ class ToolSpec:
     required_roles: frozenset[str]
     is_write: bool
     input_fields: frozenset[str]
+    # 供 LLM 工具清单使用的元数据；parameters.properties 必须与 input_fields 一致
+    description: str = ""
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 _READ_ROLES = frozenset({"student", "teacher", "admin", "super_admin"})
 _STUDENT_ONLY = frozenset({"student"})
 
+# 各 Tool 的 JSON Schema（枚举 / 范围必须与 Handler 的 _validate_* 口径一致）
+_QUERY_COURSES_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "keyword": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "搜索关键词，如'瑜伽'、'街舞'、'芭蕾'",
+        },
+        "category": {
+            "type": "string",
+            "enum": ["yoga", "dance", "fitness", "kids", "other"],
+            "description": "课程分类",
+        },
+        "level": {
+            "type": "string",
+            "enum": ["beginner", "intermediate", "advanced"],
+            "description": "难度等级",
+        },
+    },
+    "additionalProperties": False,
+}
+
+_QUERY_SCHEDULES_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "date": {
+            "type": "string",
+            "description": "起始日期，格式 YYYY-MM-DD，默认今天",
+        },
+        "keyword": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "课程名称关键词",
+        },
+        "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 7,
+            "description": "查询未来 N 天（1-30），默认 7 天",
+        },
+    },
+    "additionalProperties": False,
+}
+
+_GET_MY_BOOKINGS_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["booked", "cancelled", "checked_in", "completed", "no_show"],
+            "description": "预约状态筛选",
+        },
+    },
+    "additionalProperties": False,
+}
+
+_GET_MY_BALANCE_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+_CREATE_BOOKING_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "schedule_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "排期 ID",
+        },
+        "membership_card_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "会员卡 ID（私教课必填，普通课可空）",
+        },
+    },
+    "additionalProperties": False,
+}
+
+_CANCEL_BOOKING_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "booking_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "预约 ID",
+        },
+        "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "取消原因（<=200 字）",
+        },
+    },
+    "additionalProperties": False,
+}
+
 TOOL_SPECS: dict[str, ToolSpec] = {
     "query_courses": ToolSpec(
-        "query_courses", "query_courses", _READ_ROLES, False, frozenset({"keyword", "category", "level"}),
+        "query_courses",
+        "query_courses",
+        _READ_ROLES,
+        False,
+        frozenset({"keyword", "category", "level"}),
+        description="搜索课程列表，支持按关键词、分类、难度等级筛选",
+        parameters=_QUERY_COURSES_PARAMETERS,
     ),
     "query_schedules": ToolSpec(
-        "query_schedules", "query_schedules_impl", _READ_ROLES, False, frozenset({"date", "keyword", "days"}),
+        "query_schedules",
+        "query_schedules_impl",
+        _READ_ROLES,
+        False,
+        frozenset({"date", "keyword", "days"}),
+        description="查询指定日期范围内的排期列表",
+        parameters=_QUERY_SCHEDULES_PARAMETERS,
     ),
     "get_my_bookings": ToolSpec(
-        "get_my_bookings", "get_my_bookings", _READ_ROLES, False, frozenset({"status"}),
+        "get_my_bookings",
+        "get_my_bookings",
+        _READ_ROLES,
+        False,
+        frozenset({"status"}),
+        description="查询当前用户的预约记录",
+        parameters=_GET_MY_BOOKINGS_PARAMETERS,
     ),
     "get_my_balance": ToolSpec(
-        "get_my_balance", "get_my_balance", _STUDENT_ONLY, False, frozenset(),
+        "get_my_balance",
+        "get_my_balance",
+        _STUDENT_ONLY,
+        False,
+        frozenset(),
+        description="查询当前用户的课时余额",
+        parameters=_GET_MY_BALANCE_PARAMETERS,
     ),
     "create_booking": ToolSpec(
-        "create_booking", "create_booking", _STUDENT_ONLY, True, frozenset({"schedule_id", "membership_card_id"}),
+        "create_booking",
+        "create_booking",
+        _STUDENT_ONLY,
+        True,
+        frozenset({"schedule_id", "membership_card_id"}),
+        description="为当前用户预约指定排期的课程",
+        parameters=_CREATE_BOOKING_PARAMETERS,
     ),
     "cancel_booking": ToolSpec(
-        "cancel_booking", "cancel_booking", _STUDENT_ONLY, True, frozenset({"booking_id", "reason"}),
+        "cancel_booking",
+        "cancel_booking",
+        _STUDENT_ONLY,
+        True,
+        frozenset({"booking_id", "reason"}),
+        description="取消当前用户的指定预约",
+        parameters=_CANCEL_BOOKING_PARAMETERS,
     ),
 }
+
+
+async def list_tool_definitions(
+    ctx: ToolContext,
+    *,
+    readonly_only: bool = True,
+) -> list[dict[str, Any]]:
+    """返回当前用户可用的 tools[]（角色过滤后的只读工具清单）。
+
+    只复用 ``get_user_role_codes`` 做角色查询，不做任何业务查询；
+    角色查询异常时返回空列表（fail closed），执行期仍由 ``_authorize`` 二次校验。
+    """
+    # 延迟导入：tool_schema 依赖本模块的 TOOL_SPECS，避免模块级循环导入
+    from app.ai.agent.tool_schema import allowed_tool_names, build_openai_tools
+
+    try:
+        async with SessionLocal() as db:
+            roles = await get_user_role_codes(db, user_id=ctx.user_id, tenant_id=ctx.tenant_id)
+    except Exception as exc:  # noqa: BLE001 - 角色查询失败必须 fail closed
+        logger.warning(
+            "[MCP] list_tool_definitions role lookup failed: error_type=%s",
+            type(exc).__name__,
+        )
+        return []
+
+    allowed = allowed_tool_names(roles, readonly_only=readonly_only)
+    # 按 TOOL_SPECS 注册顺序输出，保证 tools[] 顺序稳定
+    ordered_names = [name for name in TOOL_SPECS if name in allowed]
+    return build_openai_tools(ordered_names)
 
 
 def _sanitize_business_message(message: str) -> str:
