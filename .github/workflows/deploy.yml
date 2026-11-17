@@ -68,7 +68,7 @@ jobs:
             # STORAGE_BACKEND 由 infra/docker/docker-compose.prod.yml 固定为 oss，不依赖 .env.prod
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE OSS_ROLE_NAME; do
               if ! grep -q "^${key}=.\+" .env.prod; then
-                value=$(grep "^${key}=" infra/docker/.env.prod.example | cut -d'=' -f2-)
+                value=$(grep "^${key}=" .env.prod.example | cut -d'=' -f2-)
                 if [ -n "$value" ]; then
                   echo "${key}=${value}" >> .env.prod
                   echo "⚠️ .env.prod 缺少 ${key}，已按生产模板补全"

@@ -130,7 +130,7 @@ Modules registered in `app/main.py` under prefix `/api/v1`. AI module registers 
 Production deployment is documented in `/Users/lixiang/.cogen/claude/plans/glistening-discovering-book.md` (Docker Compose + Nginx + Let's Encrypt on Alibaba Cloud ECS). Files to know:
 - `apps/api/Dockerfile` — backend image
 - `infra/docker/docker-compose.prod.yml` — production stack
-- `infra/docker/.env.prod.example` — env template (real `.env.prod` is gitignored)
+- `.env.prod.example` — production env template at repo root (real `.env.prod` is gitignored; compose is started with `--env-file /opt/dance-saas/.env.prod`)
 - `infra/nginx/nginx.conf` — production HTTPS reverse-proxy (`admin.` + `api.` subdomains)
 - `infra/nginx/nginx.stage-a.conf` — pre-ICP-approval IP-only fallback
 
