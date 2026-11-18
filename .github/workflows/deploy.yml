@@ -64,6 +64,10 @@ jobs:
             sed -i 's/\r$//' .env.prod
             [ -z "$(tail -c 1 .env.prod 2>/dev/null)" ] || printf '\n' >> .env.prod
 
+            # 4.0.1 按生产模板补齐缺失配置项（幂等：已有值不覆盖）
+            # 敏感项（JWT_SECRET / *_PASSWORD / ARK_API_KEY 等）只置空，必须在服务器手工填写
+            bash infra/docker/sync-env.sh .env.prod.example .env.prod
+
             # 4.1 用生产模板补齐缺失的文件存储非机密项（历史 .env.prod 可能早于 OSS 接入）
             # STORAGE_BACKEND 由 infra/docker/docker-compose.prod.yml 固定为 oss，不依赖 .env.prod
             for key in OSS_ENDPOINT OSS_REGION OSS_BUCKET OSS_CREDENTIALS_MODE OSS_ROLE_NAME; do
