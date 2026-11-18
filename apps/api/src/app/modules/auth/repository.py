@@ -186,8 +186,17 @@ class AuthRepository:
     async def get_wechat_account_by_user_id(
         session: AsyncSession, user_id: int
     ) -> WechatAccount | None:
+        """按用户取一条微信绑定记录。
+
+        ``wechat_accounts`` 只有 (open_id, app_id) 唯一约束，user_id 可重复
+        （历史数据/多端重复绑定）。此处显式取最新一条，避免
+        ``MultipleResultsFound`` 让用户列表、解绑等接口整体 500。
+        """
         result = await session.execute(
-            select(WechatAccount).where(WechatAccount.user_id == user_id)
+            select(WechatAccount)
+            .where(WechatAccount.user_id == user_id)
+            .order_by(WechatAccount.id.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
