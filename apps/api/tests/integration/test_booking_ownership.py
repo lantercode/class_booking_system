@@ -40,7 +40,6 @@ from app.modules.user.models import User
 
 TENANT_HEADERS = {"x-tenant-slug": "dance-school"}
 SUPER_ADMIN = {"phone": "13800000001", "password": "Test@123456"}  # super_admin
-SEED_STUDENT_A = {"phone": "13900139001", "password": "Test@123456"}  # student 李同学
 SEED_TEACHER_T = {"phone": "13800138001", "password": "Test@123456"}  # teacher 张老师
 
 BASE = "/api/v1"
@@ -139,20 +138,19 @@ async def booking_data(live_server):
                 await session.execute(select(Tenant).where(Tenant.slug == "dance-school"))
             ).scalar_one()
             tenant_id = tenant.id
-            a_id = (
-                await session.execute(
-                    select(User).where(User.phone == SEED_STUDENT_A["phone"])
-                )
-            ).scalar_one().id
             t_id = (
                 await session.execute(
                     select(User).where(User.phone == SEED_TEACHER_T["phone"])
                 )
             ).scalar_one().id
 
-        # 2. 经 admin HTTP 创建学员 B、教师 T2
+        # 2. 经 admin HTTP 创建学员 A、学员 B、教师 T2
+        # 学员 A 必须独立创建：若复用种子学员，本 session 级 fixture 的预约会一直存活到
+        # 整个测试会话结束，与后续会员卡/期卡用例在同一时间段产生“已约课程冲突”。
+        student_a = await _create_user(setup_client, admin_token, "student", "归属测试学员A")
         student_b = await _create_user(setup_client, admin_token, "student", "归属测试学员B")
         teacher_t2 = await _create_user(setup_client, admin_token, "teacher", "归属测试教师T2")
+        a_id = await _lookup_user_id(setup_client, admin_token, student_a["phone"])
         b_id = await _lookup_user_id(setup_client, admin_token, student_b["phone"])
         t2_id = await _lookup_user_id(setup_client, admin_token, teacher_t2["phone"])
 
@@ -235,6 +233,7 @@ async def booking_data(live_server):
         "booking_b_on_t_id": created_booking_ids[1],
         "booking_a_on_t2_id": created_booking_ids[2],
         "b_phone": student_b["phone"],
+        "a_phone": student_a["phone"],
         "t2_phone": teacher_t2["phone"],
     }
 
@@ -255,7 +254,7 @@ async def booking_data(live_server):
 
     async with AsyncClient(base_url=live_server) as cleanup_client:
         tok = await _login(cleanup_client, SUPER_ADMIN)
-        for phone in (data["b_phone"], data["t2_phone"]):
+        for phone in (data["a_phone"], data["b_phone"], data["t2_phone"]):
             try:
                 resp = await cleanup_client.get(
                     f"{BASE}/admin/users",
@@ -279,7 +278,7 @@ class TestBookingOwnership:
 
     async def test_student_list_only_own(self, client: AsyncClient, booking_data):
         """AC-3：学员 A GET /bookings 只返回自己的预约"""
-        token = await _login(client, SEED_STUDENT_A)
+        token = await _login(client, {"phone": booking_data["a_phone"], "password": "Test@123456"})
         resp = await client.get(f"{BASE}/bookings", headers=_headers(token))
         assert resp.status_code == 200, resp.text
         items = resp.json()["data"]["items"]
@@ -307,7 +306,7 @@ class TestBookingOwnership:
             assert it["student_id"] == booking_data["b_id"], "学员 B 看到他人预约（越权）"
 
         # 对照：A 查同一 schedule 能看到自己在该排期的预约
-        token_a = await _login(client, SEED_STUDENT_A)
+        token_a = await _login(client, {"phone": booking_data["a_phone"], "password": "Test@123456"})
         resp_a = await client.get(
             f"{BASE}/bookings",
             params={"schedule_id": booking_data["schedule_t_id"]},
@@ -322,7 +321,7 @@ class TestBookingOwnership:
         self, client: AsyncClient, booking_data
     ):
         """AC-2：学员 A 查 B 的预约详情 → 403"""
-        token = await _login(client, SEED_STUDENT_A)
+        token = await _login(client, {"phone": booking_data["a_phone"], "password": "Test@123456"})
         resp = await client.get(
             f"{BASE}/bookings/{booking_data['booking_b_on_t_id']}",
             headers=_headers(token),
@@ -332,7 +331,7 @@ class TestBookingOwnership:
 
     async def test_student_get_own_booking_ok(self, client: AsyncClient, booking_data):
         """AC-10：学员 A 查自己的预约 → 200"""
-        token = await _login(client, SEED_STUDENT_A)
+        token = await _login(client, {"phone": booking_data["a_phone"], "password": "Test@123456"})
         resp = await client.get(
             f"{BASE}/bookings/{booking_data['booking_a_on_t_id']}",
             headers=_headers(token),
@@ -342,7 +341,7 @@ class TestBookingOwnership:
 
     async def test_get_nonexistent_returns_404(self, client: AsyncClient, booking_data):
         """AC-11：不存在的预约 → 404"""
-        token = await _login(client, SEED_STUDENT_A)
+        token = await _login(client, {"phone": booking_data["a_phone"], "password": "Test@123456"})
         resp = await client.get(f"{BASE}/bookings/999999999", headers=_headers(token))
         assert resp.status_code == 404
         assert "不存在" in resp.json()["msg"]

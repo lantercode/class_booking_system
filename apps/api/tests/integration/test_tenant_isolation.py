@@ -9,52 +9,56 @@ T04 租户隔离测试 - 验证多租户查询自动注入
 """
 
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import event, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
-from app.core.tenant_query import setup_tenant_query_injection
-from app.main import app
+from app.core.config import get_settings
+from app.core.tenant_query import (
+    _add_tenant_filter_to_orm_query,
+    setup_tenant_query_injection,
+)
 from app.modules.user.models import User
 
 
-@pytest.fixture(scope="module")
-async def client():
-    """创建测试客户端"""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session", autouse=True)
 def register_tenant_query_event():
     """
-    注册多租户查询自动注入事件（只需执行一次）
+    注册多租户查询自动注入事件（本模块不依赖 app lifespan，需手动注册）。
 
-    重要：测试环境绕过了FastAPI lifespan，需要手动注册事件
-    注意：需要同时注册到 AsyncSession 的 sync fallback
+    幂等：live_server 的 lifespan 可能已经注册过同一个监听器，
+    重复注册会让同一条件被叠加两次，因此先检查再注册。
     """
-    from sqlalchemy import event
-    from sqlalchemy.orm import Session
-
-    from app.core.tenant_query import _add_tenant_filter_to_orm_query
-
-    # 注册到 sync Session（tenant_query.py 默认行为）
-    setup_tenant_query_injection()
-
-    # 也注册到 AsyncSession 的 underlying sync session
-    event.listen(Session, "do_orm_execute", _add_tenant_filter_to_orm_query)
+    if not event.contains(Session, "do_orm_execute", _add_tenant_filter_to_orm_query):
+        setup_tenant_query_injection()
 
     yield
 
 
 @pytest.fixture
 async def db_session(register_tenant_query_event):
-    """创建数据库会话（每个测试独立）"""
-    async with SessionLocal() as session:
-        yield session
-        await session.rollback()
+    """每个用例独立 engine，绑定当前用例事件循环。
+
+    不能用全局 ``SessionLocal``：它会在多个事件循环（测试循环 / live_server 线程循环）
+    之间复用连接池，触发 asyncpg "attached to a different loop"，
+    并污染后续用例的数据库连接。
+    """
+    engine = create_async_engine(
+        get_settings().DATABASE_URL,
+        echo=False,
+        pool_size=2,
+        max_overflow=3,
+        pool_pre_ping=True,
+    )
+    session_factory = async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False
+    )
+    try:
+        async with session_factory() as session:
+            yield session
+            await session.rollback()
+    finally:
+        await engine.dispose()
 
 
 @pytest.mark.asyncio
