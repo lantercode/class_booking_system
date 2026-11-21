@@ -191,9 +191,9 @@ jobs:
               exit 1
             fi
             
-            # 等待 Alembic 命令可用
+            # 等待 Alembic 命令可用（直接用镜像内 venv，避免 `uv run` 在容器里隐式同步依赖）
             for i in $(seq 1 6); do
-              if docker exec dance-api uv run alembic current 2>/dev/null; then
+              if docker exec dance-api /app/.venv/bin/alembic current 2>/dev/null; then
                 echo "✅ Alembic is ready"
                 break
               fi
@@ -202,7 +202,7 @@ jobs:
             done
             
             # 执行迁移（在新容器中，使用新代码的 Migration 文件）
-            docker exec dance-api uv run alembic upgrade head
+            docker exec dance-api /app/.venv/bin/alembic upgrade head
             echo "✅ Database migrated"
             
             # Debug: Check if container is actually running
