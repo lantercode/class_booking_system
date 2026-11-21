@@ -20,13 +20,14 @@ sys.path.insert(0, "src")
 import redis.asyncio as aioredis
 
 from app.ai.agent.runtime import AgentRuntime
+from app.core.config import get_settings
 
 
 async def get_redis_client():
-    """获取 Redis 客户端"""
+    """获取 Redis 客户端（使用配置中的 URL，测试会话下为专用测试库）"""
     try:
         client = aioredis.from_url(
-            "redis://localhost:6379/0",
+            get_settings().REDIS_URL,
             decode_responses=True,
         )
         await client.ping()

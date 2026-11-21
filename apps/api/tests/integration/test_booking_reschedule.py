@@ -124,7 +124,7 @@ async def _txns(factory, tenant_id: int, card_id: int) -> list[tuple[str, str | 
             await session.execute(
                 select(MembershipCardTransaction).where(
                     MembershipCardTransaction.card_id == card_id
-                )
+                ).order_by(MembershipCardTransaction.id)
             )
         ).scalars()
         return [(row.operation_type, row.idempotency_key) for row in rows]
@@ -341,6 +341,8 @@ async def test_b4_period_pending_reschedule_reanchors(client: AsyncClient, env):
     """
     factory, ids = env
     tid = ids["tenant_id"]
+    # 使用独立学员，避免与种子学员已有的会员卡产生"期卡区间重叠"（测试环境脏数据）
+    new_student = await create_student(factory, tid)
     course_id = await create_course(factory, tid)
     old_sid = await create_schedule(
         factory, tid, course_id=course_id, teacher_id=ids["teacher_id"],
@@ -351,12 +353,15 @@ async def test_b4_period_pending_reschedule_reanchors(client: AsyncClient, env):
         start_at=future_start(10, hour=2),
     )
     card_id = await create_card(
-        factory, tid, ids["student_id"], card_type=CardType.PERIOD.value,
+        factory, tid, new_student["user_id"], card_type=CardType.PERIOD.value,
         status=CardStatus.PENDING.value, validity_days=7,
         valid_from=None, expire_at=None,
     )
     try:
-        token = await login(client, SEED_STUDENT)
+        token = await login(
+            client,
+            {"phone": new_student["phone"], "password": new_student["password"]},
+        )
         created = await _book(client, token, old_sid, card_id)
         assert created.status_code == 201, created.text
         old_booking_id = created.json()["data"]["id"]
@@ -375,6 +380,7 @@ async def test_b4_period_pending_reschedule_reanchors(client: AsyncClient, env):
         await cleanup(
             factory, tid, card_ids=[card_id],
             schedule_ids=[old_sid, new_sid], course_ids=[course_id],
+            student_ids=[new_student["user_id"]],
         )
 
 

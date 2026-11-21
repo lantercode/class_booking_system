@@ -18,6 +18,8 @@ RBAC 权限系统 - 真实 Redis 集成测试
 import pytest
 from redis.asyncio import Redis
 
+from app.core.config import get_settings
+
 # 导入被测模块
 from app.core.rbac.cache import (
     clear_user_permission_cache,
@@ -32,9 +34,10 @@ async def real_redis():
     """
     创建真实的 Redis 连接
 
-    使用 Docker 中的 Redis 容器
+    必须使用 settings.REDIS_URL：tests/conftest.py 已把测试会话的 Redis
+    指向专用库（默认 db 15），硬编码 db=0 会写脏开发环境并污染 RBAC 缓存。
     """
-    redis = Redis(host="localhost", port=6379, db=0, decode_responses=True)
+    redis = Redis.from_url(get_settings().REDIS_URL, decode_responses=True)
 
     # 测试连接
     try:
@@ -186,8 +189,10 @@ async def test_redis_performance_benchmark(real_redis):
     start_time = time.time()
 
     for i in range(iterations):
-        tid = i % 10  # 模拟 10 个租户
-        uid = i % 100  # 模拟 100 个用户
+        # 使用独立 ID 段：小数值会撞上种子数据（tenant_id=1 / super_admin user_id=1），
+        # 把假权限写进真实用户的 perms:* 缓存，导致后续用例 403。
+        tid = 900_000 + (i % 10)  # 模拟 10 个租户
+        uid = 9_000_000 + (i % 100)  # 模拟 100 个用户
         await set_cached_permissions(real_redis, tid, uid, permissions)
 
     write_time = time.time() - start_time
@@ -196,8 +201,8 @@ async def test_redis_performance_benchmark(real_redis):
     start_time = time.time()
 
     for i in range(iterations):
-        tid = i % 10
-        uid = i % 100
+        tid = 900_000 + (i % 10)
+        uid = 9_000_000 + (i % 100)
         await get_cached_permissions(real_redis, tid, uid)
 
     read_time = time.time() - start_time

@@ -1,11 +1,40 @@
-"""
-T02 测试配置 - 使用真实 HTTP 服务器进行集成测试
+"""T02 测试配置 - 使用真实 HTTP 服务器进行集成测试
 
 设计决策：
 - 使用 httpx.AsyncClient + 真实 HTTP 服务器（而非 ASGITransport）
 - 彻底解决 asyncpg/asyncio 事件循环冲突问题
 - 更接近生产环境的测试方式
+- 集成测试可通过 TEST_DATABASE_URL 指向独立测试库，避免污染开发数据
 """
+
+import os
+from urllib.parse import urlsplit, urlunsplit
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+def _with_redis_db(url: str, db: int) -> str:
+    """把 Redis URL 的库号替换为指定 db（兼容 redis://host:port 与 redis://host:port/0）。"""
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, f"/{db}", parts.query, parts.fragment))
+
+
+# 必须在导入 app.* 之前覆盖：database.py 在导入时即按 DATABASE_URL 建 engine
+_test_db_url = os.getenv("TEST_DATABASE_URL", "").strip()
+if _test_db_url:
+    os.environ["DATABASE_URL"] = _test_db_url
+
+# Redis 同样必须隔离：RBAC 权限缓存 Key 为 perms:{tenant_id}:{user_id}，
+# 若与开发/生产共用同一个 Redis 库，测试写入的假权限（如 perm:0..19）
+# 会命中种子数据 tenant_id=1 / user_id=1 的缓存键，导致 super_admin 403。
+# 默认切到 db 15；如需指定用 TEST_REDIS_URL。
+_test_redis_url = os.getenv("TEST_REDIS_URL", "").strip()
+if not _test_redis_url:
+    _base_redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0").strip()
+    _test_redis_url = _with_redis_db(_base_redis_url, 15)
+os.environ["REDIS_URL"] = _test_redis_url
 
 import asyncio
 import threading
@@ -43,13 +72,19 @@ def event_loop():
 
 @pytest.fixture(scope="session", autouse=True)
 async def ensure_redis_available():
-    """检查 Redis 可用性"""
+    """检查 Redis 可用性，并清空测试专用库中的残留缓存。
+
+    tests/conftest.py 顶部已把 REDIS_URL 指向专用 db（默认 15），
+    因此 flushdb 只影响测试库，不会破坏开发环境的会话/黑名单。
+    清空是为了避免上一轮测试（如 RBAC 缓存用例）残留的 perms:* 命中种子用户。
+    """
     client = None
     try:
         client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
         result = await client.ping()
         assert result is True
-        print("\n✅ Redis 连接正常")
+        await client.flushdb()
+        print(f"\n✅ Redis 连接正常（测试库已清空: {settings.REDIS_URL}）")
     finally:
         if client:
             await client.close()
