@@ -63,10 +63,14 @@ def _add_tenant_filter_to_orm_query(orm_context):
     # 为每个有 tenant_id 的实体应用过滤条件
     modified_statement = statement
     for entity in set(entities_to_filter):  # 去重
+        # 注意：tenant_id 必须作为**闭包变量**被 lambda 引用。
+        # 不能写成 lambda cls, tid=current_tenant_id: ... —— 默认参数不属于闭包变量，
+        # with_loader_criteria 的语句缓存键不会随之变化，会把首个请求的 tenant_id
+        # 烘焙进缓存并复用到后续所有租户请求，造成跨租户数据泄露。
         modified_statement = modified_statement.options(
             with_loader_criteria(
                 entity,
-                lambda cls, tid=current_tenant_id: cls.tenant_id == tid,
+                lambda cls: cls.tenant_id == current_tenant_id,
                 include_aliases=True,
                 propagate_to_loaders=True,
             )
