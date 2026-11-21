@@ -26,4 +26,6 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 直接使用已同步的虚拟环境启动：避免 `uv run` 在启动时再次同步依赖
+# （生产镜像由 `uv sync --no-dev` 构建，不需要 dev 依赖，也不应在启动时访问网络）
+CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
