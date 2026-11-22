@@ -30,14 +30,6 @@
           />
         </el-form-item>
 
-        <el-form-item label="机构标识" prop="tenant_slug">
-          <el-input
-            v-model="form.tenant_slug"
-            placeholder="请输入机构标识（如：dance-school）"
-            :prefix-icon="OfficeBuilding"
-          />
-        </el-form-item>
-
         <el-form-item>
           <el-button
             type="primary"
@@ -62,7 +54,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Phone, Lock, OfficeBuilding } from '@element-plus/icons-vue'
+import { Phone, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -75,7 +67,6 @@ const loading = ref(false)
 const form = reactive({
   phone: '',
   password: '',
-  tenant_slug: '',
 })
 
 const rules: FormRules = {
@@ -98,7 +89,6 @@ async function handleLogin() {
     await userStore.login({
       phone: form.phone,
       password: form.password,
-      tenant_slug: form.tenant_slug || undefined,
     })
 
     ElMessage.success('登录成功')

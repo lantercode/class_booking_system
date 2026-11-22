@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { apiClient, authApi, commonApi } from '@dance-saas/api-client'
 import type { UpdateCurrentUserParams } from '@dance-saas/api-client'
 import router from '@/router'
+import { getTenantSlug } from '@/config/tenant'
 
 interface AdminInfo {
   id: number
@@ -58,7 +59,8 @@ export const useAuthStore = defineStore('admin-auth', () => {
   }
 
   async function login(params: LoginParams) {
-    const slug = params.tenant_slug || 'dance-school'
+    // 机构标识由部署配置注入，登录页不再要求用户输入
+    const slug = params.tenant_slug?.trim() || getTenantSlug()
     const res = await apiClient.post('/auth/login', {
       phone: params.phone,
       password: params.password,

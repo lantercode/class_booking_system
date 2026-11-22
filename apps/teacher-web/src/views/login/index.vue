@@ -22,13 +22,6 @@
             @keyup.enter="handleLogin"
           />
         </el-form-item>
-        <el-form-item prop="tenant_slug">
-          <el-input
-            v-model="form.tenant_slug"
-            placeholder="请输入机构标识（如：dance-school）"
-            :prefix-icon="OfficeBuilding"
-          />
-        </el-form-item>
         <el-form-item>
           <el-button type="primary" class="submit-btn" :loading="loading" @click="handleLogin">
             登录
@@ -49,7 +42,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { UserFilled, Phone, Lock, OfficeBuilding } from '@element-plus/icons-vue'
+import { UserFilled, Phone, Lock } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
@@ -63,7 +56,6 @@ const loading = ref(false)
 const form = reactive({
   phone: '',
   password: '',
-  tenant_slug: '',
 })
 
 const rules: FormRules = {
@@ -83,7 +75,7 @@ async function handleLogin() {
 
   loading.value = true
   try {
-    await authStore.login({ phone: form.phone, password: form.password, tenant_slug: form.tenant_slug || undefined })
+    await authStore.login({ phone: form.phone, password: form.password })
     ElMessage.success('登录成功')
     const redirect = (route.query.redirect as string) || '/courses'
     router.push(redirect)

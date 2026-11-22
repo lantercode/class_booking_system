@@ -1,4 +1,5 @@
 import type { PaginatedData } from "@/utils/helpers";
+import { resolveTenantSlug } from "@/config/tenant";
 
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://api.seplume.com/api/v1";
@@ -232,11 +233,8 @@ async function request<T>(
     tenantSlug = data.tenant_slug;
   }
 
-  // 🆕 防御性措施：如果仍然没有 tenant_slug，使用默认值（防止 40001 错误）
-  if (!tenantSlug) {
-    tenantSlug = "dance-school";
-    console.warn("⚠️ [API] 未找到 tenant_slug，使用默认值: dance-school");
-  }
+  // 仍未取到则回退到部署配置（单实例部署的机构标识）
+  tenantSlug = resolveTenantSlug(tenantSlug);
 
   const defaultHeaders: Record<string, string> = {
     "Content-Type": "application/json",
@@ -396,7 +394,7 @@ async function uploadFile<T>(
   retryCount = 0,
 ): Promise<ApiResponse<T>> {
   const token = uni.getStorageSync("token");
-  const tenantSlug = uni.getStorageSync("tenant_slug") || "dance-school";
+  const tenantSlug = resolveTenantSlug();
 
   const result = await new Promise<ApiResponse<T>>((resolve, reject) => {
     uni.uploadFile({

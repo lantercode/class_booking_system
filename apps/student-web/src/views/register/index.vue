@@ -58,14 +58,6 @@
           />
         </el-form-item>
 
-        <el-form-item label="机构标识" prop="tenant_slug">
-          <el-input
-            v-model="form.tenant_slug"
-            placeholder="请输入机构标识（如：dance-school）"
-            :prefix-icon="OfficeBuilding"
-          />
-        </el-form-item>
-
         <el-form-item>
           <el-button
             type="primary"
@@ -90,8 +82,9 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import { Phone, Lock, User, OfficeBuilding, Key } from '@element-plus/icons-vue'
+import { Phone, Lock, User, Key } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getTenantSlug } from '@/config/tenant'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -105,7 +98,6 @@ const form = reactive({
   password: '',
   confirmPassword: '',
   verify_code: '',
-  tenant_slug: '',
 })
 
 const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
@@ -137,9 +129,6 @@ const rules: FormRules = {
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { min: 4, message: '验证码至少4位', trigger: 'blur' },
   ],
-  tenant_slug: [
-    { required: true, message: '请输入机构标识', trigger: 'blur' },
-  ],
 }
 
 async function handleRegister() {
@@ -153,7 +142,7 @@ async function handleRegister() {
       nickname: form.nickname,
       password: form.password,
       verify_code: form.verify_code,
-      tenant_slug: form.tenant_slug,
+      tenant_slug: getTenantSlug(),
     })
 
     ElMessage.success('注册成功，请登录')

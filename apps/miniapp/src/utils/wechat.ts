@@ -1,4 +1,5 @@
 import { authApi, resetAuthState, clearAuthData } from '@/api'
+import { resolveTenantSlug } from '@/config/tenant'
 
 export interface WxLoginResult {
   code: number
@@ -47,7 +48,7 @@ export async function wechatAutoLogin(tenantSlug?: string): Promise<AutoLoginRes
 
 const result = await authApi.wxAutoLogin({
       code: loginRes.code,
-      tenant_slug: tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school'
+      tenant_slug: resolveTenantSlug(tenantSlug)
     })
 
     console.log('📡 后端返回:', JSON.stringify(result))
@@ -87,7 +88,7 @@ const result = await authApi.wxAutoLogin({
 
     const role = user?.role || 'student'
     uni.setStorageSync('user_role', role)
-    uni.setStorageSync('tenant_slug', tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school')
+    uni.setStorageSync('tenant_slug', resolveTenantSlug(tenantSlug))
 
     console.log('🎉 登录成功！角色:', role)
 
@@ -122,7 +123,7 @@ export async function wechatBindPhone(
       bind_token: bindToken,
       encrypted_data: encryptedData,
       iv: iv,
-      tenant_slug: tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school'
+      tenant_slug: resolveTenantSlug(tenantSlug)
     })
 
     console.log('📡 绑定返回:', JSON.stringify(result))
@@ -160,7 +161,7 @@ export async function wechatBindPhone(
 
     const role = user?.role || 'student'
     uni.setStorageSync('user_role', role)
-    uni.setStorageSync('tenant_slug', tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school')
+    uni.setStorageSync('tenant_slug', resolveTenantSlug(tenantSlug))
 
     console.log('🎉 绑定成功！角色:', role)
     console.log('✅ 已存储 tenant_slug:', uni.getStorageSync('tenant_slug'))
@@ -193,7 +194,7 @@ export async function wechatBindPhoneManual(
  const result = await authApi.wechatLogin({
       bind_token: bindToken,
       phone: phone,
-      tenant_slug: tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school'
+      tenant_slug: resolveTenantSlug(tenantSlug)
     })
 
     console.log('📡 手动绑定返回:', JSON.stringify(result))
@@ -227,7 +228,7 @@ export async function wechatBindPhoneManual(
 
     const role = user?.role || 'student'
     uni.setStorageSync('user_role', role)
-    uni.setStorageSync('tenant_slug', tenantSlug || uni.getStorageSync('tenant_slug') || 'dance-school')
+    uni.setStorageSync('tenant_slug', resolveTenantSlug(tenantSlug))
 
     console.log('🎉 手动绑定成功！')
 
@@ -263,7 +264,7 @@ export async function wxLogin(role: 'student' | 'teacher'): Promise<WxLoginResul
             role: role
           }) ?? authApiWithLegacyWxLogin.wxAutoLogin?.({
             code: loginRes.code,
-            tenant_slug: uni.getStorageSync('tenant_slug') || 'dance-school'
+            tenant_slug: resolveTenantSlug()
           }))
 
           if (!result) {
@@ -318,7 +319,7 @@ export async function getUserInfo(): Promise<any> {
  * 获取默认的机构标识
  */
 export function getDefaultTenant(): string {
-  return uni.getStorageSync('tenant_slug') || 'dance-school'
+  return resolveTenantSlug()
 }
 
 /**

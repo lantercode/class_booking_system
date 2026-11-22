@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiClient } from '@dance-saas/api-client'
 import router from '@/router'
+import { getTenantSlug } from '@/config/tenant'
 
 interface TeacherInfo {
   id: number
@@ -48,19 +49,15 @@ export const useAuthStore = defineStore('teacher-auth', () => {
   }
 
   async function login(params: LoginParams) {
+    // 机构标识由部署配置注入，登录页不再要求用户输入
+    const slug = params.tenant_slug?.trim() || getTenantSlug()
     const res = await apiClient.post('/auth/login', {
       phone: params.phone,
       password: params.password,
-      tenant_slug: params.tenant_slug || 'default',
+      tenant_slug: slug,
     })
     setToken(res.data.access_token, res.data.refresh_token)
-
-    try {
-      const payload = JSON.parse(atob(res.data.access_token.split('.')[1]))
-      setTenantSlug(params.tenant_slug || 'dance-school')
-    } catch {
-      // 解码失败不影响主流程
-    }
+    setTenantSlug(slug)
 
     await fetchTeacherInfo()
     return res.data
