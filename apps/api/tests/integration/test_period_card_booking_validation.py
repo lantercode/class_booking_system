@@ -5,7 +5,9 @@ from datetime import timedelta
 import pytest
 from httpx import AsyncClient
 
+from app.core.tenant_context import set_tenant_id
 from app.modules.membership.models import CardStatus, CardType
+from app.modules.membership.service import MembershipCardService
 from tests.membership_support import (
     BASE,
     SEED_STUDENT,
@@ -157,6 +159,94 @@ async def test_pending_period_card_overlap_conflict_409(client: AsyncClient, env
         await cleanup(
             factory, ids["tenant_id"], card_ids=[existing_card, pending_card],
             schedule_ids=[schedule_id], course_ids=[course_id],
+        )
+
+
+@pytest.mark.asyncio
+async def test_period_card_bookable_when_count_card_window_overlaps(
+    client: AsyncClient, env
+):
+    """期卡与次卡可共存：次卡有效期与期卡预期窗口重叠不构成冲突。"""
+    factory, ids = env
+    course_id = await create_course(
+        factory, ids["tenant_id"], course_type_code="regular"
+    )
+    start_at = future_start(3)
+    schedule_id = await create_schedule(
+        factory, ids["tenant_id"], course_id=course_id, teacher_id=ids["teacher_id"],
+        start_at=start_at,
+    )
+    count_card = await create_card(
+        factory, ids["tenant_id"], ids["student_id"],
+        card_type=CardType.COUNT.value, status=CardStatus.ACTIVE.value,
+        validity_days=90, total_credits=10,
+        valid_from=day_start(future_start(0)),
+        expire_at=day_end(future_start(10)),
+        applicable_course_type_code="regular",
+    )
+    period_card = await create_card(
+        factory, ids["tenant_id"], ids["student_id"],
+        card_type=CardType.PERIOD.value, status=CardStatus.PENDING.value,
+        validity_days=7, applicable_course_type_code="regular",
+    )
+    booking_id = None
+    try:
+        token = await login(client, SEED_STUDENT)
+        resp = await _book(client, token, schedule_id, period_card)
+        assert resp.status_code == 201, resp.text
+        booking_id = resp.json()["data"]["id"]
+
+        card = await fetch_card(factory, ids["tenant_id"], period_card)
+        assert card.status == CardStatus.PENDING.value
+    finally:
+        await cleanup(
+            factory, ids["tenant_id"], card_ids=[count_card, period_card],
+            booking_ids=[booking_id] if booking_id else None,
+            schedule_ids=[schedule_id], course_ids=[course_id],
+        )
+
+
+@pytest.mark.asyncio
+async def test_check_card_conflict_only_between_period_cards(env):
+    """check_card_conflict 仅期卡互斥：次卡恒无冲突，且不参与期卡比对。"""
+    factory, ids = env
+    count_card = await create_card(
+        factory, ids["tenant_id"], ids["student_id"],
+        card_type=CardType.COUNT.value, status=CardStatus.ACTIVE.value,
+        validity_days=90, total_credits=10,
+        valid_from=day_start(future_start(0)),
+        expire_at=day_end(future_start(10)),
+        applicable_course_type_code="regular",
+    )
+    period_card = await create_card(
+        factory, ids["tenant_id"], ids["student_id"],
+        card_type=CardType.PERIOD.value, status=CardStatus.ACTIVE.value,
+        valid_from=day_start(future_start(1)),
+        expire_at=day_end(future_start(5)),
+        applicable_course_type_code="regular",
+    )
+    period_card_2 = await create_card(
+        factory, ids["tenant_id"], ids["student_id"],
+        card_type=CardType.PERIOD.value, status=CardStatus.ACTIVE.value,
+        valid_from=day_start(future_start(3)),
+        expire_at=day_end(future_start(8)),
+        applicable_course_type_code="regular",
+    )
+    try:
+        async with factory() as session:
+            set_tenant_id(ids["tenant_id"])
+            svc = MembershipCardService()
+
+            count_res = await svc.check_card_conflict(session, count_card, ids["tenant_id"])
+            assert count_res["has_conflict"] is False
+
+            # 两张期卡窗口重叠 → 冲突
+            period_res = await svc.check_card_conflict(session, period_card, ids["tenant_id"])
+            assert period_res["has_conflict"] is True
+            assert period_card_2 in [c.id for c in period_res["conflict_cards"]]
+    finally:
+        await cleanup(
+            factory, ids["tenant_id"], card_ids=[count_card, period_card, period_card_2]
         )
 
 

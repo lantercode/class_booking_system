@@ -293,7 +293,8 @@ class MembershipCardService:
             )
             locked_existing_cards = locked_result.scalars().all()
             all_existing_cards = [
-                {"id": c.id, "applicable_course_type_code": c.applicable_course_type_code,
+                {"id": c.id, "card_type": c.card_type,
+                 "applicable_course_type_code": c.applicable_course_type_code,
                  "valid_from": c.valid_from, "expire_at": c.expire_at}
                 for c in locked_existing_cards
             ]
@@ -316,9 +317,12 @@ class MembershipCardService:
             if validity_days:
                 temp_expire_at = self._calc_expire_at(temp_valid_from, validity_days)
 
-            # 过滤出课程类型相同且时间重叠的卡
+            # 过滤出卡类型相同、课程类型相同且时间重叠的卡
+            # （2026-11-22 业务确认：次卡只与次卡互斥，期卡不参与次卡发卡冲突）
             conflicting_cards = []
             for existing_card_dict in all_existing_cards:
+                if existing_card_dict.get("card_type") != card_type:
+                    continue
                 # 获取现有卡的课程类型（单选字段）
                 existing_course_type = existing_card_dict.get("applicable_course_type_code")
                 # 如果课程类型相同
@@ -866,6 +870,11 @@ class MembershipCardService:
                     continue
                 if existing_card.applicable_course_type_code != card.applicable_course_type_code:
                     continue
+                # 仅期卡之间互斥（2026-11-22 业务确认）：次卡的 valid_from/expire_at
+                # 只是"购买后的可用期限"，不是该课程类型的独占权益窗口；
+                # 预约时学员显式选卡，不存在"这节算哪张卡"的歧义。
+                if existing_card.card_type != CardType.PERIOD.value:
+                    continue
                 if existing_card.valid_from is None or existing_card.expire_at is None:
                     continue
                 if (
@@ -968,6 +977,9 @@ class MembershipCardService:
                 if existing_card.id == card.id:
                     continue
                 if existing_card.applicable_course_type_code != card.applicable_course_type_code:
+                    continue
+                # 与预约预校验同口径：仅期卡互斥，次卡不参与（2026-11-22 业务确认）
+                if existing_card.card_type != CardType.PERIOD.value:
                     continue
                 if existing_card.valid_from is None or existing_card.expire_at is None:
                     continue
@@ -1478,6 +1490,11 @@ class MembershipCardService:
         """
         card = await self.get_card(db, card_id, tenant_id)
 
+        # 仅期卡之间存在权益窗口互斥（2026-11-22 业务确认）：
+        # 次卡/无限卡不参与冲突判断，直接返回无冲突。
+        if card.card_type != CardType.PERIOD.value:
+            return {"has_conflict": False, "conflict_cards": [], "conflict_count": 0}
+
         all_existing_cards = await self.card_repo.get_active_cards_by_student(
             db, card.student_id, tenant_id
         )
@@ -1488,6 +1505,8 @@ class MembershipCardService:
         if card_course_type:
             for existing_card in all_existing_cards:
                 if existing_card.id == card.id:
+                    continue
+                if existing_card.card_type != CardType.PERIOD.value:
                     continue
 
                 existing_course_type = existing_card.applicable_course_type_code
@@ -1527,7 +1546,7 @@ class MembershipCardService:
             conflict_type = card.applicable_course_type_code
             raise HTTPException(
                 status_code=409,
-                detail=f"解冻后将与 {card_count} 张同课程类型的有效卡（{conflict_type}）产生时间冲突。请先将冲突卡作废或冻结后再解冻。",
+                detail=f"解冻后将与 {card_count} 张同课程类型的期卡（{conflict_type}）产生时间冲突。请先将冲突期卡作废或冻结后再解冻。",
             )
 
         # 根据冻结时保存的剩余天数重新计算有效期
@@ -1574,7 +1593,7 @@ class MembershipCardService:
             conflict_type = card.applicable_course_type_code
             raise HTTPException(
                 status_code=409,
-                detail=f"解冻后将与 {card_count} 张同课程类型的有效卡（{conflict_type}）产生时间冲突。请先将冲突卡作废或冻结后再解冻。",
+                detail=f"解冻后将与 {card_count} 张同课程类型的期卡（{conflict_type}）产生时间冲突。请先将冲突期卡作废或冻结后再解冻。",
             )
 
         # 根据冻结时保存的剩余天数重新计算有效期
@@ -1623,7 +1642,7 @@ class MembershipCardService:
                 raise HTTPException(
                     status_code=409,
                     detail={
-                        "message": f"解冻后将与 {conflict_check['conflict_count']} 张同课程类型的有效卡产生时间冲突",
+                        "message": f"解冻后将与 {conflict_check['conflict_count']} 张同课程类型的期卡产生时间冲突",
                         "conflict_cards": conflict_check["conflict_cards"],
                         "suggestion": "请使用 force=true 参数强制解冻，或先处理冲突卡",
                     },
@@ -1988,35 +2007,35 @@ class MembershipCardService:
         card.valid_from = valid_from
         card.expire_at = expire_at
 
-        # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
-        # 注意：这里检查所有有效卡，不只是同产品的卡
-        all_existing_cards = await self.card_repo.get_active_cards_by_student(
-            db, card.student_id, tenant_id
-        )
-
-        # 过滤出课程类型相同且时间重叠的卡
+        # 仅期卡之间存在权益窗口互斥（2026-11-22 业务确认）：
+        # 次卡/无限卡的有效期只是「可用期限」，不构成独占窗口，不参与冲突判断。
         conflicting_cards = []
         new_card_course_type = card.applicable_course_type_code
 
-        if new_card_course_type:
+        if card.card_type == CardType.PERIOD.value and new_card_course_type:
+            all_existing_cards = await self.card_repo.get_active_cards_by_student(
+                db, card.student_id, tenant_id
+            )
             for existing_card in all_existing_cards:
-                existing_course_type = existing_card.applicable_course_type_code
-                # 如果课程类型相同
-                if existing_course_type == new_card_course_type:
-                    # 检查时间是否重叠
-                    existing_valid_from = existing_card.valid_from
-                    existing_expire_at = existing_card.expire_at
-
-                    if existing_valid_from and existing_expire_at:
-                        # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
-                        if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
-                            conflicting_cards.append(existing_card)
+                if existing_card.id == card.id:
+                    continue
+                if existing_card.card_type != CardType.PERIOD.value:
+                    continue
+                if existing_card.applicable_course_type_code != new_card_course_type:
+                    continue
+                existing_valid_from = existing_card.valid_from
+                existing_expire_at = existing_card.expire_at
+                if not (existing_valid_from and existing_expire_at):
+                    continue
+                # 闭区间重叠：新卡 valid_from <= 旧卡 expire_at 且 旧卡 valid_from <= 新卡 expire_at
+                if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
+                    conflicting_cards.append(existing_card)
 
         if conflicting_cards:
             card_count = len(conflicting_cards)
             raise HTTPException(
                 status_code=409,
-                detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{new_card_course_type}）。请先将旧卡作废或冻结后再激活新卡。",
+                detail=f"该学员已有 {card_count} 张同课程类型的期卡（{new_card_course_type}）生效区间重叠。请先将旧期卡作废或冻结后再激活新卡。",
             )
 
         card.status = CardStatus.ACTIVE.value
@@ -2068,35 +2087,35 @@ class MembershipCardService:
         card.valid_from = valid_from
         card.expire_at = expire_at
 
-        # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
-        # 注意：这里检查所有有效卡，不只是同产品的卡
-        all_existing_cards = await self.card_repo.get_active_cards_by_student(
-            db, card.student_id, tenant_id
-        )
-
-        # 过滤出课程类型相同且时间重叠的卡
+        # 仅期卡之间存在权益窗口互斥（2026-11-22 业务确认）：
+        # 次卡/无限卡的有效期只是「可用期限」，不构成独占窗口，不参与冲突判断。
         conflicting_cards = []
         new_card_course_type = card.applicable_course_type_code
 
-        if new_card_course_type:
+        if card.card_type == CardType.PERIOD.value and new_card_course_type:
+            all_existing_cards = await self.card_repo.get_active_cards_by_student(
+                db, card.student_id, tenant_id
+            )
             for existing_card in all_existing_cards:
-                existing_course_type = existing_card.applicable_course_type_code
-                # 如果课程类型相同
-                if existing_course_type == new_card_course_type:
-                    # 检查时间是否重叠
-                    existing_valid_from = existing_card.valid_from
-                    existing_expire_at = existing_card.expire_at
-
-                    if existing_valid_from and existing_expire_at:
-                        # 检查时间重叠：新卡的valid_from <= 旧卡的expire_at AND 旧卡的valid_from <= 新卡的expire_at
-                        if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
-                            conflicting_cards.append(existing_card)
+                if existing_card.id == card.id:
+                    continue
+                if existing_card.card_type != CardType.PERIOD.value:
+                    continue
+                if existing_card.applicable_course_type_code != new_card_course_type:
+                    continue
+                existing_valid_from = existing_card.valid_from
+                existing_expire_at = existing_card.expire_at
+                if not (existing_valid_from and existing_expire_at):
+                    continue
+                # 闭区间重叠：新卡 valid_from <= 旧卡 expire_at 且 旧卡 valid_from <= 新卡 expire_at
+                if valid_from <= existing_expire_at and existing_valid_from <= expire_at:
+                    conflicting_cards.append(existing_card)
 
         if conflicting_cards:
             card_count = len(conflicting_cards)
             raise HTTPException(
                 status_code=409,
-                detail=f"该学员已有 {card_count} 张同课程类型的有效卡（{new_card_course_type}）。请先将旧卡作废或冻结后再激活新卡。",
+                detail=f"该学员已有 {card_count} 张同课程类型的期卡（{new_card_course_type}）生效区间重叠。请先将旧期卡作废或冻结后再激活新卡。",
             )
 
         card.status = CardStatus.ACTIVE.value
