@@ -138,7 +138,7 @@ ACTIVE ──> expire_at < now ──> EXPIRED（次卡剩余次数清零；期�
 |----|------|
 | 触发 | `POST /api/v1/bookings`，`membership_card_id` 指向 period 卡 |
 | 前置条件 | F-A 的全部排期前置；`is_bookable_card()` 为真；卡快照或产品可提供 `validity_days` |
-| 主要步骤 | 1) 排期/重复预约校验；2) 读取课程并校验课程适用性；3) 无锁快路径校验卡归属/租户/类型/状态/排期日有效期；4) 若卡为 ACTIVE 期卡：只做 D4 排期日校验，不再做预期窗口/冲突检查，跳至第 5 步；5) 查询该卡已存在的非取消预约，取最早 `schedule.start_at` 作为预期窗口锚点；6) `increment_booked_count`；7) 插入 booking（`auto_commit=False`），写入 `membership_card_id`；8) 对同学员、同租户的非终态卡按 `id ASC` 加 `FOR UPDATE`（状态 ACTIVE/PENDING/FROZEN），复检卡；9) 以锚点计算 `expected_interval`，并校验新排期日落在窗口内；10) 与同学员、同课程类型、非自身的非终态卡做闭区间重叠，命中 → 409；11) **不调用 `deduct_credit`**；12) commit（任一步失败整体回滚，名额与 booking 一并撤销） |
+| 主要步骤 | 1) 排期/重复预约校验；2) 读取课程并校验课程适用性；3) 无锁快路径校验卡归属/租户/类型/状态/排期日有效期；4) 若卡为 ACTIVE 期卡：只做 D4 排期日校验，不再做预期窗口/冲突检查，跳至第 5 步；5) 查询该卡已存在的非取消预约，取最早 `schedule.start_at` 作为预期窗口锚点；6) `increment_booked_count`；7) 插入 booking（`auto_commit=False`），写入 `membership_card_id`；8) 对同学员、同租户的非终态卡按 `id ASC` 加 `FOR UPDATE`（状态 ACTIVE/PENDING/FROZEN），复检卡；9) 以锚点计算 `expected_interval`，并校验新排期日落在窗口内；10) 与同学员、同课程类型、非自身的非终态**期卡**做闭区间重叠（次卡不参与，2026-11-22 修订），命中 → 409；11) **不调用 `deduct_credit`**；12) commit（任一步失败整体回滚，名额与 booking 一并撤销） |
 | 事务边界 | 卡集锁、名额、booking INSERT 同一事务；冲突或校验失败整体回滚，名额递增与 booking 一并撤销 |
 | 失败分支 | 卡跨租户 → 404；卡不属于学员 → 403；卡非 ACTIVE/非 D9-PENDING → 400；排期日早于 `valid_from` 或晚于 `expire_at` → 400；课程不适用 → 400；新排期日超出该卡预期窗口 → 400；预期区间冲突 → 409；缺 `validity_days` → 400（配置错误，提示联系管理员） |
 | 幂等语义 | 同一排期重复预约由 `find_active_booking`（`booking/repository.py:123-151`）+ 部分唯一索引（`booking/models.py:71-77`）拦截；期卡预约不写卡流水，重复请求不会产生扣次副作用 |

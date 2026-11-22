@@ -32,8 +32,8 @@
 | B-3 | 期卡发卡缺 `validity_days` 拒绝 | HTTP 400，消息含“必须设置有效天数”；不落卡、不落流水 | `test_issue_period_card_requires_validity_days`；DB count 不变 | PLAN_NOT_RUN |
 | B-4 | 期卡预约不扣次、不激活 | HTTP 200/201；booking.status=1、`membership_card_id` 已写入；card.status=0、`used_credits=0`；无 CONSUME 流水 | `test_period_card_booking_validation.py::test_book_period_card_no_deduct_no_activate` | PLAN_NOT_RUN |
 | B-5 | 次卡预约仍预扣 | HTTP 成功；`used_credits` +1；存在 CONSUME 流水；幂等键 `booking_{id}_deduct` | 同文件 `test_book_count_card_deducts_once` | PLAN_NOT_RUN |
-| B-6 | 预期有效期冲突拒绝 | HTTP 409；无 booking 落库、`booked_count` 不变、无卡流水 | 构造 ACTIVE 同课程类型卡（区间覆盖排期日），再预约；`test_expected_validity_conflict_rejected` | PLAN_NOT_RUN |
-| B-7 | 预期有效期不冲突放行 | HTTP 成功；无 409 | 构造 ACTIVE 卡区间与预期区间无交集；`test_expected_validity_no_conflict_allows` | PLAN_NOT_RUN |
+| B-6 | 预期有效期冲突拒绝 | HTTP 409；无 booking 落库、`booked_count` 不变、无卡流水 | 构造 ACTIVE 同课程类型**期卡**（区间覆盖排期日），再预约；`test_expected_validity_conflict_rejected` | PLAN_NOT_RUN |
+| B-7 | 预期有效期不冲突放行 | HTTP 成功；无 409 | 构造 ACTIVE **期卡**区间与预期区间无交集；`test_expected_validity_no_conflict_allows` | PLAN_NOT_RUN |
 | B-8 | 排期日有效期边界（D4） | 排期日 = `expire_at` 当天 → 成功；排期日 = `expire_at` 次日 → 400 | `test_booking_on_expire_date_boundary`；卡 `expire_at` 设为 23:59:59，排期分别落在当天/次日 | PLAN_NOT_RUN |
 | B-9 | 未到生效日的 PENDING 不可预约 | 有 `valid_from` 的未来 PENDING 卡 → 400；D9 卡（`valid_from=NULL`）→ 成功 | `test_pending_with_future_valid_from_rejected` + `test_d9_pending_bookable` | PLAN_NOT_RUN |
 | B-10 | 手动完成首次激活 | HTTP 200；booking=4；card.status=1；`valid_from` = 排期日 00:00:00；`expire_at` = 排期日 + `validity_days` - 1 的 23:59:59；一条 ISSUE（change=0，幂等键 `booking_{id}_period_activate`） | `test_period_card_activation_concurrency.py::test_manual_complete_activates_once` | PLAN_NOT_RUN |

@@ -152,7 +152,7 @@ async def validate_period_card_booking(
 3. `validity_days = card.validity_days or (product.validity_days if card.product_id else None)`；缺失 → 400 “期卡缺少有效天数，无法预约，请联系管理员”。
 4. 预期窗口锚点：`anchor = anchor_start_at or schedule_start_at`；`expected_valid_from = anchor` 的日期 00:00:00；`expected_expire_at = _calc_expire_at(expected_valid_from, validity_days)`（`membership/service.py:1468-1488`）。
 5. 窗口一致性：`schedule_start_at.date()` 必须落在 `[expected_valid_from.date(), expected_expire_at.date()]`，否则 400 “该排期超出此期卡的有效期窗口”。
-6. 冲突集合：同学员、同租户、同 `applicable_course_type_code`、`id != card.id`、`valid_from/expire_at` 均非空、状态 `ACTIVE/PENDING/FROZEN`。
+6. 冲突集合：同学员、同租户、同 `applicable_course_type_code`、**卡类型为 `period`（仅期卡 × 期卡，2026-11-22 修订）**、`id != card.id`、`valid_from/expire_at` 均非空、状态 `ACTIVE/PENDING/FROZEN`。
 7. 重叠判定：`expected_valid_from <= existing.expire_at AND existing.valid_from <= expected_expire_at`；命中 → 409。
 8. 不写卡、不写流水、不激活。
 
@@ -223,7 +223,7 @@ async def activate_period_card_on_completion(
    - `status != PENDING` → 400 “会员卡状态异常，无法激活”。
 4. `validity_days = card.validity_days or product.validity_days`；缺失 → 400 “期卡缺少有效天数，无法激活”，异常上抛触发回滚。
 5. `valid_from = schedule_start_at` 的日期 00:00:00；`expire_at = _calc_expire_at(valid_from, validity_days)`。
-6. 冲突检查：同 T6.3.2 第 5-6 步，排除自身；命中 → 409 “期卡生效区间与已有会员卡重叠，无法激活”。
+6. 冲突检查：同 T6.3.2 第 5-6 步（仅期卡 × 期卡，次卡不参与），排除自身；命中 → 409 “期卡生效区间与已有期卡重叠，无法激活”。
 7. 写入：`card.status=ACTIVE`、`card.valid_from`、`card.expire_at`。
 8. 写 ISSUE 流水：`change_amount=0`、`balance_after=0`、`idempotency_key=f"booking_{booking_id}_period_activate"`、`remark="首次完成课程自动激活期卡"`。
 9. `db.flush()`，不 commit（由调用方统一 commit）。

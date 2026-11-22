@@ -43,7 +43,7 @@
 ## User Story
 
 - US-1（学员，次卡）：我在预约时使用次卡，系统预扣 1 次；我取消预约时次数回补；课程完成或我缺席时不再额外扣次。
-- US-2（学员，期卡）：我拿到一张期卡时它处于“待激活”且没有有效期；我用它预约某节未来课程时系统不扣次，但会检查“以该排期日推算的有效期”是否与我已有同课程类型卡重叠；课程完成后卡首次激活，有效期从该排期日起算。
+- US-2（学员，期卡）：我拿到一张期卡时它处于“待激活”且没有有效期；我用它预约某节未来课程时系统不扣次，但会检查“以该排期日推算的有效期”是否与我已有同课程类型**期卡**重叠；课程完成后卡首次激活，有效期从该排期日起算。
 - US-3（管理员）：我可以发放期卡，但期卡不会在发卡时获得有效期；PENDING 期卡不能被冻结；90 天内没有任何完成记录的 PENDING 期卡会自动作废。
 - US-4（系统/教师）：排期结束后，系统按规则把已签到预约标记完成、未到课预约标记缺席，并在同一事务内完成期卡首次激活；期卡激活失败不得留下“booking 已完成但卡未激活”的半状态。
 - US-5（安全/运维）：任何卡操作都必须限定在当前租户与当前学员；并发完成、并发取消、重复定时任务不得重复扣次或重复激活。
@@ -54,6 +54,8 @@
 
 1. **S1 期卡发卡状态机**：`card_type=period` 时强制 `status=PENDING`、`valid_from=NULL`、`expire_at=NULL`；把发卡时确定的 `validity_days` 持久化为卡片快照；期卡发卡不再执行基于“当前时间 + 天数”的同课程类型冲突拒绝。见 T6.3.1。
 2. **S2 期卡预约校验**：新增 Service 层校验与预期有效期计算；期卡预约不调用 `deduct_credit`；预期有效期以“该卡最早非取消预约的排期日”为锚点（无则为当前排期日），新排期必须落在锚点窗口内，并与同学员、同租户、同课程类型的非终态卡做闭区间重叠判断。见 T6.3.2。
+
+   > **修订（2026-11-22）**：重叠校验范围已收紧为**仅期卡 × 期卡**，次卡不参与（预约预校验与首次完成激活两处同口径），以 `docs/ai/plans/04-stability-backlog.md` 的「业务规则确认：期卡有效期冲突」为准。
 3. **S3 卡归属与适用性前置校验**：预约时校验卡属于当前学员、属于当前租户、卡类型允许本次预约、排期课程在卡的适用范围内、排期日落在卡有效期内。见 T6.3.2。
 4. **S4 次卡完成/缺席确认**：课程完成/缺席不额外扣次、不回补；重复完成请求保持现有 400 语义（不改成 no-op），靠 booking 行锁 + 状态重检保证只处理一次。见 T6.3.3。
 5. **S5 期卡首次完成激活**：手动完成与排期自动结束两条路径都调用同一个 Service 方法；激活写入 `valid_from=排期日 00:00:00`、`expire_at=排期日 + validity_days - 1 的 23:59:59`，并写幂等 ISSUE 流水。见 T6.3.3 / T6.3.4。
@@ -87,7 +89,7 @@
 | D1 | 预约预扣 + 排期 COMPLETED 确认；期卡预约不扣次，首次 COMPLETED 激活；签到/完成只推进 booking 状态，不再触碰卡（对次卡而言“确认”是无操作） | 次卡继续在 `create_booking` 预扣、取消回补；`complete_booking`/finalize 只对期卡执行激活，对次卡不改卡 | `docs/features/F6.0-membership-card-prototype/open-decisions.md:13-18`；`business-rules.md:28-31` |
 | D4 | `expire_at` 当天 23:59:59 前可预约可签到；未来生效的 PENDING 卡不可预约 | 预约校验以“排期日”而不是 `now` 判断有效期；D9 期卡（`valid_from IS NULL`）例外可预约 | `open-decisions.md:34-38`；`business-rules.md:55` |
 | D5 | 缺席自动消解：排期 COMPLETED 即扣/激活，NO_SHOW 保留但不再决定扣不扣 | NO_SHOW 与 COMPLETED 一样触发期卡首次激活；次卡不额外扣 | `open-decisions.md:41-46`；`business-rules.md:56` |
-| D9 | 发卡即 PENDING、有效期留空；预约不激活不扣次；按排期日 + `validity_days` 算预期有效期并与同学员同课程类型 ACTIVE/PENDING 卡做区间重叠；首次 COMPLETED 激活；排期 CANCELLED 不激活；PENDING 90 天未完成作废；freeze 拒绝 PENDING；EXPIRED 扫描扩展至 ACTIVE/PENDING | S1、S2、S4、S5、S7、S8、S9 全部对应 | `open-decisions.md:69-110`；`business-rules.md:47-57` |
+| D9 | 发卡即 PENDING、有效期留空；预约不激活不扣次；按排期日 + `validity_days` 算预期有效期并与同学员同课程类型 ACTIVE/PENDING 卡做区间重叠（**修订 2026-11-22：仅期卡 × 期卡，次卡不参与**，见 S2 修订说明）；首次 COMPLETED 激活；排期 CANCELLED 不激活；PENDING 90 天未完成作废；freeze 拒绝 PENDING；EXPIRED 扫描扩展至 ACTIVE/PENDING | S1、S2、S4、S5、S7、S8、S9 全部对应 | `open-decisions.md:69-110`；`business-rules.md:47-57` |
 
 **D4 与 D9 的字面冲突及解释**：D4 的“PENDING 卡不可预约”指“有生效日、但尚未到生效日”的 PENDING（`valid_from IS NOT NULL`）；D9 的期卡 PENDING 是“有效期待定”（`valid_from IS NULL`），必须允许预约。判定函数见 `user-flow.md` 的 `is_bookable_card()`。
 

@@ -16,12 +16,38 @@
 **集成测试基线**：`tests/integration` 283 passed / 1 skipped（新增租户隔离 + 预约归属 25 个用例）；`tests/unit` 217 passed。
 
 ### 附：租户过滤缓存缺陷（P4-5 暴露）
-
 - 位置：`apps/api/src/app/core/tenant_query.py`
 - 缺陷：`with_loader_criteria` 的判定 lambda 用**默认参数**绑定 `tenant_id`；默认参数不属于闭包变量、不参与 SQLAlchemy 语句缓存键，导致首个请求的租户 id 被烘焙进缓存并在进程内复用，后续租户读到首个租户的数据。
 - 修复：改为闭包引用 `current_tenant_id`（提交 `9ff4c7b`）。
 - 验证：同一会话内 `tenant=2` 查询由「返回 tenant=1 的 54 条」变为 0 条；集成 283 passed。
 - 遗留：AI 层（`/ai/chat` 跨租户提问、身份注入）用例仍需按 P4-5 原始表格补测。
+
+## 定位决策（2026-11-22）
+
+**结论：明确为「单实例多机构部署」，不做租户 CRUD。** 隔离机制保留为防御纵深；对外表述不再使用「多租户 SaaS」。
+
+已执行的收敛动作：
+
+| 动作 | 位置 |
+|---|---|
+| 移除 `/api/v1/courses` 租户跳过名单（课程接口恢复中间件租户校验） | `apps/api/src/app/middleware/tenant_middleware.py` |
+| Web 三端移除登录/注册的机构标识输入，改由部署配置 `VITE_TENANT_SLUG` 注入 | `admin-web` / `teacher-web` / `student-web` 的 `src/config/tenant.ts` |
+| 小程序机构标识收敛为单一部署配置 `VITE_TENANT_SLUG` | `apps/miniapp/src/config/tenant.ts` |
+| README 对外表述改为单实例多机构部署 | `README.md` |
+
+未来若启动自助开户（真 SaaS），第一步是补齐租户生命周期（`tenants` CRUD + 平台管理员 + 开户初始化），届时再评估移除本决策。
+
+## 业务规则确认：期卡有效期冲突（2026-11-22）
+
+**结论：期卡预期有效期重叠校验仅在「期卡 × 期卡」之间生效，次卡不参与。**
+
+| 项 | 内容 |
+|---|---|
+| 背景 | F6.3/F6.0 D9 原文写「同学员同课程类型 ACTIVE/PENDING 卡」，字面包含次卡；但 D9 的原始漏洞只针对「两张期限卡同时 ACTIVE」。按字面实现会导致：学员持有次卡期间买月卡后无法用月卡预约 |
+| 决策 | 次卡的 `valid_from/expire_at` 是「购买后的可用期限」，不是该课程类型的独占权益窗口；预约时必须显式选卡，无计费歧义，因此不参与互斥 |
+| 代码 | 5 处统一口径：① 预约预校验、② 首次完成激活、③ `check_card_conflict`（解冻/激活冲突检查）、④ `activate_card` / `admin_activate_card`（手动激活）、⑤ `issue_card` 次卡发卡冲突检查（仅与次卡互斥）。①② 必须同口径，否则会出现「预约成功但激活 409」的 PENDING 半状态；③④⑤ 若不同步，会出现「允许共存但解冻/激活/发卡时又被拦住」的自相矛盾 |
+| 验证 | 新增 `test_period_card_bookable_when_count_card_window_overlaps`；期卡/会员卡相关 21 个用例通过 |
+| 不受影响 | 无限卡（`valid_from/expire_at` 为空，本就被跳过）；期卡×期卡重叠仍返回 409 |
 
 ## P4-1 微信绑定重复数据清理
 
