@@ -9,10 +9,13 @@
 #   - 目标文件已存在的 key 不动（不覆盖真实值）
 #   - 敏感/环境相关 key 缺失时只写空值，强制人工填写，避免写入占位值
 #   - 其余 key 缺失时按模板默认值补入
+#   - 仅在内容确有变化时备份（${TARGET}.bak.YYYYMMDDHHMMSS，权限 600），
+#     并只保留最近 KEEP_BACKUPS 份，避免每次部署都累积含密钥的副本
 set -euo pipefail
 
 TEMPLATE="${1:-.env.example}"
 TARGET="${2:-.env}"
+KEEP_BACKUPS="${KEEP_BACKUPS:-5}"
 
 if [ ! -f "$TEMPLATE" ]; then
   echo "❌ 模板不存在: $TEMPLATE" >&2
@@ -28,8 +31,20 @@ SECRET_KEYS="JWT_SECRET POSTGRES_PASSWORD REDIS_PASSWORD DATABASE_URL REDIS_URL 
 ARK_API_KEY WECHAT_APP_ID WECHAT_SECRET OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET \
 CORS_ORIGINS API_DOMAIN ADMIN_DOMAIN"
 
-backup="${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
-cp "$TARGET" "$backup"
+_checksum() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+# 先暂存原始内容，待确认确有变化后再落成带时间戳的备份
+before_sum="$(_checksum "$TARGET")"
+staged_backup="$(mktemp)"
+trap 'rm -f "$staged_backup"' EXIT
+cp "$TARGET" "$staged_backup"
+chmod 600 "$staged_backup" 2>/dev/null || true
 chmod 600 "$TARGET" 2>/dev/null || true
 
 # 规范化：去掉 CRLF，并确保以换行结尾（否则追加内容会粘到上一行）
@@ -60,6 +75,21 @@ while IFS='=' read -r key value; do
   esac
   added=$((added + 1))
 done < <(grep -E '^[A-Z][A-Z0-9_]*=' "$TEMPLATE")
+
+after_sum="$(_checksum "$TARGET")"
+if [ "$before_sum" != "$after_sum" ]; then
+  backup="${TARGET}.bak.$(date +%Y%m%d%H%M%S)"
+  mv "$staged_backup" "$backup"
+  chmod 600 "$backup"
+  # 只保留最近 KEEP_BACKUPS 份（含密钥，避免无限累积）
+  stale="$(ls -1t "${TARGET}".bak.* 2>/dev/null | tail -n +$((KEEP_BACKUPS + 1)) || true)"
+  if [ -n "$stale" ]; then
+    echo "$stale" | xargs rm -f
+  fi
+else
+  rm -f "$staged_backup"
+  backup="无变更，未创建"
+fi
 
 echo "----------------------------------------"
 echo "模板   : $TEMPLATE"
