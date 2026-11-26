@@ -486,7 +486,8 @@ import {
 } from '@dance-saas/api-client'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { registerNotifyRefresh } from '@/utils/notify-sync'
 
 const loading = ref(false)
 const loadError = ref('')
@@ -1130,9 +1131,18 @@ async function handleBatchSubmit() {
   }
 }
 
+let unregisterNotifyRefresh: (() => void) | null = null
+
 onMounted(() => {
   fetchLookups()
   fetchSchedules()
+  // 本页可见时，实时推送事件触发既有的排期列表刷新
+  unregisterNotifyRefresh = registerNotifyRefresh('schedules', fetchSchedules)
+})
+
+onUnmounted(() => {
+  unregisterNotifyRefresh?.()
+  unregisterNotifyRefresh = null
 })
 </script>
 

@@ -136,8 +136,9 @@
 <script setup lang="ts">
 import { bookingApi, scheduleApi, type Booking, type Schedule } from '@dance-saas/api-client'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { registerNotifyRefresh } from '@/utils/notify-sync'
 import {
   cardAbnormalStatusText,
   cardStatusTagText,
@@ -292,6 +293,8 @@ async function handleComplete(row: Booking) {
   }
 }
 
+let unregisterNotifyRefresh: (() => void) | null = null
+
 onMounted(async () => {
   await searchSchedules('')
   const qid = Number(route.query.schedule_id)
@@ -305,6 +308,13 @@ onMounted(async () => {
       ElMessage.error(e?.response?.data?.msg || '未找到指定排期，请重新选择')
     }
   }
+  // 本页可见时，实时推送事件触发既有的点名名单刷新
+  unregisterNotifyRefresh = registerNotifyRefresh('bookings', fetchBookings)
+})
+
+onUnmounted(() => {
+  unregisterNotifyRefresh?.()
+  unregisterNotifyRefresh = null
 })
 </script>
 

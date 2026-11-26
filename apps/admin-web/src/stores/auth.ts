@@ -4,6 +4,7 @@ import { apiClient, authApi, commonApi } from '@dance-saas/api-client'
 import type { UpdateCurrentUserParams } from '@dance-saas/api-client'
 import router from '@/router'
 import { getTenantSlug } from '@/config/tenant'
+import { connect, disconnect } from '@/utils/notify'
 
 interface AdminInfo {
   id: number
@@ -48,6 +49,8 @@ export const useAuthStore = defineStore('admin-auth', () => {
   }
 
   function clearToken() {
+    // 登出（含 401 清登录态）先断开推送连接，避免带着旧 token 继续重连
+    disconnect()
     token.value = ''
     refreshToken.value = ''
     tenantSlug.value = ''
@@ -68,6 +71,9 @@ export const useAuthStore = defineStore('admin-auth', () => {
     })
     setToken(res.data.access_token, res.data.refresh_token)
     setTenantSlug(slug)
+
+    // 登录成功：连接由 token 驱动的推送通道（重复调用无副作用）
+    connect()
 
     await fetchAdminInfo()
     return res.data

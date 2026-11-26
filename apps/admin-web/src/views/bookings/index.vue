@@ -175,8 +175,9 @@
 import { bookingApi, type Booking } from '@dance-saas/api-client'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { registerNotifyRefresh } from '@/utils/notify-sync'
 import {
   cardStatusTagText,
   cardStatusTagType,
@@ -319,8 +320,17 @@ async function handleAdminCancel(row: Booking) {
   }
 }
 
+let unregisterNotifyRefresh: (() => void) | null = null
+
 onMounted(() => {
   fetchBookings()
+  // 本页可见时，实时推送事件触发既有的预约列表刷新
+  unregisterNotifyRefresh = registerNotifyRefresh('bookings', fetchBookings)
+})
+
+onUnmounted(() => {
+  unregisterNotifyRefresh?.()
+  unregisterNotifyRefresh = null
 })
 </script>
 
