@@ -50,6 +50,7 @@ from app.modules.notify.bus import start_listener as start_notify_listener
 from app.modules.notify.bus import stop_listener as stop_notify_listener
 from app.modules.notify.router import router as notify_router
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
+from app.modules.schedule.jobs import backfill_schedule_jobs
 from app.modules.schedule.router import router as schedule_router  # 排期路由
 from app.modules.schedule.scheduler import (
     auto_cancel_underbooked_schedules,
@@ -204,15 +205,30 @@ async def lifespan(app: FastAPI):
     )
     print("✅ 定时任务已注册: reconcile_derived_status (每 1440min 运行)")
 
-    # 8.2 阶段 6.1：Worker 模式下停用旧扫描任务，仅保留每日对账
+    # 8.2 阶段 6.1：Worker 模式下只下线「直写」的排期扫描任务。
+    # 会员卡扫描保留：它们在 worker 模式下已改为「扫描候选 → 入队」，是生产者，
+    # 若一并移除会导致卡激活/过期/解冻任务永远不被投递。
     if settings.TASK_WORKER_ENABLED:
         removed: list[str] = []
-        for job in scheduler.get_jobs():
-            if job.id != "reconcile_derived_status":
-                scheduler.remove_job(job.id)
-                removed.append(job.id)
+        for job_id in (
+            "auto_finish_expired_schedules",
+            "auto_cancel_underbooked_schedules",
+        ):
+            if scheduler.get_job(job_id) is not None:
+                scheduler.remove_job(job_id)
+                removed.append(job_id)
         if removed:
-            print(f"⚠️  TASK_WORKER_ENABLED=true, 已停用旧扫描定时任务: {removed}")
+            print(f"⚠️  TASK_WORKER_ENABLED=true, 已下线排期直写扫描: {removed}")
+
+        # 8.3 存量排期补投延迟任务（幂等）：上线前已存在的排期没有 job_queue 记录
+        scheduler.add_job(
+            backfill_schedule_jobs,
+            "interval",
+            minutes=10,
+            id="backfill_schedule_jobs",
+            replace_existing=True,
+        )
+        print("✅ 定时任务已注册: backfill_schedule_jobs (每 10min 运行 - 幂等补投)")
 
     # 9. 启动scheduler（在所有job添加完毕后）
     scheduler.start()
