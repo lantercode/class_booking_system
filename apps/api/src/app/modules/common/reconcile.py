@@ -9,13 +9,15 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.tenant_context import set_tenant_id
-from app.modules.membership.models import CardStatus, MembershipCard
+from app.modules.booking.models import Booking, BookingStatus
+from app.modules.course.models import Course, CourseType
+from app.modules.membership.models import CardStatus, CardType, MembershipCard
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.tenant.models import Tenant, TenantStatus
 
@@ -25,7 +27,9 @@ logger = logging.getLogger(__name__)
 async def _count_diffs(
     db: AsyncSession, tenant_id: int, *, now: datetime, grace: timedelta
 ) -> dict[str, int]:
-    """统计单个租户的四类派生状态差异（只读）。"""
+    """统计单个租户的派生状态差异（只读）。"""
+    settings = get_settings()
+
     # 1) 排期：已过 end_at + grace 但仍为 NORMAL
     stale_schedules = (
         await db.execute(
@@ -75,11 +79,69 @@ async def _count_diffs(
         )
     ).scalars().all()
 
+    # 5) 期卡：超期未激活且从未使用，但仍为 PENDING（应被作废）
+    #    作废开关关闭时不比对，避免把「预期保留 PENDING」误报成差异。
+    if settings.PENDING_CARD_CANCEL_ENABLED:
+        cutoff = now - timedelta(days=settings.PENDING_CARD_CANCEL_DAYS)
+        used_booking = (
+            select(Booking.id)
+            .where(
+                Booking.tenant_id == tenant_id,
+                Booking.membership_card_id == MembershipCard.id,
+                Booking.status.in_(
+                    [
+                        BookingStatus.COMPLETED.value,
+                        BookingStatus.NO_SHOW.value,
+                    ]
+                ),
+            )
+            .exists()
+        )
+        cancelable_pending_cards = (
+            await db.execute(
+                select(MembershipCard.id).where(
+                    MembershipCard.tenant_id == tenant_id,
+                    MembershipCard.card_type == CardType.PERIOD.value,
+                    MembershipCard.status == CardStatus.PENDING.value,
+                    MembershipCard.created_at < cutoff,
+                    ~used_booking,
+                )
+            )
+        ).scalars().all()
+    else:
+        cancelable_pending_cards = []
+
+    # 6) 排期：已过「开课前 N 分钟」截止点且人数不足，但仍为 NORMAL（应被取消）
+    if getattr(settings, "AUTO_CANCEL_UNDERBOOKED_ENABLED", True):
+        underbooked_schedules = (
+            await db.execute(
+                select(CourseSchedule.id)
+                .join(Course, CourseSchedule.course_id == Course.id)
+                .join(CourseType, Course.course_type_code == CourseType.code)
+                .where(
+                    CourseSchedule.tenant_id == tenant_id,
+                    CourseSchedule.status == ScheduleStatus.NORMAL.value,
+                    CourseType.min_students.isnot(None),
+                    CourseType.cancel_before_minutes.isnot(None),
+                    CourseSchedule.booked_count < CourseType.min_students,
+                    CourseSchedule.start_at
+                    - func.make_interval(
+                        0, 0, 0, 0, 0, CourseType.cancel_before_minutes
+                    )
+                    <= now,
+                )
+            )
+        ).scalars().all()
+    else:
+        underbooked_schedules = []
+
     return {
         "schedule_finish_diff": len(stale_schedules),
         "card_expired_diff": len(expired_cards),
         "card_activate_diff": len(activatable_cards),
         "card_unfreeze_diff": len(unfreezable_cards),
+        "card_cancel_pending_diff": len(cancelable_pending_cards),
+        "schedule_underbooked_diff": len(underbooked_schedules),
     }
 
 
@@ -92,6 +154,8 @@ async def reconcile_derived_status() -> dict[str, int]:
         "card_expired_diff": 0,
         "card_activate_diff": 0,
         "card_unfreeze_diff": 0,
+        "card_cancel_pending_diff": 0,
+        "schedule_underbooked_diff": 0,
     }
 
     async with SessionLocal() as db:

@@ -165,8 +165,11 @@
 
 **实现进度（2026-11-25）**
 
-- 6.1 完成：`main.py` 在 `TASK_WORKER_ENABLED=true` 时，注册完所有 job 后移除除 `reconcile_derived_status` 外的全部旧扫描任务；`false` 时保持现有行为（灰度）。
-- 6.2 完成：`modules/common/reconcile.py` 的 `reconcile_derived_status` 每日运行，逐租户只读比对四类差异（排期未完成 / 卡未过期 / 卡未激活 / 卡未解冻），输出统计并打印告警，不修改数据。
+- 6.1 完成（2026-11-26 修正）：`TASK_WORKER_ENABLED=true` 时**只下线两个直写排期扫描** `auto_finish_expired_schedules` / `auto_cancel_underbooked_schedules`；会员卡相关扫描（激活 / 过期 / 解冻 / 到期提醒 / 超期作废）**保留为生产者**——它们在 worker 模式下只做「扫描候选 → 入队」，由 Worker 执行状态变更。早先「移除除对账外全部 job」的写法会让卡任务永不入队，`card_*_diff` 持续累积，已修正。
+- 6.1b 存量补投（2026-11-26）：新增 `backfill_schedule_jobs`（`TASK_WORKER_ENABLED=true` 时每 10 分钟注册）。逐租户扫描 NORMAL 排期，只对**不存在**的 `(tenant_id, idempotency_key)` 做 `enqueue`（ON CONFLICT DO NOTHING），已投递/已执行任务不会被重置为 pending；上线前已存在的排期因此获得一次性补偿（逾期任务 `run_at=now` 立即执行）。
+- 灰度步骤：① 备份并确认 `job_queue` 表存在；② 生产 `.env` 置 `TASK_WORKER_ENABLED=true`，确认 Nginx 的 SSE / WS location 已生效；③ 观察 `job_queue` 的 pending / dead 数量与 `[reconcile]` 日志两周，四类差异应长期为 0（偶发 1~2 条为处理延迟）；④ 满足后再执行 6.3 删除旧扫描代码。
+- **对账覆盖（2026-11-26 补齐）**：新增 `card_cancel_pending_diff`（超期未激活且无 COMPLETED/NO_SHOW 预约的 PENDING 期卡）与 `schedule_underbooked_diff`（已过开课前截止点且人数不足的 NORMAL 排期）。前者随 `PENDING_CARD_CANCEL_ENABLED`、后者随 `AUTO_CANCEL_UNDERBOOKED_ENABLED` 开关生效，开关关闭时不比对、不误报。
+- 6.2 完成：`modules/common/reconcile.py` 的 `reconcile_derived_status` 每日运行，逐租户只读比对六类差异（排期未完成 / 卡未过期 / 卡未激活 / 卡未解冻 / 超期未作废 / 人数不足未取消），输出统计并打印告警，不修改数据。
 - 6.3 **未执行**：需生产观察两周且 6.2 差异为 0 后才能删除旧扫描代码，本次仅保留旧代码作为灰度回退路径。
 
 ## 附录：状态派生清单（阶段 0 产出 · 2026-11-24 基于真实代码复核）
