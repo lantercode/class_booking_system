@@ -9,7 +9,19 @@ from app.ai.agent.tool_schema import (
 )
 from app.ai.mcp_server import TOOL_SPECS, ToolSpec
 
-_READ_TOOL_NAMES = {"query_courses", "query_schedules", "get_my_bookings", "get_my_balance"}
+_READ_TOOL_NAMES = {
+    "query_courses",
+    "query_schedules",
+    "get_my_bookings",
+    "get_my_balance",
+    "query_expiring_cards",
+}
+_STUDENT_READ_TOOL_NAMES = {
+    "query_courses",
+    "query_schedules",
+    "get_my_bookings",
+    "get_my_balance",
+}
 _WRITE_TOOL_NAMES = {"create_booking", "cancel_booking"}
 
 
@@ -49,11 +61,11 @@ def test_build_openai_tools_rejects_unknown_name():
 
 
 def test_student_sees_four_readonly_tools():
-    assert allowed_tool_names({"student"}, readonly_only=True) == _READ_TOOL_NAMES
+    assert allowed_tool_names({"student"}, readonly_only=True) == _STUDENT_READ_TOOL_NAMES
 
 
 def test_teacher_and_admin_have_no_balance_tool():
-    expected = {"query_courses", "query_schedules", "get_my_bookings"}
+    expected = {"query_courses", "query_schedules", "get_my_bookings", "query_expiring_cards"}
     assert allowed_tool_names({"teacher"}, readonly_only=True) == expected
     assert allowed_tool_names({"admin"}, readonly_only=True) == expected
     assert allowed_tool_names({"super_admin"}, readonly_only=True) == expected
@@ -64,11 +76,17 @@ def test_no_role_sees_nothing():
     assert allowed_tool_names(set(), readonly_only=False) == set()
 
 
+def test_low_privilege_role_cannot_see_admin_alert_tool():
+    """P4-5：低权限角色不得看到管理员/教师的续费预警工具。"""
+    assert "query_expiring_cards" not in allowed_tool_names({"student"}, readonly_only=False)
+
+
 def test_readonly_gate_hides_write_tools():
     for roles in ({"student"}, {"teacher"}, {"admin"}):
         assert not (allowed_tool_names(roles, readonly_only=True) & _WRITE_TOOL_NAMES)
     assert (
-        allowed_tool_names({"student"}, readonly_only=False) == _READ_TOOL_NAMES | _WRITE_TOOL_NAMES
+        allowed_tool_names({"student"}, readonly_only=False)
+        == _STUDENT_READ_TOOL_NAMES | _WRITE_TOOL_NAMES
     )
 
 

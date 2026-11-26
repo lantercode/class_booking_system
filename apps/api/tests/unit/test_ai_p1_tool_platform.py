@@ -342,10 +342,12 @@ def test_tool_specs_cover_all_registered_tools():
         "get_my_balance",
         "create_booking",
         "cancel_booking",
+        "query_expiring_cards",
     }
     assert names == set(TOOL_SPECS)
     assert TOOL_SPECS["create_booking"].is_write is True
     assert TOOL_SPECS["query_courses"].is_write is False
+    assert TOOL_SPECS["query_expiring_cards"].is_write is False
 
 
 def test_tool_outcome_kind():

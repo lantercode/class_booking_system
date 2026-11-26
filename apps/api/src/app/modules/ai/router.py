@@ -15,14 +15,22 @@ AI 智能助手 API 路由
   GET  /api/v1/ai/intents       - 获取支持的意图列表（调试用）
 """
 
+import hashlib
+import json
 import time
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.agent.action_token import ActionTokenError, verify_action_token
 from app.ai.agent.runtime import AgentRuntime
+from app.ai.mcp_server import TOOL_SPECS, ToolContext, execute_tool, tool_context
+from app.core.database import get_session
+from app.core.exceptions import BusinessException
 from app.deps.auth import get_current_user, get_redis_client
+from app.modules.notification.service import record_audit
 
 router = APIRouter(prefix="/api/v1/ai", tags=["AI 智能助手"])
 
@@ -34,6 +42,10 @@ SESSION_ID_PATTERN = r"^[A-Za-z0-9_-]{1,64}$"
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=500)
     session_id: str = Field(default="default", pattern=SESSION_ID_PATTERN)
+
+
+class ConfirmActionRequest(BaseModel):
+    token: str = Field(..., min_length=10, max_length=4000)
 
 
 class ChatResponse(BaseModel):
@@ -81,6 +93,76 @@ async def chat(
             "timestamp": datetime.now().isoformat(),
             "has_pending_state": has_pending_state,
             "latency_ms": latency_ms,
+            "pending_action": getattr(agent_runtime, "pending_action", None),
+        },
+    )
+
+
+@router.post("/actions/confirm", response_model=ChatResponse)
+async def confirm_action(
+    body: ConfirmActionRequest,
+    db: AsyncSession = Depends(get_session),
+    redis_client=Depends(get_redis_client),
+    current_user: dict = Depends(get_current_user),
+):
+    """两阶段确认：校验令牌 → 幂等 → 通过统一 Tool 入口执行 → 写审计。"""
+    user_id = int(current_user["user_id"])
+    tenant_id = int(current_user["tenant_id"])
+
+    try:
+        data = verify_action_token(body.token, user_id=user_id, tenant_id=tenant_id)
+    except ActionTokenError as exc:
+        raise BusinessException(str(exc), code=400) from exc
+
+    action = data["action"]
+    payload = data["payload"]
+    spec = TOOL_SPECS.get(action)
+    if spec is None or not spec.is_write:
+        raise BusinessException("该操作不允许通过确认接口执行", code=400)
+
+    # 幂等：user_id + action + 参数指纹，24 小时内重复提交只执行一次
+    fingerprint = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    idem_key = f"ai:idem:{tenant_id}:{user_id}:{action}:{fingerprint}"
+    if redis_client is None:
+        raise BusinessException("服务暂不可用，请稍后再试", code=503)
+    acquired = await redis_client.set(idem_key, "1", nx=True, ex=86400)
+    if not acquired:
+        raise BusinessException("该操作已处理，请勿重复提交", code=409)
+
+    ctx = ToolContext(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        role_id=current_user.get("role_id"),
+    )
+    with tool_context(ctx):
+        outcome = await execute_tool(action, payload)
+
+    await record_audit(
+        db,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=f"ai.{action}",
+        target_type=action,
+        payload={
+            "params": payload,
+            "result_kind": outcome.kind,
+            "code": outcome.code,
+            "error_type": outcome.error_type,
+            "confirmation_source": "user_confirm",
+        },
+    )
+    await db.commit()
+
+    return ChatResponse(
+        code=0 if outcome.ok else outcome.code or 400,
+        msg="success" if outcome.ok else outcome.text,
+        data={
+            "action": action,
+            "success": outcome.ok,
+            "reply": outcome.text,
+            "timestamp": datetime.now().isoformat(),
         },
     )
 

@@ -4,7 +4,7 @@ import asyncio
 
 import pytest
 
-from app.ai.agent.loop import FALLBACK_REPLY, AgentLoop
+from app.ai.agent.loop import FALLBACK_REPLY, PENDING_CONFIRM_REPLY, AgentLoop
 from app.ai.llm.base import LLMResponse, ToolCall
 from app.ai.mcp_server import ToolOutcome
 
@@ -325,3 +325,180 @@ async def test_budget_exceeded_returns_fallback_without_raising():
     assert result.fallback_reason == "budget_exceeded"
     assert result.reply == FALLBACK_REPLY
     assert result.llm_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_multi_round_two_step_tool_chain():
+    """「先查课程 → 再查该课程排期」两步链路。"""
+    provider = ScriptedProvider(
+        [
+            LLMResponse(content="", tool_calls=(_tool_call("c1", '{"keyword": "瑜伽"}'),)),
+            LLMResponse(
+                content="",
+                tool_calls=(
+                    _tool_call("c2", '{"keyword": "瑜伽", "days": 7}', name="query_schedules"),
+                ),
+            ),
+            _final("这周有 3 节瑜伽课"),
+        ]
+    )
+    calls: list[str] = []
+
+    async def executor(name, args):
+        calls.append(name)
+        return ToolOutcome("success", f"{name} 结果")
+
+    result = await _run(
+        provider,
+        executor,
+        max_loops=4,
+        allowed={"query_courses", "query_schedules"},
+    )
+
+    assert calls == ["query_courses", "query_schedules"]
+    assert result.llm_calls == 3
+    assert result.tool_calls == 2
+    assert result.reply == "这周有 3 节瑜伽课"
+    assert result.fallback_reason is None
+
+
+@pytest.mark.asyncio
+async def test_readonly_tool_retries_once_on_timeout():
+    provider = ScriptedProvider(
+        [
+            LLMResponse(content="", tool_calls=(_tool_call("c1", '{"keyword": "瑜伽"}'),)),
+            _final("找到 1 门课程"),
+        ]
+    )
+    outcomes = [
+        ToolOutcome("system_error", "操作失败", error_type="TimeoutError"),
+        ToolOutcome("success", "共 1 门课程：瑜伽"),
+    ]
+    attempts = 0
+
+    async def executor(name, args):
+        nonlocal attempts
+        attempts += 1
+        return outcomes.pop(0)
+
+    result = await _run(provider, executor)
+
+    assert attempts == 2
+    assert result.tool_calls == 1
+    assert result.reply == "找到 1 门课程"
+    tool_message = next(m for m in provider.received[1] if m.get("role") == "tool")
+    assert "status=success" in tool_message["content"]
+
+
+@pytest.mark.asyncio
+async def test_retry_gives_up_after_one_attempt():
+    provider = ScriptedProvider(
+        [
+            LLMResponse(content="", tool_calls=(_tool_call("c1", '{"keyword": "瑜伽"}'),)),
+            _final("查询失败"),
+        ]
+    )
+    attempts = 0
+
+    async def executor(name, args):
+        nonlocal attempts
+        attempts += 1
+        return ToolOutcome("system_error", "操作失败", error_type="TimeoutError")
+
+    result = await _run(provider, executor)
+
+    assert attempts == 2
+    assert result.tool_calls == 1
+    tool_message = next(m for m in provider.received[1] if m.get("role") == "tool")
+    assert "status=system_error" in tool_message["content"]
+
+
+@pytest.mark.asyncio
+async def test_business_error_is_not_retried():
+    provider = ScriptedProvider(
+        [
+            LLMResponse(content="", tool_calls=(_tool_call("c1", '{"keyword": "瑜伽"}'),)),
+            _final("没有权限"),
+        ]
+    )
+    attempts = 0
+
+    async def executor(name, args):
+        nonlocal attempts
+        attempts += 1
+        return ToolOutcome("business_error", "没有权限", code=403, error_type="Permission")
+
+    await _run(provider, executor)
+
+    assert attempts == 1
+
+
+@pytest.mark.asyncio
+async def test_write_tool_only_proposes_and_never_executes():
+    provider = ScriptedProvider(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=(_tool_call("c1", '{"schedule_id": 1}', name="create_booking"),),
+            ),
+        ]
+    )
+    attempts = 0
+
+    async def executor(name, args):
+        nonlocal attempts
+        attempts += 1
+        raise AssertionError("写操作不得在对话轮内执行")
+
+    result = await _run(provider, executor, allowed={"create_booking"})
+
+    assert attempts == 0
+    assert result.tool_calls == 0
+    assert result.proposed_action == {
+        "action": "create_booking",
+        "payload": {"schedule_id": 1},
+    }
+    assert result.reply == PENDING_CONFIRM_REPLY
+
+
+@pytest.mark.asyncio
+async def test_multiple_write_calls_only_propose_first():
+    provider = ScriptedProvider(
+        [
+            LLMResponse(
+                content="",
+                tool_calls=(
+                    _tool_call("c1", '{"schedule_id": 1}', name="create_booking"),
+                    _tool_call("c2", '{"schedule_id": 2}', name="create_booking"),
+                ),
+            ),
+        ]
+    )
+
+    async def executor(name, args):  # pragma: no cover
+        raise AssertionError("写操作不得在对话轮内执行")
+
+    result = await _run(provider, executor, allowed={"create_booking"})
+
+    assert result.proposed_action == {
+        "action": "create_booking",
+        "payload": {"schedule_id": 1},
+    }
+
+
+@pytest.mark.asyncio
+async def test_max_loops_four_converges():
+    responses = [
+        LLMResponse(content="", tool_calls=(_tool_call(f"c{i}", '{"keyword": "a"}'),))
+        for i in range(6)
+    ]
+    provider = ScriptedProvider(responses)
+
+    async def executor(name, args):
+        return ToolOutcome("success", "ok")
+
+    result = await _run(provider, executor, max_loops=4)
+
+    assert result.llm_calls == 4
+    assert result.fallback_reason == "max_loops_exceeded"
+    assert result.reply == FALLBACK_REPLY

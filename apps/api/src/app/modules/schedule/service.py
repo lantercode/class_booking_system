@@ -5,16 +5,19 @@ Schedule Service - 排期业务逻辑层
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.exceptions import BusinessException, NotFoundException, ValidationException
 from app.modules.classroom.repository import ClassroomRepository
 from app.modules.course.models import Classroom, Course
 from app.modules.course.repository import CourseRepository
+from app.modules.notify.bus import publish_change
+from app.modules.schedule.jobs import cancel_schedule_jobs, safe_sync_schedule_jobs
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.schemas import (
@@ -42,6 +45,51 @@ def _is_serialization_failure(exc: BaseException) -> bool:
     if getattr(orig, "sqlstate", None) == "40001":
         return True
     return "could not serialize access" in str(orig)
+
+
+# ============================================================
+# 状态纯派生：display_status 由时间推导，DB status 只承载业务语义
+# ============================================================
+
+
+def derive_schedule_display_status(
+    *,
+    start_at: datetime | None,
+    end_at: datetime | None,
+    db_status: int,
+    grace_minutes: int = 30,
+    now: datetime | None = None,
+) -> int:
+    """排期展示状态纯函数：时间优先，覆盖 DB 未及时写入 FINISHED 的脏数据。
+
+    返回值：1 待上课 / 2 上课中 / 3 已取消 / 4 已完成。
+    - ``db_status=CANCELLED`` → 3（业务取消，与时间无关）；
+    - ``end_at + grace_minutes <= now`` → 4（时间已过即算已完成，不管 DB status 是 NORMAL 还是 FINISHED）；
+    - ``start_at <= now < end_at`` → 2（上课中）；
+    - 其余 → 1（待上课）。
+    """
+    now = now or datetime.now(UTC)
+
+    if db_status == ScheduleStatus.CANCELLED.value:
+        return 3
+
+    if db_status == ScheduleStatus.FINISHED.value:
+        return 4
+
+    if start_at is None or end_at is None:
+        # 无时间信息：退回 DB status 语义（FINISHED → 4，NORMAL → 1）
+        if db_status == ScheduleStatus.FINISHED.value:
+            return 4
+        return 1
+
+    # 时间已过 + 宽限期 → 已完成（覆盖 DB 未及时写入 FINISHED 的情况）
+    if end_at + timedelta(minutes=grace_minutes) <= now:
+        return 4
+
+    if start_at <= now < end_at:
+        return 2
+
+    return 1
 
 
 class ScheduleService:
@@ -198,6 +246,9 @@ class ScheduleService:
             )
 
         logger.info(f"[ScheduleService] ✅ 排期创建成功: id={schedule.id}")
+
+        # 阶段 3：投递延迟任务（自动完成 / 人数不足取消），失败不影响创建
+        await safe_sync_schedule_jobs(db, schedule)
         return self._to_response(schedule)
 
     async def update_schedule(
@@ -300,6 +351,9 @@ class ScheduleService:
         await db.refresh(schedule)
 
         logger.info(f"[ScheduleService] ✅ 排期更新成功: id={schedule_id}")
+
+        # 阶段 3：时间/课程变更后覆盖既有延迟任务的 run_at（不重复执行）
+        await safe_sync_schedule_jobs(db, schedule)
         return self._to_response(schedule)
 
     async def cancel_schedule(
@@ -406,6 +460,16 @@ class ScheduleService:
         schedule = await self.repo.update(db, schedule_id, update_data)
         await db.commit()
         await db.refresh(schedule)
+
+        # 阶段 3：取消后撤销未执行的延迟任务
+        await cancel_schedule_jobs(db, schedule)
+        # 阶段 4.4：租户内广播取消信号（管理端刷新列表）
+        await publish_change(
+            tenant_id=schedule.tenant_id,
+            user_id=0,
+            type="schedule.cancelled",
+            entity_id=schedule.id,
+        )
 
         logger.warning(
             f"[ScheduleService] ✅ 排期已取消: id={schedule_id}, "
@@ -709,22 +773,18 @@ class ScheduleService:
         teacher_name: str | None = None,
         classroom_name: str | None = None,
     ) -> ScheduleResponse:
-        """将 ORM 模型转换为响应对象"""
-        # 计算显示状态：1待上课/2上课中/3已取消/4已完成
-        now = datetime.now(UTC)
-        if schedule.status == ScheduleStatus.CANCELLED.value:
-            display_status = 3  # 已取消
-        elif schedule.status == ScheduleStatus.FINISHED.value:
-            display_status = 4  # 已完成
-        elif schedule.status == ScheduleStatus.NORMAL.value:
-            if schedule.end_at < now:
-                display_status = 4  # 已完成（时间已过但未标记）
-            elif schedule.start_at <= now <= schedule.end_at:
-                display_status = 2  # 上课中
-            else:
-                display_status = 1  # 待上课
-        else:
-            display_status = schedule.status
+        """将 ORM 模型转换为响应对象
+
+        display_status 由时间纯派生（``derive_schedule_display_status``），
+        DB status 仅承载业务语义（CANCELLED / FINISHED / NORMAL）。
+        """
+        grace_minutes = get_settings().AUTO_FINISH_GRACE_MINUTES
+        display_status = derive_schedule_display_status(
+            start_at=schedule.start_at,
+            end_at=schedule.end_at,
+            db_status=schedule.status,
+            grace_minutes=grace_minutes,
+        )
 
         return ScheduleResponse(
             id=schedule.id,

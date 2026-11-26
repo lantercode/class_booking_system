@@ -23,11 +23,14 @@ from app.modules.membership.models import (
     MembershipCardProduct,
     MembershipCardTransaction,
 )
-from app.modules.notification.models import AuditLog
+from app.modules.notification.models import AuditLog, Notification  # noqa: F401
 from app.modules.order.models import Order
 from app.modules.payment.models import Payment
 from app.modules.schedule.models import CourseSchedule
 from app.modules.student.models import StudentProfile
+
+# 异步任务队列（依赖 Tenant 先注册）
+from app.modules.task.models import JobQueue  # noqa: F401
 from app.modules.teacher.models import TeacherProfile
 from app.modules.tenant.models import Tenant
 
@@ -62,6 +65,8 @@ __all__ = [
     "AuditLog",
     "WechatAccount",
     "FileObject",
+    # 异步任务
+    "JobQueue",
     # 首页配置
     "HomeConfig",
 ]

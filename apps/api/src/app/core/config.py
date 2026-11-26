@@ -67,12 +67,30 @@ class Settings(BaseSettings):
     AI_LLM_TOTAL_BUDGET_MS: int = 15000
     AI_LLM_MAX_TOKENS: int = 800
     AI_LLM_MAX_RETRIES: int = 2
-    # 单请求最大模型调用轮次（Phase 1 为 2；Phase 2 再调整）
-    AI_LLM_MAX_TOOL_LOOPS: int = 2
+    # 单请求最大模型调用轮次（Phase 2 默认 4；P95 超 12 秒时回退为 2）
+    AI_LLM_MAX_TOOL_LOOPS: int = 4
+    # 上下文裁剪：历史消息条数上限与字符预算（双限，优先保留最近消息）
+    AI_LLM_HISTORY_LIMIT: int = 6
+    AI_LLM_HISTORY_MAX_CHARS: int = 2000
     # 只读闸门：为 True 时写工具不进入模型可见工具集
     AI_LLM_READONLY_ONLY: bool = True
+    # 写操作 Agent 总开关：仅当 READONLY_ONLY=False 且本项为 True 时写工具才可见
+    AI_LLM_WRITE_TOOLS: bool = False
     # 租户灰度白名单（逗号分隔租户标识），空表示不启用
     AI_LLM_ENABLED_TENANTS: str = ""
+
+    # ============================================================
+    # 会员续费预警（站内消息；默认关闭，按租户灰度）
+    # ============================================================
+    AI_RENEWAL_ALERT_ENABLED: bool = False
+    # N 天内到期即预警
+    AI_RENEWAL_ALERT_DAYS: int = 7
+    # 剩余课时 ≤ 阈值即预警
+    AI_RENEWAL_ALERT_CREDITS_THRESHOLD: int = 3
+    # 单租户每日最多发送条数（防打扰）
+    AI_RENEWAL_ALERT_MAX_PER_DAY: int = 50
+    # 租户白名单（逗号分隔 tenant_id），空表示不启用
+    AI_RENEWAL_ALERT_TENANTS: str = ""
 
     # Redis 认证密码；开发环境可留空，生产环境必须设置
     REDIS_PASSWORD: str = ""
@@ -103,6 +121,26 @@ class Settings(BaseSettings):
     # F6.3：PENDING 期卡超期未激活自动作废
     PENDING_CARD_CANCEL_ENABLED: bool = True
     PENDING_CARD_CANCEL_DAYS: int = 90
+
+    # ============================================================
+    # 异步任务队列（JobQueue）
+    # ============================================================
+    # Worker 总开关；默认关闭，生产环境置 True
+    TASK_WORKER_ENABLED: bool = False
+    # 每轮 claim 批量捞取的最大任务数
+    TASK_WORKER_BATCH_SIZE: int = 20
+    # RUNNING 状态的租约超时（秒）；超过此值未更新租约的任务可被其他 Worker 捞回
+    TASK_WORKER_LEASE_SECONDS: int = 120
+    # 单次入队的最大重试次数（attempts 达到此值后标记为 DEAD，不再重试）
+    TASK_WORKER_MAX_ATTEMPTS: int = 3
+    # Worker 主循环 tick 间隔（秒）
+    TASK_WORKER_TICK_SECONDS: float = 1.0
+
+    # ---- 实时推送（阶段 4） ----
+    NOTIFY_HEARTBEAT_SECONDS: int = 25
+    NOTIFY_MAX_CONNECTIONS_PER_USER: int = 3
+    # 单用户（user_id=0 为租户广播）每秒最多投递的信号数，超限丢弃（可凭 HTTP 补齐）
+    NOTIFY_MAX_EVENTS_PER_SECOND: int = 20
 
     # ============================================================
     # F7：文件存储配置

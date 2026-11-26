@@ -23,9 +23,6 @@ from app.modules.membership.models import (
     CardStatus,
     CardType,
     MembershipCard,
-    MembershipCardFreeze,
-    MembershipCardTransaction,
-    TransactionType,
 )
 from app.modules.tenant.models import Tenant, TenantStatus
 
@@ -101,20 +98,23 @@ async def _expire_cards_in_transaction(db, now: datetime):
 
 
 async def auto_activate_membership_cards():
-    """
-    自动激活已到生效时间但未激活的会员卡
+    """自动激活已到生效时间但未激活的会员卡。
 
-    执行逻辑:
-    1. 遍历所有 ACTIVE 租户，逐租户设置 ContextVar
-    2. 【关键】先执行过期处理，确保卡状态正确（防止误判冲突）
-    3. 找到 valid_from <= now 且 status=PENDING 的会员卡
-    4. 检查是否有同课程类型且时间重叠的有效卡
-    5. 将状态改为 ACTIVE
-    6. 计算 expire_at（如果有有效天数）
-    7. 记录激活流水
+    调度侧只负责「发现候选」；实际状态流转统一收口到
+    ``MembershipCardService.auto_activate_card``（不再裸写 card.status）：
 
-    单租户处理失败仅记录日志，不中断其他租户。
+    - ``TASK_WORKER_ENABLED=true``：逐卡入队 ``activate_membership_card``，
+      由 JobWorker 异步消费；
+    - ``TASK_WORKER_ENABLED=false``：本线程直接调 Service，保持同步生效。
+
+    单租户/单卡失败仅记录日志，不中断其他租户。
     """
+    from app.modules.membership.service import membership_card_service
+    from app.modules.task.service import task_service
+
+    via_queue = get_settings().TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
+
     tenants = await _get_active_tenants()
     if not tenants:
         return
@@ -130,124 +130,63 @@ async def auto_activate_membership_cards():
                 # 这样可以避免已过期但状态仍为ACTIVE的卡被误判为冲突
                 await _expire_cards_in_transaction(db, now)
 
-                result = await db.execute(
-                    select(MembershipCard).where(
-                        MembershipCard.valid_from <= now,
-                        MembershipCard.status == CardStatus.PENDING.value,
-                    )
+                card_ids = list(
+                    (
+                        await db.execute(
+                            select(MembershipCard.id).where(
+                                MembershipCard.valid_from <= now,
+                                MembershipCard.status == CardStatus.PENDING.value,
+                            )
+                        )
+                    ).scalars().all()
                 )
-                cards = result.scalars().all()
 
-                if not cards:
+                if not card_ids:
                     continue
 
-                card_ids = [c.id for c in cards]
                 logger.info(
                     f"[定时任务][租户{tenant_id}] 发现 {len(card_ids)} 个待激活会员卡, ids={card_ids}"
                 )
 
-                success_count = 0
+                activated_count = 0
+                skipped_count = 0
                 fail_count = 0
 
-                for card in cards:
+                for card_id in card_ids:
                     try:
-                        # 检查学员是否已有同课程类型且时间重叠的有效卡（防止同一时段多张卡重叠）
-                        # 注意：这里检查所有有效卡，不只是同产品的卡
-                        from app.modules.membership.repository import MembershipCardRepository
-
-                        card_repo = MembershipCardRepository()
-                        all_existing_cards = await card_repo.get_active_cards_by_student(
-                            db, card.student_id, card.tenant_id
-                        )
-
-                        # 过滤出课程类型相同且时间重叠的卡
-                        has_conflict = False
-                        new_card_course_type = card.applicable_course_type_code
-
-                        if new_card_course_type:
-                            for existing_card in all_existing_cards:
-                                # 【关键】跳过当前正在处理的卡本身,避免"自己与自己冲突"
-                                if existing_card.id == card.id:
-                                    continue
-
-                                existing_course_type = existing_card.applicable_course_type_code
-                                # 如果课程类型相同
-                                if existing_course_type == new_card_course_type:
-                                    # 检查时间是否重叠
-                                    existing_valid_from = existing_card.valid_from
-                                    existing_expire_at = existing_card.expire_at
-
-                                    if (
-                                        card.valid_from
-                                        and existing_expire_at
-                                        and card.expire_at
-                                        and existing_valid_from
-                                    ):
-                                        if (
-                                            card.valid_from <= existing_expire_at
-                                            and existing_valid_from <= card.expire_at
-                                        ):
-                                            has_conflict = True
-                                            break
-
-                        if has_conflict:
-                            logger.warning(
-                                f"[定时任务][租户{tenant_id}] 跳过激活会员卡 {card.id}："
-                                f"学员 {card.student_id} 已有同课程类型的有效卡"
+                        if via_queue:
+                            job = await task_service.enqueue(
+                                db,
+                                tenant_id=tenant_id,
+                                type="activate_membership_card",
+                                # 按天去重：DEAD 后次日仍可重新入队；激活成功后
+                                # 卡状态不再是 PENDING，次日扫描不会再选中。
+                                idempotency_key=f"card-activate:{card_id}:{job_date}",
+                                payload={"card_id": card_id},
                             )
-                            continue
-
-                        card.status = CardStatus.ACTIVE.value
-
-                        # 如果有有效天数，计算到期时间
-                        # F6.3 T6.3.6：优先使用发卡时快照 card.validity_days，
-                        # 回退产品配置，避免产品后续变更导致卡条款漂移。
-                        validity_days = card.validity_days
-                        if not validity_days and card.product_id:
-                            from app.modules.membership.models import MembershipCardProduct
-
-                            product_result = await db.execute(
-                                select(MembershipCardProduct).where(
-                                    MembershipCardProduct.id == card.product_id,
-                                    MembershipCardProduct.tenant_id == card.tenant_id,
+                            if job is not None:
+                                activated_count += 1
+                        else:
+                            async with db.begin_nested():
+                                card = await membership_card_service.auto_activate_card(
+                                    db, card_id, tenant_id
                                 )
-                            )
-                            product = product_result.scalars().first()
-                            validity_days = product.validity_days if product else None
-
-                        if validity_days:
-                            # 使用与 service.py 相同的计算逻辑：起始日期算作第1天
-                            expire_date = card.valid_from.date() + timedelta(days=validity_days - 1)
-                            card.expire_at = datetime(
-                                year=expire_date.year,
-                                month=expire_date.month,
-                                day=expire_date.day,
-                                hour=23,
-                                minute=59,
-                                second=59,
-                                tzinfo=card.valid_from.tzinfo or UTC,
-                            )
-
-                        txn = MembershipCardTransaction(
-                            tenant_id=card.tenant_id,
-                            card_id=card.id,
-                            operation_type=TransactionType.ISSUE.value,
-                            change_amount=0,
-                            balance_after=(card.total_credits or 0) - card.used_credits,
-                            remark="会员卡自动激活",
-                        )
-                        db.add(txn)
-                        success_count += 1
-
+                            if card is not None:
+                                activated_count += 1
+                            else:
+                                skipped_count += 1
                     except Exception as e:
-                        logger.exception(f"[定时任务][租户{tenant_id}] 卡 {card.id} 失败: {e}")
+                        logger.exception(f"[定时任务][租户{tenant_id}] 卡 {card_id} 失败: {e}")
                         fail_count += 1
                         continue
 
                 await db.commit()
 
                 logger.info(
-                    f"[定时任务][租户{tenant_id}] 自动激活完成: 成功 {success_count} 个, 失败 {fail_count} 个"
+                    f"[定时任务][租户{tenant_id}] 自动激活"
+                    f"{'入队' if via_queue else '完成'}: "
+                    f"{'入队' if via_queue else '成功'} {activated_count} 个, "
+                    f"跳过 {skipped_count} 个, 失败 {fail_count} 个"
                 )
         except Exception as e:
             logger.exception(
@@ -270,7 +209,17 @@ async def auto_expire_membership_cards():
     5. 记录过期流水
 
     单租户处理失败仅记录日志，不中断其他租户。
+
+    状态流转收口在 ``MembershipCardService.expire_card``（逐卡行锁 + 状态重检，
+    幂等）：``TASK_WORKER_ENABLED=true`` 时逐卡入队 ``expire_membership_card``，
+    否则本线程直接调 Service。
     """
+    from app.modules.membership.service import membership_card_service
+    from app.modules.task.service import task_service
+
+    via_queue = get_settings().TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
+
     tenants = await _get_active_tenants()
     if not tenants:
         return
@@ -280,8 +229,6 @@ async def auto_expire_membership_cards():
         set_tenant_id(tenant_id)
         try:
             async with SessionLocal() as db:
-                from app.modules.membership.service import membership_card_service
-
                 now = datetime.now(UTC)
 
                 # F6.3 T6.3.6：扫描范围扩展为 ACTIVE / PENDING（兼容历史带
@@ -304,31 +251,47 @@ async def auto_expire_membership_cards():
                     f"[定时任务][租户{tenant_id}] 发现 {len(card_ids)} 个已过期会员卡, ids={card_ids}"
                 )
 
-                success_count = 0
+                expired_count = 0
+                skipped_count = 0
                 fail_count = 0
 
                 for card_id in card_ids:
                     try:
-                        async with db.begin_nested():
-                            card = await membership_card_service.expire_card(
-                                db, card_id, tenant_id
+                        if via_queue:
+                            job = await task_service.enqueue(
+                                db,
+                                tenant_id=tenant_id,
+                                type="expire_membership_card",
+                                # 按天去重：DEAD 后次日仍可重新入队；已过期卡不再是
+                                # ACTIVE/PENDING，次日扫描不会再选中。
+                                idempotency_key=f"card-expire:{card_id}:{job_date}",
+                                payload={"card_id": card_id},
                             )
-                        if card.status == CardStatus.EXPIRED.value:
-                            success_count += 1
+                            if job is not None:
+                                expired_count += 1
                         else:
-                            logger.info(
-                                f"[定时任务][租户{tenant_id}] 卡 {card_id} 已被其他流程处理，跳过"
-                            )
+                            async with db.begin_nested():
+                                card = await membership_card_service.expire_card(
+                                    db, card_id, tenant_id
+                                )
+                            if card.status == CardStatus.EXPIRED.value:
+                                expired_count += 1
+                            else:
+                                skipped_count += 1
                     except Exception as e:
                         logger.exception(
                             f"[定时任务][租户{tenant_id}] 卡 {card_id} 失败: {e}"
                         )
                         fail_count += 1
+                        continue
 
                 await db.commit()
 
                 logger.info(
-                    f"[定时任务][租户{tenant_id}] 自动标记完成: 成功 {success_count} 个, 失败 {fail_count} 个"
+                    f"[定时任务][租户{tenant_id}] 自动过期"
+                    f"{'入队' if via_queue else '标记'}完成: "
+                    f"{'入队' if via_queue else '成功'} {expired_count} 个, "
+                    f"跳过 {skipped_count} 个, 失败 {fail_count} 个"
                 )
         except Exception as e:
             logger.exception(
@@ -346,11 +309,19 @@ async def notify_expiring_membership_cards():
     执行逻辑:
     1. 遍历所有 ACTIVE 租户，逐租户设置 ContextVar
     2. 找到 expire_at 在 3 天内且 status=ACTIVE 的会员卡
-    3. 记录提醒日志（实际项目中可接入短信/推送/微信模板消息）
+    3. 按卡生成幂等站内提醒（同一卡同一到期日只提醒一次）
 
-    注意：此任务应每天运行一次
+    ``TASK_WORKER_ENABLED=true`` 时逐卡入队 ``notify_card_expiring``，
+    否则本线程直接调 NotificationService。此任务应每天运行一次。
+
     单租户处理失败仅记录日志，不中断其他租户。
     """
+    from app.modules.notification.service import notification_service
+    from app.modules.task.service import task_service
+
+    via_queue = get_settings().TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
+
     tenants = await _get_active_tenants()
     if not tenants:
         return
@@ -381,29 +352,68 @@ async def notify_expiring_membership_cards():
                     f"[定时任务][租户{tenant_id}] 发现 {len(card_ids)} 个即将到期的会员卡, ids={card_ids}"
                 )
 
-                success_count = 0
+                created_count = 0
                 fail_count = 0
 
                 for card in cards:
                     try:
                         remaining = (card.total_credits or 0) - card.used_credits
                         days_left = (card.expire_at - now).days
-
-                        # TODO: 实际项目中应接入通知服务
-                        # 例如：发送短信、微信模板消息、App推送等
-                        logger.info(
-                            f"[到期提醒][租户{tenant_id}] 会员卡 {card.id} (学员ID: {card.student_id}) "
-                            f"将在 {days_left} 天后到期，剩余次数: {remaining}"
+                        expire_date = card.expire_at.strftime("%Y-%m-%d")
+                        # 同一卡同一到期日只提醒一次
+                        idempotency_key = (
+                            f"card_expiring:{card.id}:{card.expire_at.strftime('%Y%m%d')}"
                         )
-                        success_count += 1
+                        title = "会员卡即将到期"
+                        content = (
+                            f"您的会员卡将于 {days_left} 天后（{expire_date}）到期，"
+                            f"剩余 {remaining} 次，请及时续费。"
+                        )
 
+                        if via_queue:
+                            job = await task_service.enqueue(
+                                db,
+                                tenant_id=tenant_id,
+                                type="notify_card_expiring",
+                                # 按天去重：任务 DEAD 后次日可重新入队重试，
+                                # 通知侧幂等键保证同一到期日只发一条。
+                                idempotency_key=(
+                                    f"card-expiry-notify:{card.id}:"
+                                    f"{card.expire_at.strftime('%Y%m%d')}:{job_date}"
+                                ),
+                                payload={
+                                    "user_id": card.student_id,
+                                    "type": "card_expiry_reminder",
+                                    "title": title,
+                                    "content": content,
+                                    "idempotency_key": idempotency_key,
+                                },
+                            )
+                            if job is not None:
+                                created_count += 1
+                        else:
+                            new_id = await notification_service.create_idempotent(
+                                db,
+                                tenant_id=tenant_id,
+                                user_id=card.student_id,
+                                type="card_expiry_reminder",
+                                title=title,
+                                content=content,
+                                idempotency_key=idempotency_key,
+                            )
+                            if new_id is not None:
+                                created_count += 1
                     except Exception as e:
                         logger.exception(f"[定时任务][租户{tenant_id}] 卡 {card.id} 失败: {e}")
                         fail_count += 1
                         continue
 
+                await db.commit()
+
                 logger.info(
-                    f"[定时任务][租户{tenant_id}] 到期提醒完成: 成功 {success_count} 个, 失败 {fail_count} 个"
+                    f"[定时任务][租户{tenant_id}] 到期提醒"
+                    f"{'入队' if via_queue else '完成'}: "
+                    f"{'入队' if via_queue else '新增'} {created_count} 条, 失败 {fail_count} 条"
                 )
         except Exception as e:
             logger.exception(
@@ -428,8 +438,16 @@ async def auto_unfreeze_membership_cards():
     7. 更新冻结记录的unfrozen_at
 
     单租户处理失败仅记录日志，不中断其他租户。
+
+    状态流转收口在 ``MembershipCardService.auto_unfreeze_card``：
+    ``TASK_WORKER_ENABLED=true`` 时逐卡入队 ``unfreeze_membership_card``，
+    否则本线程直接调 Service。
     """
-    from app.modules.membership.repository import MembershipCardRepository
+    from app.modules.membership.service import membership_card_service
+    from app.modules.task.service import task_service
+
+    via_queue = get_settings().TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
 
     tenants = await _get_active_tenants()
     if not tenants:
@@ -443,126 +461,60 @@ async def auto_unfreeze_membership_cards():
                 now = datetime.now(UTC)
 
                 result = await db.execute(
-                    select(MembershipCard).where(
+                    select(MembershipCard.id).where(
                         MembershipCard.frozen_until <= now,
                         MembershipCard.status == CardStatus.FROZEN.value,
                         MembershipCard.frozen_until.isnot(None),
                     )
                 )
-                cards = result.scalars().all()
+                card_ids = list(result.scalars().all())
 
-                if not cards:
+                if not card_ids:
                     continue
 
-                card_ids = [c.id for c in cards]
                 logger.info(
                     f"[定时任务][租户{tenant_id}] 发现 {len(card_ids)} 个冻结到期的会员卡, ids={card_ids}"
                 )
 
-                card_repo = MembershipCardRepository()
                 unfrozen_count = 0
                 conflict_count = 0
-                resolved_count = 0
                 fail_count = 0
 
-                for card in cards:
+                for card_id in card_ids:
                     try:
-                        # 检查是否存在同课程类型且时间重叠的有效卡
-                        all_existing_cards = await card_repo.get_active_cards_by_student(
-                            db, card.student_id, card.tenant_id
-                        )
-
-                        has_conflict = False
-                        card_course_type = card.applicable_course_type_code
-
-                        if card_course_type:
-                            for existing_card in all_existing_cards:
-                                # 跳过当前卡本身
-                                if existing_card.id == card.id:
-                                    continue
-
-                                existing_course_type = existing_card.applicable_course_type_code
-                                if existing_course_type == card_course_type:
-                                    existing_valid_from = existing_card.valid_from
-                                    existing_expire_at = existing_card.expire_at
-
-                                    if (
-                                        card.valid_from
-                                        and existing_valid_from
-                                        and card.expire_at
-                                        and existing_expire_at
-                                    ):
-                                        # 检查时间重叠
-                                        if card.valid_from <= existing_expire_at and existing_valid_from <= card.expire_at:
-                                            has_conflict = True
-                                            break
-
-                        if has_conflict:
-                            # 仍有冲突，更新冻结原因
-                            conflict_msg = (
-                                f"冻结到期但因课程冲突无法自动解冻（{card_course_type}），请联系管理员处理"
+                        if via_queue:
+                            job = await task_service.enqueue(
+                                db,
+                                tenant_id=tenant_id,
+                                type="unfreeze_membership_card",
+                                # 按天去重：DEAD 后次日可重新入队；已解冻卡不再是
+                                # FROZEN，次日扫描不会再选中。
+                                idempotency_key=f"card-unfreeze:{card_id}:{job_date}",
+                                payload={"card_id": card_id},
                             )
-                            if card.frozen_reason != conflict_msg:
-                                card.frozen_reason = conflict_msg
-                                logger.warning(
-                                    f"[定时任务][租户{tenant_id}] 卡 {card.id}（学员 {card.student_id}）"
-                                    f"冻结到期但存在冲突，已更新冻结原因"
+                            if job is not None:
+                                unfrozen_count += 1
+                        else:
+                            async with db.begin_nested():
+                                card = await membership_card_service.auto_unfreeze_card(
+                                    db, card_id, tenant_id
                                 )
-                            conflict_count += 1
-                            continue
-
-                        # 冲突已解决或无冲突，自动解冻
-                        card.status = CardStatus.ACTIVE.value
-
-                        # 根据冻结时保存的剩余天数重新计算有效期
-                        if card.frozen_remaining_days is not None and card.frozen_remaining_days > 0:
-                            card.expire_at = now + timedelta(days=card.frozen_remaining_days)
-
-                        # 在清除 frozen_reason 之前先保存，用于后续判断是否曾经有冲突
-                        had_conflict_before_unfreeze = "课程冲突" in (card.frozen_reason or "")
-
-                        # 更新最新的冻结记录（必须在清除 frozen_reason 之前完成）
-                        result = await db.execute(
-                            select(MembershipCardFreeze)
-                            .where(
-                                MembershipCardFreeze.card_id == card.id,
-                                MembershipCardFreeze.unfrozen_at.is_(None),
-                            )
-                            .order_by(MembershipCardFreeze.created_at.desc())
-                            .limit(1)
-                        )
-                        freeze_record = result.scalars().first()
-                        if freeze_record:
-                            freeze_record.unfrozen_at = now
-
-                        # 清除冻结信息
-                        card.frozen_reason = None
-                        card.frozen_at = None
-                        card.frozen_until = None
-                        card.frozen_remaining_days = None
-
-                        # 检查之前是否有冲突标记，如果有则记录日志
-                        if had_conflict_before_unfreeze:
-                            resolved_count += 1
-                            logger.info(
-                                f"[定时任务][租户{tenant_id}] 卡 {card.id}（学员 {card.student_id}）"
-                                f"冲突已解决，自动解冻"
-                            )
-
-                        unfrozen_count += 1
-
+                            if card.status == CardStatus.ACTIVE.value:
+                                unfrozen_count += 1
+                            else:
+                                conflict_count += 1
                     except Exception as e:
-                        logger.exception(f"[定时任务][租户{tenant_id}] 卡 {card.id} 失败: {e}")
+                        logger.exception(f"[定时任务][租户{tenant_id}] 卡 {card_id} 失败: {e}")
                         fail_count += 1
                         continue
 
                 await db.commit()
 
                 logger.info(
-                    f"[定时任务][租户{tenant_id}] 自动解冻完成：成功 {unfrozen_count} 张，"
-                    f"冲突跳过 {conflict_count} 张，"
-                    f"冲突解决 {resolved_count} 张，"
-                    f"失败 {fail_count} 张"
+                    f"[定时任务][租户{tenant_id}] 自动解冻"
+                    f"{'入队' if via_queue else '完成'}："
+                    f"{'入队' if via_queue else '成功'} {unfrozen_count} 张，"
+                    f"冲突跳过 {conflict_count} 张，失败 {fail_count} 张"
                 )
         except Exception as e:
             logger.exception(
@@ -590,8 +542,11 @@ async def auto_cancel_pending_membership_cards():
 
     from app.modules.booking.service import BookingService
     from app.modules.membership.service import membership_card_service
+    from app.modules.task.service import task_service
 
     booking_service = BookingService()
+    via_queue = get_settings().TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
     tenants = await _get_active_tenants()
     if not tenants:
         return
@@ -636,12 +591,25 @@ async def auto_cancel_pending_membership_cards():
                             skipped_count += 1
                             continue
 
-                        async with db.begin_nested():
-                            card = await membership_card_service.cancel_pending_card(
-                                db, card_id, tenant_id, days=days
+                        if via_queue:
+                            job = await task_service.enqueue(
+                                db,
+                                tenant_id=tenant_id,
+                                type="cancel_pending_membership_card",
+                                # 按天去重：DEAD 后次日可重新入队；已作废卡不再是
+                                # PENDING，次日扫描不会再选中。
+                                idempotency_key=f"card-cancel-pending:{card_id}:{job_date}",
+                                payload={"card_id": card_id, "days": days},
                             )
-                        if card.status == CardStatus.CANCELLED.value:
-                            cancelled_count += 1
+                            if job is not None:
+                                cancelled_count += 1
+                        else:
+                            async with db.begin_nested():
+                                card = await membership_card_service.cancel_pending_card(
+                                    db, card_id, tenant_id, days=days
+                                )
+                            if card.status == CardStatus.CANCELLED.value:
+                                cancelled_count += 1
                     except Exception as e:
                         logger.exception(
                             f"[定时任务][租户{tenant_id}] 期卡 {card_id} 作废失败: {e}"
@@ -651,13 +619,122 @@ async def auto_cancel_pending_membership_cards():
                 await db.commit()
 
                 logger.info(
-                    f"[定时任务][租户{tenant_id}] PENDING 期卡作废完成: "
-                    f"成功 {cancelled_count} 个, 已使用跳过 {skipped_count} 个, 失败 {fail_count} 个"
+                    f"[定时任务][租户{tenant_id}] PENDING 期卡作废"
+                    f"{'入队' if via_queue else '完成'}: "
+                    f"{'入队' if via_queue else '成功'} {cancelled_count} 个, "
+                    f"已使用跳过 {skipped_count} 个, 失败 {fail_count} 个"
                 )
         except Exception as e:
             logger.exception(
                 f"[定时任务][租户{tenant_id}] PENDING 期卡作废失败，已跳过该租户: {e}"
             )
+            continue
+        finally:
+            set_tenant_id(None)
+
+
+async def send_renewal_alerts():
+    """会员续费预警：生成站内消息（默认关闭，按租户灰度）。
+
+    业务判定（N 天内到期 / 剩余课时不足）由 Service 完成；
+    同一学员同一卡同一到期周期只提醒一次（幂等键）。
+
+    灰度开关：``TASK_WORKER_ENABLED`` 为真时只入队 ``notify_renewal_alert``
+    任务、由 JobWorker 异步发送；为假（默认）时保持旧的同步直发，避免
+    Worker 未启动导致告警丢失。
+    """
+    from app.ai.agent.renewal import RENEWAL_TITLE, compose_renewal_content
+    from app.modules.membership.service import membership_card_service
+    from app.modules.notification.service import notification_service
+    from app.modules.task.service import task_service
+
+    settings = get_settings()
+    via_queue = settings.TASK_WORKER_ENABLED
+    job_date = datetime.now(UTC).strftime("%Y%m%d")
+    if not settings.AI_RENEWAL_ALERT_ENABLED:
+        return
+
+    whitelist = {
+        item.strip() for item in settings.AI_RENEWAL_ALERT_TENANTS.split(",") if item.strip()
+    }
+    tenants = await _get_active_tenants()
+    if not tenants:
+        return
+
+    for tenant in tenants:
+        tenant_id = tenant.id
+        if whitelist and str(tenant_id) not in whitelist:
+            continue
+
+        set_tenant_id(tenant_id)
+        try:
+            async with SessionLocal() as db:
+                sent_today = await notification_service.count_today(
+                    db, tenant_id=tenant_id, type="renewal_alert"
+                )
+                budget = settings.AI_RENEWAL_ALERT_MAX_PER_DAY - sent_today
+                if budget <= 0:
+                    logger.info(f"[续费预警][租户{tenant_id}] 今日已达上限，跳过")
+                    continue
+
+                items = await membership_card_service.list_renewal_alerts(
+                    db,
+                    tenant_id,
+                    days=settings.AI_RENEWAL_ALERT_DAYS,
+                    credits_threshold=settings.AI_RENEWAL_ALERT_CREDITS_THRESHOLD,
+                    limit=budget,
+                )
+                if not items:
+                    continue
+
+                created = 0
+                for item in items:
+                    if created >= budget:
+                        break
+                    expire_at = item.get("expire_at")
+                    period = expire_at.strftime("%Y%m%d") if expire_at else "low_credits"
+                    idempotency_key = f"renewal:{item['card_id']}:{period}"
+                    content = await compose_renewal_content(item)
+                    if via_queue:
+                        job = await task_service.enqueue(
+                            db,
+                            tenant_id=tenant_id,
+                            type="notify_renewal_alert",
+                            # 入队键按天去重：任务进 DEAD 后次日仍可重新入队重试；
+                            # 通知侧幂等键（idempotency_key）保证同一周期只发一条。
+                            idempotency_key=(
+                                f"renewal-alert:{item['card_id']}:{period}:{job_date}"
+                            ),
+                            payload={
+                                "user_id": item["student_id"],
+                                "type": "renewal_alert",
+                                "title": RENEWAL_TITLE,
+                                "content": content,
+                                "idempotency_key": idempotency_key,
+                            },
+                        )
+                        if job is not None:
+                            created += 1
+                    else:
+                        new_id = await notification_service.create_idempotent(
+                            db,
+                            tenant_id=tenant_id,
+                            user_id=item["student_id"],
+                            type="renewal_alert",
+                            title=RENEWAL_TITLE,
+                            content=content,
+                            idempotency_key=idempotency_key,
+                        )
+                        if new_id is not None:
+                            created += 1
+
+                await db.commit()
+                logger.info(
+                    f"[续费预警][租户{tenant_id}] 候选 {len(items)} 张卡，"
+                    f"{'入队' if via_queue else '新增'} {created} 条"
+                )
+        except Exception as e:
+            logger.exception(f"[续费预警][租户{tenant_id}] 执行失败，已跳过该租户: {e}")
             continue
         finally:
             set_tenant_id(None)

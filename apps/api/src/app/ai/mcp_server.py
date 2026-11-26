@@ -22,6 +22,7 @@ Tool 契约清单（name / 所需角色 / 写操作 / 入参 / 返回）：
   | get_my_balance   | student                      | 否 | 无                                     | 课时余额文本 |
   | create_booking   | student                      | 是 | schedule_id, membership_card_id(可选)  | 预约结果文本 |
   | cancel_booking   | student                      | 是 | booking_id, reason(<=200)              | 取消结果文本 |
+  | query_expiring_cards | teacher/admin/super_admin | 否 | days(1-90), credits_threshold(0-100), limit(1-50) | 续费预警清单 |
 
 返回契约（对用户可见）：
   - 成功：业务文本（最小化字段，不含手机号等 PII）
@@ -259,6 +260,31 @@ _CANCEL_BOOKING_PARAMETERS: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+_QUERY_EXPIRING_CARDS_PARAMETERS: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 90,
+            "description": "未来 N 天内到期，默认 7 天",
+        },
+        "credits_threshold": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "剩余课时不超过该值时预警，默认 3",
+        },
+        "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "description": "返回条数上限，默认 20",
+        },
+    },
+    "additionalProperties": False,
+}
+
 TOOL_SPECS: dict[str, ToolSpec] = {
     "query_courses": ToolSpec(
         "query_courses",
@@ -313,6 +339,15 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         frozenset({"booking_id", "reason"}),
         description="取消当前用户的指定预约",
         parameters=_CANCEL_BOOKING_PARAMETERS,
+    ),
+    "query_expiring_cards": ToolSpec(
+        "query_expiring_cards",
+        "query_expiring_cards",
+        frozenset({"teacher", "admin", "super_admin"}),
+        False,
+        frozenset({"days", "credits_threshold", "limit"}),
+        description="查询即将到期或剩余课时不足的会员卡，用于续费提醒",
+        parameters=_QUERY_EXPIRING_CARDS_PARAMETERS,
     ),
 }
 
@@ -473,6 +508,18 @@ def _validate_days(value: Any) -> int:
         return 7
     if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 30:
         raise BusinessException("查询天数无效，请使用 1-30 之间的整数", code=400)
+    return value
+
+
+def _validate_int_range(
+    value: Any, name: str, minimum: int, maximum: int, default: int
+) -> int:
+    if value is None:
+        return default
+    if not isinstance(value, int) or isinstance(value, bool) or not minimum <= value <= maximum:
+        raise BusinessException(
+            f"{name}无效，请使用 {minimum}-{maximum} 之间的整数", code=400
+        )
     return value
 
 
@@ -809,6 +856,73 @@ async def cancel_booking(
             reason=reason,
         )
         return f"取消成功！\n课程：{result.course_name}\n预约ID：{result.id}"
+
+
+@mcp.tool(name="query_expiring_cards", exclude_args=["user_id", "tenant_id"])
+async def query_expiring_cards(
+    days: int = 7,
+    credits_threshold: int = 3,
+    limit: int = 20,
+    user_id: int | None = None,
+    tenant_id: int | None = None,
+) -> ToolOutcome:
+    """
+    查询即将到期或剩余课时不足的会员卡（续费提醒用）
+
+    Args:
+        days: 未来 N 天内到期，1-90，默认 7
+        credits_threshold: 剩余课时不超过该值即预警，0-100，默认 3
+        limit: 返回条数上限，1-50，默认 20
+    """
+    async with SessionLocal() as db:
+        ctx = await _gate(
+            db,
+            spec=TOOL_SPECS["query_expiring_cards"],
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+
+        days_value = _validate_int_range(days, "预警天数", 1, 90, 7)
+        threshold = _validate_int_range(credits_threshold, "课时阈值", 0, 100, 3)
+        limit_value = _validate_int_range(limit, "返回条数", 1, 50, 20)
+
+        from app.modules.membership.service import membership_card_service
+
+        items = await membership_card_service.list_renewal_alerts(
+            db,
+            ctx.tenant_id,
+            days=days_value,
+            credits_threshold=threshold,
+            limit=limit_value,
+        )
+        if not items:
+            return ToolOutcome("success", "暂无需要续费提醒的会员卡", data={"items": []})
+
+        lines = [f"共 {len(items)} 张会员卡需要关注："]
+        for item in items:
+            remaining = item.get("remaining_credits")
+            days_left = item.get("days_left")
+            parts = [
+                f"- {_safe_cell(item.get('student_name'))}",
+                _safe_cell(item.get("product_name")),
+            ]
+            parts.append("剩余不限课时" if remaining is None else f"剩余 {remaining} 课时")
+            if days_left is not None:
+                parts.append(f"{days_left} 天后到期")
+            lines.append(" · ".join(parts))
+
+        safe_items = [
+            {
+                "card_id": item["card_id"],
+                "student_id": item["student_id"],
+                "student_name": item["student_name"],
+                "product_name": item["product_name"],
+                "remaining_credits": item.get("remaining_credits"),
+                "days_left": item.get("days_left"),
+            }
+            for item in items
+        ]
+        return ToolOutcome("success", "\n".join(lines), data={"items": safe_items})
 
 
 # ============================================================

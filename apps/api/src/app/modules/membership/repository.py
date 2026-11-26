@@ -465,6 +465,70 @@ class MembershipCardRepository(TenantAwareRepository[MembershipCard]):
         result = await db.execute(query)
         return list(result.scalars().all())
 
+    async def list_renewal_alerts(
+        self,
+        db: AsyncSession,
+        *,
+        tenant_id: int,
+        before: datetime,
+        credits_threshold: int,
+        limit: int = 200,
+    ) -> list[dict]:
+        """查询「N 天内到期」或「剩余课时不足」的 ACTIVE 卡（只读，供预警使用）。"""
+        from app.modules.user.models import User
+
+        remaining = MembershipCard.total_credits - MembershipCard.used_credits
+        query = (
+            select(
+                MembershipCard.id,
+                MembershipCard.student_id,
+                User.real_name,
+                User.nickname,
+                MembershipCardProduct.name.label("product_name"),
+                MembershipCard.expire_at,
+                MembershipCard.total_credits,
+                MembershipCard.used_credits,
+                MembershipCard.card_type,
+            )
+            .join(User, User.id == MembershipCard.student_id)
+            .outerjoin(
+                MembershipCardProduct,
+                MembershipCardProduct.id == MembershipCard.product_id,
+            )
+            .where(
+                MembershipCard.tenant_id == tenant_id,
+                MembershipCard.status == CardStatus.ACTIVE.value,
+                MembershipCard.deleted_at.is_(None),
+                or_(
+                    (MembershipCard.expire_at.isnot(None))
+                    & (MembershipCard.expire_at > datetime.now(UTC))
+                    & (MembershipCard.expire_at <= before),
+                    (MembershipCard.total_credits.isnot(None))
+                    & (remaining <= credits_threshold),
+                ),
+            )
+            .order_by(MembershipCard.expire_at.asc().nulls_last())
+            .limit(limit)
+        )
+
+        rows = (await db.execute(query)).all()
+        return [
+            {
+                "card_id": row.id,
+                "student_id": row.student_id,
+                "student_name": row.real_name or row.nickname or f"学员{row.student_id}",
+                "product_name": row.product_name or "会员卡",
+                "card_type": row.card_type,
+                "expire_at": row.expire_at,
+                "total_credits": row.total_credits,
+                "used_credits": row.used_credits,
+                "remaining_credits": (
+                    None if row.total_credits is None else row.total_credits - row.used_credits
+                ),
+            }
+            for row in rows
+        ]
+
 
 class MembershipCardTransactionRepository(TenantAwareRepository[MembershipCardTransaction]):
     """会员卡消费流水数据访问层"""

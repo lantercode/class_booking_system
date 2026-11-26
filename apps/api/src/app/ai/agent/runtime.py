@@ -13,6 +13,7 @@ import json
 import logging
 import time
 
+from app.ai.agent.action_token import issue_action_token
 from app.ai.agent.intent import IntentRecognizer
 from app.ai.agent.loop import AgentLoop
 from app.ai.agent.prompts import build_llm_messages
@@ -32,7 +33,11 @@ from app.core.exceptions import BusinessException
 
 # 第一阶段只读闸门：命中写意图时统一提示到小程序页面操作
 WRITE_INTENT_REPLY = "预约/取消等操作请在小程序「排期」或「我的预约」页面完成。"
-_LLM_HISTORY_LIMIT = 6
+
+ACTION_LABELS = {
+    "create_booking": "预约课程",
+    "cancel_booking": "取消预约",
+}
 
 # 意图 → 可用 Tool 映射（用于 system prompt 能力声明与 trace 记录）
 INTENT_TOOL_MAP: dict[str, tuple[str, ...]] = {
@@ -71,6 +76,8 @@ class AgentRuntime:
         self.role_id = role_id
         # 当前请求的 system messages；当前无真实 LLM 调用点，仅供日志验证与 P2 适配层复用
         self.system_messages: list[dict[str, str]] = []
+        # 写操作拟执行结果（仅当前请求有效，由 HTTP 层序列化进响应）
+        self.pending_action: dict | None = None
         self.logger = logging.getLogger(__name__)
 
     # ============================================================
@@ -193,6 +200,7 @@ class AgentRuntime:
     async def _chat_with_llm(self, user_input: str, session_id: str, trace: dict) -> str:
         """走 LLM Function Calling；任何 LLM 故障都回退到规则链路。"""
         settings = get_settings()
+        self.pending_action = None
 
         try:
             # 清理规则链路的遗留中间状态，避免写流程被误触发
@@ -204,11 +212,18 @@ class AgentRuntime:
                 trace["fallback_reason"] = "missing_context"
                 return "请先登录后再使用该功能"
 
-            tools = await list_tool_definitions(ctx, readonly_only=settings.AI_LLM_READONLY_ONLY)
+            # 写工具可见性：必须同时满足「总开关开启」且「只读闸门关闭」
+            allow_write = getattr(settings, "AI_LLM_WRITE_TOOLS", False) and not settings.AI_LLM_READONLY_ONLY
+            tools = await list_tool_definitions(ctx, readonly_only=not allow_write)
             allowed_tools = {tool["function"]["name"] for tool in tools}
 
             history = await self._llm_history(session_id, user_input)
-            messages = build_llm_messages(user_input=user_input, history=history)
+            messages = build_llm_messages(
+                user_input=user_input,
+                history=history,
+                history_limit=getattr(settings, "AI_LLM_HISTORY_LIMIT", 6),
+                history_max_chars=getattr(settings, "AI_LLM_HISTORY_MAX_CHARS", 2000),
+            )
 
             loop = AgentLoop(
                 get_llm_provider(),
@@ -230,6 +245,10 @@ class AgentRuntime:
             trace["llm_calls"] = result.llm_calls
             trace["provider"] = "ark"
             trace["fallback_reason"] = result.fallback_reason
+
+            if result.proposed_action:
+                self.pending_action = self._build_pending_action(result.proposed_action)
+                trace["proposed_action"] = result.proposed_action["action"]
 
             # 预算耗尽时优先保证可用回复：回退规则链路
             if result.fallback_reason == "budget_exceeded":
@@ -259,15 +278,14 @@ class AgentRuntime:
             return await self._legacy_chat_guarded(user_input, session_id, trace)
 
     async def _llm_history(self, session_id: str, user_input: str) -> list[dict[str, str]]:
-        """取最近 6 条已存消息（调用方已先写入当前用户消息，需要剔除）。"""
+        """取全部已存消息（调用方已先写入当前用户消息，需要剔除）；裁剪由 prompts 负责。"""
         raw = await self.session.get_history(session_id)
         if raw and raw[-1].get("role") == "user" and raw[-1].get("content") == user_input:
             raw = raw[:-1]
 
-        recent = raw[-_LLM_HISTORY_LIMIT:]
         return [
             {"role": item["role"], "content": item["content"]}
-            for item in recent
+            for item in raw
             if item.get("role") in ("user", "assistant") and isinstance(item.get("content"), str)
         ]
 
@@ -366,6 +384,26 @@ class AgentRuntime:
         if trace is not None:
             trace["status"] = status
             trace["error"] = type(exc).__name__
+
+    def _build_pending_action(self, proposed: dict) -> dict | None:
+        """把模型产出的「拟执行」包装成前端确认卡片数据（含防篡改令牌）。"""
+        if not self.user_id or not self.tenant_id:
+            return None
+        action = proposed.get("action")
+        payload = proposed.get("payload")
+        if not isinstance(action, str) or not isinstance(payload, dict):
+            return None
+        return {
+            "token": issue_action_token(
+                action=action,
+                payload=payload,
+                user_id=int(self.user_id),
+                tenant_id=int(self.tenant_id),
+            ),
+            "action": action,
+            "label": ACTION_LABELS.get(action, "确认操作"),
+            "payload": payload,
+        }
 
     def _tool_context(self) -> ToolContext | None:
         """把已认证的用户 / 租户上下文转成 Tool 可信上下文。

@@ -126,11 +126,14 @@ def build_llm_messages(
     user_input: str,
     history: list[dict[str, str]],
     now: datetime | None = None,
+    history_limit: int = 6,
+    history_max_chars: int = 2000,
 ) -> list[dict[str, str]]:
     """构造 LLM 对话消息：system（安全约束 + 运行约束）+ 历史 + 当前输入。
 
     - 第二个 system 消息不包含明文 user_id / tenant_id / role_id；
-    - history 由调用方负责裁剪，这里只透传 user / assistant 消息；
+    - history 按「条数 + 字符预算」双限裁剪，优先保留最近消息；
+    - system 消息始终完整保留，不参与裁剪；
     - 返回值包含系统提示词原文，禁止写入 HTTP 响应或日志。
     """
     current = now or datetime.now(_SHANGHAI_TZ)
@@ -140,11 +143,46 @@ def build_llm_messages(
         {"role": "system", "content": _llm_runtime_context(current)},
     ]
 
-    for item in history:
-        role = item.get("role")
-        content = item.get("content")
-        if role in ("user", "assistant") and isinstance(content, str) and content:
-            messages.append({"role": role, "content": content})
-
+    messages.extend(
+        _trim_history(
+            history,
+            limit=history_limit,
+            max_chars=history_max_chars,
+        )
+    )
     messages.append({"role": "user", "content": user_input})
     return messages
+
+
+def _trim_history(
+    history: list[dict[str, str]],
+    *,
+    limit: int,
+    max_chars: int,
+) -> list[dict[str, str]]:
+    """从最近消息向前裁剪：条数不超限、字符总数不超预算。"""
+    if limit <= 0 or max_chars <= 0:
+        return []
+
+    valid = [
+        {"role": item["role"], "content": item["content"]}
+        for item in history
+        if item.get("role") in ("user", "assistant")
+        and isinstance(item.get("content"), str)
+        and item["content"]
+    ]
+
+    kept: list[dict[str, str]] = []
+    total_chars = 0
+    for item in reversed(valid):
+        if len(kept) >= limit:
+            break
+        content_len = len(item["content"])
+        if total_chars + content_len > max_chars:
+            # 更早的消息优先级更低，预算不足时直接停止
+            break
+        kept.append(item)
+        total_chars += content_len
+
+    kept.reverse()
+    return kept

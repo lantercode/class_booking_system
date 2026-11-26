@@ -10,7 +10,6 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:api": "pnpm --filter api dev",
     "dev:student": "pnpm --filter student-web dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
@@ -18,7 +17,8 @@
     "gen:types": "cd apps/api && PYTHONPATH=src uv run python scripts/generate_openapi.py && cd ../.. && npx openapi-typescript packages/api-types/openapi.json -o packages/api-types/schema.d.ts",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",
-    "db:logs": "docker compose -f infra/docker/docker-compose.yml logs -f"
+    "db:logs": "docker compose -f infra/docker/docker-compose.yml logs -f",
+    "dev:api": "cd apps/api && uv run uvicorn app.main:app --app-dir src --reload --host 0.0.0.0 --port 8000"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0",

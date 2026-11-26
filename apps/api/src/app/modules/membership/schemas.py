@@ -194,6 +194,43 @@ class MembershipCardResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def derive_effective_status(cls, data, handler):
+        """读路径统一返回派生状态：时间优先，覆盖 DB status 未及时改写的脏数据。
+
+        派生规则见 ``derive_card_effective_status``。仅当入参仍是 datetime 时派生
+        （dict 入参中已格式化的字符串不做二次解析）。
+        """
+        model = handler(data)
+
+        if isinstance(data, dict):
+            db_status = data.get("status")
+            valid_from = data.get("valid_from")
+            expire_at = data.get("expire_at")
+            frozen_until = data.get("frozen_until")
+        else:
+            db_status = getattr(data, "status", None)
+            valid_from = getattr(data, "valid_from", None)
+            expire_at = getattr(data, "expire_at", None)
+            frozen_until = getattr(data, "frozen_until", None)
+
+        time_fields = (valid_from, expire_at, frozen_until)
+        if isinstance(db_status, int) and all(
+            v is None or (isinstance(v, datetime) and v.tzinfo is not None)
+            for v in time_fields
+        ):
+            # 延迟导入：service 依赖 schemas，避免模块级循环引用
+            from app.modules.membership.service import derive_card_effective_status
+
+            model.status = derive_card_effective_status(
+                db_status=db_status,
+                valid_from=valid_from,
+                expire_at=expire_at,
+                frozen_until=frozen_until,
+            )
+        return model
+
     @field_validator("public_id", mode="before")
     @classmethod
     def validate_public_id(cls, v):

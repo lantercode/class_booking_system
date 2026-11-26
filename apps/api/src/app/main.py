@@ -1,5 +1,6 @@
 """FastAPI 应用入口."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -30,6 +31,7 @@ from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能
 from app.modules.auth.router import router as auth_router
 from app.modules.booking.router import router as booking_router  # ⭐ 新增：预约路由
 from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
+from app.modules.common.reconcile import reconcile_derived_status
 from app.modules.common.router import router as common_router
 from app.modules.course.router import router as course_router  # ⭐ 新增：课程路由（T05 占位）
 from app.modules.home_config.router import router as home_config_router  # ⭐ 首页配置路由（F7.0.4）
@@ -40,13 +42,21 @@ from app.modules.membership.scheduler import (
     auto_expire_membership_cards,
     auto_unfreeze_membership_cards,
     notify_expiring_membership_cards,
+    send_renewal_alerts,
 )
+from app.modules.notification.router import router as notification_router
+from app.modules.notify.bus import bus as notify_bus
+from app.modules.notify.bus import start_listener as start_notify_listener
+from app.modules.notify.bus import stop_listener as stop_notify_listener
+from app.modules.notify.router import router as notify_router
 from app.modules.role.router import router as role_router  # ⭐ 新增：角色权限路由
 from app.modules.schedule.router import router as schedule_router  # 排期路由
 from app.modules.schedule.scheduler import (
     auto_cancel_underbooked_schedules,
     auto_finish_expired_schedules,
 )
+from app.modules.task.service import HANDLERS
+from app.modules.task.worker import JobWorker
 from app.modules.teacher.router import router as teacher_router  # 教师路由
 from app.modules.tenant.router import router as tenant_router  # 租户配置路由
 from app.modules.upload.router import router as upload_router  # ⭐ 文件上传路由（F7.0.1）
@@ -71,6 +81,12 @@ async def lifespan(app: FastAPI):
             "❌ Redis 不可用！生产环境必须启用 Redis。\n请检查: docker-compose up -d redis"
         )
     print("✅ Redis 连接正常！")
+
+    # 2.1 启动实时推送 Redis 订阅（阶段 4）
+    notify_bus.max_connections_per_user = settings.NOTIFY_MAX_CONNECTIONS_PER_USER
+    notify_bus.max_events_per_second = settings.NOTIFY_MAX_EVENTS_PER_SECOND
+    await start_notify_listener()
+    print("✅ 实时推送订阅已启动")
 
     # 3. 启动 APScheduler 定时任务
     scheduler = AsyncIOScheduler(timezone="UTC")
@@ -126,6 +142,22 @@ async def lifespan(app: FastAPI):
     )
     print("✅ 定时任务已注册: notify_expiring_membership_cards (每 5min 运行 - 测试模式)")
 
+    # 6.1 会员续费预警（站内消息，默认关闭）
+    if settings.AI_RENEWAL_ALERT_ENABLED:
+        scheduler.add_job(
+            send_renewal_alerts,
+            "interval",
+            minutes=1440,
+            id="send_renewal_alerts",
+            replace_existing=True,
+        )
+        print(
+            "✅ 定时任务已注册: send_renewal_alerts "
+            f"(每 1440min 运行, days={settings.AI_RENEWAL_ALERT_DAYS})"
+        )
+    else:
+        print("⚠️  AI_RENEWAL_ALERT_ENABLED=false, 跳过续费预警任务注册")
+
     # 7. 启动会员卡自动解冻定时任务
     scheduler.add_job(
         auto_unfreeze_membership_cards,
@@ -162,13 +194,65 @@ async def lifespan(app: FastAPI):
     )
     print("✅ 定时任务已注册: auto_cancel_underbooked_schedules (每 5min 运行 - 测试模式)")
 
+    # 8.1 每日派生状态对账（阶段 6.2）：比对「时间派生状态」与「落库状态」，仅输出差异
+    scheduler.add_job(
+        reconcile_derived_status,
+        "interval",
+        minutes=1440,
+        id="reconcile_derived_status",
+        replace_existing=True,
+    )
+    print("✅ 定时任务已注册: reconcile_derived_status (每 1440min 运行)")
+
+    # 8.2 阶段 6.1：Worker 模式下停用旧扫描任务，仅保留每日对账
+    if settings.TASK_WORKER_ENABLED:
+        removed: list[str] = []
+        for job in scheduler.get_jobs():
+            if job.id != "reconcile_derived_status":
+                scheduler.remove_job(job.id)
+                removed.append(job.id)
+        if removed:
+            print(f"⚠️  TASK_WORKER_ENABLED=true, 已停用旧扫描定时任务: {removed}")
+
     # 9. 启动scheduler（在所有job添加完毕后）
     scheduler.start()
     print("✅ APScheduler 定时任务调度器已启动")
 
+    # 10. 启动异步任务 Worker（JobQueue 消费者；默认关闭）
+    worker: JobWorker | None = None
+    if settings.TASK_WORKER_ENABLED:
+        worker = JobWorker()
+        worker.set_handlers(HANDLERS)
+        await worker.start()
+        print(
+            f"✅ 异步任务 Worker 已启动: worker_id={worker.worker_id}, "
+            f"handlers={list(HANDLERS.keys())}, "
+            f"batch={settings.TASK_WORKER_BATCH_SIZE}, "
+            f"lease={settings.TASK_WORKER_LEASE_SECONDS}s"
+        )
+    else:
+        print("⚠️  TASK_WORKER_ENABLED=false, 跳过异步任务 Worker 启动")
+
     yield
 
     # 关闭时清理
+
+    # 9.1 停止实时推送订阅
+    try:
+        await stop_notify_listener()
+    except Exception as e:
+        logger.warning(f"停止实时推送订阅时出错: {e}")
+
+    # 10. 先优雅停止 Worker（等待在跑的任务完成，超时 10s 后 cancel）
+    if worker is not None:
+        try:
+            await asyncio.wait_for(worker.stop(), timeout=15)
+            print("⏹️  异步任务 Worker 已优雅停止")
+        except TimeoutError:
+            print("⚠️  异步任务 Worker 停止超时，已强制 cancel")
+        except Exception as e:
+            logger.warning(f"停止 Worker 时出错: {e}")
+
     try:
         await close_oss_client()
     except Exception as e:
@@ -236,6 +320,8 @@ app.include_router(tenant_router, prefix=API_V1_PREFIX)  # 租户配置路由
 app.include_router(membership_router, prefix=API_V1_PREFIX)  # 会员卡路由
 app.include_router(upload_router, prefix=API_V1_PREFIX)  # ⭐ 文件上传路由（F7.0.1）
 app.include_router(home_config_router, prefix=API_V1_PREFIX)  # ⭐ 首页配置路由（F7.0.4）
+app.include_router(notification_router, prefix=API_V1_PREFIX)  # ⭐ 站内消息路由
+app.include_router(notify_router, prefix=API_V1_PREFIX)  # ⭐ 实时推送（SSE / WebSocket）
 app.include_router(ai_router)  # AI 智能助手路由（已在 router.py 中定义前缀 /api/v1/ai）
 
 # ⭐ 挂载静态文件服务（本地存储降级方案）；生产模式强制 STORAGE_BACKEND=oss 不走这里

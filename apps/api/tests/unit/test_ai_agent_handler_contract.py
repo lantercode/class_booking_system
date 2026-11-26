@@ -29,6 +29,7 @@ MCP_ENTRYPOINTS = (
     "get_my_balance",
     "create_booking",
     "cancel_booking",
+    "query_expiring_cards",
 )
 
 

@@ -44,6 +44,58 @@ from app.modules.membership.schemas import (
 logger = logging.getLogger(__name__)
 
 
+# ============================================================
+# 会员卡有效状态纯派生：时间先于 DB status，覆盖脏数据
+# ============================================================
+
+
+def derive_card_effective_status(
+    *,
+    db_status: int,
+    valid_from: datetime | None,
+    expire_at: datetime | None,
+    frozen_until: datetime | None,
+    now: datetime | None = None,
+) -> int:
+    """会员卡有效状态纯函数：时间优先，覆盖 DB status 未及时改写的脏数据。
+
+    返回 ``CardStatus`` 枚举值。判定顺序：
+
+    1. ``db_status=CANCELLED`` 或时间已过且超期未激活的 PENDING → CANCELLED（业务作废，不可派生）
+    2. ``db_status=FROZEN + frozen_until > now`` → FROZEN（业务冻结中）
+    3. ``expire_at <= now`` → EXPIRED（时间已过即过期，不管 DB status 是 ACTIVE/PENDING/FROZEN）
+    4. ``db_status=FROZEN + frozen_until <= now`` → ACTIVE（冻结到期自动解冻）
+    5. ``db_status=PENDING + valid_from <= now`` → ACTIVE（该激活了）
+    6. ``db_status=PENDING + valid_from > now`` → PENDING（未到生效期）
+    7. 其余退回 DB status
+
+    注意：次卡清零、期卡首次激活的副作用不在此处处理——那些由 Service 层的
+    ``expire_card`` / scheduler 负责，本函数只负责「查出来该显示什么状态」。
+    """
+    now = now or datetime.now(UTC)
+
+    if db_status == CardStatus.CANCELLED.value:
+        return CardStatus.CANCELLED.value
+
+    # 过期优先（覆盖 ACTIVE / FROZEN（已解冻）/ PENDING 的脏数据）
+    if expire_at is not None and expire_at <= now:
+        return CardStatus.EXPIRED.value
+
+    # FROZEN：冻结期内保持 FROZEN；冻结到期后根据时间派生
+    if db_status == CardStatus.FROZEN.value:
+        if frozen_until is None or frozen_until > now:
+            return CardStatus.FROZEN.value
+        # frozen_until <= now → 冻结到期，已经过 EXPIRED 分支，剩 ACTIVE 或 PENDING 两种可能
+        # 历史上 FROZEN 一般是 ACTIVE 卡冻结，解冻后回到 ACTIVE
+        return CardStatus.ACTIVE.value
+
+    # PENDING：该激活了（valid_from 到点）
+    if db_status == CardStatus.PENDING.value and valid_from is not None and valid_from <= now:
+        return CardStatus.ACTIVE.value
+
+    return db_status
+
+
 class MembershipCardService:
     """会员卡业务逻辑"""
 
@@ -1046,6 +1098,36 @@ class MembershipCardService:
         # items 已经是 dict 格式（包含关联字段），直接返回
         return {"total": total, "page": page, "page_size": page_size, "items": items}
 
+    async def list_renewal_alerts(
+        self,
+        db: AsyncSession,
+        tenant_id: int,
+        *,
+        days: int = 7,
+        credits_threshold: int = 3,
+        limit: int = 200,
+    ) -> list[dict]:
+        """查询续费预警清单（只读）：即将到期或剩余课时不足的 ACTIVE 卡。
+
+        业务判定完全由代码完成，模型只负责把结构化结果写成自然语言。
+        """
+        before = datetime.now(UTC) + timedelta(days=days)
+        items = await self.card_repo.list_renewal_alerts(
+            db,
+            tenant_id=tenant_id,
+            before=before,
+            credits_threshold=credits_threshold,
+            limit=limit,
+        )
+
+        now = datetime.now(UTC)
+        for item in items:
+            expire_at = item.get("expire_at")
+            item["days_left"] = (
+                max(0, (expire_at - now).days) if expire_at is not None else None
+            )
+        return items
+
     async def list_cards_for_requester(
         self,
         db: AsyncSession,
@@ -1524,6 +1606,88 @@ class MembershipCardService:
             "conflict_count": len(conflicting_cards),
         }
 
+    async def auto_unfreeze_card(
+        self,
+        db: AsyncSession,
+        card_id: int,
+        tenant_id: int,
+    ) -> MembershipCard:
+        """冻结到期自动解冻（定时扫描 / 队列 Worker 调用）。
+
+        收口原 scheduler 的裸写逻辑，等价规则：
+        - 行锁 + 状态/时间重检，未到期或非 FROZEN 时 no-op（幂等）；
+        - 同课程类型且时间窗口重叠的有效卡仍存在时**保持冻结**，仅更新冻结原因；
+        - 无冲突则置 ACTIVE，按 ``frozen_remaining_days`` 顺延有效期，
+          回填最近一条冻结记录 ``unfrozen_at`` 并清空冻结字段。
+
+        不 commit，由调用方统一提交。
+        """
+        card = await self.get_card_with_lock(db, card_id, tenant_id)
+        now = datetime.now(UTC)
+
+        if card.status != CardStatus.FROZEN.value:
+            return card
+        if card.frozen_until is None or card.frozen_until > now:
+            return card
+
+        # 与历史 scheduler 行为保持一致：同课程类型 + 时间窗口重叠即视为冲突
+        card_course_type = card.applicable_course_type_code
+        has_conflict = False
+        if card_course_type:
+            existing_cards = await self.card_repo.get_active_cards_by_student(
+                db, card.student_id, tenant_id
+            )
+            for existing in existing_cards:
+                if existing.id == card.id:
+                    continue
+                if existing.applicable_course_type_code != card_course_type:
+                    continue
+                if not (
+                    card.valid_from
+                    and existing.valid_from
+                    and card.expire_at
+                    and existing.expire_at
+                ):
+                    continue
+                if (
+                    card.valid_from <= existing.expire_at
+                    and existing.valid_from <= card.expire_at
+                ):
+                    has_conflict = True
+                    break
+
+        if has_conflict:
+            conflict_msg = (
+                f"冻结到期但因课程冲突无法自动解冻（{card_course_type}），请联系管理员处理"
+            )
+            if card.frozen_reason != conflict_msg:
+                card.frozen_reason = conflict_msg
+                await db.flush()
+                logger.warning(
+                    "[auto_unfreeze_card] 卡 %s（学员 %s）冻结到期但存在冲突，已更新冻结原因",
+                    card.id, card.student_id,
+                )
+            return card
+
+        if card.frozen_remaining_days is not None and card.frozen_remaining_days > 0:
+            card.expire_at = now + timedelta(days=card.frozen_remaining_days)
+
+        card.status = CardStatus.ACTIVE.value
+
+        freezes, _ = await self.freeze_repo.list_freezes(
+            db, card_id=card_id, page=1, page_size=1
+        )
+        if freezes and freezes[0].unfrozen_at is None:
+            freezes[0].unfrozen_at = now
+
+        card.frozen_reason = None
+        card.frozen_at = None
+        card.frozen_until = None
+        card.frozen_remaining_days = None
+
+        await db.flush()
+        return card
+
     async def unfreeze_card(
         self,
         db: AsyncSession,
@@ -1948,6 +2112,92 @@ class MembershipCardService:
             "success_count": len(frozen_cards),
             "failed_cards": failed_cards,
         }
+
+    async def auto_activate_card(
+        self,
+        db: AsyncSession,
+        card_id: int,
+        tenant_id: int,
+    ) -> MembershipCard | None:
+        """系统自动激活（定时扫描 / 队列 Worker 调用，PENDING → ACTIVE）。
+
+        收口原 scheduler 的裸写逻辑，等价规则：
+        - 行锁 + 状态重检，避免与学员/管理员手动激活并发重复激活；
+        - 保留发卡时快照的 ``valid_from`` / ``validity_days``（不重置生效日）；
+        - 同课程类型且时间窗口重叠的有效卡存在时跳过；
+        - 写 ISSUE 流水，备注「会员卡自动激活」。
+
+        返回 ``None`` 表示本次无需激活（状态不符 / 未到生效时间 / 窗口冲突），
+        调用方据此记为「跳过」而非失败。
+        """
+        card = await self.get_card_with_lock(db, card_id, tenant_id)
+        now = datetime.now(UTC)
+
+        if card.status != CardStatus.PENDING.value:
+            return None
+        if card.valid_from is None or card.valid_from > now:
+            return None
+
+        # 与历史 scheduler 行为保持一致：同课程类型 + 时间窗口重叠即视为冲突。
+        # 注意此处使用激活前的 expire_at（与旧实现一致），不预先重算。
+        new_course_type = card.applicable_course_type_code
+        if new_course_type:
+            existing_cards = await self.card_repo.get_active_cards_by_student(
+                db, card.student_id, tenant_id
+            )
+            for existing in existing_cards:
+                if existing.id == card.id:
+                    continue
+                if existing.applicable_course_type_code != new_course_type:
+                    continue
+                if not (
+                    card.valid_from
+                    and existing.expire_at
+                    and card.expire_at
+                    and existing.valid_from
+                ):
+                    continue
+                if (
+                    card.valid_from <= existing.expire_at
+                    and existing.valid_from <= card.expire_at
+                ):
+                    logger.warning(
+                        "[auto_activate_card] 跳过激活 card_id=%s tenant=%s："
+                        "学员 %s 已有同课程类型的有效卡 %s",
+                        card.id, tenant_id, card.student_id, existing.id,
+                    )
+                    return None
+
+        card.status = CardStatus.ACTIVE.value
+
+        # 优先使用发卡时快照 validity_days，回退产品配置（避免产品条款漂移）
+        validity_days = card.validity_days
+        if not validity_days and card.product_id:
+            product = (
+                await db.execute(
+                    select(MembershipCardProduct).where(
+                        MembershipCardProduct.id == card.product_id,
+                        MembershipCardProduct.tenant_id == tenant_id,
+                    )
+                )
+            ).scalars().first()
+            validity_days = product.validity_days if product else None
+
+        if validity_days:
+            card.expire_at = self._calc_expire_at(card.valid_from, validity_days)
+
+        db.add(
+            MembershipCardTransaction(
+                tenant_id=tenant_id,
+                card_id=card.id,
+                operation_type=TransactionType.ISSUE.value,
+                change_amount=0,
+                balance_after=(card.total_credits or 0) - card.used_credits,
+                remark="会员卡自动激活",
+            )
+        )
+        await db.flush()
+        return card
 
     async def activate_card(
         self,

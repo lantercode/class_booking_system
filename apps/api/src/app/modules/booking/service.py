@@ -46,6 +46,8 @@ from app.modules.booking.schemas import (
 from app.modules.course.service import CourseService
 from app.modules.membership.models import CardStatus, CardType, MembershipCard
 from app.modules.membership.service import membership_card_service
+from app.modules.notify.bus import publish_change
+from app.modules.schedule.jobs import safe_sync_schedule_jobs
 from app.modules.schedule.models import CourseSchedule, ScheduleStatus
 from app.modules.schedule.repository import ScheduleRepository
 from app.modules.schedule.service import ScheduleService
@@ -249,6 +251,23 @@ class BookingService:
         await db.refresh(booking)
 
         logger.info(f"[BookingService] ✅ 预约创建成功: id={booking.id}")
+
+        # 阶段 3：预约人数变化后覆盖「人数不足取消」延迟任务的 run_at
+        await safe_sync_schedule_jobs(db, schedule)
+        # 阶段 4.4：提交后发布状态变更信号（只推信号，不推业务数据）
+        await publish_change(
+            tenant_id=booking.tenant_id,
+            user_id=booking.student_id,
+            type="booking.created",
+            entity_id=booking.id,
+        )
+        # 阶段 4.4 补充：租户广播预约变更信号，供管理端/教师端刷新列表（不含业务数据）
+        await publish_change(
+            tenant_id=booking.tenant_id,
+            user_id=0,
+            type="booking.changed",
+            entity_id=booking.id,
+        )
         return self._to_response(booking)
 
     async def cancel_booking(
@@ -365,6 +384,24 @@ class BookingService:
         await db.refresh(locked_booking)
 
         logger.warning(f"[BookingService] ✅ 预约已取消: id={locked_booking.id}")
+
+        # 阶段 3：人数变化后覆盖「人数不足取消」延迟任务的 run_at
+        if schedule is not None:
+            await safe_sync_schedule_jobs(db, schedule)
+        # 阶段 4.4：取消信号
+        await publish_change(
+            tenant_id=locked_booking.tenant_id,
+            user_id=locked_booking.student_id,
+            type="booking.cancelled",
+            entity_id=locked_booking.id,
+        )
+        # 阶段 4.4 补充：租户广播预约变更信号，供管理端/教师端刷新列表（不含业务数据）
+        await publish_change(
+            tenant_id=locked_booking.tenant_id,
+            user_id=0,
+            type="booking.changed",
+            entity_id=locked_booking.id,
+        )
         return self._to_response(locked_booking)
 
     async def reschedule_booking(

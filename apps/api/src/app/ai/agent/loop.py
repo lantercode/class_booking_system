@@ -41,6 +41,27 @@ INVALID_ARGUMENTS_TEXT = "参数无效，请重新说明。"
 LOOP_LIMIT_TEXT = "本轮工具调用数量已达上限，请基于已有结果回答。"
 TOTAL_LIMIT_TEXT = "本次请求工具调用次数已达上限，请基于已有结果回答。"
 TRUNCATED_SUFFIX = "\n...（内容已截断）"
+WRITE_CONFIRM_REQUIRED_TEXT = "写操作需用户确认后执行，已生成确认卡片，请勿重复调用。"
+PENDING_CONFIRM_REPLY = "已为您准备好操作确认，请在下方卡片确认后执行。"
+
+# 只读工具仅在瞬时故障（超时 / 上游 5xx / 连接类错误）时重试 1 次；
+# 参数错误、权限错误、未知工具等确定性失败一律不重试。
+RETRYABLE_ERROR_TYPES = frozenset(
+    {
+        "TimeoutError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+        "PoolTimeout",
+        "RemoteProtocolError",
+        "ServiceUnavailable",
+        "InternalServerError",
+        "BadGateway",
+        "GatewayTimeout",
+        "OperationalError",
+    }
+)
 
 Executor = Callable[[str, dict[str, Any]], Awaitable[ToolOutcome]]
 
@@ -51,6 +72,8 @@ class LoopResult:
     llm_calls: int
     tool_calls: int
     fallback_reason: str | None = None
+    # 写操作只生成「拟执行」，由前端确认后走独立确认接口，绝不在对话轮内执行
+    proposed_action: dict[str, Any] | None = None
 
 
 class AgentLoop:
@@ -145,7 +168,26 @@ class AgentLoop:
                     working_messages.append(_tool_message(call.id, cache[cache_key]))
                     continue
 
+                spec = TOOL_SPECS[call.name]
+                if spec.is_write:
+                    # 两阶段确认：对话轮内只产出「拟执行」，一次回复最多一个写操作
+                    working_messages.append(
+                        _tool_message(call.id, WRITE_CONFIRM_REQUIRED_TEXT)
+                    )
+                    return self._finish(
+                        LoopResult(
+                            PENDING_CONFIRM_REPLY,
+                            llm_calls,
+                            tool_calls,
+                            proposed_action={"action": call.name, "payload": arguments},
+                        ),
+                        started_at,
+                    )
+
                 outcome = await executor(call.name, arguments)
+                # 只读工具瞬时失败重试一次；写工具绝不重试（避免重复副作用）
+                if _should_retry(call.name, outcome) and time.perf_counter() < deadline:
+                    outcome = await executor(call.name, arguments)
                 tool_calls += 1
                 executed_this_loop += 1
 
@@ -180,6 +222,14 @@ class AgentLoop:
 # ============================================================
 # 消息与结果组装
 # ============================================================
+
+
+def _should_retry(tool_name: str, outcome: ToolOutcome) -> bool:
+    """只读工具 + 瞬时系统错误才重试；写工具与业务错误不重试。"""
+    spec = TOOL_SPECS.get(tool_name)
+    if spec is None or spec.is_write:
+        return False
+    return outcome.kind == "system_error" and outcome.error_type in RETRYABLE_ERROR_TYPES
 
 
 def _assistant_tool_call_message(response: LLMResponse) -> dict[str, Any]:
