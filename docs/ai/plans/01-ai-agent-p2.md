@@ -5,6 +5,8 @@
 
 ## P1-1 可观测性指标聚合
 
+**状态**：已完成（2026-11-23）。脚本 `apps/api/scripts/ai_trace_stats.py`，单测 `apps/api/tests/unit/test_ai_trace_stats.py`（4 例）。
+
 **目标**：把已有 `ai_chat_trace` 日志变成可量化、可展示的数据。
 
 **现状**：`runtime.py` 每次对话输出一行 `ai_chat_trace`，含 `mode`、`llm_calls`、`fallback_reason`、`latency_ms`、`step_ms`、`provider`。
@@ -32,6 +34,8 @@ docker logs --since 24h dance-api 2>&1 | grep ai_chat_trace > /tmp/trace.log
 
 ## P1-2 AgentLoop 多轮与失败重试
 
+**状态**：已完成（2026-11-23）。`AI_LLM_MAX_TOOL_LOOPS` 默认 4；`ai/agent/loop.py` 增加只读工具瞬时故障（超时/5xx）重试 1 次、截断与总量上限沿用；单测 `tests/unit/test_ai_llm_loop.py`。
+
 **目标**：支持「先查课程 → 再查该课程排期」的两步链路，同时保证不失控。
 
 **现状**：`AI_LLM_MAX_TOOL_LOOPS=2`（模型调用次数上限），只读工具失败即结束。
@@ -58,6 +62,8 @@ docker logs --since 24h dance-api 2>&1 | grep ai_chat_trace > /tmp/trace.log
 
 ## P1-3 上下文裁剪参数化
 
+**状态**：已完成（2026-11-23）。新增 `AI_LLM_HISTORY_LIMIT` / `AI_LLM_HISTORY_MAX_CHARS`；`build_llm_messages` 双限裁剪且 system 完整保留；单测 `tests/unit/test_ai_llm_prompts.py`（5 例）。
+
 **目标**：把「历史固定 6 条」变成可配置，并按预算裁剪。
 
 **任务**
@@ -74,6 +80,8 @@ docker logs --since 24h dance-api 2>&1 | grep ai_chat_trace > /tmp/trace.log
 ---
 
 ## P1-4 会员续费预警 Agent
+
+**状态**：已完成（2026-11-23）。`membership_card_service.list_renewal_alerts`、只读 Tool `query_expiring_cards`、`ai/agent/renewal.py`（Provider 单次调用 + 模板兜底）、`notifications` 站内消息表与接口、每日幂等任务 `send_renewal_alerts`（`AI_RENEWAL_ALERT_*` 默认关闭）。
 
 **目标**：识别即将到期或课时不足的学员，生成提醒话术并触达。
 
@@ -96,6 +104,8 @@ docker logs --since 24h dance-api 2>&1 | grep ai_chat_trace > /tmp/trace.log
 ---
 
 ## P1-5 写操作 Agent（预约 / 取消）
+
+**状态**：已完成（2026-11-23）。`AI_LLM_WRITE_TOOLS`（默认关闭，需同时关闭 `AI_LLM_READONLY_ONLY`）；对话轮内只产出「拟执行」确认卡片，`POST /api/v1/ai/actions/confirm` 校验防篡改令牌 → Redis 幂等 → 统一 Tool 入口执行 → 写 `audit_logs`；一次回复最多一个写操作。
 
 **目标**：在只读稳定后开放写操作，且安全边界不降级。
 
