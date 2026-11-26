@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { registerNotifyRefresh } from '@/utils/notify-sync'
 import { teacherApi, scheduleApi } from '@/api'
 import { checkLogin } from '@/utils/auth'
 import { formatDateTime } from '@/utils/date'
@@ -112,6 +113,7 @@ const selectedSchedule = ref<any>(null)
 
 // ✅ 页面卸载标记
 let isUnmounted = false
+let unregisterNotifyRefresh: (() => void) | null = null
 
 const timeSlots = [
   { time: '08:00' }, { time: '09:00' }, { time: '10:00' }, { time: '11:00' },
@@ -157,10 +159,17 @@ onMounted(() => {
   if (!checkLogin('teacher')) return
 
   loadSchedules()
+
+  // 本页可见时，实时推送事件触发既有的排期列表刷新
+  unregisterNotifyRefresh = registerNotifyRefresh('schedules', () => {
+    void loadSchedules()
+  })
 })
 
 onUnmounted(() => {
   isUnmounted = true
+  unregisterNotifyRefresh?.()
+  unregisterNotifyRefresh = null
 })
 
 const loadSchedules = async () => {

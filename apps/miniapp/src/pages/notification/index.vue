@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { getNotifications, markAsRead, markAllAsRead, clearNotifications } from '@/utils/notification'
+import { notificationApi } from '@/api'
 import { formatRelativeTime } from '@/utils/date'
 
 interface Notification {
@@ -62,11 +63,30 @@ const activeTab = ref('all')
 const notifications = ref<Notification[]>([])
 
 onMounted(() => {
-  loadNotifications()
+  void loadNotifications()
 })
 
-function loadNotifications() {
-  notifications.value = getNotifications()
+async function loadNotifications() {
+  const local = getNotifications()
+  let server: Notification[] = []
+  try {
+    const res = await notificationApi.list()
+    if (res.code === 0 || res.code === 200) {
+      server = (res.data?.items || []).map((item) => ({
+        id: `srv-${item.id}`,
+        title: item.title,
+        content: item.content,
+        type: item.type === 'renewal_alert' ? 'reminder' : 'system',
+        read: item.read,
+        created_at: item.created_at,
+      }))
+    }
+  } catch (error) {
+    console.warn('加载站内消息失败，仅显示本地通知:', error)
+  }
+  notifications.value = [...server, ...local].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
 }
 
 const unreadCount = computed(() => {
@@ -91,16 +111,32 @@ function getIcon(type: string) {
   }
 }
 
-function handleRead(item: Notification) {
-  if (!item.read) {
+async function handleRead(item: Notification) {
+  if (item.read) return
+  if (item.id.startsWith('srv-')) {
+    try {
+      await notificationApi.markRead(Number(item.id.slice(4)))
+    } catch (error) {
+      console.warn('标记已读失败:', error)
+      return
+    }
+  } else {
     markAsRead(item.id)
-    item.read = true
   }
+  item.read = true
 }
 
-function markAllRead() {
+async function markAllRead() {
+  const serverUnread = notifications.value.filter(
+    (item) => item.id.startsWith('srv-') && !item.read,
+  )
+  await Promise.all(
+    serverUnread.map((item) =>
+      notificationApi.markRead(Number(item.id.slice(4))).catch(() => null),
+    ),
+  )
   markAllAsRead()
-  loadNotifications()
+  await loadNotifications()
   uni.showToast({ title: '已全部标记为已读', icon: 'success' })
 }
 

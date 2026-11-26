@@ -280,6 +280,7 @@ import { bookingApi, membershipApi, tenantApi } from "@/api";
 import AppIcon from "@/components/AppIcon.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import { checkLogin, getUserId } from "@/utils/auth";
+import { registerNotifyRefresh } from "@/utils/notify-sync";
 import { nextTick, onMounted, onUnmounted, ref } from "vue";
 
 const BOOKING_STATUS = {
@@ -327,6 +328,7 @@ const scrollViewHeight = ref(
 );
 
 let isUnmounted = false;
+let unregisterNotifyRefresh: (() => void) | null = null;
 
 const filterTabs = [
   { label: "全部", value: BOOKING_STATUS.ALL, icon: "grid" },
@@ -353,10 +355,17 @@ onMounted(async () => {
   // 并行加载：预约列表 + 我的会员卡（卡失效 join 数据源，F6.7）
   loadBookings();
   loadInvalidCards();
+
+  // 本页可见时，实时推送事件触发既有的预约列表刷新
+  unregisterNotifyRefresh = registerNotifyRefresh("bookings", () => {
+    void loadBookings();
+  });
 });
 
 onUnmounted(() => {
   isUnmounted = true;
+  unregisterNotifyRefresh?.();
+  unregisterNotifyRefresh = null;
 });
 
 const onScrollToLower = () => {

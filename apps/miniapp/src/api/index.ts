@@ -1,7 +1,8 @@
 import type { PaginatedData } from "@/utils/helpers";
 import { resolveTenantSlug } from "@/config/tenant";
 
-const BASE_URL =
+/** 后端 API 根地址（含 /api/v1 前缀）；notify 客户端复用它推导 WebSocket 地址 */
+export const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://api.seplume.com/api/v1";
 
 console.log("API Base URL:", BASE_URL);
@@ -86,12 +87,27 @@ export interface AiChatMessage {
 }
 
 /** AI 对话响应 data POST /ai/chat */
+export interface PendingAction {
+  token: string;
+  action: string;
+  label: string;
+  payload: Record<string, unknown>;
+}
+
+export interface AiActionResult {
+  action: string;
+  success: boolean;
+  reply: string;
+  timestamp: string;
+}
+
 export interface AiChatResult {
   response: string;
   session_id: string;
   timestamp: string;
   has_pending_state: boolean;
   latency_ms: number;
+  pending_action?: PendingAction | null;
 }
 
 /** 排期详情 GET /schedules/{id}，字段对齐后端 ScheduleResponse */
@@ -326,6 +342,9 @@ async function request<T>(
             uni.removeStorageSync("user_role");
             uni.removeStorageSync("tenant_slug");
             uni.removeStorageSync("user_info");
+
+            // 通知 App 断开实时推送连接（避免无 token 状态下继续重连）
+            uni.$emit("auth:cleared");
 
             uni.showToast({ title: "登录已过期，请重新登录", icon: "none" });
 
@@ -730,6 +749,33 @@ export const classroomApi = {
   },
 };
 
+export interface ServerNotification {
+  id: number;
+  type: string;
+  title: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResult {
+  total: number;
+  page: number;
+  page_size: number;
+  items: ServerNotification[];
+}
+
+export const notificationApi = {
+  list(page = 1, page_size = 50) {
+    const query = buildQuery({ page, page_size });
+    return request<NotificationListResult>(`/notifications${query}`, "GET", undefined, undefined, false);
+  },
+
+  markRead(id: number) {
+    return request(`/notifications/${id}/read`, "POST", undefined, undefined, false);
+  },
+};
+
 export const aiChatApi = {
   chat(message: string, session_id: string = "default") {
     return request<AiChatResult>(
@@ -744,6 +790,16 @@ export const aiChatApi = {
   getHistory(session_id: string = "default") {
     const query = buildQuery({ session_id });
     return request<AiChatMessage[]>(`/ai/history${query}`);
+  },
+
+  confirmAction(token: string) {
+    return request<AiActionResult>(
+      "/ai/actions/confirm",
+      "POST",
+      { token },
+      undefined,
+      false,
+    );
   },
 
   clearHistory(session_id: string = "default") {

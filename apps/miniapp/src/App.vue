@@ -5,9 +5,26 @@
 <script setup lang="ts">
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
 import { validateToken, redirectToHome } from '@/utils/auth'
+import { connect, disconnect } from '@/api/notify'
+import { startNotifySync } from '@/utils/notify-sync'
+
+/** 登录成功（wechat 登录流程统一以该事件通知）→ 建立推送连接 */
+function handleLoginSuccess() {
+  connect()
+}
+
+/** 登出 / 401 清登录态 → 断开推送连接并停止自动重连 */
+function handleAuthCleared() {
+  disconnect()
+}
 
 onLaunch(async () => {
   console.log('🚀 App Launch - 微信小程序启动')
+
+  // 事件订阅常驻；连接是否建立由登录态决定
+  startNotifySync()
+  uni.$on('login-success', handleLoginSuccess)
+  uni.$on('auth:cleared', handleAuthCleared)
 
   // 🔍 检查是否刚刚解绑过微信
   const justUnboundWechat = uni.getStorageSync('just_unbound_wechat')
@@ -26,6 +43,9 @@ onLaunch(async () => {
 
     if (token) {
       console.log('✅ 检测到本地存储的 Token')
+
+      // 已登录：建立推送连接（客户端内部处理断线重连与前后台切换）
+      connect()
 
       // 验证 Token 是否有效
       const isValid = await validateToken()

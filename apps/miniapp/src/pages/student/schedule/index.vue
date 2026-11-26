@@ -149,6 +149,7 @@ import AppNavbar from "@/components/AppNavbar.vue";
 import HomeTabBar from "@/components/HomeTabBar.vue";
 import { iconSvgMap } from "@/static/icons/icon-map";
 import { checkLogin } from "@/utils/auth";
+import { registerNotifyRefresh } from "@/utils/notify-sync";
 import {
   formatTime,
   isScheduleExpired,
@@ -212,6 +213,8 @@ let loadBookingsTimer: number | null = null;
 let retryTimer: number | null = null;
 let isUnmounted = false;
 let pendingDateRefresh: string | null = null;
+let unregisterSchedulesRefresh: (() => void) | null = null;
+let unregisterBookingsRefresh: (() => void) | null = null;
 
 const dateList = computed(() => {
   const days: Array<{ date: string; name: string; dateStr: string }> = [];
@@ -598,6 +601,14 @@ onMounted(async () => {
   loadMembershipCards();
 
   uni.$on("bookingSuccess", handleBookingSuccess);
+
+  // 本页可见时，实时推送事件触发既有的排期 / 预约数据刷新
+  unregisterSchedulesRefresh = registerNotifyRefresh("schedules", () => {
+    void loadSchedules();
+  });
+  unregisterBookingsRefresh = registerNotifyRefresh("bookings", () => {
+    void loadBookings();
+  });
 });
 
 const loadCourseTypes = async () => {
@@ -650,6 +661,10 @@ onUnmounted(() => {
     retryTimer = null;
   }
   uni.$off("bookingSuccess", handleBookingSuccess);
+  unregisterSchedulesRefresh?.();
+  unregisterSchedulesRefresh = null;
+  unregisterBookingsRefresh?.();
+  unregisterBookingsRefresh = null;
 });
 
 const loadSchedules = async () => {

@@ -1,4 +1,5 @@
 import { authApi } from '@/api'
+import { disconnect } from '@/api/notify'
 
 export function checkLogin(role?: string): boolean {
   const token = uni.getStorageSync('token')
@@ -55,7 +56,9 @@ let isLoggingOut = false
 export function logout() {
   if (isLoggingOut) return
   isLoggingOut = true
-  
+
+  disconnect()
+
   uni.removeStorageSync('token')
   uni.removeStorageSync('refresh_token')
   uni.removeStorageSync('user_info')
@@ -69,6 +72,8 @@ export function logout() {
 }
 
 export function clearAuth() {
+  disconnect()
+
   uni.removeStorageSync('token')
   uni.removeStorageSync('refresh_token')
   uni.removeStorageSync('user_info')

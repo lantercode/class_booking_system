@@ -69,6 +69,23 @@
               :class="{ hang: line.startsWith('- ') || line.startsWith('• ') }"
             >{{ line || " " }}</view>
           </view>
+          <!-- 写操作确认卡片：模型只发起拟执行，用户确认后才真正提交 -->
+          <view v-if="msg.pendingAction && !msg.pendingHandled" class="pending-card">
+            <text class="pending-title">{{ msg.pendingAction.label }}</text>
+            <text class="pending-desc">{{ describePendingAction(msg.pendingAction) }}</text>
+            <view class="pending-actions">
+              <view class="pending-btn pending-cancel" @tap="dismissPending(msg)">
+                <text>取消</text>
+              </view>
+              <view
+                class="pending-btn pending-confirm"
+                :class="{ disabled: confirming }"
+                @tap="confirmPendingAction(msg)"
+              >
+                <text>{{ confirming ? "提交中..." : "确认执行" }}</text>
+              </view>
+            </view>
+          </view>
           <view
             v-if="msg.isError"
             class="retry-btn"
@@ -132,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { aiChatApi } from "@/api";
+import { aiChatApi, type PendingAction } from "@/api";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import AppIcon from "./AppIcon.vue";
 
@@ -141,6 +158,8 @@ interface Message {
   content: string;
   timestamp: number;
   isError?: boolean;
+  pendingAction?: PendingAction | null;
+  pendingHandled?: boolean;
 }
 
 const props = withDefaults(
@@ -179,6 +198,7 @@ const clearColor = computed(() =>
 const messages = ref<Message[]>([]);
 const inputText = ref("");
 const isLoading = ref(false);
+const confirming = ref(false);
 const scrollToView = ref("");
 
 // 快捷问题（对齐原型 P-M10：单行问题文本 + 金色描边胶囊）
@@ -201,6 +221,59 @@ let currentSessionId = buildSessionId();
 
 /** AI 返回的多行文本按行渲染：折行内容通过悬挂缩进与列表项文字起点对齐 */
 const messageLines = (content: string): string[] => (content || "").split("\n");
+
+/** 确认卡片上的可读说明（只展示业务参数，不展示令牌） */
+const describePendingAction = (action: PendingAction): string => {
+  const payload = action.payload || {};
+  if (action.action === "create_booking") {
+    const card = payload.membership_card_id
+      ? `，会员卡 ID ${payload.membership_card_id}`
+      : "";
+    return `排期 ID ${payload.schedule_id}${card}`;
+  }
+  if (action.action === "cancel_booking") {
+    const reason = payload.reason ? `，原因：${payload.reason}` : "";
+    return `预约 ID ${payload.booking_id}${reason}`;
+  }
+  return "";
+};
+
+const confirmPendingAction = async (msg: Message) => {
+  const pending = msg.pendingAction;
+  if (!pending || msg.pendingHandled || confirming.value) return;
+
+  confirming.value = true;
+  try {
+    const res = await aiChatApi.confirmAction(pending.token);
+    msg.pendingHandled = true;
+    messages.value.push({
+      role: "assistant",
+      content: res.data?.reply || "操作已完成",
+      timestamp: Date.now(),
+    });
+  } catch (error: any) {
+    // 令牌过期 / 重复提交等业务错误：直接展示后端可读文案
+    messages.value.push({
+      role: "assistant",
+      content: error?.message || "操作失败，请稍后重试",
+      timestamp: Date.now(),
+      isError: true,
+    });
+  } finally {
+    confirming.value = false;
+    scrollToBottom();
+  }
+};
+
+const dismissPending = (msg: Message) => {
+  if (msg.pendingHandled) return;
+  msg.pendingHandled = true;
+  messages.value.push({
+    role: "assistant",
+    content: "已取消本次操作。",
+    timestamp: Date.now(),
+  });
+};
 
 onMounted(() => {
   if (props.autoRestoreHistory) loadHistory();
@@ -253,6 +326,7 @@ const doSend = async (text: string) => {
         role: "assistant",
         content: aiResponse,
         timestamp: Date.now(),
+        pendingAction: res.data?.pending_action || null,
       });
 
       emit("message-sent", { userMessage: text, aiResponse });
@@ -562,6 +636,59 @@ defineExpose({
       }
     }
 
+    .pending-card {
+      margin-top: 16rpx;
+      padding: 20rpx;
+      background: var(--ai-accent-soft);
+      border: 1rpx solid var(--ai-q-border);
+      border-radius: 16rpx;
+      display: flex;
+      flex-direction: column;
+      gap: 10rpx;
+
+      .pending-title {
+        font-size: 28rpx;
+        font-weight: 600;
+        color: var(--ai-text);
+      }
+
+      .pending-desc {
+        font-size: 24rpx;
+        color: var(--ai-q-text);
+      }
+
+      .pending-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 16rpx;
+        margin-top: 8rpx;
+      }
+
+      .pending-btn {
+        padding: 10rpx 32rpx;
+        border-radius: 28rpx;
+        font-size: 26rpx;
+
+        &:active {
+          opacity: 0.8;
+        }
+
+        &.pending-cancel {
+          color: var(--ai-q-text);
+          border: 1rpx solid var(--ai-clear-border);
+        }
+
+        &.pending-confirm {
+          color: #fff;
+          background: var(--ai-accent);
+
+          &.disabled {
+            opacity: 0.5;
+          }
+        }
+      }
+    }
+
     &.error {
       background: rgba(255, 71, 87, 0.08);
       border: 1rpx solid rgba(255, 71, 87, 0.25);
@@ -569,7 +696,6 @@ defineExpose({
       .message-text {
         color: #d63031;
       }
-
       .retry-btn {
         display: inline-flex;
         align-items: center;
