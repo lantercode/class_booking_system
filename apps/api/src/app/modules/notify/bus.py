@@ -147,10 +147,18 @@ async def publish_change(
     }
     payload = json.dumps(event, ensure_ascii=False)
     try:
-        from app.deps.auth import get_redis_client
+        from redis.asyncio import Redis
 
-        redis = await get_redis_client()
-        await redis.publish(CHANNEL, payload)
+        from app.core.config import get_settings
+
+        # 每次发布使用独立短连接：不复用 app.deps.auth 的进程级客户端。
+        # 该客户端绑定首次使用它的事件循环；测试中 Service 直调与 live_server
+        # 分属不同循环，复用会触发 "Event loop is closed"（表现为接口 500）。
+        redis = Redis.from_url(get_settings().REDIS_URL, decode_responses=True)
+        try:
+            await redis.publish(CHANNEL, payload)
+        finally:
+            await redis.close()
     except Exception as e:
         logger.warning(
             "[notify] Redis 发布失败，降级为进程内广播（多实例不可靠）: %s", e

@@ -76,10 +76,15 @@ async def test_publish_change_falls_back_to_local_on_redis_error(monkeypatch):
     fake_bus = NotifyBus()
     monkeypatch.setattr(bus_module, "bus", fake_bus)
 
-    async def _broken_redis():
-        raise RuntimeError("redis down")
+    class _BrokenRedis:
+        async def publish(self, channel, payload):
+            raise RuntimeError("redis down")
 
-    monkeypatch.setattr("app.deps.auth.get_redis_client", _broken_redis)
+        async def close(self):
+            return None
+
+    # publish_change 每次发布使用独立短连接，因此 patch 客户端工厂而非全局依赖
+    monkeypatch.setattr("redis.asyncio.Redis.from_url", lambda *a, **kw: _BrokenRedis())
 
     queue = fake_bus.subscribe(1, 10)
     await bus_module.publish_change(
@@ -99,10 +104,10 @@ async def test_publish_change_via_redis(monkeypatch):
             published.append((channel, payload))
             return 1
 
-    async def _fake_redis():
-        return _FakeRedis()
+        async def close(self):
+            return None
 
-    monkeypatch.setattr("app.deps.auth.get_redis_client", _fake_redis)
+    monkeypatch.setattr("redis.asyncio.Redis.from_url", lambda *a, **kw: _FakeRedis())
 
     await bus_module.publish_change(
         tenant_id=1, user_id=0, type="schedule.cancelled", entity_id=7
