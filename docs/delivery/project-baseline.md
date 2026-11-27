@@ -192,7 +192,7 @@ miniapp 有 3 个页面加载即崩溃：
 |---------|---------|
 | `docs/architecture.md:347` 称 teacher-web 不存在 | `apps/teacher-web/` 实际存在且完整 |
 | `docs/architecture.md:348` 称 packages/ 不存在 | `packages/` 存在（4 个包） |
-| `CLAUDE.md:20` 称 packages 有 shared-ui | 实际无 shared-ui 包 |
+| `CLAUDE.md:20` 称 packages 有 shared-ui（该文件已删除，README 已修正） | 实际无 shared-ui 包 |
 | `docs/membership/audit-report-v1.md` P0-1（resolved_count=0） | 已修复，但文档未更新 |
 | README 称 CI 跑"自动构建、测试、部署" | CI 仅跑 unit 测试，integration 不跑 |
 

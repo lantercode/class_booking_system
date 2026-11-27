@@ -214,7 +214,7 @@ Architect 在 Phase 1 结束前必须向前端交付：
 - 前端只消费**已冻结**契约；契约未就绪时，可在 Architect 批准下按契约草稿配 mock（各 App 已有 `mock/` 目录），但必须登记 mock 清单并在联调阶段删除
 - 联调中发现契约与实现不符 → 不在前端"兼容脏数据"，回 Reconciliation 修后端或修契约
 - 后端改契约（字段增删、错误码变化）→ 必须重新生成 OpenAPI 并由 Architect 触发**二次交接**，前端执行 `pnpm gen:types` 后评估影响
-- 已知坑位（交接提醒，源自 CLAUDE.md）：
+- 已知坑位（交接提醒，详见 `.trae/rules/development/commands.md` 与 `architecture/contracts.md`）：
   - 后端 `redirect_slashes=False`：集合端点不要加尾斜杠
   - 统一信封 `{code,msg,data}`：业务错误在 HTTP 状态码 + body，前端不得只看 HTTP 200
   - 401 自动 refresh/retry 已在 api-client 实现；小程序层在 `src/api/index.ts` 独立实现，改动需两端同步
