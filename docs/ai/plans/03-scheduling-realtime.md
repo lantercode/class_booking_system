@@ -169,7 +169,10 @@
 - 6.1b 存量补投（2026-11-26）：新增 `backfill_schedule_jobs`（`TASK_WORKER_ENABLED=true` 时每 10 分钟注册）。逐租户扫描 NORMAL 排期，只对**不存在**的 `(tenant_id, idempotency_key)` 做 `enqueue`（ON CONFLICT DO NOTHING），已投递/已执行任务不会被重置为 pending；上线前已存在的排期因此获得一次性补偿（逾期任务 `run_at=now` 立即执行）。
 - 灰度步骤：① 备份并确认 `job_queue` 表存在；② 生产 `.env` 置 `TASK_WORKER_ENABLED=true`，确认 Nginx 的 SSE / WS location 已生效；③ 观察 `job_queue` 的 pending / dead 数量与 `[reconcile]` 日志两周，四类差异应长期为 0（偶发 1~2 条为处理延迟）；④ 满足后再执行 6.3 删除旧扫描代码。
 - **对账覆盖（2026-11-26 补齐）**：新增 `card_cancel_pending_diff`（超期未激活且无 COMPLETED/NO_SHOW 预约的 PENDING 期卡）与 `schedule_underbooked_diff`（已过开课前截止点且人数不足的 NORMAL 排期）。前者随 `PENDING_CARD_CANCEL_ENABLED`、后者随 `AUTO_CANCEL_UNDERBOOKED_ENABLED` 开关生效，开关关闭时不比对、不误报。
-- 6.2 完成：`modules/common/reconcile.py` 的 `reconcile_derived_status` 每日运行，逐租户只读比对六类差异（排期未完成 / 卡未过期 / 卡未激活 / 卡未解冻 / 超期未作废 / 人数不足未取消），输出统计并打印告警，不修改数据。
+- 6.2 完成：`modules/common/reconcile.py` 的 `reconcile_derived_status` 逐租户只读比对六类差异（排期未完成 / 卡未过期 / 卡未激活 / 卡未解冻 / 超期未作废 / 人数不足未取消），输出统计并打印告警，不修改数据。
+  - 调度：`CronTrigger(hour=3, minute=0, timezone="Asia/Shanghai")`，即每天 03:00（北京时间）；启动后 1 分钟先补跑一次，避免 `interval=1440` 首次执行等 24 小时、开发环境频繁重启导致永不触发。
+  - 可见性：项目未配置 logging（`logger.info` 默认不输出），因此对账结束额外用 `print` 输出 `[reconcile] 对账完成: total=... detail=...`，保证「零差异」也能在服务日志中确认；有差异时仍有 `WARNING` 逐租户明细。
+  - 手动查看：`cd apps/api && uv run python -c "import asyncio; from app.modules.common.reconcile import reconcile_derived_status; print(asyncio.run(reconcile_derived_status()))"`。
 - 6.3 **未执行**：需生产观察两周且 6.2 差异为 0 后才能删除旧扫描代码，本次仅保留旧代码作为灰度回退路径。
 
 ## 附录：状态派生清单（阶段 0 产出 · 2026-11-24 基于真实代码复核）

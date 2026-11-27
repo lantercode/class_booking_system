@@ -3,9 +3,11 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -196,14 +198,16 @@ async def lifespan(app: FastAPI):
     print("✅ 定时任务已注册: auto_cancel_underbooked_schedules (每 5min 运行 - 测试模式)")
 
     # 8.1 每日派生状态对账（阶段 6.2）：比对「时间派生状态」与「落库状态」，仅输出差异
+    # 每天 03:00（北京时间）跑一次；启动后 1 分钟先补跑一次，
+    # 避免 interval=1440 首次执行要等 24 小时、开发环境频繁重启导致永不触发。
     scheduler.add_job(
         reconcile_derived_status,
-        "interval",
-        minutes=1440,
+        CronTrigger(hour=3, minute=0, timezone="Asia/Shanghai"),
         id="reconcile_derived_status",
         replace_existing=True,
+        next_run_time=datetime.now(UTC) + timedelta(minutes=1),
     )
-    print("✅ 定时任务已注册: reconcile_derived_status (每 1440min 运行)")
+    print("✅ 定时任务已注册: reconcile_derived_status (每日 03:00 北京时间，启动后 1 分钟先跑一次)")
 
     # 8.2 阶段 6.1：Worker 模式下只下线「直写」的排期扫描任务。
     # 会员卡扫描保留：它们在 worker 模式下已改为「扫描候选 → 入队」，是生产者，

@@ -183,4 +183,6 @@ async def reconcile_derived_status() -> dict[str, int]:
 
     total = sum(totals.values())
     logger.info("[reconcile] 对账完成: total=%s detail=%s", total, totals)
+    # 项目未配置 logging，info 级默认不输出；用 print 保证「零差异」也可见
+    print(f"[reconcile] 对账完成: total={total} detail={totals}")
     return {**totals, "total": total}
