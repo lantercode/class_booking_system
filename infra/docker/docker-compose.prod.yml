@@ -7,6 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+      TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -43,6 +44,8 @@ services:
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
+      # 时区：影响日志时间与本地时间展示（数据库仍用 timestamptz 存绝对时间）
+      TZ: ${TZ:-Asia/Shanghai}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       JWT_SECRET: ${JWT_SECRET}
@@ -89,6 +92,16 @@ services:
       AI_LLM_MAX_TOOL_LOOPS: ${AI_LLM_MAX_TOOL_LOOPS:-2}
       AI_LLM_READONLY_ONLY: ${AI_LLM_READONLY_ONLY:-true}
       AI_LLM_ENABLED_TENANTS: ${AI_LLM_ENABLED_TENANTS:-}
+      # 异步任务队列（阶段 1-6）：true 时延迟任务由 Worker 消费，旧排期直写扫描自动下线
+      TASK_WORKER_ENABLED: ${TASK_WORKER_ENABLED:-false}
+      TASK_WORKER_BATCH_SIZE: ${TASK_WORKER_BATCH_SIZE:-20}
+      TASK_WORKER_LEASE_SECONDS: ${TASK_WORKER_LEASE_SECONDS:-120}
+      TASK_WORKER_MAX_ATTEMPTS: ${TASK_WORKER_MAX_ATTEMPTS:-3}
+      TASK_WORKER_TICK_SECONDS: ${TASK_WORKER_TICK_SECONDS:-1.0}
+      # 实时推送（SSE / WebSocket）
+      NOTIFY_HEARTBEAT_SECONDS: ${NOTIFY_HEARTBEAT_SECONDS:-25}
+      NOTIFY_MAX_CONNECTIONS_PER_USER: ${NOTIFY_MAX_CONNECTIONS_PER_USER:-3}
+      NOTIFY_MAX_EVENTS_PER_SECOND: ${NOTIFY_MAX_EVENTS_PER_SECOND:-20}
     ports:
       - "127.0.0.1:8000:8000"
 
