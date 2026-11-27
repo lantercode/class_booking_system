@@ -118,32 +118,32 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         auto_expire_membership_cards,
         "interval",
-        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回60）
+        minutes=60,
         id="auto_expire_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已注册: auto_expire_membership_cards (每 5min 运行 - 测试模式)")
+    print("✅ 定时任务已注册: auto_expire_membership_cards (每 60min 运行)")
 
     # 5. 【优先级2】启动会员卡自动激活定时任务
     # 依赖：auto_expire 已正确标记过期卡状态
     scheduler.add_job(
         auto_activate_membership_cards,
         "interval",
-        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回30）
+        minutes=60,
         id="auto_activate_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已注册: auto_activate_membership_cards (每 5min 运行 - 测试模式)")
+    print("✅ 定时任务已注册: auto_activate_membership_cards (每 60min 运行)")
 
     # 6. 启动会员卡到期提醒定时任务
     scheduler.add_job(
         notify_expiring_membership_cards,
         "interval",
-        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回60）
+        minutes=60,
         id="notify_expiring_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已注册: notify_expiring_membership_cards (每 5min 运行 - 测试模式)")
+    print("✅ 定时任务已注册: notify_expiring_membership_cards (每 60min 运行)")
 
     # 6.1 会员续费预警（站内消息，默认关闭）
     if settings.AI_RENEWAL_ALERT_ENABLED:
@@ -165,11 +165,11 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         auto_unfreeze_membership_cards,
         "interval",
-        minutes=5,  # ⚠️ 开发环境测试：5分钟（生产环境请改回30）
+        minutes=60,
         id="auto_unfreeze_membership_cards",
         replace_existing=True,
     )
-    print("✅ 定时任务已注册: auto_unfreeze_membership_cards (每 5min 运行 - 测试模式)")
+    print("✅ 定时任务已注册: auto_unfreeze_membership_cards (每 60min 运行)")
 
     # 7.1 【F6.3】启动 PENDING 期卡超期作废定时任务（每天一次）
     if settings.PENDING_CARD_CANCEL_ENABLED:
