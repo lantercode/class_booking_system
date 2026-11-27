@@ -43,7 +43,8 @@ import time
 import pytest
 from httpx import AsyncClient
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
@@ -105,6 +106,16 @@ async def seed_test_database():
         class_=AsyncSession,
         expire_on_commit=False,
     )
+
+    # 纯单测在无数据库环境也应能运行：连不上就跳过种子，DB 相关用例会自行失败
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except OperationalError as e:
+        print(f"\n⚠️  数据库不可达，跳过测试种子初始化: {e}")
+        await engine.dispose()
+        yield
+        return
 
     async with session_factory() as session:
         try:
