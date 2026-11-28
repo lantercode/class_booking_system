@@ -618,3 +618,40 @@ class IdempotencyKeyRepository(TenantAwareRepository[IdempotencyKey]):
         )
         result = await db.execute(query)
         return result.scalar_one_or_none()
+
+    # PostgreSQL 不支持 DELETE ... LIMIT，用 CTE 先选出待删 id 再批量删除。
+    _DELETE_EXPIRED_BATCH_SQL = text(
+        """
+        WITH doomed AS (
+            SELECT id FROM idempotency_keys
+            WHERE tenant_id = :tenant_id AND created_at < :before
+            ORDER BY created_at
+            LIMIT :limit
+        )
+        DELETE FROM idempotency_keys WHERE id IN (SELECT id FROM doomed)
+        """
+    )
+
+    async def delete_expired_batch(
+        self,
+        db: AsyncSession,
+        *,
+        tenant_id: int,
+        before: datetime,
+        limit: int,
+    ) -> int:
+        """按租户分批删除 ``created_at < before`` 的幂等记录，返回删除行数。
+
+        清理任务运行在 APScheduler / Worker 线程，ContextVar 可能为空，
+        因此 ``tenant_id`` 由调用方显式传入；SQL 中同样显式限定租户，
+        不依赖 ORM 自动注入（原生 SQL 不经过 ORM 事件）。
+        命中 ``idx_idempotency_keys_tenant_created``，单批行数由 ``limit`` 控制。
+        """
+        result = await db.execute(
+            self._DELETE_EXPIRED_BATCH_SQL.bindparams(
+                tenant_id=tenant_id,
+                before=before,
+                limit=limit,
+            )
+        )
+        return result.rowcount or 0

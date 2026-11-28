@@ -32,6 +32,7 @@ from app.modules.admin.router import router as admin_router  # ⭐ 新增：管�
 from app.modules.ai.router import router as ai_router  # 🤖 新增：AI 智能助手路由
 from app.modules.auth.router import router as auth_router
 from app.modules.booking.router import router as booking_router  # ⭐ 新增：预约路由
+from app.modules.booking.scheduler import cleanup_expired_idempotency_keys
 from app.modules.classroom.router import router as classroom_router  # ⭐ 新增：教室路由
 from app.modules.common.reconcile import reconcile_derived_status
 from app.modules.common.router import router as common_router
@@ -208,6 +209,20 @@ async def lifespan(app: FastAPI):
         next_run_time=datetime.now(UTC) + timedelta(minutes=1),
     )
     print("✅ 定时任务已注册: reconcile_derived_status (每日 03:00 北京时间，启动后 1 分钟先跑一次)")
+
+    # 8.1.1 每日幂等键表清理（预约创建幂等记录只增不删，按保留期清理）
+    # 每天 03:30（北京时间）跑一次；关闭开关时由任务内部直接返回。
+    scheduler.add_job(
+        cleanup_expired_idempotency_keys,
+        CronTrigger(hour=3, minute=30, timezone="Asia/Shanghai"),
+        id="cleanup_expired_idempotency_keys",
+        replace_existing=True,
+    )
+    print(
+        "✅ 定时任务已注册: cleanup_expired_idempotency_keys "
+        f"(每日 03:30 北京时间, retention={settings.IDEMPOTENCY_KEY_RETENTION_DAYS}d, "
+        f"batch={settings.IDEMPOTENCY_CLEANUP_BATCH_SIZE})"
+    )
 
     # 8.2 阶段 6.1：Worker 模式下只下线「直写」的排期扫描任务。
     # 会员卡扫描保留：它们在 worker 模式下已改为「扫描候选 → 入队」，是生产者，

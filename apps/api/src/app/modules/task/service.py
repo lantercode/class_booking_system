@@ -10,6 +10,7 @@ Handler 注册表 ``HANDLERS`` 供 Worker 在启动时注入。
 - ``expire_membership_card``         — 会员卡到期自动过期（复用 MembershipCardService.expire_card）
 - ``unfreeze_membership_card``       — 冻结到期自动解冻（复用 MembershipCardService.auto_unfreeze_card）
 - ``cancel_pending_membership_card`` — 超期未激活期卡作废（复用 MembershipCardService.cancel_pending_card）
+- ``cleanup_idempotency_keys``        — 幂等键表按保留期分批清理（Repository 原生 CTE 批量删除）
 """
 
 from __future__ import annotations
@@ -426,6 +427,55 @@ async def cancel_schedule_if_underbooked(
 
 
 # ---------------------------------------------------------------------------
+# Handler：幂等键表按保留期清理
+# ---------------------------------------------------------------------------
+
+
+async def cleanup_idempotency_keys(
+    db: AsyncSession,
+    payload: dict,
+    *,
+    tenant_id: int,
+) -> None:
+    """删除 ``created_at`` 早于保留期的幂等键记录（按租户分批）。
+
+    payload 约定：``{"retention_days": 7}``（缺省取 ``IDEMPOTENCY_KEY_RETENTION_DAYS``）。
+
+    分批删除直到单批返回行数小于 ``IDEMPOTENCY_CLEANUP_BATCH_SIZE``，避免一次性
+    大事务长时间持锁；删除语句由 ``IdempotencyKeyRepository.delete_expired_batch``
+    提供（原生 CTE + LIMIT），显式限定 tenant_id。
+    """
+    from app.core.config import get_settings
+    from app.modules.booking.repository import IdempotencyKeyRepository
+
+    settings = get_settings()
+    retention_days = int(
+        payload.get("retention_days", settings.IDEMPOTENCY_KEY_RETENTION_DAYS)
+    )
+    batch_size = max(1, int(settings.IDEMPOTENCY_CLEANUP_BATCH_SIZE))
+    before = datetime.now(UTC) - timedelta(days=retention_days)
+
+    repo = IdempotencyKeyRepository()
+    total = 0
+    while True:
+        deleted = await repo.delete_expired_batch(
+            db,
+            tenant_id=tenant_id,
+            before=before,
+            limit=batch_size,
+        )
+        total += deleted
+        if deleted < batch_size:
+            break
+
+    print(f"[cleanup] 清理幂等记录: tenant={tenant_id} deleted={total}")
+    logger.info(
+        "[cleanup_idempotency_keys] tenant=%s retention_days=%s deleted=%s",
+        tenant_id, retention_days, total,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Handler 注册表（Worker 启动时整体注入）
 # ---------------------------------------------------------------------------
 
@@ -438,6 +488,7 @@ HANDLERS: dict[str, HandlerFunc] = {
     "cancel_pending_membership_card": cancel_pending_membership_card,
     "finish_schedule": finish_schedule,
     "cancel_schedule_if_underbooked": cancel_schedule_if_underbooked,
+    "cleanup_idempotency_keys": cleanup_idempotency_keys,
 }
 
 

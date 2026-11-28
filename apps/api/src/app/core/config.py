@@ -123,6 +123,16 @@ class Settings(BaseSettings):
     PENDING_CARD_CANCEL_DAYS: int = 90
 
     # ============================================================
+    # 幂等键表（idempotency_keys）保留期清理
+    # ============================================================
+    # 总开关；关闭后每日生产者直接返回，不做任何删除
+    IDEMPOTENCY_CLEANUP_ENABLED: bool = True
+    # 保留天数：created_at 早于 now - N 天的记录视为过期
+    IDEMPOTENCY_KEY_RETENTION_DAYS: int = 7
+    # 单批删除行数（PostgreSQL 用 CTE + LIMIT 分批，避免长事务与锁表）
+    IDEMPOTENCY_CLEANUP_BATCH_SIZE: int = 1000
+
+    # ============================================================
     # 异步任务队列（JobQueue）
     # ============================================================
     # Worker 总开关；默认关闭，生产环境置 True
