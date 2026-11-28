@@ -9,7 +9,10 @@ Booking Service - 预约业务逻辑层
 - 签到/完成
 """
 
+import hashlib
+import json
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -33,7 +36,11 @@ from app.modules.booking.models import (
     BookingSource,
     BookingStatus,
 )
-from app.modules.booking.repository import BookingRepository, BookingRescheduleRepository
+from app.modules.booking.repository import (
+    BookingRepository,
+    BookingRescheduleRepository,
+    IdempotencyKeyRepository,
+)
 from app.modules.booking.schemas import (
     AffectedBookingItem,
     AffectedBookingsResponse,
@@ -60,6 +67,41 @@ logger = logging.getLogger(__name__)
 # 已知限制：多区域部署时需改为租户级配置。
 _DISPLAY_TZ = ZoneInfo("Asia/Shanghai")
 
+# 本期幂等能力只覆盖「创建预约」；新增写操作时按 "<resource>.<action>" 扩展。
+_IDEMPOTENCY_SCOPE_BOOKING_CREATE = "booking.create"
+
+
+def _booking_request_hash(
+    *,
+    schedule_id: int,
+    student_id: int,
+    membership_card_id: int | None,
+    source: str | None,
+) -> str:
+    """计算幂等请求指纹：同一 key 只允许绑定同一组业务参数。
+
+    对固定顺序的标量做 JSON 稳定序列化后取 sha256 hex，避免字段顺序或空白
+    差异导致同一请求被误判为不同请求。
+    """
+    payload = json.dumps(
+        [schedule_id, student_id, membership_card_id, source],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+@dataclass(slots=True)
+class BookingCreateOutcome:
+    """创建预约结果。
+
+    ``replayed=True`` 表示命中 Idempotency-Key 重放（Router 据此返回 HTTP 200）；
+    首次创建为 ``False``（HTTP 201）。
+    """
+
+    booking: BookingResponse
+    replayed: bool = False
+
 
 class BookingService:
     """预约管理服务"""
@@ -67,6 +109,7 @@ class BookingService:
     def __init__(self):
         self.repo = BookingRepository()
         self.reschedule_repo = BookingRescheduleRepository()
+        self.idempotency_repo = IdempotencyKeyRepository()
         self.schedule_repo = ScheduleRepository()
         self.schedule_service = ScheduleService()
         self.course_service = CourseService()
@@ -77,8 +120,33 @@ class BookingService:
         data: BookingCreate,
         student_id: int,
         operator_id: int | None = None,
+        idempotency_key: str | None = None,
     ) -> BookingResponse:
-        """创建预约"""
+        """创建预约（兼容既有调用方：只返回预约响应体）。"""
+        outcome = await self.create_booking_with_outcome(
+            db,
+            data,
+            student_id=student_id,
+            operator_id=operator_id,
+            idempotency_key=idempotency_key,
+        )
+        return outcome.booking
+
+    async def create_booking_with_outcome(
+        self,
+        db: AsyncSession,
+        data: BookingCreate,
+        student_id: int,
+        operator_id: int | None = None,
+        idempotency_key: str | None = None,
+    ) -> BookingCreateOutcome:
+        """创建预约，并返回是否命中幂等重放（Router 据此返回 200 / 201）。
+
+        Idempotency-Key 语义：
+        - 同 (tenant, scope, key) 且请求指纹一致：返回首次创建的预约，不重复占名额/扣次；
+        - 同 key 但请求指纹不同：409，避免同一 key 被复用到另一笔业务；
+        - 幂等记录与预约在同一事务内提交，唯一索引兜底并发重复提交。
+        """
         logger.info(
             f"[BookingService] 创建预约: schedule_id={data.schedule_id}, student_id={student_id}"
         )
@@ -86,6 +154,26 @@ class BookingService:
         schedule = await self.schedule_repo.get_by_id(db, data.schedule_id)
         if not schedule:
             raise NotFoundException("排期不存在")
+
+        # 幂等预检：必须在任何业务校验/写操作之前完成。
+        # 即使排期此刻已约满、已取消或已开课，只要命中同一请求，仍应返回首次
+        # 创建的那笔预约（客户端重试拿到结果即可，而不是被后续状态变化挡住）。
+        request_hash: str | None = None
+        if idempotency_key:
+            request_hash = _booking_request_hash(
+                schedule_id=data.schedule_id,
+                student_id=student_id,
+                membership_card_id=data.membership_card_id,
+                source=data.source or BookingSource.SELF.value,
+            )
+            replay = await self._lookup_idempotent_replay(
+                db,
+                tenant_id=schedule.tenant_id,
+                key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if replay is not None:
+                return replay
 
         if schedule.status != ScheduleStatus.NORMAL.value:
             raise BusinessException("该排期已取消或已完成，无法预约", code=400)
@@ -109,6 +197,17 @@ class BookingService:
 
         existing = await self.repo.find_active_booking(db, data.schedule_id, student_id)
         if existing:
+            # 并发重试可能在预检之后、本次查询之前落库：先确认是否幂等重放，
+            # 再按原行为拒绝真正的重复预约。
+            if idempotency_key and request_hash is not None:
+                replay = await self._lookup_idempotent_replay(
+                    db,
+                    tenant_id=schedule.tenant_id,
+                    key=idempotency_key,
+                    request_hash=request_hash,
+                )
+                if replay is not None:
+                    return replay
             raise BusinessException("您已预约该排期，请勿重复预约", code=400)
 
         course = await self.course_service.get_course_by_id(db, schedule.course_id)
@@ -143,6 +242,17 @@ class BookingService:
         await self.repo.lock_student_booking_scope(
             db, tenant_id=schedule.tenant_id, student_id=student_id
         )
+        # 并发同 key：预检在拿锁之前，两个请求可能都通过；拿到学员级 advisory lock
+        # 后再确认一次幂等记录，确保后到者重放先到者的预约而不是被重复/冲突校验挡住。
+        if idempotency_key and request_hash is not None:
+            replay = await self._lookup_idempotent_replay(
+                db,
+                tenant_id=schedule.tenant_id,
+                key=idempotency_key,
+                request_hash=request_hash,
+            )
+            if replay is not None:
+                return replay
         conflict = await self.repo.find_overlapping_active_booking(
             db,
             student_id=student_id,
@@ -201,7 +311,7 @@ class BookingService:
 
         if data.membership_card_id and card_validation:
             tenant_id = booking.tenant_id
-            idempotency_key = f"booking_{booking.id}_deduct"
+            deduct_idempotency_key = f"booking_{booking.id}_deduct"
             try:
                 if card_validation["deduct"]:
                     # 次卡：以排期日作为有效期判断基准（T6.3.2）
@@ -210,7 +320,7 @@ class BookingService:
                         card_id=data.membership_card_id,
                         tenant_id=tenant_id,
                         booking_id=booking.id,
-                        idempotency_key=idempotency_key,
+                        idempotency_key=deduct_idempotency_key,
                         check_at=schedule.start_at,
                     )
                 elif (
@@ -247,6 +357,38 @@ class BookingService:
                 logger.exception(f"[BookingService] 会员卡校验/扣次意外异常: {e}")
                 raise BusinessException("会员卡校验失败，预约已撤销", code=400)
 
+        # 幂等记录与预约在同一事务内提交（booking 已 flush、有 id）。
+        # 先插入记录再 commit，若并发同 key 触发唯一冲突则整体回滚，保证
+        # 不会出现「有记录无预约」或「两笔预约」。
+        if idempotency_key and request_hash is not None:
+            tenant_id = schedule.tenant_id
+            try:
+                await self.idempotency_repo.create(
+                    db,
+                    {
+                        "scope": _IDEMPOTENCY_SCOPE_BOOKING_CREATE,
+                        "key": idempotency_key,
+                        "request_hash": request_hash,
+                        "booking_id": booking.id,
+                    },
+                    auto_commit=False,
+                    auto_refresh=False,
+                )
+                # flush 触发唯一索引 (tenant_id, scope, key) 校验
+                await db.flush()
+            except IntegrityError:
+                # 并发同 key：唯一索引冲突。
+                # 这里的 rollback 会连同本事务内已 flush 的 booking 与卡扣次一起撤销，
+                # 这是期望行为——只保留先到那一笔，绝不产生第二笔预约或重复扣次；
+                # 随后读取先到者记录并重放其预约。
+                await db.rollback()
+                return await self._resolve_idempotent_conflict(
+                    db,
+                    tenant_id=tenant_id,
+                    key=idempotency_key,
+                    request_hash=request_hash,
+                )
+
         await db.commit()
         await db.refresh(booking)
 
@@ -268,7 +410,7 @@ class BookingService:
             type="booking.changed",
             entity_id=booking.id,
         )
-        return self._to_response(booking)
+        return BookingCreateOutcome(booking=self._to_response(booking), replayed=False)
 
     async def cancel_booking(
         self,
@@ -1383,6 +1525,70 @@ class BookingService:
             page_size=page_size,
             items=response_items,
         )
+
+    async def _lookup_idempotent_replay(
+        self,
+        db: AsyncSession,
+        *,
+        tenant_id: int,
+        key: str,
+        request_hash: str,
+    ) -> BookingCreateOutcome | None:
+        """查询幂等记录并返回重放结果。
+
+        - 未命中 → None（继续原流程）；
+        - 命中且指纹一致且有预约 → 重放结果；
+        - 命中但指纹不同 → 409。
+        """
+        record = await self.idempotency_repo.get_by_key(
+            db,
+            tenant_id=tenant_id,
+            scope=_IDEMPOTENCY_SCOPE_BOOKING_CREATE,
+            key=key,
+        )
+        if record is None:
+            return None
+        if record.request_hash != request_hash:
+            raise BusinessException("幂等键已被其他请求使用，请重新提交", code=409)
+        if record.booking_id is None:
+            return None
+        return await self._replay_idempotent_booking(db, record.booking_id)
+
+    async def _replay_idempotent_booking(
+        self, db: AsyncSession, booking_id: int
+    ) -> BookingCreateOutcome:
+        """幂等命中：按 id 重新读取预约（确保拿到最新状态）并以重放标记返回。"""
+        booking = await self.repo.get_by_id(db, booking_id)
+        if booking is None:
+            # 幂等记录指向的预约已被删除（如排期硬删除级联清理）：无法重放，
+            # 交由客户端重新发起新请求，避免返回不存在的数据。
+            raise BusinessException("原预约已不存在，请重新提交", code=409)
+        schedule_map = await self._get_schedule_info_map(db, [booking.schedule_id])
+        return BookingCreateOutcome(
+            booking=self._to_response(
+                booking, schedule_info=schedule_map.get(booking.schedule_id) or {}
+            ),
+            replayed=True,
+        )
+
+    async def _resolve_idempotent_conflict(
+        self,
+        db: AsyncSession,
+        *,
+        tenant_id: int,
+        key: str,
+        request_hash: str,
+    ) -> BookingCreateOutcome:
+        """并发同 key 唯一冲突后：读取先到者记录，指纹一致则重放其预约。"""
+        outcome = await self._lookup_idempotent_replay(
+            db,
+            tenant_id=tenant_id,
+            key=key,
+            request_hash=request_hash,
+        )
+        if outcome is not None:
+            return outcome
+        raise BusinessException("幂等键已被其他请求使用，请重新提交", code=409)
 
     async def _get_student_info_map(
         self, db: AsyncSession, student_ids: list[int]

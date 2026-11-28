@@ -10,7 +10,7 @@ Alembic 需要导入此文件以检测所有模型。
 from app.modules.auth.models import Permission, Role, RolePermission, UserRole, WechatAccount
 
 # 业务模型
-from app.modules.booking.models import Booking
+from app.modules.booking.models import Booking, IdempotencyKey
 from app.modules.course.models import Classroom, Course
 
 # 首页配置（FK operator_id → users.id，依赖 User 先注册）
@@ -52,6 +52,7 @@ __all__ = [
     "CourseSchedule",
     "Classroom",
     "Booking",
+    "IdempotencyKey",
     "Order",
     "Payment",
     "TeacherProfile",

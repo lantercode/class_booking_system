@@ -142,3 +142,41 @@ class BookingReschedule(Base, TenantMixin, TimestampMixin):
         Index("idx_booking_reschedules_tenant_created", "tenant_id", text("created_at DESC")),
         Index("idx_booking_reschedules_new_booking", "tenant_id", "new_booking_id"),
     )
+
+
+class IdempotencyKey(Base, TenantMixin):
+    """写操作幂等键（当前仅 scope="booking.create"）。
+
+    与业务数据在同一事务内写入：``(tenant_id, scope, key)`` 唯一索引兜底并发
+    重复提交，``request_hash`` 用于识别「同 key 不同请求」。``booking_id`` 采用
+    ``SET NULL``，排期硬删除级联清理预约时不阻断该表。
+    """
+
+    __tablename__ = "idempotency_keys"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    scope: Mapped[str] = mapped_column(String(32), nullable=False)
+    key: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    booking_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("bookings.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    __table_args__ = (
+        Index(
+            "uq_idempotency_keys_tenant_scope_key",
+            "tenant_id",
+            "scope",
+            "key",
+            unique=True,
+        ),
+        # 便于后续按租户 + 时间清理过期幂等记录
+        Index("idx_idempotency_keys_tenant_created", "tenant_id", "created_at"),
+    )

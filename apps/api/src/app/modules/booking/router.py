@@ -1,6 +1,6 @@
 """预约模块路由"""
 
-from fastapi import APIRouter, Body, Depends, Header, Path, Query
+from fastapi import APIRouter, Body, Depends, Header, Path, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
@@ -28,18 +28,32 @@ booking_service = BookingService()
 )
 @require_roles("student")
 async def create_booking(
+    response: Response,
     data: BookingCreate = Body(...),
+    idempotency_key: str | None = Header(
+        None, alias="Idempotency-Key", max_length=64, description="幂等键（可选）"
+    ),
     db: AsyncSession = Depends(get_session),
     current_user: dict = Depends(get_current_user),
 ):
-    """创建预约"""
+    """创建预约
+
+    ``Idempotency-Key`` 命中同一请求时返回首次创建的预约（HTTP 200），
+    首次创建仍返回 201。
+    """
     student_id = current_user.get("user_id")
-    result = await booking_service.create_booking(
+    outcome = await booking_service.create_booking_with_outcome(
         db,
         data,
         student_id=student_id,
+        idempotency_key=idempotency_key,
     )
-    return success(data=result, msg="预约成功")
+    if outcome.replayed:
+        response.status_code = 200
+    return success(
+        data=outcome.booking,
+        msg="预约成功（幂等重放）" if outcome.replayed else "预约成功",
+    )
 
 
 @router.get(

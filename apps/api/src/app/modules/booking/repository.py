@@ -10,7 +10,12 @@ from sqlalchemy import String, and_, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.base_repository import TenantAwareRepository
-from app.modules.booking.models import Booking, BookingReschedule, BookingStatus
+from app.modules.booking.models import (
+    Booking,
+    BookingReschedule,
+    BookingStatus,
+    IdempotencyKey,
+)
 from app.modules.schedule.models import CourseSchedule
 
 
@@ -582,6 +587,34 @@ class BookingRescheduleRepository(TenantAwareRepository[BookingReschedule]):
                 BookingReschedule.id.desc(),
             )
             .limit(1)
+        )
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+
+class IdempotencyKeyRepository(TenantAwareRepository[IdempotencyKey]):
+    """写操作幂等键数据访问层（当前仅预约创建使用）。"""
+
+    model_class = IdempotencyKey
+
+    async def get_by_key(
+        self,
+        db: AsyncSession,
+        *,
+        tenant_id: int,
+        scope: str,
+        key: str,
+    ) -> IdempotencyKey | None:
+        """按 (tenant_id, scope, key) 查询幂等记录。
+
+        ``tenant_id`` 来自已加载排期的可信租户（与 ContextVar 一致）。显式限定
+        以固定幂等域，避免依赖隐式注入时因上下文缺失而退化为跨租户匹配；
+        不与自动注入对抗（二者取值相同）。
+        """
+        query = select(IdempotencyKey).where(
+            IdempotencyKey.tenant_id == tenant_id,
+            IdempotencyKey.scope == scope,
+            IdempotencyKey.key == key,
         )
         result = await db.execute(query)
         return result.scalar_one_or_none()
