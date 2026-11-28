@@ -154,7 +154,7 @@ export type { Classroom, ClassroomListParams, ClassroomCreateParams, ClassroomUp
 export { scheduleApi } from './schedules'
 export type { Schedule, ScheduleListParams, ScheduleCreateParams, ScheduleUpdateParams, ScheduleListResponse } from './schedules'
 
-export { bookingApi } from './bookings'
+export { bookingApi, generateIdempotencyKey, createIdempotencyKeyStore } from './bookings'
 export type { Booking, BookingListParams, BookingCreateParams, BookingListResponse } from './bookings'
 
 export { userApi } from './users'

@@ -635,6 +635,68 @@ export const scheduleApi = {
   },
 };
 
+/**
+ * 生成 UUID v4 形式的幂等键。
+ *
+ * 小程序没有 `crypto.randomUUID`：优先使用 `crypto.getRandomValues`（若运行环境提供），
+ * 否则退化为按标准 v4 字节位规则拼装的安全随机数（不使用时间戳拼伪 UUID）。
+ */
+export function generateIdempotencyKey(): string {
+  const globalCrypto = (globalThis as any)?.crypto
+
+  if (typeof globalCrypto?.randomUUID === "function") {
+    return globalCrypto.randomUUID()
+  }
+
+  const bytes = new Uint8Array(16)
+  if (typeof globalCrypto?.getRandomValues === "function") {
+    globalCrypto.getRandomValues(bytes)
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256)
+    }
+  }
+
+  // RFC 4122 version 4 + variant
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
+ * 幂等键生命周期管理。
+ *
+ * - `acquire(signature)`：同一提交意图（signature 相同）在未拿到响应前复用同一 key；
+ * - `release(signature)`：拿到任意服务端响应（成功或业务错误）后丢弃 key，
+ *   确保下一次提交生成新 key（避免取消后重新预约被重放成旧预约）。
+ */
+export function createIdempotencyKeyStore(
+  generate: () => string = generateIdempotencyKey,
+) {
+  const pending = new Map<string, string>()
+
+  return {
+    acquire(signature: string): string {
+      const existing = pending.get(signature)
+      if (existing) return existing
+      const key = generate()
+      pending.set(signature, key)
+      return key
+    },
+    release(signature: string): void {
+      pending.delete(signature)
+    },
+  }
+}
+
+/**
+ * 进程内共享的预约幂等键存储。
+ * 放在 API 层单例，确保页面跳转/重建后「未拿到响应的提交意图」仍能复用同一 key
+ * （例如预约确认页请求超时后跳转失败结果页，再返回重试）。
+ */
+export const bookingIdempotencyKeys = createIdempotencyKeyStore();
+
 export const bookingApi = {
   // 后端 GET /bookings 固定返回分页结构 { items,total,page,page_size }
   list(params?: any) {
@@ -642,8 +704,18 @@ export const bookingApi = {
     return request<PaginatedData<any>>(`/bookings${query}`);
   },
 
-  create(data: { schedule_id: number; membership_card_id?: number }) {
-    return request("/bookings/", "POST", data);
+  /**
+   * 创建预约。idempotencyKey 经 `Idempotency-Key` 请求头上送（不进请求体），
+   * 同一 key + 相同参数重试时后端返回首次创建的预约，不重复扣次。
+   */
+  create(
+    data: { schedule_id: number; membership_card_id?: number },
+    idempotencyKey?: string,
+  ) {
+    const headers = idempotencyKey
+      ? { "Idempotency-Key": idempotencyKey }
+      : undefined;
+    return request("/bookings/", "POST", data, headers);
   },
 
   cancel(bookingId: number, reason?: string) {

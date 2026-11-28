@@ -147,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { bookingApi, courseApi, scheduleApi } from "@/api";
+import { bookingApi, courseApi, scheduleApi, bookingIdempotencyKeys } from "@/api";
 import AppLoading from "@/components/AppLoading.vue";
 import AppNavbar from "@/components/AppNavbar.vue";
 import { formatDate, formatTime } from "@/utils/date";
@@ -396,10 +396,22 @@ const handleQuickBook = () => {
   });
 };
 
+// 创建预约的幂等键存储（API 层单例）：仅在未拿到响应时保留，收到响应后释放
+const bookingKeyStore = bookingIdempotencyKeys;
+
 const createBooking = async (scheduleId: number) => {
   bookingLoading[scheduleId] = true;
+  // 同一提交意图内复用同一幂等键：超时/断网（拿不到响应）后再次点击，
+  // 后端会按同一 key 重放首次结果，避免重复预约/重复扣课。
+  const idempotencySignature = `create-booking:${scheduleId}`;
+  const idempotencyKey = bookingKeyStore.acquire(idempotencySignature);
   try {
-    const result = await bookingApi.create({ schedule_id: scheduleId });
+    const result = await bookingApi.create(
+      { schedule_id: scheduleId },
+      idempotencyKey,
+    );
+    // 已收到服务端响应（201/200），本次提交意图结束，丢弃 key
+    bookingKeyStore.release(idempotencySignature);
     if (result.code === 0 || result.code === 200) {
       uni.showToast({ title: "✨ 预约成功", icon: "success", duration: 2000 });
       await Promise.all([loadSchedules(), loadMyBookings()]);
@@ -407,6 +419,11 @@ const createBooking = async (scheduleId: number) => {
       uni.showToast({ title: result.msg || "预约失败", icon: "none" });
     }
   } catch (error: any) {
+    // 有 statusCode 说明服务端已处理（含 4xx 业务错误，如已约满/重复预约），丢弃 key；
+    // 无 statusCode（超时/断网）说明结果未知，保留 key 供再次点击时复用。
+    if (error?.statusCode !== undefined) {
+      bookingKeyStore.release(idempotencySignature);
+    }
     uni.showToast({ title: error.msg || "预约失败", icon: "none" });
   } finally {
     bookingLoading[scheduleId] = false;

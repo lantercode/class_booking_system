@@ -214,7 +214,13 @@ import {
   Location,
   Tickets,
 } from '@element-plus/icons-vue'
-import { scheduleApi, courseApi, bookingApi, type Schedule } from '@dance-saas/api-client'
+import {
+  scheduleApi,
+  courseApi,
+  bookingApi,
+  createIdempotencyKeyStore,
+  type Schedule,
+} from '@dance-saas/api-client'
 
 const route = useRoute()
 const courseId = Number(route.params.id)
@@ -222,6 +228,9 @@ const courseName = ref('课程排期')
 const loading = ref(false)
 const loadError = ref('')
 const bookingLoading = ref(false)
+
+// 创建预约的幂等键存储：仅在未拿到响应时保留，收到响应后释放（见 confirmBooking）
+const bookingKeyStore = createIdempotencyKeyStore()
 
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -436,23 +445,33 @@ function handleCancelBooking(slot: SlotView) {
 
 async function confirmBooking() {
   if (!selectedSlot.value) return
+  const scheduleId = selectedSlot.value.scheduleId
+  // 同一提交意图内复用同一个幂等键：请求超时/断网（拿不到响应）后用户再次点击，
+  // 会让后端按同一 key 重放首次结果，避免重复预约/重复扣课。
+  const idempotencySignature = `create-booking:${scheduleId}`
+  const idempotencyKey = bookingKeyStore.acquire(idempotencySignature)
   bookingLoading.value = true
   try {
-    const res = await bookingApi.create({ schedule_id: selectedSlot.value.scheduleId })
+    const res = await bookingApi.create({ schedule_id: scheduleId }, idempotencyKey)
+    // 已收到服务端响应（201/200），本次提交意图结束，丢弃 key
+    bookingKeyStore.release(idempotencySignature)
     ElMessage.success('预约成功')
-    
-    const scheduleId = selectedSlot.value.scheduleId
-    
+
     myBookings.value[scheduleId] = res.data.status
-    
+
     const schedule = allSchedules.value.find(s => s.id === scheduleId)
     if (schedule) {
       schedule.booked_count = Math.min(schedule.capacity, schedule.booked_count + 1)
     }
-    
+
     confirmVisible.value = false
     selectedSlot.value = null
   } catch (e: any) {
+    // 有 response 说明服务端已处理（含 4xx 业务错误，如已约满/重复预约），丢弃 key；
+    // 无 response（超时/断网/中断）说明结果未知，保留 key 供再次点击时复用。
+    if (e?.response) {
+      bookingKeyStore.release(idempotencySignature)
+    }
     ElMessage.error(e?.response?.data?.msg || '预约失败')
   } finally {
     bookingLoading.value = false
